@@ -1,0 +1,29 @@
+{
+  "version": "pagetuner.catalog.v0",
+  "id": "pageturner-local-example",
+  "title": "PageTurner Local Example",
+  "updatedAt": "2026-06-28T00:00:00Z",
+  "links": [
+    {
+      "rel": "self",
+      "href": "http://localhost:8088/catalog.json",
+      "type": "application/vnd.pagetuner.catalog+json"
+    }
+  ],
+  "items": [
+    {
+      "id": "sample-travel-note",
+      "title": "Sample Travel Note",
+      "authors": ["PageTurner"],
+      "format": "txt",
+      "language": "en",
+      "href": "books/sample-travel-note.txt",
+      "type": "text/plain",
+      "updatedAt": "2026-06-28T00:00:00Z",
+      "translationHints": {
+        "sourceLanguage": "en",
+        "targetLanguages": ["ko"]
+      }
+    }
+  ]
+}

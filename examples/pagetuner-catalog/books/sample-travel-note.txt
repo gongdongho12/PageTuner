@@ -1,0 +1,5 @@
+This is a small PageTurner catalog sample.
+
+It is meant to behave like a book downloaded from a personal web library.
+
+After import, the reader can translate it slowly while reading, or prefetch the translation for offline use.
