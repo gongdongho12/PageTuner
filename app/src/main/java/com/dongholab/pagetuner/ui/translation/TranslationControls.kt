@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CloudDownload
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Translate
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -33,6 +34,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import com.dongholab.pagetuner.R
+import com.dongholab.pagetuner.translation.TranslationDisplayMode
 import com.dongholab.pagetuner.translation.TranslationPaceMode
 import com.dongholab.pagetuner.translation.TranslationProviderKind
 import com.dongholab.pagetuner.ui.LanguagePreset
@@ -61,12 +63,18 @@ fun TranslationControls(
     onReadingWpmChange: (Float) -> Unit,
     paceMode: TranslationPaceMode,
     onPaceModeChange: (TranslationPaceMode) -> Unit,
+    translationDisplayMode: TranslationDisplayMode,
+    onTranslationDisplayModeChange: (TranslationDisplayMode) -> Unit,
+    providerStatusText: String,
+    translationCacheStatusText: String,
     busy: Boolean,
     canTranslate: Boolean,
+    canClearCache: Boolean,
     onLanguagePreset: (LanguagePreset) -> Unit,
     onTranslate: () -> Unit,
     onPrefetch: () -> Unit,
     onLoadCached: () -> Unit,
+    onClearCache: () -> Unit,
 ) {
     Surface(
         modifier = Modifier.fillMaxWidth(),
@@ -93,6 +101,11 @@ fun TranslationControls(
                     )
                 }
             }
+            Text(
+                text = providerStatusText,
+                style = MaterialTheme.typography.bodySmall,
+                color = EinkInk,
+            )
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 OutlinedTextField(
                     value = apiKey,
@@ -155,6 +168,26 @@ fun TranslationControls(
                     )
                 }
             }
+            FlowRow(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(4.dp),
+            ) {
+                Text(
+                    text = stringResource(R.string.translation_display_title),
+                    style = MaterialTheme.typography.labelLarge,
+                    color = EinkInk,
+                    modifier = Modifier.padding(top = 8.dp),
+                )
+                TranslationDisplayMode.entries.forEach { mode ->
+                    FilterChip(
+                        selected = translationDisplayMode == mode,
+                        onClick = { onTranslationDisplayModeChange(mode) },
+                        enabled = !busy,
+                        label = { Text(stringResource(mode.labelRes)) },
+                    )
+                }
+            }
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(14.dp),
@@ -189,6 +222,11 @@ fun TranslationControls(
                     }
                 }
             }
+            Text(
+                text = translationCacheStatusText,
+                style = MaterialTheme.typography.bodySmall,
+                color = EinkInk,
+            )
             FlowRow(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -217,6 +255,14 @@ fun TranslationControls(
                     enabled = !busy,
                 ) {
                     Text(stringResource(R.string.action_load_offline_saved))
+                }
+                TextButton(
+                    onClick = onClearCache,
+                    enabled = !busy && canClearCache,
+                ) {
+                    Icon(Icons.Filled.Delete, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(8.dp))
+                    Text(stringResource(R.string.action_clear_translation_cache))
                 }
             }
         }

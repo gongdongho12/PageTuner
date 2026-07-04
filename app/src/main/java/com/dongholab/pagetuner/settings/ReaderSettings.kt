@@ -3,6 +3,7 @@ package com.dongholab.pagetuner.settings
 import com.dongholab.pagetuner.display.DisplayMode
 import com.dongholab.pagetuner.reader.PageTurnMode
 import com.dongholab.pagetuner.reader.PdfFitMode
+import com.dongholab.pagetuner.translation.TranslationDisplayMode
 import com.dongholab.pagetuner.translation.TranslationPaceMode
 import com.dongholab.pagetuner.translation.TranslationProviderKind
 
@@ -20,4 +21,5 @@ data class ReaderSettings(
     val llmModel: String = "",
     val readingWordsPerMinute: Int = 210,
     val paceMode: TranslationPaceMode = TranslationPaceMode.READING,
+    val translationDisplayMode: TranslationDisplayMode = TranslationDisplayMode.SideBySide,
 )

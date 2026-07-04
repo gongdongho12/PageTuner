@@ -29,6 +29,8 @@ interface TranslationCache {
     suspend fun getMany(keys: List<TranslationCacheKey>): Map<String, CachedTranslation>
 
     suspend fun putAll(records: List<CachedTranslation>)
+
+    suspend fun deleteMany(keys: List<TranslationCacheKey>): Int
 }
 
 class JsonFileTranslationCache(
@@ -55,6 +57,19 @@ class JsonFileTranslationCache(
                 val cache = loadLocked()
                 records.forEach { cache[it.key.id] = it }
                 saveLocked(cache)
+            }
+        }
+    }
+
+    override suspend fun deleteMany(keys: List<TranslationCacheKey>): Int {
+        if (keys.isEmpty()) return 0
+
+        return withContext(Dispatchers.IO) {
+            synchronized(lock) {
+                val cache = loadLocked()
+                val deleted = keys.count { key -> cache.remove(key.id) != null }
+                if (deleted > 0) saveLocked(cache)
+                deleted
             }
         }
     }

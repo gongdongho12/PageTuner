@@ -72,6 +72,15 @@ not as source-code bases.
 - Offline prefetch mode for saving translations ahead of time.
 - JSON-file translation cache in app-private storage.
 - Cached page loading for offline reading.
+- Per-document translation cache status for the active provider/language pair.
+- Clear translation cache action for the active document and provider/language
+  pair.
+- Translation display modes:
+  - original only
+  - translation only
+  - original and translation together
+- Provider configuration status for missing API keys or LLM endpoint/model
+  fields.
 
 ### Localization
 

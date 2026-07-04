@@ -34,6 +34,38 @@ class TranslationRepositoryTest {
         assertEquals(2, provider.translatedSegments)
         assertEquals(true, second.completedFromCache)
     }
+
+    @Test
+    fun reportsAndClearsDocumentCacheStatus() = runTest {
+        val provider = FakeTranslationProvider()
+        val cache = MemoryTranslationCache()
+        val repository = TranslationRepository(provider, cache)
+        val document = PlainTextDocumentParser.parse(
+            title = "Cache",
+            rawText = """
+                One paragraph.
+
+                Another paragraph.
+            """.trimIndent(),
+        )
+        val settings = TranslationSettings(
+            apiKey = "test",
+            sourceLanguage = "en",
+            targetLanguage = "ko",
+            paceMode = TranslationPaceMode.OFFLINE_PREFETCH,
+            batchSize = 1,
+        )
+
+        assertEquals(0, repository.cacheStatus(document, settings).cachedSegments)
+
+        repository.translatePage(document, document.pages.first(), settings)
+        val saved = repository.cacheStatus(document, settings)
+
+        assertEquals(2, saved.cachedSegments)
+        assertEquals(2, saved.totalSegments)
+        assertEquals(2, repository.clearDocumentCache(document, settings))
+        assertEquals(0, repository.cacheStatus(document, settings).cachedSegments)
+    }
 }
 
 private class FakeTranslationProvider : TranslationProvider {
@@ -60,5 +92,9 @@ private class MemoryTranslationCache : TranslationCache {
 
     override suspend fun putAll(records: List<CachedTranslation>) {
         records.forEach { this.records[it.key.id] = it }
+    }
+
+    override suspend fun deleteMany(keys: List<TranslationCacheKey>): Int {
+        return keys.count { key -> records.remove(key.id) != null }
     }
 }

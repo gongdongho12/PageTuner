@@ -76,21 +76,21 @@ translation and offline-first reading.
 - Keep all translation behind `TranslationProvider`.
 - Done: add provider settings persistence.
 - Add provider health check.
-  - validate API key/endpoint/model
-  - show readable error state
-- Add translation cache management.
-  - per-document cache status
-  - clear translation cache
-  - clear provider-specific cache
+  - done: validate required API key/endpoint/model fields locally
+  - pending: perform optional network health request
+- Done: add translation cache management.
+  - done: per-document cache status
+  - done: clear translation cache for active provider/language
+  - pending: clear all provider-specific cache
 - Add offline prefetch queue.
   - selected pages
   - whole document
   - pause/resume/cancel
   - progress list
-- Add translation display modes.
-  - original only
-  - translation only
-  - original + translation
+- Done: add translation display modes.
+  - done: original only
+  - done: translation only
+  - done: original + translation
 - Add fallback behavior.
   - show cached translation when offline
   - skip already cached pages

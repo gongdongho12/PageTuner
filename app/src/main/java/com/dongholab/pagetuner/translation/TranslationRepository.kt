@@ -5,6 +5,17 @@ import com.dongholab.pagetuner.document.ReaderPage
 import com.dongholab.pagetuner.document.TextSegment
 import kotlinx.coroutines.delay
 
+data class TranslationCacheStatus(
+    val cachedSegments: Int,
+    val totalSegments: Int,
+) {
+    val fraction: Float
+        get() = if (totalSegments == 0) 1f else cachedSegments.toFloat() / totalSegments.toFloat()
+
+    val isComplete: Boolean
+        get() = totalSegments > 0 && cachedSegments == totalSegments
+}
+
 class TranslationRepository(
     private val provider: TranslationProvider,
     private val cache: TranslationCache,
@@ -148,6 +159,30 @@ class TranslationRepository(
         )
     }
 
+    suspend fun cacheStatus(
+        document: ReaderDocument,
+        settings: TranslationSettings,
+    ): TranslationCacheStatus {
+        val keys = document.textSegments().map { segment ->
+            cacheKey(document.id, segment.id, settings)
+        }
+        val cached = cache.getMany(keys)
+        return TranslationCacheStatus(
+            cachedSegments = cached.size,
+            totalSegments = keys.size,
+        )
+    }
+
+    suspend fun clearDocumentCache(
+        document: ReaderDocument,
+        settings: TranslationSettings,
+    ): Int {
+        val keys = document.textSegments().map { segment ->
+            cacheKey(document.id, segment.id, settings)
+        }
+        return cache.deleteMany(keys)
+    }
+
     private fun cacheKey(
         documentId: String,
         segmentId: String,
@@ -185,5 +220,9 @@ class TranslationRepository(
         completed: Map<String, TranslatedSegment>,
     ): List<TranslatedSegment> {
         return page.segments.mapNotNull { completed[it.id] }
+    }
+
+    private fun ReaderDocument.textSegments(): List<TextSegment> {
+        return pages.flatMap { page -> page.segments }.filter { segment -> segment.text.isNotBlank() }
     }
 }

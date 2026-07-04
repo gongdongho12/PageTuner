@@ -93,9 +93,9 @@ tracks what still needs to be built.
 - [ ] Add translation queue.
 - [ ] Add pause/resume/cancel for prefetch.
 - [ ] Add whole-document translation progress screen.
-- [ ] Add translation cache status per book.
-- [ ] Add clear translation cache action.
-- [ ] Add original-only / translation-only / side-by-side modes.
+- [x] Add translation cache status per book.
+- [x] Add clear translation cache action.
+- [x] Add original-only / translation-only / side-by-side modes.
 - [ ] Add retry handling for failed batches.
 
 ## P1: Remote Sources
@@ -127,7 +127,7 @@ tracks what still needs to be built.
 - [ ] Add unsupported format screen.
 - [ ] Add import failure state.
 - [ ] Add network unavailable state.
-- [ ] Add missing API key state.
+- [x] Add missing API key state.
 - [ ] Add provider error explanations.
 - [ ] Add retry actions.
 - [ ] Add crash-safe cache writes.

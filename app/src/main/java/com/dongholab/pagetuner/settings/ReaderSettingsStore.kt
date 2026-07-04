@@ -10,6 +10,7 @@ import androidx.datastore.preferences.preferencesDataStore
 import com.dongholab.pagetuner.display.DisplayMode
 import com.dongholab.pagetuner.reader.PageTurnMode
 import com.dongholab.pagetuner.reader.PdfFitMode
+import com.dongholab.pagetuner.translation.TranslationDisplayMode
 import com.dongholab.pagetuner.translation.TranslationPaceMode
 import com.dongholab.pagetuner.translation.TranslationProviderKind
 import java.io.IOException
@@ -119,6 +120,12 @@ class ReaderSettingsStore(context: Context) {
         }
     }
 
+    suspend fun updateTranslationDisplayMode(displayMode: TranslationDisplayMode) {
+        dataStore.edit { preferences ->
+            preferences[Keys.TRANSLATION_DISPLAY_MODE] = displayMode.name
+        }
+    }
+
     private fun Preferences.toReaderSettings(): ReaderSettings {
         val defaults = ReaderSettings()
         return ReaderSettings(
@@ -147,6 +154,10 @@ class ReaderSettingsStore(context: Context) {
                     ?: defaults.readingWordsPerMinute
                 ).coerceIn(120, 420),
             paceMode = enumOrDefault(Keys.PACE_MODE, defaults.paceMode),
+            translationDisplayMode = enumOrDefault(
+                Keys.TRANSLATION_DISPLAY_MODE,
+                defaults.translationDisplayMode,
+            ),
         )
     }
 
@@ -177,5 +188,6 @@ class ReaderSettingsStore(context: Context) {
         val LLM_MODEL = stringPreferencesKey("llm_model")
         val READING_WORDS_PER_MINUTE = intPreferencesKey("reading_words_per_minute")
         val PACE_MODE = stringPreferencesKey("pace_mode")
+        val TRANSLATION_DISPLAY_MODE = stringPreferencesKey("translation_display_mode")
     }
 }

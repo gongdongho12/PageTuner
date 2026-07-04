@@ -52,6 +52,7 @@ import com.dongholab.pagetuner.document.ReaderPage
 import com.dongholab.pagetuner.library.LocalBook
 import com.dongholab.pagetuner.reader.PageTurnMode
 import com.dongholab.pagetuner.reader.PdfFitMode
+import com.dongholab.pagetuner.translation.TranslationDisplayMode
 import com.dongholab.pagetuner.translation.PageTranslation
 import com.dongholab.pagetuner.ui.text.localizedName
 import com.dongholab.pagetuner.ui.theme.EinkInk
@@ -177,6 +178,7 @@ fun ReaderSurface(
     pdfPageBitmap: Bitmap?,
     pdfFitMode: PdfFitMode,
     translation: PageTranslation?,
+    translationDisplayMode: TranslationDisplayMode,
     pageTurnMode: PageTurnMode,
     pageTurningEnabled: Boolean,
     fontSizeSp: Int,
@@ -186,6 +188,9 @@ fun ReaderSurface(
     onNextPage: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val showOriginal = translation == null || translationDisplayMode != TranslationDisplayMode.TranslationOnly
+    val showTranslation = translation != null && translationDisplayMode != TranslationDisplayMode.OriginalOnly
+
     Surface(
         modifier = modifier.fillMaxWidth(),
         color = Color.White,
@@ -196,24 +201,32 @@ fun ReaderSurface(
     ) {
         Box(modifier = Modifier.fillMaxSize()) {
             if (pdfPageBitmap != null) {
-                Image(
-                    bitmap = pdfPageBitmap.asImageBitmap(),
-                    contentDescription = null,
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(10.dp),
-                    contentScale = when (pdfFitMode) {
-                        PdfFitMode.FitPage -> ContentScale.Fit
-                        PdfFitMode.FitWidth -> ContentScale.FillWidth
-                    },
-                )
-                if (translation != null) {
+                if (showOriginal) {
+                    Image(
+                        bitmap = pdfPageBitmap.asImageBitmap(),
+                        contentDescription = null,
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(10.dp),
+                        contentScale = when (pdfFitMode) {
+                            PdfFitMode.FitPage -> ContentScale.Fit
+                            PdfFitMode.FitWidth -> ContentScale.FillWidth
+                        },
+                    )
+                }
+                if (translation != null && showTranslation) {
                     TranslationPanel(
                         translation = translation,
                         fontSizeSp = fontSizeSp,
                         lineSpacing = lineSpacing,
                         modifier = Modifier
-                            .align(Alignment.BottomCenter)
+                            .align(
+                                if (showOriginal) {
+                                    Alignment.BottomCenter
+                                } else {
+                                    Alignment.Center
+                                },
+                            )
                             .fillMaxWidth()
                             .padding(12.dp),
                     )
@@ -225,28 +238,42 @@ fun ReaderSurface(
                         .padding(pageMarginDp.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
-                    Text(
-                        text = page.plainText.ifBlank {
-                            if (documentFormat == DocumentFormat.PDF) {
-                                stringResource(R.string.viewer_pdf_rendering)
-                            } else {
-                                stringResource(R.string.viewer_no_text)
-                            }
-                        },
-                        modifier = Modifier.weight(if (translation == null) 1f else 0.55f),
-                        style = MaterialTheme.typography.bodyLarge.copy(fontSize = fontSizeSp.sp),
-                        color = EinkInk,
-                        lineHeight = (fontSizeSp * lineSpacing).sp,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-                    if (translation != null) {
+                    if (showOriginal) {
+                        Text(
+                            text = page.plainText.ifBlank {
+                                if (documentFormat == DocumentFormat.PDF) {
+                                    stringResource(R.string.viewer_pdf_rendering)
+                                } else {
+                                    stringResource(R.string.viewer_no_text)
+                                }
+                            },
+                            modifier = Modifier.weight(
+                                if (showTranslation) {
+                                    0.55f
+                                } else {
+                                    1f
+                                },
+                            ),
+                            style = MaterialTheme.typography.bodyLarge.copy(fontSize = fontSizeSp.sp),
+                            color = EinkInk,
+                            lineHeight = (fontSizeSp * lineSpacing).sp,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    }
+                    if (translation != null && showTranslation) {
                         TranslationPanel(
                             translation = translation,
                             fontSizeSp = fontSizeSp,
                             lineSpacing = lineSpacing,
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .weight(0.45f),
+                                .weight(
+                                    if (showOriginal) {
+                                        0.45f
+                                    } else {
+                                        1f
+                                    },
+                                ),
                         )
                     }
                 }
