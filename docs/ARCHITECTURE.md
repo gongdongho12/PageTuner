@@ -13,7 +13,7 @@ document/
   -> ReaderDocument model
   -> Text / Markdown parsing
   -> EPUB package parsing
-  -> PDF page rendering
+  -> PDF page rendering and native text extraction
   -> DocumentLoader for Android Uri imports
 
 display/
@@ -60,6 +60,7 @@ ui/
 - Keep provider construction inside `TranslationProviderFactory`.
 - Keep page-turn behavior in `reader/`.
 - Keep display-mode behavior in `display/` and renderer-specific pipelines.
+- Keep OCR behind a future provider boundary; see `docs/OCR_PLAN.md`.
 - Keep remote services behind source abstractions before adding network UI.
 - Avoid placing new parsing, network, cache, or provider code in
   `MainActivity`.

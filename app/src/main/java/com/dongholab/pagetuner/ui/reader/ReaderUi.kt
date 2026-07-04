@@ -207,6 +207,17 @@ fun ReaderSurface(
                         PdfFitMode.FitWidth -> ContentScale.FillWidth
                     },
                 )
+                if (translation != null) {
+                    TranslationPanel(
+                        translation = translation,
+                        fontSizeSp = fontSizeSp,
+                        lineSpacing = lineSpacing,
+                        modifier = Modifier
+                            .align(Alignment.BottomCenter)
+                            .fillMaxWidth()
+                            .padding(12.dp),
+                    )
+                }
             } else {
                 Column(
                     modifier = Modifier
@@ -229,35 +240,14 @@ fun ReaderSurface(
                         overflow = TextOverflow.Ellipsis,
                     )
                     if (translation != null) {
-                        Surface(
+                        TranslationPanel(
+                            translation = translation,
+                            fontSizeSp = fontSizeSp,
+                            lineSpacing = lineSpacing,
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .weight(0.45f),
-                            color = EinkSoft,
-                            shape = RoundedCornerShape(6.dp),
-                            border = BorderStroke(1.dp, EinkLine),
-                        ) {
-                            Column(
-                                modifier = Modifier.padding(14.dp),
-                                verticalArrangement = Arrangement.spacedBy(8.dp),
-                            ) {
-                                Text(
-                                    text = stringResource(R.string.saved_translation_title),
-                                    style = MaterialTheme.typography.titleMedium,
-                                    color = EinkInk,
-                                    fontWeight = FontWeight.SemiBold,
-                                )
-                                Text(
-                                    text = translation.text.ifBlank {
-                                        stringResource(R.string.translation_preparing)
-                                    },
-                                    style = MaterialTheme.typography.bodyLarge.copy(fontSize = fontSizeSp.sp),
-                                    color = EinkInk,
-                                    lineHeight = (fontSizeSp * lineSpacing).sp,
-                                    overflow = TextOverflow.Ellipsis,
-                                )
-                            }
-                        }
+                        )
                     }
                 }
             }
@@ -266,6 +256,42 @@ fun ReaderSurface(
                 enabled = pageTurningEnabled,
                 onPreviousPage = onPreviousPage,
                 onNextPage = onNextPage,
+            )
+        }
+    }
+}
+
+@Composable
+private fun TranslationPanel(
+    translation: PageTranslation,
+    fontSizeSp: Int,
+    lineSpacing: Float,
+    modifier: Modifier = Modifier,
+) {
+    Surface(
+        modifier = modifier,
+        color = EinkSoft,
+        shape = RoundedCornerShape(6.dp),
+        border = BorderStroke(1.dp, EinkLine),
+    ) {
+        Column(
+            modifier = Modifier.padding(14.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            Text(
+                text = stringResource(R.string.saved_translation_title),
+                style = MaterialTheme.typography.titleMedium,
+                color = EinkInk,
+                fontWeight = FontWeight.SemiBold,
+            )
+            Text(
+                text = translation.text.ifBlank {
+                    stringResource(R.string.translation_preparing)
+                },
+                style = MaterialTheme.typography.bodyLarge.copy(fontSize = fontSizeSp.sp),
+                color = EinkInk,
+                lineHeight = (fontSizeSp * lineSpacing).sp,
+                overflow = TextOverflow.Ellipsis,
             )
         }
     }

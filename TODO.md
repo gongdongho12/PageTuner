@@ -61,9 +61,9 @@ tracks what still needs to be built.
 - [ ] EPUB chapter navigation.
 - [ ] EPUB basic inline formatting.
 - [ ] EPUB image handling.
-- [ ] PDF text extraction.
-- [ ] PDF text-to-page mapping for translation.
-- [ ] OCR plan for scanned PDFs.
+- [x] PDF text extraction.
+- [x] PDF text-to-page mapping for translation.
+- [x] OCR plan for scanned PDFs.
 
 ## P0: Display Modes
 
@@ -159,4 +159,4 @@ tracks what still needs to be built.
 - [x] Add DataStore settings.
 - [x] Add local library metadata store.
 - [x] Copy imported files into app-private storage.
-- [ ] Add PDF text extraction path.
+- [x] Add PDF text extraction path.

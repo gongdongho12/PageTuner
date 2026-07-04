@@ -66,8 +66,9 @@ translation and offline-first reading.
   - zoom presets
   - fit width / fit page
 - PDF text layer.
-  - extract text when available
-  - map extracted text to page for translation
+  - done: extract text when available on Android 15+
+  - done: map extracted text to page for translation
+  - done: OCR plan for scanned PDFs
   - OCR TODO for scanned PDFs
 
 ## P0: Translation
@@ -226,11 +227,11 @@ translation and offline-first reading.
 
 1. Add local library and app-private file import.
 2. Improve EPUB chapter/TOC support.
-3. Add PDF text extraction path.
-4. Add settings and reader ViewModel boundaries.
-5. Add translation queue and cache management UI.
-6. Implement PageTurner Web Catalog source.
-7. Add FTP source.
-8. Add Google Drive source.
-9. Add secure credential storage.
-10. Add release/license/privacy groundwork.
+3. Add settings and reader ViewModel boundaries.
+4. Add translation queue and cache management UI.
+5. Implement PageTurner Web Catalog source.
+6. Add FTP source.
+7. Add Google Drive source.
+8. Add secure credential storage.
+9. Add release/license/privacy groundwork.
+10. Add instrumented tests for import and reader navigation.

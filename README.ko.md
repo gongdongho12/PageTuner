@@ -28,6 +28,8 @@ PageTurner는 전자잉크 단말기용 Android 리더 프로토타입입니다.
 - 형식, 쪽 수, 진행률, 로컬 파일 크기를 보여주는 문서 상세 다이얼로그.
 - Android 문서 선택기를 통한 텍스트/Markdown 파일 열기.
 - Android `PdfRenderer` 기반 PDF 열기와 페이지 이미지 보기.
+- Android 15+에서는 PDF native 텍스트 추출을 사용해 페이지별 세그먼트로
+  매핑하고 번역/검색 흐름에 연결합니다.
 - EPUB package OPF spine을 읽어 텍스트 페이지로 정규화.
 - 문서를 페이지와 문단 세그먼트로 정규화하는 내부 모델.
 - 가져온 책을 보여주는 로컬 서재 패널.
@@ -103,11 +105,13 @@ PageTurner는 전자잉크 단말기용 Android 리더 프로토타입입니다.
   [docs/TRANSLATION_PROVIDERS.md](docs/TRANSLATION_PROVIDERS.md)
 - 원격 서재와 웹 카탈로그 TODO:
   [docs/REMOTE_SOURCES_TODO.md](docs/REMOTE_SOURCES_TODO.md)
+- 스캔 PDF OCR 계획:
+  [docs/OCR_PLAN.md](docs/OCR_PLAN.md)
 
 ## 현재 제한 사항
 
-- PDF 보기는 이미지 기반입니다. 텍스트 추출, OCR, PDF 번역은 아직 구현되지
-  않았습니다.
+- PDF native 텍스트 추출은 Android 15+ 플랫폼 API에 의존합니다. 스캔 PDF는
+  아직 OCR 구현이 필요합니다.
 - EPUB은 기본 텍스트 우선 리더입니다. 복잡한 레이아웃, 임베디드 미디어, 커스텀
   폰트, 고급 CSS 렌더링은 아직 지원하지 않습니다.
 - Google Drive, FTP, 웹 카탈로그 connector는 아직 TODO/계획 단계입니다.

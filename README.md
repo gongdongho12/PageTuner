@@ -30,6 +30,8 @@ not as source-code bases.
   size when available.
 - Text and Markdown import through Android's document picker.
 - PDF import and page-image viewing through Android `PdfRenderer`.
+- PDF native text extraction on Android 15+ maps extracted text back to
+  per-page segments for translation and search workflows.
 - EPUB import through the package OPF spine, normalized into text pages.
 - Internal document model normalized into pages and text segments.
 - Local library panel for imported books.
@@ -100,11 +102,13 @@ not as source-code bases.
   [docs/TRANSLATION_PROVIDERS.md](docs/TRANSLATION_PROVIDERS.md)
 - Remote library and web catalog TODO:
   [docs/REMOTE_SOURCES_TODO.md](docs/REMOTE_SOURCES_TODO.md)
+- OCR plan for scanned PDFs:
+  [docs/OCR_PLAN.md](docs/OCR_PLAN.md)
 
 ## Current Limitations
 
-- PDF viewing is image-based. Text extraction, OCR, and PDF translation are not
-  implemented yet.
+- PDF native text extraction depends on Android 15+ platform APIs. Scanned PDFs
+  still need OCR implementation.
 - EPUB support is a basic text-first reader. Complex layout, embedded media,
   custom fonts, and advanced CSS are not rendered yet.
 - Google Drive, FTP, and web catalog connectors are TODO/planning items.
