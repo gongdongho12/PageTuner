@@ -41,15 +41,15 @@ tracks what still needs to be built.
 
 ## P0: Reader Basics
 
-- [ ] Keep page-based navigation as the default.
-- [ ] Add hardware key / D-pad page turning.
-- [ ] Add fit page / fit width controls for PDF.
-- [ ] Add PDF page cache for previous/current/next pages.
-- [ ] Add reader font size setting.
-- [ ] Add line spacing setting.
-- [ ] Add page margin setting.
-- [ ] Add quick hide/show reader controls.
-- [ ] Add document details screen.
+- [x] Keep page-based navigation as the default.
+- [x] Add hardware key / D-pad page turning.
+- [x] Add fit page / fit width controls for PDF.
+- [x] Add PDF page cache for previous/current/next pages.
+- [x] Add reader font size setting.
+- [x] Add line spacing setting.
+- [x] Add page margin setting.
+- [x] Add quick hide/show reader controls.
+- [x] Add document details screen.
 
 ## P0: Format Support
 

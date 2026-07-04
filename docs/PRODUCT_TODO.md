@@ -34,12 +34,12 @@ translation and offline-first reading.
   - page bookmark
   - named bookmark
   - bookmark list per document
-- Add reader preferences.
+- Done: add reader preferences.
   - display mode
   - font size
   - line spacing
   - margin
-  - e-ink contrast level
+  - pending: e-ink contrast level
 
 ## P0: Format Support
 
@@ -99,7 +99,7 @@ translation and offline-first reading.
 
 - Avoid continuous scrolling in reader surfaces.
 - Render only the current page by default.
-- Add small page cache.
+- Done: add small page cache.
   - previous page
   - current page
   - next page

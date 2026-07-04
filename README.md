@@ -19,10 +19,15 @@ not as source-code bases.
 - E-ink-friendly high-contrast UI with restrained motion.
 - Page-based reading surface instead of vertical document scrolling.
 - Previous/next page controls.
+- Hardware key and D-pad page turning for left/right and PageUp/PageDown style
+  controls.
 - Configurable page-turn behavior:
   - left tap previous, right tap next
   - left tap next, right tap previous
   - buttons only
+- Quick hide/show for reader controls.
+- Document details dialog with format, page count, progress, and local file
+  size when available.
 - Text and Markdown import through Android's document picker.
 - PDF import and page-image viewing through Android `PdfRenderer`.
 - EPUB import through the package OPF spine, normalized into text pages.
@@ -37,6 +42,9 @@ not as source-code bases.
 - Current-page-only rendering to keep e-ink page turns light.
 - Display mode flow for color, grayscale, monochrome, and e-ink high contrast.
 - PDF rendering follows the selected display mode.
+- PDF fit-page / fit-width controls.
+- PDF page-image cache for previous/current/next pages.
+- Reader font size, line spacing, and page margin settings.
 - DataStore-backed persistent settings for display mode, page-turn mode,
   language pair, translation provider, LLM endpoint/model, reading speed, and
   pacing mode.

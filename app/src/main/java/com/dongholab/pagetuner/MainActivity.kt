@@ -10,6 +10,7 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
+import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
@@ -26,7 +27,14 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.input.key.type
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
@@ -53,16 +61,19 @@ import com.dongholab.pagetuner.translation.TranslationRepository
 import com.dongholab.pagetuner.translation.TranslationSettings
 import com.dongholab.pagetuner.ui.common.StatusStrip
 import com.dongholab.pagetuner.ui.library.LocalLibraryPanel
+import com.dongholab.pagetuner.ui.reader.DocumentDetailsDialog
 import com.dongholab.pagetuner.ui.reader.ReaderHeader
 import com.dongholab.pagetuner.ui.reader.ReaderPager
 import com.dongholab.pagetuner.ui.reader.ReaderSurface
 import com.dongholab.pagetuner.ui.settings.DisplaySettingsPanel
 import com.dongholab.pagetuner.ui.settings.PageTurnSettingsPanel
+import com.dongholab.pagetuner.ui.settings.ReaderPreferencesPanel
 import com.dongholab.pagetuner.ui.source.RemoteSourcesTodoPanel
 import com.dongholab.pagetuner.ui.text.localizedLabel
 import com.dongholab.pagetuner.ui.theme.EinkPaper
 import com.dongholab.pagetuner.ui.theme.PageTurnerTheme
 import com.dongholab.pagetuner.ui.translation.TranslationControls
+import kotlin.math.abs
 import kotlin.math.roundToInt
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -80,6 +91,12 @@ class MainActivity : ComponentActivity() {
     }
 }
 
+private data class PdfPageCacheKey(
+    val sourceUri: String,
+    val pageIndex: Int,
+    val displayMode: DisplayMode,
+)
+
 @Composable
 fun PageTurnerApp() {
     val context = LocalContext.current
@@ -88,11 +105,13 @@ fun PageTurnerApp() {
     val localLibraryStore = remember(context) { LocalLibraryStore(context) }
     val readerSettings by settingsStore.settings.collectAsState(initial = ReaderSettings())
     val scope = rememberCoroutineScope()
+    val focusRequester = remember { FocusRequester() }
     val initialStatus = stringResource(R.string.status_ready)
 
     var document by remember(context) { mutableStateOf(context.sampleDocument()) }
     var pdfSourceUri by rememberSaveable { mutableStateOf<String?>(null) }
     var pdfPageBitmap by remember { mutableStateOf<Bitmap?>(null) }
+    var pdfPageCache by remember { mutableStateOf<Map<PdfPageCacheKey, Bitmap>>(emptyMap()) }
     var pageIndex by rememberSaveable { mutableIntStateOf(0) }
     var currentBookId by rememberSaveable { mutableStateOf<String?>(null) }
     var localBooks by remember { mutableStateOf<List<LocalBook>>(emptyList()) }
@@ -101,6 +120,8 @@ fun PageTurnerApp() {
     var statusText by rememberSaveable(initialStatus) { mutableStateOf(initialStatus) }
     var progress by remember { mutableFloatStateOf(0f) }
     var busy by remember { mutableStateOf(false) }
+    var controlsVisible by rememberSaveable { mutableStateOf(true) }
+    var showDocumentDetails by rememberSaveable { mutableStateOf(false) }
 
     val providerKind = readerSettings.providerKind
     val paceMode = readerSettings.paceMode
@@ -109,6 +130,7 @@ fun PageTurnerApp() {
     val sourceLanguage = readerSettings.sourceLanguage
     val targetLanguage = readerSettings.targetLanguage
     val currentPage = document.pages[pageIndex.coerceIn(0, document.pages.lastIndex)]
+    val currentBook = localBooks.firstOrNull { it.id == currentBookId }
     val settings = TranslationSettings(
         providerKind = providerKind,
         apiKey = apiKey,
@@ -134,6 +156,7 @@ fun PageTurnerApp() {
         document = loaded.document
         pdfSourceUri = loaded.pdfSourceUri
         pdfPageBitmap = null
+        pdfPageCache = emptyMap()
         pageIndex = requestedPageIndex.coerceIn(0, loaded.document.pageCount - 1)
         currentBookId = localBook?.id
         translation = null
@@ -173,6 +196,7 @@ fun PageTurnerApp() {
                     document = context.sampleDocument()
                     pdfSourceUri = null
                     pdfPageBitmap = null
+                    pdfPageCache = emptyMap()
                     pageIndex = 0
                     currentBookId = null
                     translation = null
@@ -209,6 +233,24 @@ fun PageTurnerApp() {
 
     fun nextPage() {
         changePage(pageIndex + 1)
+    }
+
+    fun handleReaderKey(key: Key): Boolean {
+        if (busy) return false
+        return when (key) {
+            Key.DirectionLeft,
+            Key.PageUp -> {
+                previousPage()
+                true
+            }
+            Key.DirectionRight,
+            Key.PageDown,
+            Key.Spacebar -> {
+                nextPage()
+                true
+            }
+            else -> false
+        }
     }
 
     fun loadCachedCurrentPage() {
@@ -323,6 +365,10 @@ fun PageTurnerApp() {
         }
     }
 
+    LaunchedEffect(Unit) {
+        focusRequester.requestFocus()
+    }
+
     LaunchedEffect(localLibraryStore) {
         val books = localLibraryStore.listBooks()
         localBooks = books
@@ -357,18 +403,34 @@ fun PageTurnerApp() {
         pdfPageBitmap = null
         val source = pdfSourceUri
         if (document.format == DocumentFormat.PDF && source != null) {
-            pdfPageBitmap = runCatching {
+            val currentKey = PdfPageCacheKey(source, pageIndex, displayMode)
+            pdfPageBitmap = pdfPageCache[currentKey]
+
+            runCatching {
                 withContext(Dispatchers.IO) {
-                    PdfDocumentReader.renderPage(
-                        context = context,
-                        uri = Uri.parse(source),
-                        pageIndex = pageIndex,
-                        displayMode = displayMode,
-                    )
+                    val targetPages = (pageIndex - 1..pageIndex + 1)
+                        .filter { it in 0 until document.pageCount }
+
+                    targetPages.associate { targetPage ->
+                        val key = PdfPageCacheKey(source, targetPage, displayMode)
+                        key to (pdfPageCache[key] ?: PdfDocumentReader.renderPage(
+                            context = context,
+                            uri = Uri.parse(source),
+                            pageIndex = targetPage,
+                            displayMode = displayMode,
+                        ))
+                    }
                 }
-            }.getOrElse { error ->
+            }.onSuccess { renderedPages ->
+                pdfPageCache = (pdfPageCache + renderedPages)
+                    .filterKeys { key ->
+                        key.sourceUri == source &&
+                            key.displayMode == displayMode &&
+                            abs(key.pageIndex - pageIndex) <= 1
+                    }
+                pdfPageBitmap = renderedPages[currentKey] ?: pdfPageCache[currentKey]
+            }.onFailure { error ->
                 statusText = error.readableMessage(context)
-                null
             }
         }
     }
@@ -387,7 +449,13 @@ fun PageTurnerApp() {
     }
 
     Scaffold(
-        modifier = Modifier.fillMaxSize(),
+        modifier = Modifier
+            .fillMaxSize()
+            .focusRequester(focusRequester)
+            .focusable()
+            .onPreviewKeyEvent { event ->
+                event.type == KeyEventType.KeyDown && handleReaderKey(event.key)
+            },
         containerColor = EinkPaper,
     ) { innerPadding ->
         Column(
@@ -401,6 +469,7 @@ fun PageTurnerApp() {
             ReaderHeader(
                 document = document,
                 page = currentPage,
+                controlsVisible = controlsVisible,
                 onOpen = {
                     openDocumentLauncher.launch(
                         arrayOf(
@@ -412,14 +481,18 @@ fun PageTurnerApp() {
                         ),
                     )
                 },
+                onToggleControls = { controlsVisible = !controlsVisible },
+                onShowDetails = { showDocumentDetails = true },
             )
-            LocalLibraryPanel(
-                books = localBooks,
-                currentBookId = currentBookId,
-                busy = busy,
-                onOpenBook = ::openLocalBook,
-                onDeleteBook = ::deleteLocalBook,
-            )
+            if (controlsVisible) {
+                LocalLibraryPanel(
+                    books = localBooks,
+                    currentBookId = currentBookId,
+                    busy = busy,
+                    onOpenBook = ::openLocalBook,
+                    onDeleteBook = ::deleteLocalBook,
+                )
+            }
             ReaderPager(
                 pageIndex = pageIndex,
                 pageCount = document.pageCount,
@@ -431,66 +504,93 @@ fun PageTurnerApp() {
                 page = currentPage,
                 documentFormat = document.format,
                 pdfPageBitmap = pdfPageBitmap,
+                pdfFitMode = readerSettings.pdfFitMode,
                 translation = translation,
                 pageTurnMode = pageTurnMode,
                 pageTurningEnabled = !busy,
+                fontSizeSp = readerSettings.readerFontSizeSp,
+                lineSpacing = readerSettings.readerLineSpacing,
+                pageMarginDp = readerSettings.readerPageMarginDp,
                 onPreviousPage = ::previousPage,
                 onNextPage = ::nextPage,
                 modifier = Modifier.weight(1f),
             )
-            DisplaySettingsPanel(
-                displayMode = displayMode,
-                busy = busy,
-                onDisplayModeChange = {
-                    pdfPageBitmap = null
-                    scope.launch { settingsStore.updateDisplayMode(it) }
-                },
-            )
-            PageTurnSettingsPanel(
-                pageTurnMode = pageTurnMode,
-                busy = busy,
-                onPageTurnModeChange = { scope.launch { settingsStore.updatePageTurnMode(it) } },
-            )
-            TranslationControls(
-                providerKind = providerKind,
-                onProviderKindChange = { scope.launch { settingsStore.updateProviderKind(it) } },
-                apiKey = apiKey,
-                onApiKeyChange = { apiKey = it },
-                llmEndpoint = readerSettings.llmEndpoint,
-                onLlmEndpointChange = { scope.launch { settingsStore.updateLlmEndpoint(it) } },
-                llmModel = readerSettings.llmModel,
-                onLlmModelChange = { scope.launch { settingsStore.updateLlmModel(it) } },
-                sourceLanguage = sourceLanguage,
-                onSourceLanguageChange = { scope.launch { settingsStore.updateSourceLanguage(it) } },
-                targetLanguage = targetLanguage,
-                onTargetLanguageChange = { scope.launch { settingsStore.updateTargetLanguage(it) } },
-                readingWpm = readerSettings.readingWordsPerMinute.toFloat(),
-                onReadingWpmChange = {
-                    scope.launch { settingsStore.updateReadingWordsPerMinute(it.roundToInt()) }
-                },
-                paceMode = paceMode,
-                onPaceModeChange = { scope.launch { settingsStore.updatePaceMode(it) } },
-                busy = busy,
-                canTranslate = settings.isProviderConfigured && currentPage.hasText,
-                onLanguagePreset = { preset ->
-                    scope.launch {
-                        settingsStore.updateLanguages(
-                            sourceLanguage = preset.sourceLanguage,
-                            targetLanguage = preset.targetLanguage,
-                        )
-                    }
-                },
-                onTranslate = ::translateCurrentPage,
-                onPrefetch = ::prefetchDocument,
-                onLoadCached = ::loadCachedCurrentPage,
-            )
-            RemoteSourcesTodoPanel()
-            StatusStrip(
-                statusText = statusText,
-                progress = progress,
-                busy = busy,
-            )
+            if (controlsVisible) {
+                DisplaySettingsPanel(
+                    displayMode = displayMode,
+                    busy = busy,
+                    onDisplayModeChange = {
+                        pdfPageBitmap = null
+                        pdfPageCache = emptyMap()
+                        scope.launch { settingsStore.updateDisplayMode(it) }
+                    },
+                )
+                PageTurnSettingsPanel(
+                    pageTurnMode = pageTurnMode,
+                    busy = busy,
+                    onPageTurnModeChange = { scope.launch { settingsStore.updatePageTurnMode(it) } },
+                )
+                ReaderPreferencesPanel(
+                    pdfFitMode = readerSettings.pdfFitMode,
+                    fontSizeSp = readerSettings.readerFontSizeSp,
+                    lineSpacing = readerSettings.readerLineSpacing,
+                    pageMarginDp = readerSettings.readerPageMarginDp,
+                    busy = busy,
+                    onPdfFitModeChange = { scope.launch { settingsStore.updatePdfFitMode(it) } },
+                    onFontSizeChange = { scope.launch { settingsStore.updateReaderFontSize(it) } },
+                    onLineSpacingChange = { scope.launch { settingsStore.updateReaderLineSpacing(it) } },
+                    onPageMarginChange = { scope.launch { settingsStore.updateReaderPageMargin(it) } },
+                )
+                TranslationControls(
+                    providerKind = providerKind,
+                    onProviderKindChange = { scope.launch { settingsStore.updateProviderKind(it) } },
+                    apiKey = apiKey,
+                    onApiKeyChange = { apiKey = it },
+                    llmEndpoint = readerSettings.llmEndpoint,
+                    onLlmEndpointChange = { scope.launch { settingsStore.updateLlmEndpoint(it) } },
+                    llmModel = readerSettings.llmModel,
+                    onLlmModelChange = { scope.launch { settingsStore.updateLlmModel(it) } },
+                    sourceLanguage = sourceLanguage,
+                    onSourceLanguageChange = { scope.launch { settingsStore.updateSourceLanguage(it) } },
+                    targetLanguage = targetLanguage,
+                    onTargetLanguageChange = { scope.launch { settingsStore.updateTargetLanguage(it) } },
+                    readingWpm = readerSettings.readingWordsPerMinute.toFloat(),
+                    onReadingWpmChange = {
+                        scope.launch { settingsStore.updateReadingWordsPerMinute(it.roundToInt()) }
+                    },
+                    paceMode = paceMode,
+                    onPaceModeChange = { scope.launch { settingsStore.updatePaceMode(it) } },
+                    busy = busy,
+                    canTranslate = settings.isProviderConfigured && currentPage.hasText,
+                    onLanguagePreset = { preset ->
+                        scope.launch {
+                            settingsStore.updateLanguages(
+                                sourceLanguage = preset.sourceLanguage,
+                                targetLanguage = preset.targetLanguage,
+                            )
+                        }
+                    },
+                    onTranslate = ::translateCurrentPage,
+                    onPrefetch = ::prefetchDocument,
+                    onLoadCached = ::loadCachedCurrentPage,
+                )
+                RemoteSourcesTodoPanel()
+                StatusStrip(
+                    statusText = statusText,
+                    progress = progress,
+                    busy = busy,
+                )
+            }
         }
+    }
+
+    if (showDocumentDetails) {
+        DocumentDetailsDialog(
+            document = document,
+            currentBook = currentBook,
+            pageIndex = pageIndex,
+            onDismiss = { showDocumentDetails = false },
+        )
     }
 }
 
