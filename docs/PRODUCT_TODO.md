@@ -114,7 +114,7 @@ translation and offline-first reading.
   - done: move reader document/page state into `ReaderViewModel`
   - done: move persistent settings into `SettingsViewModel`
   - done: move translation result/cache/progress state into `TranslationViewModel`
-  - pending: move library side effects into a view model
+  - done: move library side effects into `LibraryViewModel`
   - pending: keep renderer state separate from settings state
 - Add no-animation mode as default.
 - Add manual refresh hooks for devices that support explicit e-ink refresh.
@@ -154,7 +154,7 @@ translation and offline-first reading.
 
 - Add view models.
   - done: `ReaderViewModel`
-  - pending: `LibraryViewModel`
+  - done: `LibraryViewModel`
   - done: `TranslationViewModel`
   - done: `SettingsViewModel`
 - Add repositories.
@@ -230,12 +230,12 @@ translation and offline-first reading.
 ## Suggested Implementation Order
 
 1. Add local library and app-private file import.
-2. Add the library ViewModel boundary.
-3. Add translation queue and cache management UI.
-4. Implement PageTurner Web Catalog source.
-5. Add FTP source.
-6. Add Google Drive source.
-7. Add secure credential storage.
-8. Add release/license/privacy groundwork.
-9. Add instrumented tests for import and reader navigation.
-10. Add EPUB embedded image rendering and display-mode processing.
+2. Add translation queue and cache management UI.
+3. Implement PageTurner Web Catalog source.
+4. Add FTP source.
+5. Add Google Drive source.
+6. Add secure credential storage.
+7. Add release/license/privacy groundwork.
+8. Add instrumented tests for import and reader navigation.
+9. Add EPUB embedded image rendering and display-mode processing.
+10. Move renderer side effects behind a renderer state model.

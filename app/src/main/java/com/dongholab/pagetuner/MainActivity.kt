@@ -22,7 +22,6 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.focus.FocusRequester
@@ -43,6 +42,8 @@ import com.dongholab.pagetuner.document.DocumentFormat
 import com.dongholab.pagetuner.document.LoadedReaderDocument
 import com.dongholab.pagetuner.document.PdfDocumentReader
 import com.dongholab.pagetuner.document.sampleDocument
+import com.dongholab.pagetuner.library.LibraryEvent
+import com.dongholab.pagetuner.library.LibraryViewModel
 import com.dongholab.pagetuner.library.LocalBook
 import com.dongholab.pagetuner.library.LocalLibraryStore
 import com.dongholab.pagetuner.reader.PageTurnMode
@@ -109,20 +110,22 @@ fun PageTurnerApp() {
     val readerViewModel: ReaderViewModel = viewModel(
         factory = ReaderViewModel.Factory(initialDocument),
     )
+    val libraryViewModel: LibraryViewModel = viewModel(
+        factory = LibraryViewModel.Factory(localLibraryStore),
+    )
     val translationViewModel: TranslationViewModel = viewModel()
     val readerSettings by settingsViewModel.settings.collectAsState(initial = ReaderSettings())
     val readerState by readerViewModel.uiState.collectAsState()
+    val libraryState by libraryViewModel.uiState.collectAsState()
     val translationState by translationViewModel.uiState.collectAsState()
-    val scope = rememberCoroutineScope()
     val focusRequester = remember { FocusRequester() }
     val initialStatus = stringResource(R.string.status_ready)
 
     var pdfPageBitmap by remember { mutableStateOf<Bitmap?>(null) }
     var pdfPageCache by remember { mutableStateOf<Map<PdfPageCacheKey, Bitmap>>(emptyMap()) }
-    var localBooks by remember { mutableStateOf<List<LocalBook>>(emptyList()) }
     var appStatusText by rememberSaveable(initialStatus) { mutableStateOf(initialStatus) }
-    var documentBusy by remember { mutableStateOf(false) }
 
+    val localBooks = libraryState.books
     val document = readerState.document
     val pageIndex = readerState.safePageIndex
     val currentPage = readerState.currentPage
@@ -139,7 +142,7 @@ fun PageTurnerApp() {
     val apiKey = translationState.apiKey
     val translation = translationState.translation
     val translationCacheStatus = translationState.cacheStatus
-    val busy = documentBusy || translationState.busy
+    val busy = libraryState.busy || translationState.busy
     val progress = translationState.progress
     val statusText = when (val status = translationState.status) {
         TranslationStatus.Ready -> appStatusText
@@ -214,48 +217,18 @@ fun PageTurnerApp() {
 
     fun openLocalBook(book: LocalBook) {
         if (busy) return
-        scope.launch {
-            documentBusy = true
-            translationViewModel.clearStatus()
-            appStatusText = context.getString(R.string.status_opening_document)
-            try {
-                val result = localLibraryStore.openBook(book.id)
-                applyLoadedDocument(
-                    loaded = result.loadedDocument,
-                    localBook = result.book,
-                    requestedPageIndex = result.book.safeCurrentPageIndex,
-                )
-                localBooks = localLibraryStore.listBooks()
-                appStatusText = context.getString(R.string.status_opened_local_book, result.book.title)
-            } catch (error: Exception) {
-                appStatusText = error.readableMessage(context)
-            } finally {
-                documentBusy = false
-            }
-        }
+        translationViewModel.clearStatus()
+        appStatusText = context.getString(R.string.status_opening_document)
+        libraryViewModel.openBook(book)
     }
 
     fun deleteLocalBook(book: LocalBook) {
         if (busy) return
-        scope.launch {
-            documentBusy = true
-            translationViewModel.clearStatus()
-            try {
-                val deleted = localLibraryStore.deleteBook(book.id)
-                localBooks = localLibraryStore.listBooks()
-                if (deleted && currentBookId == book.id) {
-                    readerViewModel.resetDocument(context.sampleDocument())
-                    pdfPageBitmap = null
-                    pdfPageCache = emptyMap()
-                    translationViewModel.resetForDocument()
-                }
-                appStatusText = context.getString(R.string.status_deleted_book, book.title)
-            } catch (error: Exception) {
-                appStatusText = error.readableMessage(context)
-            } finally {
-                documentBusy = false
-            }
-        }
+        translationViewModel.clearStatus()
+        libraryViewModel.deleteBook(
+            book = book,
+            wasCurrentBook = currentBookId == book.id,
+        )
     }
 
     fun changePage(targetIndex: Int) {
@@ -370,65 +343,73 @@ fun PageTurnerApp() {
         contract = ActivityResultContracts.OpenDocument(),
     ) { uri: Uri? ->
         if (uri == null) return@rememberLauncherForActivityResult
-        scope.launch {
-            documentBusy = true
-            translationViewModel.clearStatus()
-            appStatusText = context.getString(R.string.status_opening_document)
-            try {
-                val imported = localLibraryStore.importBook(uri)
-                applyLoadedDocument(
-                    loaded = imported.loadedDocument,
-                    localBook = imported.book,
-                    requestedPageIndex = imported.book.safeCurrentPageIndex,
-                )
-                localBooks = localLibraryStore.listBooks()
-                appStatusText = if (imported.wasDuplicateImport) {
-                    context.getString(R.string.status_duplicate_book, imported.book.title)
-                } else {
-                    context.getString(R.string.status_imported_book, imported.book.title)
-                }
-            } catch (error: Exception) {
-                appStatusText = error.readableMessage(context)
-            } finally {
-                documentBusy = false
-            }
-        }
+        translationViewModel.clearStatus()
+        appStatusText = context.getString(R.string.status_opening_document)
+        libraryViewModel.importBook(uri)
     }
 
     LaunchedEffect(Unit) {
         focusRequester.requestFocus()
     }
 
-    LaunchedEffect(localLibraryStore) {
-        val books = localLibraryStore.listBooks()
-        localBooks = books
-        val lastOpened = books.firstOrNull()
-        if (lastOpened != null) {
-            runCatching { localLibraryStore.openBook(lastOpened.id) }
-                .onSuccess { result ->
-                    applyLoadedDocument(
-                        loaded = result.loadedDocument,
-                        localBook = result.book,
-                        requestedPageIndex = result.book.safeCurrentPageIndex,
-                    )
-                    localBooks = localLibraryStore.listBooks()
-                    translationViewModel.clearStatus()
-                    appStatusText = context.getString(
-                        R.string.status_opened_local_book,
-                        result.book.title,
-                    )
+    LaunchedEffect(libraryViewModel) {
+        launch {
+            libraryViewModel.events.collect { event ->
+                translationViewModel.clearStatus()
+                when (event) {
+                    is LibraryEvent.OpenedLocalBook -> {
+                        applyLoadedDocument(
+                            loaded = event.result.loadedDocument,
+                            localBook = event.result.book,
+                            requestedPageIndex = event.result.book.safeCurrentPageIndex,
+                        )
+                        appStatusText = context.getString(
+                            R.string.status_opened_local_book,
+                            event.result.book.title,
+                        )
+                    }
+                    is LibraryEvent.ImportedBook -> {
+                        applyLoadedDocument(
+                            loaded = event.result.loadedDocument,
+                            localBook = event.result.book,
+                            requestedPageIndex = event.result.book.safeCurrentPageIndex,
+                        )
+                        appStatusText = if (event.result.wasDuplicateImport) {
+                            context.getString(
+                                R.string.status_duplicate_book,
+                                event.result.book.title,
+                            )
+                        } else {
+                            context.getString(
+                                R.string.status_imported_book,
+                                event.result.book.title,
+                            )
+                        }
+                    }
+                    is LibraryEvent.DeletedBook -> {
+                        if (event.wasCurrentBook) {
+                            readerViewModel.resetDocument(context.sampleDocument())
+                            pdfPageBitmap = null
+                            pdfPageCache = emptyMap()
+                            translationViewModel.resetForDocument()
+                        }
+                        appStatusText = context.getString(
+                            R.string.status_deleted_book,
+                            event.book.title,
+                        )
+                    }
+                    is LibraryEvent.Error -> {
+                        appStatusText = context.readableMessage(event.detail)
+                    }
                 }
-                .onFailure { error ->
-                    translationViewModel.clearStatus()
-                    appStatusText = error.readableMessage(context)
-                }
+            }
         }
+        libraryViewModel.loadInitialLibrary()
     }
 
     LaunchedEffect(currentBookId, pageIndex, document.id) {
         val bookId = currentBookId ?: return@LaunchedEffect
-        localLibraryStore.updateProgress(bookId, pageIndex)
-        localBooks = localLibraryStore.listBooks()
+        libraryViewModel.updateProgress(bookId, pageIndex)
     }
 
     LaunchedEffect(document.id, settings, repository) {
@@ -687,9 +668,13 @@ private fun TranslationStatus.localizedMessage(context: Context): String {
 }
 
 private fun Throwable.readableMessage(context: Context): String {
-    val detail = message?.takeIf { it.isNotBlank() }
-        ?: context.getString(R.string.status_generic_error)
-    return context.getString(R.string.status_translation_error, detail)
+    return context.readableMessage(message)
+}
+
+private fun Context.readableMessage(detail: String?): String {
+    val safeDetail = detail?.takeIf { it.isNotBlank() }
+        ?: getString(R.string.status_generic_error)
+    return getString(R.string.status_translation_error, safeDetail)
 }
 
 private fun settingsProviderConfigured(

@@ -42,6 +42,8 @@ PageTurner는 전자잉크 단말기용 Android 리더 프로토타입입니다.
 - 파일 해시로 중복 import를 감지하고 저장된 사본을 다시 엽니다.
 - 최근 책은 로컬 서재에서 다시 열거나 삭제할 수 있습니다.
 - 앱 시작 시 마지막으로 열었던 저장 책을 자동으로 복원합니다.
+- 로컬 서재 목록, import, open, delete, progress 저장은 `LibraryViewModel`이
+  관리합니다.
 - 전자잉크 페이지 넘김을 가볍게 유지하기 위한 현재 페이지만 렌더링.
 - 컬러, 그레이스케일, 흑백, 전자잉크 고대비를 위한 Display 모드.
 - PDF 렌더링은 선택한 Display 모드를 따릅니다.
@@ -147,8 +149,8 @@ app/build/outputs/apk/debug/app-debug.apk
 
 ## 추천 다음 작업
 
-1. 서재 상태를 ViewModel 경계로 분리.
-2. 일시정지/재개/취소가 가능한 오프라인 번역 큐 추가.
+1. 일시정지/재개/취소가 가능한 오프라인 번역 큐 추가.
+2. Provider health check와 retry 처리 추가.
 3. 로컬 테스트가 쉬운 PageTurner Web Catalog connector부터 구현.
 4. 실제 API 키 사용 전 안전한 credential storage 추가.
 5. 배포 전 프로젝트 라이선스 선택 및 추가.

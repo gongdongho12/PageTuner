@@ -7,7 +7,7 @@ by appending everything to the activity.
 
 ```text
 MainActivity
-  -> Compose app assembly and remaining translation/library side effects
+  -> Compose app assembly and renderer side effects
 
 document/
   -> ReaderDocument model
@@ -30,6 +30,7 @@ settings/
 library/
   -> App-private imported book storage
   -> JSON metadata for recent books, progress, duplicate detection
+  -> LibraryViewModel for list/import/open/delete/progress side effects
 
 translation/
   -> Provider interface
@@ -71,10 +72,9 @@ ui/
 ## Next Refactor Target
 
 `MainActivity` now launches the app and `PageTurnerApp` assembles the feature
-components. Reader document/page state, persistent settings, and translation
-state already have ViewModel boundaries. The next structure pass should move
-the remaining state and side effects behind stable app models:
+components. Reader document/page state, persistent settings, translation state,
+and local library side effects already have ViewModel boundaries. The next
+structure pass should move renderer side effects behind stable app models:
 
-- `LibraryViewModel`: recent books, import/delete/open flows.
 - Renderer state model: PDF bitmap loading and future EPUB image rendering.
 - Persistent settings through DataStore.

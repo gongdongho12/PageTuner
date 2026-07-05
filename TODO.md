@@ -13,7 +13,8 @@ tracks what still needs to be built.
 - [x] Add `ReaderViewModel`.
 - [x] Add `SettingsViewModel`.
 - [x] Add `TranslationViewModel`.
-- [ ] Add app-level state models for library side effects.
+- [x] Add `LibraryViewModel`.
+- [x] Add app-level state models for library side effects.
 
 ## P0: Persistent Settings
 

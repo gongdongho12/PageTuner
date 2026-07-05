@@ -45,6 +45,8 @@ not as source-code bases.
 - Duplicate imports are detected by file hash and reopen the saved copy.
 - Recent books can be reopened or deleted from the local library.
 - The most recently opened saved book is restored on app start.
+- Local library list, import, open, delete, and progress writes are owned by
+  `LibraryViewModel`.
 - Current-page-only rendering to keep e-ink page turns light.
 - Display mode flow for color, grayscale, monochrome, and e-ink high contrast.
 - PDF rendering follows the selected display mode.
@@ -148,8 +150,8 @@ app/build/outputs/apk/debug/app-debug.apk
 
 ## Suggested Next Steps
 
-1. Add the library ViewModel boundary.
-2. Add the offline translation queue with pause/resume/cancel controls.
+1. Add the offline translation queue with pause/resume/cancel controls.
+2. Add provider health checks and retry handling.
 3. Add the PageTurner Web Catalog connector first, because it is easy to test
    locally.
 4. Add secure credential storage before using real API keys in production.
