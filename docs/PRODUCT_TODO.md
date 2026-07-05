@@ -35,6 +35,11 @@ translation and offline-first reading.
   - done: named bookmark
   - done: bookmark list per document
   - done: persist bookmark list per local book
+- Done: add page-level highlights and notes.
+  - done: page highlight
+  - done: note text
+  - done: annotation list per document
+  - done: persist annotation list per local book
 - Done: add reader preferences.
   - display mode
   - font size

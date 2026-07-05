@@ -177,6 +177,19 @@ class LibraryViewModel(
         }
     }
 
+    fun updateAnnotations(bookId: String, annotations: List<LocalBookAnnotation>) {
+        viewModelScope.launch {
+            runCatching {
+                localLibraryStore.updateAnnotations(bookId, annotations)
+                localLibraryStore.listBooks()
+            }.onSuccess { books ->
+                _uiState.update { state -> state.copy(books = books) }
+            }.onFailure { error ->
+                _events.emit(LibraryEvent.Error(error.message))
+            }
+        }
+    }
+
     class Factory(
         private val localLibraryStore: LocalLibraryStore,
     ) : ViewModelProvider.Factory {

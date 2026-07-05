@@ -97,6 +97,32 @@ class LocalLibraryStore(context: Context) {
         writeBooks(updated)
     }
 
+    suspend fun updateAnnotations(
+        bookId: String,
+        annotations: List<LocalBookAnnotation>,
+    ) = withContext(Dispatchers.IO) {
+        val books = readBooks()
+        val updated = books.map { book ->
+            if (book.id == bookId) {
+                book.copy(
+                    annotations = annotations
+                        .filter { annotation ->
+                            annotation.pageIndex in 0 until book.pageCount &&
+                                annotation.text.isNotBlank()
+                        }
+                        .sortedWith(
+                            compareBy<LocalBookAnnotation> { annotation -> annotation.pageIndex }
+                                .thenBy { annotation -> annotation.createdAtMillis },
+                        ),
+                    lastOpenedAtMillis = System.currentTimeMillis(),
+                )
+            } else {
+                book
+            }
+        }
+        writeBooks(updated)
+    }
+
     suspend fun deleteBook(bookId: String): Boolean = withContext(Dispatchers.IO) {
         val books = readBooks()
         val target = books.firstOrNull { it.id == bookId } ?: return@withContext false

@@ -26,6 +26,15 @@ class LocalBookJsonTest {
                     createdAtMillis = 150L,
                 ),
             ),
+            annotations = listOf(
+                LocalBookAnnotation(
+                    id = "annotation-1",
+                    type = LocalBookAnnotationType.Note,
+                    pageIndex = 4,
+                    text = "Remember this page.",
+                    createdAtMillis = 160L,
+                ),
+            ),
         )
 
         val decoded = LocalBookJson.decode(LocalBookJson.encode(listOf(book)))

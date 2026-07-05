@@ -121,8 +121,8 @@ tracks what still needs to be built.
 - [x] Add named bookmarks.
 - [x] Add bookmark list.
 - [x] Persist bookmarks per local book.
-- [ ] Add highlights.
-- [ ] Add notes.
+- [x] Add highlights.
+- [x] Add notes.
 - [ ] Export notes/highlights.
 
 ## P1: Error Handling

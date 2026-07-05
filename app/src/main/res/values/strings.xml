@@ -29,6 +29,14 @@
     <string name="action_delete_bookmark">Delete bookmark</string>
     <string name="bookmarks_empty">Saved pages will appear here.</string>
     <string name="bookmark_page_label">Page %1$d</string>
+    <string name="annotations_title">Highlights and Notes</string>
+    <string name="field_note_text">Note</string>
+    <string name="action_add_highlight">Highlight Page</string>
+    <string name="action_add_note">Add Note</string>
+    <string name="action_delete_annotation">Delete annotation</string>
+    <string name="annotations_empty">Highlights and notes will appear here.</string>
+    <string name="annotation_highlight_label">Highlight · page %1$d</string>
+    <string name="annotation_note_label">Note · page %1$d</string>
     <string name="action_show_details">Show document details</string>
     <string name="action_hide_controls">Hide controls</string>
     <string name="action_show_controls">Show controls</string>
@@ -168,6 +176,11 @@
     <string name="status_added_bookmark">Saved bookmark on page %1$d.</string>
     <string name="status_opened_bookmark">Opened bookmark on page %1$d.</string>
     <string name="status_deleted_bookmark">Deleted bookmark.</string>
+    <string name="status_added_highlight">Saved highlight on page %1$d.</string>
+    <string name="status_added_note">Saved note on page %1$d.</string>
+    <string name="status_note_empty">Write a note before saving.</string>
+    <string name="status_opened_annotation">Opened annotation on page %1$d.</string>
+    <string name="status_deleted_annotation">Deleted annotation.</string>
     <string name="status_web_catalog_idle">Web catalog is ready.</string>
     <string name="status_web_catalog_loading">Loading web catalog.</string>
     <string name="status_web_catalog_missing_url">Catalog URL is required.</string>

@@ -45,10 +45,14 @@ import com.dongholab.pagetuner.document.PdfDocumentReader
 import com.dongholab.pagetuner.document.sampleDocument
 import com.dongholab.pagetuner.library.LibraryEvent
 import com.dongholab.pagetuner.library.LibraryViewModel
+import com.dongholab.pagetuner.library.LocalBookAnnotation
+import com.dongholab.pagetuner.library.LocalBookAnnotationType
 import com.dongholab.pagetuner.library.LocalBook
 import com.dongholab.pagetuner.library.LocalBookBookmark
 import com.dongholab.pagetuner.library.LocalLibraryStore
 import com.dongholab.pagetuner.reader.PageTurnMode
+import com.dongholab.pagetuner.reader.ReaderAnnotation
+import com.dongholab.pagetuner.reader.ReaderAnnotationType
 import com.dongholab.pagetuner.reader.ReaderBookmark
 import com.dongholab.pagetuner.reader.ReaderPageMoveResult
 import com.dongholab.pagetuner.reader.ReaderSearchMoveResult
@@ -73,6 +77,7 @@ import com.dongholab.pagetuner.translation.TranslationViewModel
 import com.dongholab.pagetuner.ui.common.StatusStrip
 import com.dongholab.pagetuner.ui.library.LocalLibraryPanel
 import com.dongholab.pagetuner.ui.reader.DocumentDetailsDialog
+import com.dongholab.pagetuner.ui.reader.ReaderAnnotationPanel
 import com.dongholab.pagetuner.ui.reader.ReaderBookmarkPanel
 import com.dongholab.pagetuner.ui.reader.ReaderHeader
 import com.dongholab.pagetuner.ui.reader.ReaderPager
@@ -157,6 +162,8 @@ fun PageTurnerApp() {
     val selectedSearchPreview = readerState.selectedSearchMatch?.preview
     val bookmarkDraftLabel = readerState.bookmarkDraftLabel
     val bookmarks = readerState.bookmarks
+    val noteDraftText = readerState.noteDraftText
+    val annotations = readerState.annotations
     val providerKind = readerSettings.providerKind
     val paceMode = readerSettings.paceMode
     val pageTurnMode = readerSettings.pageTurnMode
@@ -238,6 +245,7 @@ fun PageTurnerApp() {
             localBookId = localBook?.id,
             requestedPageIndex = requestedPageIndex,
             bookmarks = localBook?.bookmarks.orEmpty().map { it.toReaderBookmark() },
+            annotations = localBook?.annotations.orEmpty().map { it.toReaderAnnotation() },
         )
         pdfPageBitmap = null
         pdfPageCache = emptyMap()
@@ -249,6 +257,14 @@ fun PageTurnerApp() {
         libraryViewModel.updateBookmarks(
             bookId = bookId,
             bookmarks = bookmarks.map { it.toLocalBookBookmark() },
+        )
+    }
+
+    fun persistAnnotations(annotations: List<ReaderAnnotation>) {
+        val bookId = currentBookId ?: return
+        libraryViewModel.updateAnnotations(
+            bookId = bookId,
+            annotations = annotations.map { it.toLocalBookAnnotation() },
         )
     }
 
@@ -355,6 +371,51 @@ fun PageTurnerApp() {
         persistBookmarks(readerViewModel.uiState.value.bookmarks)
         translationViewModel.clearStatus()
         appStatusText = context.getString(R.string.status_deleted_bookmark)
+    }
+
+    fun addHighlight() {
+        if (busy) return
+        val annotation = readerViewModel.addHighlight()
+        persistAnnotations(readerViewModel.uiState.value.annotations)
+        translationViewModel.clearStatus()
+        appStatusText = context.getString(
+            R.string.status_added_highlight,
+            annotation.pageIndex + 1,
+        )
+    }
+
+    fun addNote() {
+        if (busy) return
+        val annotation = readerViewModel.addNote()
+        translationViewModel.clearStatus()
+        if (annotation == null) {
+            appStatusText = context.getString(R.string.status_note_empty)
+            return
+        }
+        persistAnnotations(readerViewModel.uiState.value.annotations)
+        appStatusText = context.getString(
+            R.string.status_added_note,
+            annotation.pageIndex + 1,
+        )
+    }
+
+    fun openAnnotation(annotation: ReaderAnnotation) {
+        if (busy) return
+        val opened = readerViewModel.openAnnotation(annotation.id) ?: return
+        translationViewModel.clearPageTranslation()
+        translationViewModel.clearStatus()
+        appStatusText = context.getString(
+            R.string.status_opened_annotation,
+            opened.pageIndex + 1,
+        )
+    }
+
+    fun removeAnnotation(annotation: ReaderAnnotation) {
+        if (busy) return
+        readerViewModel.removeAnnotation(annotation.id)
+        persistAnnotations(readerViewModel.uiState.value.annotations)
+        translationViewModel.clearStatus()
+        appStatusText = context.getString(R.string.status_deleted_annotation)
     }
 
     fun previousPage() {
@@ -678,6 +739,17 @@ fun PageTurnerApp() {
                     onOpenBookmark = ::openBookmark,
                     onRemoveBookmark = ::removeBookmark,
                 )
+                ReaderAnnotationPanel(
+                    annotations = annotations,
+                    currentPageIndex = pageIndex,
+                    noteDraft = noteDraftText,
+                    busy = busy,
+                    onNoteDraftChange = readerViewModel::updateNoteDraftText,
+                    onAddHighlight = ::addHighlight,
+                    onAddNote = ::addNote,
+                    onOpenAnnotation = ::openAnnotation,
+                    onRemoveAnnotation = ::removeAnnotation,
+                )
             }
             ReaderSurface(
                 page = currentPage,
@@ -968,6 +1040,32 @@ private fun ReaderBookmark.toLocalBookBookmark(): LocalBookBookmark {
         id = id,
         pageIndex = pageIndex,
         label = label,
+        createdAtMillis = createdAtMillis,
+    )
+}
+
+private fun LocalBookAnnotation.toReaderAnnotation(): ReaderAnnotation {
+    return ReaderAnnotation(
+        id = id,
+        type = when (type) {
+            LocalBookAnnotationType.Highlight -> ReaderAnnotationType.Highlight
+            LocalBookAnnotationType.Note -> ReaderAnnotationType.Note
+        },
+        pageIndex = pageIndex,
+        text = text,
+        createdAtMillis = createdAtMillis,
+    )
+}
+
+private fun ReaderAnnotation.toLocalBookAnnotation(): LocalBookAnnotation {
+    return LocalBookAnnotation(
+        id = id,
+        type = when (type) {
+            ReaderAnnotationType.Highlight -> LocalBookAnnotationType.Highlight
+            ReaderAnnotationType.Note -> LocalBookAnnotationType.Note
+        },
+        pageIndex = pageIndex,
+        text = text,
         createdAtMillis = createdAtMillis,
     )
 }

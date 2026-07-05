@@ -129,6 +129,31 @@ class ReaderViewModelTest {
         assertTrue(viewModel.uiState.value.bookmarks.isEmpty())
     }
 
+    @Test
+    fun addsOpensAndRemovesAnnotations() {
+        val viewModel = ReaderViewModel(documentWithPages("Book", pageCount = 3))
+        viewModel.changePage(1)
+
+        val highlight = viewModel.addHighlight()
+        viewModel.updateNoteDraftText("Remember this.")
+        val note = viewModel.addNote()
+
+        assertEquals(ReaderAnnotationType.Highlight, highlight.type)
+        assertEquals(1, highlight.pageIndex)
+        assertEquals(ReaderAnnotationType.Note, note?.type)
+        assertEquals("", viewModel.uiState.value.noteDraftText)
+        assertEquals(2, viewModel.uiState.value.annotations.size)
+
+        viewModel.changePage(2)
+        val opened = viewModel.openAnnotation(highlight.id)
+
+        assertEquals(highlight, opened)
+        assertEquals(1, viewModel.uiState.value.pageIndex)
+
+        viewModel.removeAnnotation(highlight.id)
+        assertEquals(listOf(note), viewModel.uiState.value.annotations)
+    }
+
     private fun documentWithPages(title: String, pageCount: Int) = ReaderDocument(
         id = title.lowercase(),
         title = title,

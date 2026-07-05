@@ -23,6 +23,8 @@ data class ReaderUiState(
     val selectedSearchResultIndex: Int = -1,
     val bookmarkDraftLabel: String = "",
     val bookmarks: List<ReaderBookmark> = emptyList(),
+    val noteDraftText: String = "",
+    val annotations: List<ReaderAnnotation> = emptyList(),
 ) {
     val safePageIndex: Int = pageIndex.coerceIn(0, document.pageCount - 1)
     val currentPage: ReaderPage = document.pages[safePageIndex]
@@ -38,6 +40,19 @@ data class ReaderBookmark(
     val label: String?,
     val createdAtMillis: Long,
 )
+
+data class ReaderAnnotation(
+    val id: String,
+    val type: ReaderAnnotationType,
+    val pageIndex: Int,
+    val text: String,
+    val createdAtMillis: Long,
+)
+
+enum class ReaderAnnotationType {
+    Highlight,
+    Note,
+}
 
 data class ReaderSearchMatch(
     val pageIndex: Int,
@@ -73,6 +88,7 @@ class ReaderViewModel(
         localBookId: String?,
         requestedPageIndex: Int,
         bookmarks: List<ReaderBookmark> = emptyList(),
+        annotations: List<ReaderAnnotation> = emptyList(),
     ) {
         _uiState.update { current ->
             ReaderUiState(
@@ -85,6 +101,15 @@ class ReaderViewModel(
                 bookmarks = bookmarks
                     .filter { bookmark -> bookmark.pageIndex in 0 until loaded.document.pageCount }
                     .sortedBy { bookmark -> bookmark.pageIndex },
+                annotations = annotations
+                    .filter { annotation ->
+                        annotation.pageIndex in 0 until loaded.document.pageCount &&
+                            annotation.text.isNotBlank()
+                    }
+                    .sortedWith(
+                        compareBy<ReaderAnnotation> { annotation -> annotation.pageIndex }
+                            .thenBy { annotation -> annotation.createdAtMillis },
+                    ),
             )
         }
     }
@@ -182,6 +207,52 @@ class ReaderViewModel(
         return bookmark
     }
 
+    fun updateNoteDraftText(text: String) {
+        _uiState.update { state -> state.copy(noteDraftText = text) }
+    }
+
+    fun addHighlight(): ReaderAnnotation {
+        val current = _uiState.value
+        return addAnnotation(
+            type = ReaderAnnotationType.Highlight,
+            pageIndex = current.safePageIndex,
+            text = current.currentPage.plainText.toSingleLinePreview()
+                .ifBlank { current.currentPage.chapterTitle.orEmpty() }
+                .ifBlank { "Page ${current.safePageIndex + 1}" },
+            clearDraft = false,
+        )
+    }
+
+    fun addNote(): ReaderAnnotation? {
+        val current = _uiState.value
+        val text = current.noteDraftText.trim()
+        if (text.isBlank()) return null
+        return addAnnotation(
+            type = ReaderAnnotationType.Note,
+            pageIndex = current.safePageIndex,
+            text = text,
+            clearDraft = true,
+        )
+    }
+
+    fun removeAnnotation(annotationId: String) {
+        _uiState.update { state ->
+            state.copy(annotations = state.annotations.filterNot { it.id == annotationId })
+        }
+    }
+
+    fun openAnnotation(annotationId: String): ReaderAnnotation? {
+        val annotation = _uiState.value.annotations.firstOrNull { it.id == annotationId }
+            ?: return null
+        _uiState.update { state ->
+            state.copy(
+                pageIndex = annotation.pageIndex.coerceIn(0, state.document.pageCount - 1),
+                selectedSearchResultIndex = -1,
+            )
+        }
+        return annotation
+    }
+
     fun nextSearchResult(): ReaderSearchMoveResult {
         return moveToSearchResult(direction = 1)
     }
@@ -256,6 +327,31 @@ class ReaderViewModel(
                 }
             }
         }
+    }
+
+    private fun addAnnotation(
+        type: ReaderAnnotationType,
+        pageIndex: Int,
+        text: String,
+        clearDraft: Boolean,
+    ): ReaderAnnotation {
+        val now = System.currentTimeMillis()
+        val annotation = ReaderAnnotation(
+            id = "annotation-${type.name.lowercase()}-$pageIndex-$now",
+            type = type,
+            pageIndex = pageIndex,
+            text = text,
+            createdAtMillis = now,
+        )
+        _uiState.update { state ->
+            state.copy(
+                noteDraftText = if (clearDraft) "" else state.noteDraftText,
+                annotations = (state.annotations + annotation).sortedWith(
+                    compareBy<ReaderAnnotation> { it.pageIndex }.thenBy { it.createdAtMillis },
+                ),
+            )
+        }
+        return annotation
     }
 
     private fun String.toSingleLinePreview(): String {

@@ -14,6 +14,7 @@ data class LocalBook(
     val lastOpenedAtMillis: Long,
     val fileSizeBytes: Long,
     val bookmarks: List<LocalBookBookmark> = emptyList(),
+    val annotations: List<LocalBookAnnotation> = emptyList(),
 ) {
     val safeCurrentPageIndex: Int
         get() = currentPageIndex.coerceIn(0, (pageCount - 1).coerceAtLeast(0))
@@ -33,3 +34,16 @@ data class LocalBookBookmark(
     val label: String?,
     val createdAtMillis: Long,
 )
+
+data class LocalBookAnnotation(
+    val id: String,
+    val type: LocalBookAnnotationType,
+    val pageIndex: Int,
+    val text: String,
+    val createdAtMillis: Long,
+)
+
+enum class LocalBookAnnotationType {
+    Highlight,
+    Note,
+}

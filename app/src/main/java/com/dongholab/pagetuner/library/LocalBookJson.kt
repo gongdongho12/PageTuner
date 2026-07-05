@@ -20,7 +20,8 @@ object LocalBookJson {
                     .put("importedAtMillis", book.importedAtMillis)
                     .put("lastOpenedAtMillis", book.lastOpenedAtMillis)
                     .put("fileSizeBytes", book.fileSizeBytes)
-                    .put("bookmarks", book.bookmarks.toJsonArray()),
+                    .put("bookmarks", book.bookmarks.toJsonArray())
+                    .put("annotations", book.annotations.toJsonArray()),
             )
         }
         return array.toString(2)
@@ -46,6 +47,7 @@ object LocalBookJson {
                         lastOpenedAtMillis = item.optLong("lastOpenedAtMillis", 0L),
                         fileSizeBytes = item.optLong("fileSizeBytes", 0L),
                         bookmarks = item.optBookmarks(),
+                        annotations = item.optAnnotations(),
                     ),
                 )
             }
@@ -88,5 +90,48 @@ object LocalBookJson {
                 )
             }
         }.sortedBy { it.pageIndex }
+    }
+
+    private fun List<LocalBookAnnotation>.toJsonArray(): JSONArray {
+        val array = JSONArray()
+        forEach { annotation ->
+            array.put(
+                JSONObject()
+                    .put("id", annotation.id)
+                    .put("type", annotation.type.name)
+                    .put("pageIndex", annotation.pageIndex)
+                    .put("text", annotation.text)
+                    .put("createdAtMillis", annotation.createdAtMillis),
+            )
+        }
+        return array
+    }
+
+    private fun JSONObject.optAnnotations(): List<LocalBookAnnotation> {
+        val array = optJSONArray("annotations") ?: return emptyList()
+        return buildList {
+            for (index in 0 until array.length()) {
+                val item = array.optJSONObject(index) ?: continue
+                val id = item.optString("id")
+                val text = item.optString("text")
+                if (id.isBlank() || text.isBlank()) continue
+                add(
+                    LocalBookAnnotation(
+                        id = id,
+                        type = item.optAnnotationType(),
+                        pageIndex = item.optInt("pageIndex", 0).coerceAtLeast(0),
+                        text = text,
+                        createdAtMillis = item.optLong("createdAtMillis", 0L),
+                    ),
+                )
+            }
+        }.sortedWith(compareBy<LocalBookAnnotation> { it.pageIndex }.thenBy { it.createdAtMillis })
+    }
+
+    private fun JSONObject.optAnnotationType(): LocalBookAnnotationType {
+        val stored = optString("type", LocalBookAnnotationType.Note.name)
+        return runCatching {
+            LocalBookAnnotationType.valueOf(stored)
+        }.getOrDefault(LocalBookAnnotationType.Note)
     }
 }
