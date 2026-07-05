@@ -139,10 +139,12 @@ not as source-code bases.
 - `RemoteBookSource` interface for Drive, FTP, and web catalog connectors.
 - PageTurner Web Catalog v0.1 parser/source with relative URL normalization,
   search, refresh, and injectable download support.
+- FTP/FTPS source core with passive-mode folder browsing, supported-format
+  filtering, search, and download through the shared remote source interface.
 - App-private web catalog metadata cache for offline catalog recall.
 - Planned source types:
   - Google Drive
-  - FTP / FTPS
+  - FTP / FTPS account UI
   - PageTurner Web Catalog
 - Draft remote-source spec: [docs/REMOTE_SOURCES_TODO.md](docs/REMOTE_SOURCES_TODO.md)
 - Static sample catalog:
@@ -170,7 +172,7 @@ not as source-code bases.
 - EPUB support is text-first with basic embedded bitmap image rendering.
   Complex layout, custom fonts, advanced CSS, and SVG rendering are not
   implemented yet.
-- Google Drive and FTP connectors are TODO/planning items.
+- Google Drive and FTP account management UI are TODO/planning items.
 - API keys are entered per session and are not persisted yet; production storage
   should use a more secure credential layer.
 - The LLM provider expects OpenAI-compatible chat completions JSON.

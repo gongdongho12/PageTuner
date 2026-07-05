@@ -38,12 +38,15 @@ offline access work the same way for every source.
   - Download via Drive media endpoint, then import locally.
 
 - FTP / FTPS
-  - Use a Java/Kotlin FTP client behind the same source interface.
-  - Prefer FTPS when possible.
-  - Use passive mode by default for home networks and mobile tethering.
-  - Support username/password and optional anonymous mode.
-  - Normalize remote paths and modification timestamps.
-  - Download to a temp file, verify size/hash when known, then import locally.
+  - Done: use a Java/Kotlin FTP client behind the same source interface.
+  - Done: support FTP, explicit FTPS, and implicit FTPS.
+  - Done: use passive mode by default for home networks and mobile tethering.
+  - Done: support username/password and optional anonymous mode.
+  - Done: normalize remote paths and modification timestamps from MLSD.
+  - Done: parse MLSD and common Unix `LIST` directory output.
+  - Pending: wire account storage/UI into the reader surface.
+  - Pending: stream large downloads to a temp file before local import.
+  - Pending: verify size/hash when known, then import locally.
 
 - PageTurner Web Catalog
   - Done: support a tiny JSON catalog first for easy self-hosting.

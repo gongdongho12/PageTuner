@@ -109,8 +109,8 @@ tracks what still needs to be built.
 - [x] Implement PageTurner Web Catalog connector.
 - [x] Import book from web catalog.
 - [x] Cache catalog metadata.
-- [ ] Add FTP / FTPS connector.
-- [ ] Add FTP folder browsing.
+- [x] Add FTP / FTPS connector.
+- [x] Add FTP folder browsing.
 - [ ] Add Google Drive connector.
 - [ ] Add Google Drive OAuth flow.
 - [ ] Add source account management.

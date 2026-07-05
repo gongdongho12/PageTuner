@@ -149,11 +149,12 @@ translation and offline-first reading.
   - done: local HTTP fetch UI
   - done: import selected item
   - done: catalog metadata cache
-- Implement FTP / FTPS source.
-  - passive mode
-  - username/password
-  - folder browsing
-  - file download
+- Done: implement FTP / FTPS source core.
+  - done: passive mode
+  - done: username/password and anonymous defaults
+  - done: folder browsing
+  - done: file download through `RemoteBookSource`
+  - pending: account-management UI wiring
 - Implement Google Drive source.
   - OAuth
   - list supported files
