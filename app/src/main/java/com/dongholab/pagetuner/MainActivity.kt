@@ -53,6 +53,9 @@ import com.dongholab.pagetuner.settings.ReaderSettings
 import com.dongholab.pagetuner.settings.ReaderSettingsStore
 import com.dongholab.pagetuner.settings.SettingsViewModel
 import com.dongholab.pagetuner.translation.JsonFileTranslationCache
+import com.dongholab.pagetuner.translation.ProviderHealthCheck
+import com.dongholab.pagetuner.translation.ProviderHealthState
+import com.dongholab.pagetuner.translation.TranslationQueueState
 import com.dongholab.pagetuner.translation.TranslationProviderFactory
 import com.dongholab.pagetuner.translation.TranslationProviderKind
 import com.dongholab.pagetuner.translation.TranslationRepository
@@ -144,6 +147,8 @@ fun PageTurnerApp() {
     val translationCacheStatus = translationState.cacheStatus
     val busy = libraryState.busy || translationState.busy
     val progress = translationState.progress
+    val providerHealthText = translationState.providerHealth.localizedMessage(context)
+    val translationQueueStatusText = translationState.queue.localizedMessage(context)
     val statusText = when (val status = translationState.status) {
         TranslationStatus.Ready -> appStatusText
         else -> status.localizedMessage(context)
@@ -584,18 +589,36 @@ fun PageTurnerApp() {
                     translationDisplayMode = readerSettings.translationDisplayMode,
                     onTranslationDisplayModeChange = settingsViewModel::updateTranslationDisplayMode,
                     providerStatusText = providerStatusText,
+                    providerHealthText = providerHealthText,
                     translationCacheStatusText = translationCacheStatusText,
+                    translationQueueStatusText = translationQueueStatusText,
                     busy = busy,
                     canTranslate = settings.isProviderConfigured && currentPage.hasText,
                     canClearCache = (translationCacheStatus?.cachedSegments ?: 0) > 0,
+                    canPausePrefetch = translationState.queue.canPause,
+                    canResumePrefetch = translationState.queue.canResume,
+                    canCancelPrefetch = translationState.queue.canCancel,
+                    canRetryPrefetch = translationState.queue.canRetry,
                     onLanguagePreset = { preset ->
                         settingsViewModel.updateLanguages(
                             sourceLanguage = preset.sourceLanguage,
                             targetLanguage = preset.targetLanguage,
                         )
                     },
+                    onCheckProvider = { translationViewModel.checkProviderHealth(settings) },
                     onTranslate = ::translateCurrentPage,
                     onPrefetch = ::prefetchDocument,
+                    onPausePrefetch = translationViewModel::pausePrefetch,
+                    onResumePrefetch = translationViewModel::resumePrefetch,
+                    onCancelPrefetch = translationViewModel::cancelPrefetch,
+                    onRetryPrefetch = {
+                        translationViewModel.retryFailedPrefetch(
+                            document = document,
+                            currentPage = currentPage,
+                            settings = settings,
+                            repository = repository,
+                        )
+                    },
                     onLoadCached = ::loadCachedCurrentPage,
                     onClearCache = ::clearTranslationCache,
                 )
@@ -627,6 +650,8 @@ private fun TranslationStatus.localizedMessage(context: Context): String {
         TranslationStatus.ServedFromCache -> context.getString(R.string.status_served_from_cache)
         TranslationStatus.PreparingOfflineCache -> context.getString(R.string.status_preparing_offline_cache)
         TranslationStatus.OfflineCacheReady -> context.getString(R.string.status_offline_cache_ready)
+        TranslationStatus.PrefetchPaused -> context.getString(R.string.status_prefetch_paused)
+        TranslationStatus.PrefetchCancelled -> context.getString(R.string.status_prefetch_cancelled)
         is TranslationStatus.Starting -> context.getString(
             R.string.status_starting_translation,
             paceMode.localizedLabel(context).lowercase(),
@@ -655,6 +680,22 @@ private fun TranslationStatus.localizedMessage(context: Context): String {
             activePageNumber,
             totalPages,
         )
+        is TranslationStatus.PrefetchFailedPage -> context.getString(
+            R.string.status_prefetch_failed_page,
+            pageNumber,
+            detail?.takeIf { it.isNotBlank() }
+                ?: context.getString(R.string.status_generic_error),
+        )
+        is TranslationStatus.PrefetchCompletedWithFailures -> context.getString(
+            R.string.status_prefetch_completed_with_failures,
+            failedPages,
+            totalPages,
+        )
+        is TranslationStatus.RetryingPage -> context.getString(
+            R.string.status_retrying_translation_page,
+            pageNumber,
+            attemptNumber,
+        )
         is TranslationStatus.ClearedCache -> context.getString(
             R.string.status_cleared_translation_cache,
             deletedSegments,
@@ -664,6 +705,50 @@ private fun TranslationStatus.localizedMessage(context: Context): String {
             detail?.takeIf { it.isNotBlank() }
                 ?: context.getString(R.string.status_generic_error),
         )
+    }
+}
+
+private fun ProviderHealthCheck.localizedMessage(context: Context): String {
+    return when (state) {
+        ProviderHealthState.NotChecked -> context.getString(R.string.provider_health_not_checked)
+        ProviderHealthState.Ready -> context.getString(R.string.provider_health_ready)
+        ProviderHealthState.MissingConfiguration -> when (providerKind) {
+            TranslationProviderKind.GOOGLE_CLOUD ->
+                context.getString(R.string.provider_health_missing_google_key)
+            TranslationProviderKind.OPENAI_COMPATIBLE_LLM ->
+                context.getString(R.string.provider_health_missing_llm_settings)
+            null -> context.getString(R.string.provider_health_missing_settings)
+        }
+        ProviderHealthState.InvalidConfiguration ->
+            context.getString(R.string.provider_health_invalid_llm_endpoint)
+    }
+}
+
+private fun TranslationQueueState.localizedMessage(context: Context): String {
+    return when {
+        running && paused -> context.getString(
+            R.string.translation_queue_paused,
+            completedPages,
+            totalPages,
+            activePageNumber ?: 0,
+        )
+        running -> context.getString(
+            R.string.translation_queue_running,
+            completedPages,
+            totalPages,
+            activePageNumber ?: 0,
+        )
+        cancelled -> context.getString(R.string.translation_queue_cancelled)
+        failedPages > 0 -> context.getString(
+            R.string.translation_queue_failed,
+            failedPages,
+            totalPages,
+        )
+        totalPages > 0 && completedPages == totalPages -> context.getString(
+            R.string.translation_queue_complete,
+            completedPages,
+        )
+        else -> context.getString(R.string.translation_queue_idle)
     }
 }
 

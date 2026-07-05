@@ -80,6 +80,13 @@ PageTurner는 전자잉크 단말기용 Android 리더 프로토타입입니다.
 - 읽는 속도 기반 API 호출 pacing.
 - 빠른 번역 모드.
 - 미리 번역해 저장하는 오프라인 prefetch 모드.
+- 전체 문서 오프라인 미리 저장은 보이는 번역 큐로 진행됩니다.
+- 미리 저장 큐 제어:
+  - 일시정지
+  - 재개
+  - 취소
+  - 실패한 쪽 재시도
+- Provider health check로 Google/LLM 필수 설정을 사용 전에 확인합니다.
 - 앱 내부 저장소의 JSON 번역 캐시.
 - 저장된 페이지 번역을 불러오는 오프라인 읽기 흐름.
 - 현재 provider/언어 조합 기준 문서별 번역 캐시 상태 표시.
@@ -149,8 +156,8 @@ app/build/outputs/apk/debug/app-debug.apk
 
 ## 추천 다음 작업
 
-1. 일시정지/재개/취소가 가능한 오프라인 번역 큐 추가.
-2. Provider health check와 retry 처리 추가.
-3. 로컬 테스트가 쉬운 PageTurner Web Catalog connector부터 구현.
-4. 실제 API 키 사용 전 안전한 credential storage 추가.
+1. 로컬 테스트가 쉬운 PageTurner Web Catalog connector부터 구현.
+2. 실제 API 키 사용 전 안전한 credential storage 추가.
+3. EPUB embedded image 렌더링과 display mode 처리 추가.
+4. FTP와 Google Drive connector 추가.
 5. 배포 전 프로젝트 라이선스 선택 및 추가.

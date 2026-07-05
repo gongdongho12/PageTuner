@@ -76,18 +76,19 @@ translation and offline-first reading.
 
 - Keep all translation behind `TranslationProvider`.
 - Done: add provider settings persistence.
-- Add provider health check.
+- Done: add provider health check.
   - done: validate required API key/endpoint/model fields locally
   - pending: perform optional network health request
 - Done: add translation cache management.
   - done: per-document cache status
   - done: clear translation cache for active provider/language
   - pending: clear all provider-specific cache
-- Add offline prefetch queue.
-  - selected pages
-  - whole document
-  - pause/resume/cancel
-  - progress list
+- Done: add offline prefetch queue.
+  - done: whole document
+  - done: pause/resume/cancel
+  - done: progress list
+  - done: retry failed pages
+  - pending: selected page ranges
 - Done: add translation display modes.
   - done: original only
   - done: translation only
@@ -95,7 +96,7 @@ translation and offline-first reading.
 - Add fallback behavior.
   - show cached translation when offline
   - skip already cached pages
-  - retry failed batches
+  - done: retry failed page batches
 
 ## P1: E-Ink Performance
 

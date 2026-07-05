@@ -91,14 +91,14 @@ tracks what still needs to be built.
 - [x] Add reading-speed pacing.
 - [x] Add offline prefetch mode.
 - [x] Persist provider settings.
-- [ ] Add provider health check.
-- [ ] Add translation queue.
-- [ ] Add pause/resume/cancel for prefetch.
-- [ ] Add whole-document translation progress screen.
+- [x] Add provider health check.
+- [x] Add translation queue.
+- [x] Add pause/resume/cancel for prefetch.
+- [x] Add whole-document translation progress screen.
 - [x] Add translation cache status per book.
 - [x] Add clear translation cache action.
 - [x] Add original-only / translation-only / side-by-side modes.
-- [ ] Add retry handling for failed batches.
+- [x] Add retry handling for failed batches.
 
 ## P1: Remote Sources
 

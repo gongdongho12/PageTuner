@@ -40,7 +40,7 @@ translation/
   -> Translation pacing
   -> Offline cache
   -> Page/document translation repository
-  -> TranslationViewModel for translation result, progress, and cache status
+  -> TranslationViewModel for translation result, progress, cache status, and prefetch queue state
 
 source/
   -> Remote library TODO model

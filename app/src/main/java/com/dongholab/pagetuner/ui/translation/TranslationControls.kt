@@ -14,8 +14,12 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Cancel
 import androidx.compose.material.icons.filled.CloudDownload
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Pause
+import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Translate
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -66,13 +70,24 @@ fun TranslationControls(
     translationDisplayMode: TranslationDisplayMode,
     onTranslationDisplayModeChange: (TranslationDisplayMode) -> Unit,
     providerStatusText: String,
+    providerHealthText: String,
     translationCacheStatusText: String,
+    translationQueueStatusText: String,
     busy: Boolean,
     canTranslate: Boolean,
     canClearCache: Boolean,
+    canPausePrefetch: Boolean,
+    canResumePrefetch: Boolean,
+    canCancelPrefetch: Boolean,
+    canRetryPrefetch: Boolean,
     onLanguagePreset: (LanguagePreset) -> Unit,
+    onCheckProvider: () -> Unit,
     onTranslate: () -> Unit,
     onPrefetch: () -> Unit,
+    onPausePrefetch: () -> Unit,
+    onResumePrefetch: () -> Unit,
+    onCancelPrefetch: () -> Unit,
+    onRetryPrefetch: () -> Unit,
     onLoadCached: () -> Unit,
     onClearCache: () -> Unit,
 ) {
@@ -106,6 +121,26 @@ fun TranslationControls(
                 style = MaterialTheme.typography.bodySmall,
                 color = EinkInk,
             )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    text = providerHealthText,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = EinkInk,
+                    modifier = Modifier.weight(1f),
+                )
+                TextButton(
+                    onClick = onCheckProvider,
+                    enabled = !busy,
+                ) {
+                    Icon(Icons.Filled.Refresh, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(8.dp))
+                    Text(stringResource(R.string.action_check_provider))
+                }
+            }
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 OutlinedTextField(
                     value = apiKey,
@@ -227,6 +262,11 @@ fun TranslationControls(
                 style = MaterialTheme.typography.bodySmall,
                 color = EinkInk,
             )
+            Text(
+                text = translationQueueStatusText,
+                style = MaterialTheme.typography.bodySmall,
+                color = EinkInk,
+            )
             FlowRow(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -249,6 +289,38 @@ fun TranslationControls(
                     Icon(Icons.Filled.CloudDownload, contentDescription = null, modifier = Modifier.size(18.dp))
                     Spacer(Modifier.width(8.dp))
                     Text(stringResource(R.string.action_prefetch_offline_cache))
+                }
+                TextButton(
+                    onClick = onPausePrefetch,
+                    enabled = canPausePrefetch,
+                ) {
+                    Icon(Icons.Filled.Pause, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(8.dp))
+                    Text(stringResource(R.string.action_pause_prefetch))
+                }
+                TextButton(
+                    onClick = onResumePrefetch,
+                    enabled = canResumePrefetch,
+                ) {
+                    Icon(Icons.Filled.PlayArrow, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(8.dp))
+                    Text(stringResource(R.string.action_resume_prefetch))
+                }
+                TextButton(
+                    onClick = onCancelPrefetch,
+                    enabled = canCancelPrefetch,
+                ) {
+                    Icon(Icons.Filled.Cancel, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(8.dp))
+                    Text(stringResource(R.string.action_cancel_prefetch))
+                }
+                TextButton(
+                    onClick = onRetryPrefetch,
+                    enabled = canRetryPrefetch,
+                ) {
+                    Icon(Icons.Filled.Refresh, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(8.dp))
+                    Text(stringResource(R.string.action_retry_prefetch))
                 }
                 TextButton(
                     onClick = onLoadCached,

@@ -2,6 +2,7 @@ package com.dongholab.pagetuner.translation
 
 import com.dongholab.pagetuner.document.ReaderPage
 import com.dongholab.pagetuner.document.TextSegment
+import java.net.URI
 
 data class TranslationSettings(
     val providerKind: TranslationProviderKind = TranslationProviderKind.GOOGLE_CLOUD,
@@ -89,4 +90,102 @@ data class PrefetchProgress(
 enum class PrefetchStage {
     PREPARING,
     SAVED,
+}
+
+enum class ProviderHealthState {
+    NotChecked,
+    Ready,
+    MissingConfiguration,
+    InvalidConfiguration,
+}
+
+data class ProviderHealthCheck(
+    val state: ProviderHealthState = ProviderHealthState.NotChecked,
+    val providerKind: TranslationProviderKind? = null,
+)
+
+fun TranslationSettings.checkProviderHealth(): ProviderHealthCheck {
+    return when (providerKind) {
+        TranslationProviderKind.GOOGLE_CLOUD -> {
+            if (apiKey.isBlank()) {
+                ProviderHealthCheck(
+                    state = ProviderHealthState.MissingConfiguration,
+                    providerKind = providerKind,
+                )
+            } else {
+                ProviderHealthCheck(state = ProviderHealthState.Ready, providerKind = providerKind)
+            }
+        }
+        TranslationProviderKind.OPENAI_COMPATIBLE_LLM -> {
+            when {
+                apiKey.isBlank() || normalizedLlmEndpoint.isBlank() || normalizedLlmModel.isBlank() ->
+                    ProviderHealthCheck(
+                        state = ProviderHealthState.MissingConfiguration,
+                        providerKind = providerKind,
+                    )
+                !normalizedLlmEndpoint.hasHttpUrlShape() ->
+                    ProviderHealthCheck(
+                        state = ProviderHealthState.InvalidConfiguration,
+                        providerKind = providerKind,
+                    )
+                else -> ProviderHealthCheck(state = ProviderHealthState.Ready, providerKind = providerKind)
+            }
+        }
+    }
+}
+
+enum class TranslationQueueItemStatus {
+    Pending,
+    Active,
+    Saved,
+    Failed,
+    Cancelled,
+}
+
+data class TranslationQueueItem(
+    val pageIndex: Int,
+    val pageNumber: Int,
+    val status: TranslationQueueItemStatus = TranslationQueueItemStatus.Pending,
+    val attempts: Int = 0,
+    val error: String? = null,
+)
+
+data class TranslationQueueState(
+    val items: List<TranslationQueueItem> = emptyList(),
+    val running: Boolean = false,
+    val paused: Boolean = false,
+    val cancelled: Boolean = false,
+    val retrying: Boolean = false,
+) {
+    val totalPages: Int
+        get() = items.size
+
+    val completedPages: Int
+        get() = items.count { it.status == TranslationQueueItemStatus.Saved }
+
+    val failedPages: Int
+        get() = items.count { it.status == TranslationQueueItemStatus.Failed }
+
+    val activePageNumber: Int?
+        get() = items.firstOrNull { it.status == TranslationQueueItemStatus.Active }?.pageNumber
+
+    val fraction: Float
+        get() = if (totalPages == 0) 0f else completedPages.toFloat() / totalPages.toFloat()
+
+    val canPause: Boolean
+        get() = running && !paused
+
+    val canResume: Boolean
+        get() = running && paused
+
+    val canCancel: Boolean
+        get() = running
+
+    val canRetry: Boolean
+        get() = !running && failedPages > 0
+}
+
+private fun String.hasHttpUrlShape(): Boolean {
+    val parsed = runCatching { URI(this) }.getOrNull() ?: return false
+    return parsed.scheme in setOf("http", "https") && !parsed.host.isNullOrBlank()
 }

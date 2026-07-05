@@ -78,6 +78,13 @@ not as source-code bases.
 - Reading-speed-based request pacing.
 - Fast mode for quicker translation.
 - Offline prefetch mode for saving translations ahead of time.
+- Whole-document offline prefetch runs through a visible translation queue.
+- Prefetch queue controls:
+  - pause
+  - resume
+  - cancel
+  - retry failed pages
+- Provider health check validates required Google/LLM settings before use.
 - JSON-file translation cache in app-private storage.
 - Cached page loading for offline reading.
 - Per-document translation cache status for the active provider/language pair.
@@ -150,9 +157,9 @@ app/build/outputs/apk/debug/app-debug.apk
 
 ## Suggested Next Steps
 
-1. Add the offline translation queue with pause/resume/cancel controls.
-2. Add provider health checks and retry handling.
-3. Add the PageTurner Web Catalog connector first, because it is easy to test
+1. Add the PageTurner Web Catalog connector first, because it is easy to test
    locally.
-4. Add secure credential storage before using real API keys in production.
+2. Add secure credential storage before using real API keys in production.
+3. Add EPUB embedded image rendering and display-mode processing.
+4. Add FTP and Google Drive connectors.
 5. Choose and add the project license before distribution.
