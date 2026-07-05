@@ -114,6 +114,12 @@ PageTurner는 전자잉크 단말기용 Android 리더 프로토타입입니다.
 ### 원격 서재 계획
 
 - 앱 안에 원격 서재 TODO 패널 추가.
+- Drive, FTP, 웹 카탈로그 connector를 위한 `RemoteBookSource` 인터페이스.
+- PageTurner Web Catalog v0.1 parser/source:
+  - relative URL 정규화
+  - 검색
+  - refresh
+  - 주입 가능한 download 처리
 - 예정 source:
   - Google Drive
   - FTP / FTPS
@@ -161,7 +167,7 @@ app/build/outputs/apk/debug/app-debug.apk
 
 ## 추천 다음 작업
 
-1. 로컬 테스트가 쉬운 PageTurner Web Catalog connector부터 구현.
+1. PageTurner Web Catalog 항목 import를 로컬 서재 UI에 연결.
 2. 실제 API 키 사용 전 안전한 credential storage 추가.
 3. EPUB embedded image 렌더링과 display mode 처리 추가.
 4. FTP와 Google Drive connector 추가.

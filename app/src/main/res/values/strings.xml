@@ -105,6 +105,7 @@
     <string name="source_web_catalog_description">A small JSON catalog for self-hosted libraries, with OPDS compatibility as the public interoperability target.</string>
     <string name="source_phase_todo">TODO</string>
     <string name="source_phase_spec_draft">SPEC</string>
+    <string name="source_phase_alpha">ALPHA</string>
     <string name="status_ready">Ready for Korean and English paced translation.</string>
     <string name="status_loaded_cached">Loaded saved translation for offline reading.</string>
     <string name="status_no_cached">No complete cached translation for this page yet.</string>

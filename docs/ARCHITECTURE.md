@@ -46,6 +46,8 @@ translation/
   -> TranslationViewModel for translation result, progress, cache status, and prefetch queue state
 
 source/
+  -> RemoteBookSource interface
+  -> PageTurner Web Catalog parser/source
   -> Remote library TODO model
 
 ui/

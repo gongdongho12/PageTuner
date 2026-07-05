@@ -105,6 +105,7 @@
     <string name="source_web_catalog_description">직접 호스팅하는 서재를 위한 작은 JSON 카탈로그이며, 공개 호환 목표는 OPDS입니다.</string>
     <string name="source_phase_todo">TODO</string>
     <string name="source_phase_spec_draft">규격</string>
+    <string name="source_phase_alpha">알파</string>
     <string name="status_ready">한국어와 영어 번역을 읽는 속도에 맞춰 준비했습니다.</string>
     <string name="status_loaded_cached">오프라인 읽기용 저장 번역을 불러왔습니다.</string>
     <string name="status_no_cached">이 쪽에는 아직 완성된 저장 번역이 없습니다.</string>

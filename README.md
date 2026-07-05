@@ -115,6 +115,9 @@ not as source-code bases.
 ### Remote Library Planning
 
 - In-app TODO panel for future remote library sources.
+- `RemoteBookSource` interface for Drive, FTP, and web catalog connectors.
+- PageTurner Web Catalog v0.1 parser/source with relative URL normalization,
+  search, refresh, and injectable download support.
 - Planned source types:
   - Google Drive
   - FTP / FTPS
@@ -162,8 +165,7 @@ app/build/outputs/apk/debug/app-debug.apk
 
 ## Suggested Next Steps
 
-1. Add the PageTurner Web Catalog connector first, because it is easy to test
-   locally.
+1. Wire PageTurner Web Catalog item import into the local library UI.
 2. Add secure credential storage before using real API keys in production.
 3. Add EPUB embedded image rendering and display-mode processing.
 4. Add FTP and Google Drive connectors.

@@ -127,16 +127,17 @@ translation and offline-first reading.
 
 ## P1: Remote Sources
 
-- Define `RemoteBookSource` interface.
+- Done: define `RemoteBookSource` interface.
   - connect
   - list
   - search
   - download
   - refresh
-- Implement PageTurner Web Catalog first.
-  - static `catalog.json`
-  - local HTTP test
-  - import selected item
+- Done: implement PageTurner Web Catalog first.
+  - done: static `catalog.json`
+  - done: parser/source abstraction
+  - pending: local HTTP fetch UI
+  - pending: import selected item
 - Implement FTP / FTPS source.
   - passive mode
   - username/password
@@ -233,7 +234,7 @@ translation and offline-first reading.
 
 1. Add local library and app-private file import.
 2. Add translation queue and cache management UI.
-3. Implement PageTurner Web Catalog source.
+3. Wire PageTurner Web Catalog import into the local library UI.
 4. Add FTP source.
 5. Add Google Drive source.
 6. Add secure credential storage.

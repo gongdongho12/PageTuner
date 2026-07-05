@@ -24,7 +24,7 @@ object RemoteSourceTodos {
         RemoteSourceTodo(
             titleRes = R.string.source_web_catalog_title,
             descriptionRes = R.string.source_web_catalog_description,
-            phaseRes = R.string.source_phase_spec_draft,
+            phaseRes = R.string.source_phase_alpha,
         ),
     )
 }

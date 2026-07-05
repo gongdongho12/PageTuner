@@ -104,8 +104,8 @@ tracks what still needs to be built.
 
 - [x] Draft PageTurner Web Catalog spec.
 - [x] Add static sample catalog.
-- [ ] Add `RemoteBookSource` interface.
-- [ ] Implement PageTurner Web Catalog connector.
+- [x] Add `RemoteBookSource` interface.
+- [x] Implement PageTurner Web Catalog connector.
 - [ ] Import book from web catalog.
 - [ ] Cache catalog metadata.
 - [ ] Add FTP / FTPS connector.
