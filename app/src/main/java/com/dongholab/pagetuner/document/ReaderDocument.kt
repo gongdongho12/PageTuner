@@ -7,6 +7,7 @@ data class ReaderDocument(
     val title: String,
     val format: DocumentFormat,
     val pages: List<ReaderPage>,
+    val tableOfContents: List<DocumentOutlineItem> = emptyList(),
 ) {
     val pageCount: Int = pages.size
 }
@@ -14,10 +15,18 @@ data class ReaderDocument(
 data class ReaderPage(
     val index: Int,
     val segments: List<TextSegment>,
+    val chapterTitle: String? = null,
+    val imageCount: Int = 0,
 ) {
     val plainText: String = segments.joinToString(separator = "\n\n") { it.text }
     val hasText: Boolean = segments.any { it.text.isNotBlank() }
 }
+
+data class DocumentOutlineItem(
+    val title: String,
+    val pageIndex: Int,
+    val level: Int = 1,
+)
 
 data class TextSegment(
     val id: String,

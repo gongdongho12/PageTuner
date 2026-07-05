@@ -57,10 +57,11 @@ tracks what still needs to be built.
 - [x] Markdown import and basic text paging.
 - [x] PDF page-image viewing.
 - [x] EPUB spine text extraction.
-- [ ] EPUB table of contents.
-- [ ] EPUB chapter navigation.
-- [ ] EPUB basic inline formatting.
-- [ ] EPUB image handling.
+- [x] EPUB table of contents.
+- [x] EPUB chapter navigation.
+- [x] EPUB basic inline formatting.
+- [x] EPUB image placeholders.
+- [ ] EPUB embedded image rendering.
 - [x] PDF text extraction.
 - [x] PDF text-to-page mapping for translation.
 - [x] OCR plan for scanned PDFs.
@@ -160,3 +161,4 @@ tracks what still needs to be built.
 - [x] Add local library metadata store.
 - [x] Copy imported files into app-private storage.
 - [x] Add PDF text extraction path.
+- [x] Add EPUB table of contents and chapter navigation.

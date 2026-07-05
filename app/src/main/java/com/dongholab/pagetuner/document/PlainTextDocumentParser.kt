@@ -4,16 +4,40 @@ object PlainTextDocumentParser {
     private const val TargetPageChars = 1_050
     private const val MaxSegmentChars = 520
 
+    data class TextChapter(
+        val title: String?,
+        val rawText: String,
+        val imageCount: Int = 0,
+    )
+
     fun parse(
         title: String,
         rawText: String,
         format: DocumentFormat = DocumentFormat.TEXT,
         fallbackTitle: String = "Untitled",
     ): ReaderDocument {
-        val cleaned = normalize(rawText, format)
-        val documentId = DocumentIds.stableId(title, cleaned)
-        val segments = splitIntoSegments(cleaned)
-        val pages = paginate(documentId, segments)
+        return parseChapters(
+            title = title,
+            chapters = listOf(TextChapter(title = null, rawText = rawText)),
+            format = format,
+            fallbackTitle = fallbackTitle,
+        )
+    }
+
+    fun parseChapters(
+        title: String,
+        chapters: List<TextChapter>,
+        format: DocumentFormat = DocumentFormat.TEXT,
+        fallbackTitle: String = "Untitled",
+    ): ReaderDocument {
+        val cleanedChapters = chapters.map { chapter ->
+            chapter.copy(rawText = normalize(chapter.rawText, format))
+        }
+        val documentBody = cleanedChapters.joinToString(separator = "\n\n") { chapter ->
+            listOfNotNull(chapter.title, chapter.rawText).joinToString("\n")
+        }
+        val documentId = DocumentIds.stableId(title, documentBody)
+        val pages = paginateChapters(documentId, cleanedChapters)
 
         return ReaderDocument(
             id = documentId,
@@ -34,6 +58,7 @@ object PlainTextDocumentParser {
                     ),
                 )
             },
+            tableOfContents = buildTableOfContents(pages),
         )
     }
 
@@ -89,10 +114,13 @@ object PlainTextDocumentParser {
         return chunks
     }
 
-    private fun paginate(documentId: String, sourceSegments: List<String>): List<ReaderPage> {
+    private fun paginateChapters(documentId: String, chapters: List<TextChapter>): List<ReaderPage> {
         val pages = mutableListOf<ReaderPage>()
         var current = mutableListOf<String>()
         var currentChars = 0
+        var currentChapterTitle: String? = null
+        var currentChapterImageCount = 0
+        var isFirstPageInChapter = true
 
         fun flush() {
             if (current.isEmpty()) return
@@ -105,21 +133,48 @@ object PlainTextDocumentParser {
                     text = text,
                 )
             }
-            pages += ReaderPage(index = pageIndex, segments = pageSegments)
+            pages += ReaderPage(
+                index = pageIndex,
+                segments = pageSegments,
+                chapterTitle = currentChapterTitle,
+                imageCount = if (isFirstPageInChapter) currentChapterImageCount else 0,
+            )
             current = mutableListOf()
             currentChars = 0
+            isFirstPageInChapter = false
         }
 
-        for (segment in sourceSegments) {
-            val nextChars = currentChars + segment.length
-            if (current.isNotEmpty() && nextChars > TargetPageChars) {
-                flush()
+        chapters.forEach { chapter ->
+            flush()
+            currentChapterTitle = chapter.title?.takeIf { it.isNotBlank() }
+            currentChapterImageCount = chapter.imageCount
+            isFirstPageInChapter = true
+
+            val sourceSegments = splitIntoSegments(chapter.rawText)
+            for (segment in sourceSegments) {
+                val nextChars = currentChars + segment.length
+                if (current.isNotEmpty() && nextChars > TargetPageChars) {
+                    flush()
+                }
+                current += segment
+                currentChars += segment.length
             }
-            current += segment
-            currentChars += segment.length
         }
         flush()
 
         return pages
+    }
+
+    private fun buildTableOfContents(pages: List<ReaderPage>): List<DocumentOutlineItem> {
+        val items = mutableListOf<DocumentOutlineItem>()
+        var lastTitle: String? = null
+        pages.forEach { page ->
+            val title = page.chapterTitle?.takeIf { it.isNotBlank() }
+            if (title != null && title != lastTitle) {
+                items += DocumentOutlineItem(title = title, pageIndex = page.index)
+                lastTitle = title
+            }
+        }
+        return items
     }
 }

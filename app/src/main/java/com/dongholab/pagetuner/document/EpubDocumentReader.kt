@@ -10,6 +10,12 @@ import org.xml.sax.InputSource
 import org.xml.sax.helpers.DefaultHandler
 
 object EpubDocumentReader {
+    private data class EpubChapter(
+        val title: String?,
+        val text: String,
+        val imageCount: Int,
+    )
+
     fun parse(
         title: String,
         bytes: ByteArray,
@@ -19,13 +25,26 @@ object EpubDocumentReader {
         val opfPath = parseContainerRootfile(containerXml)
         val opfXml = readZipEntry(bytes, opfPath).decodeToString()
         val chapters = parseSpineItems(opfXml, opfPath)
-            .mapNotNull { path -> readZipEntryOrNull(bytes, path)?.decodeToString() }
-            .map { extractXhtmlText(it) }
-            .filter { it.isNotBlank() }
+            .mapNotNull { path ->
+                readZipEntryOrNull(bytes, path)?.decodeToString()?.let { xhtml ->
+                    EpubChapter(
+                        title = extractChapterTitle(xhtml) ?: path.substringAfterLast('/'),
+                        text = extractXhtmlText(xhtml),
+                        imageCount = countImages(xhtml),
+                    )
+                }
+            }
+            .filter { chapter -> chapter.text.isNotBlank() || chapter.imageCount > 0 }
 
-        return PlainTextDocumentParser.parse(
+        return PlainTextDocumentParser.parseChapters(
             title = title,
-            rawText = chapters.joinToString(separator = "\n\n"),
+            chapters = chapters.map { chapter ->
+                PlainTextDocumentParser.TextChapter(
+                    title = chapter.title,
+                    rawText = chapter.text,
+                    imageCount = chapter.imageCount,
+                )
+            },
             format = DocumentFormat.EPUB,
             fallbackTitle = fallbackTitle,
         )
@@ -81,7 +100,20 @@ object EpubDocumentReader {
                 ) {
                     val name = (localName?.takeIf { it.isNotBlank() } ?: qName).orEmpty().lowercase()
                     if (name in setOf("script", "style", "svg", "nav")) ignored += name
-                    if (ignored.isEmpty() && name in blockElements) builder.append('\n')
+                    if (ignored.isNotEmpty()) return
+
+                    when {
+                        name in headingElements -> {
+                            val level = name.removePrefix("h").toIntOrNull()?.coerceIn(1, 6) ?: 1
+                            builder.append('\n').append("#".repeat(level)).append(' ')
+                        }
+                        name == "li" -> builder.append("\n- ")
+                        name == "img" -> builder.append('\n')
+                            .append(imagePlaceholder(attributes?.getValue("alt")))
+                            .append('\n')
+                        name == "br" -> builder.append('\n')
+                        name in blockElements -> builder.append('\n')
+                    }
                 }
 
                 override fun endElement(uri: String?, localName: String?, qName: String?) {
@@ -104,6 +136,9 @@ object EpubDocumentReader {
             normalizeWhitespace(
                 xhtml
                     .replace(Regex("(?is)<(script|style|svg|nav).*?</\\1>"), " ")
+                    .replace(Regex("(?is)<img\\b[^>]*alt=[\"']([^\"']*)[\"'][^>]*>"), "\n[Image: $1]\n")
+                    .replace(Regex("(?is)<img\\b[^>]*>"), "\n[Image]\n")
+                    .replace(Regex("(?is)<li\\b[^>]*>"), "\n- ")
                     .replace(Regex("(?is)<br\\s*/?>"), "\n")
                     .replace(Regex("(?is)</(p|div|h[1-6]|li|section|article)>"), "\n")
                     .replace(Regex("(?is)<[^>]+>"), " "),
@@ -118,6 +153,22 @@ object EpubDocumentReader {
             .filter { it.isNotBlank() }
             .joinToString("\n\n")
             .trim()
+    }
+
+    private fun extractChapterTitle(xhtml: String): String? {
+        val titlePattern = Regex("(?is)<h[1-6][^>]*>(.*?)</h[1-6]>|<title[^>]*>(.*?)</title>")
+        val match = titlePattern.find(xhtml) ?: return null
+        return normalizeWhitespace(match.groupValues.drop(1).firstOrNull { it.isNotBlank() }.orEmpty())
+            .takeIf { it.isNotBlank() }
+    }
+
+    private fun countImages(xhtml: String): Int {
+        return Regex("(?is)<img\\b").findAll(xhtml).count()
+    }
+
+    private fun imagePlaceholder(alt: String?): String {
+        val label = alt?.trim()?.takeIf { it.isNotBlank() }
+        return if (label == null) "[Image]" else "[Image: $label]"
     }
 
     private fun parseXml(inputStream: InputStream): org.w3c.dom.Document {
@@ -172,4 +223,6 @@ object EpubDocumentReader {
         "section",
         "article",
     )
+
+    private val headingElements = setOf("h1", "h2", "h3", "h4", "h5", "h6")
 }

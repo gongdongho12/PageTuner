@@ -9,9 +9,12 @@
     <string name="format_pdf">pdf</string>
     <string name="format_epub">epub</string>
     <string name="format_page_count">%1$s · page %2$d/%3$d</string>
+    <string name="chapter_label">Chapter: %1$s</string>
     <string name="action_open">Open</string>
     <string name="action_previous">Previous</string>
     <string name="action_next">Next</string>
+    <string name="action_previous_chapter">Prev chapter</string>
+    <string name="action_next_chapter">Next chapter</string>
     <string name="action_show_details">Show document details</string>
     <string name="action_hide_controls">Hide controls</string>
     <string name="action_show_controls">Show controls</string>
@@ -107,4 +110,6 @@
     <string name="status_generic_error">Something went wrong while preparing translation.</string>
     <string name="status_first_page">This is the first page.</string>
     <string name="status_last_page">This is the last page.</string>
+    <string name="status_first_chapter">This is the first chapter.</string>
+    <string name="status_last_chapter">This is the last chapter.</string>
 </resources>

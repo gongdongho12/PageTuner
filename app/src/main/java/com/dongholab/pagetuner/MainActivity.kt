@@ -133,6 +133,18 @@ fun PageTurnerApp() {
     val sourceLanguage = readerSettings.sourceLanguage
     val targetLanguage = readerSettings.targetLanguage
     val currentPage = document.pages[pageIndex.coerceIn(0, document.pages.lastIndex)]
+    val tableOfContents = document.tableOfContents
+    val currentChapterIndex = tableOfContents.indexOfLast { outline ->
+        outline.pageIndex <= currentPage.index
+    }
+    val currentChapterTitle = tableOfContents.getOrNull(currentChapterIndex)?.title
+        ?: currentPage.chapterTitle
+    val canPreviousChapter = currentChapterIndex > 0
+    val canNextChapter = when {
+        tableOfContents.isEmpty() -> false
+        currentChapterIndex == -1 -> true
+        else -> currentChapterIndex < tableOfContents.lastIndex
+    }
     val currentBook = localBooks.firstOrNull { it.id == currentBookId }
     val providerStatusText = when {
         settingsProviderConfigured(
@@ -260,6 +272,30 @@ fun PageTurnerApp() {
 
     fun nextPage() {
         changePage(pageIndex + 1)
+    }
+
+    fun previousChapter() {
+        if (!canPreviousChapter) {
+            statusText = context.getString(R.string.status_first_chapter)
+            return
+        }
+        changePage(tableOfContents[currentChapterIndex - 1].pageIndex)
+    }
+
+    fun nextChapter() {
+        val nextChapterIndex = when {
+            tableOfContents.isEmpty() -> null
+            currentChapterIndex == -1 -> 0
+            currentChapterIndex < tableOfContents.lastIndex -> currentChapterIndex + 1
+            else -> null
+        }
+
+        if (nextChapterIndex == null) {
+            statusText = context.getString(R.string.status_last_chapter)
+            return
+        }
+
+        changePage(tableOfContents[nextChapterIndex].pageIndex)
     }
 
     fun handleReaderKey(key: Key): Boolean {
@@ -549,8 +585,13 @@ fun PageTurnerApp() {
                 pageIndex = pageIndex,
                 pageCount = document.pageCount,
                 busy = busy,
+                currentChapterTitle = currentChapterTitle,
+                canPreviousChapter = canPreviousChapter,
+                canNextChapter = canNextChapter,
                 onPrevious = ::previousPage,
                 onNext = ::nextPage,
+                onPreviousChapter = ::previousChapter,
+                onNextChapter = ::nextChapter,
             )
             ReaderSurface(
                 page = currentPage,

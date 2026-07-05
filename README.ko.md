@@ -30,7 +30,10 @@ PageTurner는 전자잉크 단말기용 Android 리더 프로토타입입니다.
 - Android `PdfRenderer` 기반 PDF 열기와 페이지 이미지 보기.
 - Android 15+에서는 PDF native 텍스트 추출을 사용해 페이지별 세그먼트로
   매핑하고 번역/검색 흐름에 연결합니다.
-- EPUB package OPF spine을 읽어 텍스트 페이지로 정규화.
+- EPUB package OPF spine을 읽어 텍스트 페이지로 정규화하고 목차 항목 생성.
+- EPUB 챕터 라벨과 이전/다음 챕터 이동.
+- 전자잉크에서 빠르게 읽을 수 있도록 EPUB heading/list 줄바꿈과 이미지
+  자리표시자 보존.
 - 문서를 페이지와 문단 세그먼트로 정규화하는 내부 모델.
 - 가져온 책을 보여주는 로컬 서재 패널.
 - 가져온 책은 오프라인에서 다시 열 수 있도록 앱 내부 저장소에 복사됩니다.
@@ -119,8 +122,8 @@ PageTurner는 전자잉크 단말기용 Android 리더 프로토타입입니다.
 
 - PDF native 텍스트 추출은 Android 15+ 플랫폼 API에 의존합니다. 스캔 PDF는
   아직 OCR 구현이 필요합니다.
-- EPUB은 기본 텍스트 우선 리더입니다. 복잡한 레이아웃, 임베디드 미디어, 커스텀
-  폰트, 고급 CSS 렌더링은 아직 지원하지 않습니다.
+- EPUB은 텍스트 우선 리더입니다. 복잡한 레이아웃, 실제 임베디드 미디어 렌더링,
+  커스텀 폰트, 고급 CSS 렌더링은 아직 지원하지 않습니다.
 - Google Drive, FTP, 웹 카탈로그 connector는 아직 TODO/계획 단계입니다.
 - API 키는 세션 중 화면에서 입력하며 아직 저장하지 않습니다. 제품화 전에는 더
   안전한 credential storage가 필요합니다.
@@ -141,8 +144,8 @@ app/build/outputs/apk/debug/app-debug.apk
 
 ## 추천 다음 작업
 
-1. 가져온 파일을 앱 내부 저장소로 복사하고 최근 책을 복원하는 로컬 서재 추가.
-2. 기존 `ReaderDocument` 모델에 PDF/EPUB reader adapter 연결.
+1. 설정, 리더, 번역 상태를 ViewModel 경계로 분리.
+2. 일시정지/재개/취소가 가능한 오프라인 번역 큐 추가.
 3. 로컬 테스트가 쉬운 PageTurner Web Catalog connector부터 구현.
 4. 실제 API 키 사용 전 안전한 credential storage 추가.
 5. 배포 전 프로젝트 라이선스 선택 및 추가.

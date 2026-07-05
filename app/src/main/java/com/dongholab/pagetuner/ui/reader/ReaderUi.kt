@@ -94,6 +94,15 @@ fun ReaderHeader(
                 style = MaterialTheme.typography.bodyMedium,
                 color = EinkMuted,
             )
+            page.chapterTitle?.takeIf { it.isNotBlank() }?.let { title ->
+                Text(
+                    text = stringResource(R.string.chapter_label, title),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = EinkMuted,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
         }
         Row(
             horizontalArrangement = Arrangement.spacedBy(4.dp),
@@ -140,33 +149,73 @@ fun ReaderPager(
     pageIndex: Int,
     pageCount: Int,
     busy: Boolean,
+    currentChapterTitle: String?,
+    canPreviousChapter: Boolean,
+    canNextChapter: Boolean,
     onPrevious: () -> Unit,
     onNext: () -> Unit,
+    onPreviousChapter: () -> Unit,
+    onNextChapter: () -> Unit,
 ) {
-    Row(
+    Column(
         modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically,
+        verticalArrangement = Arrangement.spacedBy(2.dp),
     ) {
-        TextButton(
-            onClick = onPrevious,
-            enabled = !busy && pageIndex > 0,
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
         ) {
-            Icon(Icons.AutoMirrored.Filled.KeyboardArrowLeft, contentDescription = null)
-            Text(stringResource(R.string.action_previous))
+            TextButton(
+                onClick = onPrevious,
+                enabled = !busy && pageIndex > 0,
+            ) {
+                Icon(Icons.AutoMirrored.Filled.KeyboardArrowLeft, contentDescription = null)
+                Text(stringResource(R.string.action_previous))
+            }
+            Text(
+                text = "${pageIndex + 1} / $pageCount",
+                style = MaterialTheme.typography.titleMedium,
+                color = EinkInk,
+                fontFamily = FontFamily.Monospace,
+            )
+            TextButton(
+                onClick = onNext,
+                enabled = !busy && pageIndex < pageCount - 1,
+            ) {
+                Text(stringResource(R.string.action_next))
+                Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null)
+            }
         }
-        Text(
-            text = "${pageIndex + 1} / $pageCount",
-            style = MaterialTheme.typography.titleMedium,
-            color = EinkInk,
-            fontFamily = FontFamily.Monospace,
-        )
-        TextButton(
-            onClick = onNext,
-            enabled = !busy && pageIndex < pageCount - 1,
-        ) {
-            Text(stringResource(R.string.action_next))
-            Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null)
+        currentChapterTitle?.takeIf { it.isNotBlank() }?.let { title ->
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                TextButton(
+                    onClick = onPreviousChapter,
+                    enabled = !busy && canPreviousChapter,
+                ) {
+                    Icon(Icons.AutoMirrored.Filled.KeyboardArrowLeft, contentDescription = null)
+                    Text(stringResource(R.string.action_previous_chapter))
+                }
+                Text(
+                    modifier = Modifier.weight(1f),
+                    text = title,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = EinkMuted,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                TextButton(
+                    onClick = onNextChapter,
+                    enabled = !busy && canNextChapter,
+                ) {
+                    Text(stringResource(R.string.action_next_chapter))
+                    Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null)
+                }
+            }
         }
     }
 }

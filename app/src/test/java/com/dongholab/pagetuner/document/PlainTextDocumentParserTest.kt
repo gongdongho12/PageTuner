@@ -41,4 +41,25 @@ class PlainTextDocumentParserTest {
         assertEquals(0, document.pages.first().index)
         assertEquals(1, document.pages[1].index)
     }
+
+    @Test
+    fun buildsTableOfContentsForChapterInput() {
+        val document = PlainTextDocumentParser.parseChapters(
+            title = "Book",
+            chapters = listOf(
+                PlainTextDocumentParser.TextChapter(
+                    title = "One",
+                    rawText = "Alpha paragraph.",
+                ),
+                PlainTextDocumentParser.TextChapter(
+                    title = "Two",
+                    rawText = "Beta paragraph.",
+                ),
+            ),
+        )
+
+        assertEquals(listOf("One", "Two"), document.tableOfContents.map { it.title })
+        assertEquals("One", document.pages[0].chapterTitle)
+        assertEquals("Two", document.pages[1].chapterTitle)
+    }
 }

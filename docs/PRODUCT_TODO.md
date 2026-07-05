@@ -53,11 +53,12 @@ translation and offline-first reading.
   - lists
   - code blocks as readable text
 - EPUB viewer.
-  - OPF spine parsing
-  - chapter navigation
-  - table of contents
-  - basic inline formatting
-  - image placeholder or image rendering
+  - done: OPF spine parsing
+  - done: chapter navigation
+  - done: table of contents
+  - done: basic heading/list text normalization
+  - done: image placeholders
+  - pending: embedded image rendering
   - better HTML entity handling
 - PDF viewer.
   - page image rendering
@@ -190,7 +191,7 @@ translation and offline-first reading.
 
 ## P2: Advanced Reader Features
 
-- Table of contents for EPUB.
+- EPUB embedded image rendering.
 - PDF outline/bookmarks.
 - Highlights.
 - Notes.
@@ -226,12 +227,12 @@ translation and offline-first reading.
 ## Suggested Implementation Order
 
 1. Add local library and app-private file import.
-2. Improve EPUB chapter/TOC support.
-3. Add settings and reader ViewModel boundaries.
-4. Add translation queue and cache management UI.
-5. Implement PageTurner Web Catalog source.
-6. Add FTP source.
-7. Add Google Drive source.
-8. Add secure credential storage.
-9. Add release/license/privacy groundwork.
-10. Add instrumented tests for import and reader navigation.
+2. Add settings and reader ViewModel boundaries.
+3. Add translation queue and cache management UI.
+4. Implement PageTurner Web Catalog source.
+5. Add FTP source.
+6. Add Google Drive source.
+7. Add secure credential storage.
+8. Add release/license/privacy groundwork.
+9. Add instrumented tests for import and reader navigation.
+10. Add EPUB embedded image rendering and display-mode processing.

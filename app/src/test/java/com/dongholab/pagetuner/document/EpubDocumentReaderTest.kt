@@ -35,12 +35,17 @@ class EpubDocumentReaderTest {
                 """.trimIndent(),
                 "OEBPS/chapter1.xhtml" to """
                     <html xmlns="http://www.w3.org/1999/xhtml">
-                      <body><h1>First</h1><p>Hello page.</p></body>
+                      <body>
+                        <h1>First</h1>
+                        <p>Hello page.</p>
+                        <ul><li>Point one</li></ul>
+                        <img alt="Map" src="images/map.png"/>
+                      </body>
                     </html>
                 """.trimIndent(),
                 "OEBPS/text/chapter2.xhtml" to """
                     <html xmlns="http://www.w3.org/1999/xhtml">
-                      <body><p>Second chapter.</p></body>
+                      <body><h2>Second</h2><p>Second chapter.</p></body>
                     </html>
                 """.trimIndent(),
             ),
@@ -54,8 +59,14 @@ class EpubDocumentReaderTest {
 
         assertEquals(DocumentFormat.EPUB, document.format)
         assertTrue(document.pages.isNotEmpty())
-        assertTrue(document.pages.joinToString("\n") { it.plainText }.contains("Hello page."))
-        assertTrue(document.pages.joinToString("\n") { it.plainText }.contains("Second chapter."))
+        assertEquals(listOf("First", "Second"), document.tableOfContents.map { it.title })
+        assertEquals("First", document.pages.first().chapterTitle)
+
+        val body = document.pages.joinToString("\n") { it.plainText }
+        assertTrue(body.contains("Hello page."))
+        assertTrue(body.contains("- Point one"))
+        assertTrue(body.contains("[Image: Map]"))
+        assertTrue(body.contains("Second chapter."))
     }
 
     private fun buildEpub(entries: Map<String, String>): ByteArray {

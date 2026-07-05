@@ -32,7 +32,11 @@ not as source-code bases.
 - PDF import and page-image viewing through Android `PdfRenderer`.
 - PDF native text extraction on Android 15+ maps extracted text back to
   per-page segments for translation and search workflows.
-- EPUB import through the package OPF spine, normalized into text pages.
+- EPUB import through the package OPF spine, normalized into text pages with
+  generated table-of-contents entries.
+- EPUB chapter labels and previous/next chapter navigation.
+- EPUB text normalization preserves basic heading/list breaks and image
+  placeholders for fast e-ink reading.
 - Internal document model normalized into pages and text segments.
 - Local library panel for imported books.
 - Imported books are copied into app-private storage for offline reopening.
@@ -118,7 +122,7 @@ not as source-code bases.
 
 - PDF native text extraction depends on Android 15+ platform APIs. Scanned PDFs
   still need OCR implementation.
-- EPUB support is a basic text-first reader. Complex layout, embedded media,
+- EPUB support is a text-first reader. Complex layout, rendered embedded media,
   custom fonts, and advanced CSS are not rendered yet.
 - Google Drive, FTP, and web catalog connectors are TODO/planning items.
 - API keys are entered per session and are not persisted yet; production storage
@@ -140,10 +144,8 @@ app/build/outputs/apk/debug/app-debug.apk
 
 ## Suggested Next Steps
 
-1. Add a local library that copies imports into app-private storage and restores
-   recent books.
-2. Add full PDF and EPUB reader adapters into the existing `ReaderDocument`
-   model.
+1. Add settings, reader, and translation ViewModel boundaries.
+2. Add the offline translation queue with pause/resume/cancel controls.
 3. Add the PageTurner Web Catalog connector first, because it is easy to test
    locally.
 4. Add secure credential storage before using real API keys in production.

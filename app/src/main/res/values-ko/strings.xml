@@ -9,9 +9,12 @@
     <string name="format_pdf">PDF</string>
     <string name="format_epub">EPUB</string>
     <string name="format_page_count">%1$s · %2$d/%3$d쪽</string>
+    <string name="chapter_label">챕터: %1$s</string>
     <string name="action_open">열기</string>
     <string name="action_previous">이전</string>
     <string name="action_next">다음</string>
+    <string name="action_previous_chapter">이전 챕터</string>
+    <string name="action_next_chapter">다음 챕터</string>
     <string name="action_show_details">문서 상세 보기</string>
     <string name="action_hide_controls">컨트롤 숨기기</string>
     <string name="action_show_controls">컨트롤 보이기</string>
@@ -107,4 +110,6 @@
     <string name="status_generic_error">번역을 준비하는 중 문제가 발생했습니다.</string>
     <string name="status_first_page">첫 쪽입니다.</string>
     <string name="status_last_page">마지막 쪽입니다.</string>
+    <string name="status_first_chapter">첫 챕터입니다.</string>
+    <string name="status_last_chapter">마지막 챕터입니다.</string>
 </resources>
