@@ -216,6 +216,8 @@ fun PageTurnerApp() {
         ) -> stringResource(R.string.provider_status_ready)
         providerKind == TranslationProviderKind.GOOGLE_CLOUD ->
             stringResource(R.string.provider_status_missing_google_key)
+        providerKind == TranslationProviderKind.GOOGLE_WEB_TRANSLATE_HTML ->
+            stringResource(R.string.provider_status_missing_google_web_key)
         else -> stringResource(R.string.provider_status_missing_llm_settings)
     }
     val translationCacheStatusText = translationCacheStatus?.let { cacheStatus ->
@@ -1008,6 +1010,8 @@ private fun ProviderHealthCheck.localizedMessage(context: Context): String {
         ProviderHealthState.MissingConfiguration -> when (providerKind) {
             TranslationProviderKind.GOOGLE_CLOUD ->
                 context.getString(R.string.provider_health_missing_google_key)
+            TranslationProviderKind.GOOGLE_WEB_TRANSLATE_HTML ->
+                context.getString(R.string.provider_health_missing_google_web_key)
             TranslationProviderKind.OPENAI_COMPATIBLE_LLM ->
                 context.getString(R.string.provider_health_missing_llm_settings)
             null -> context.getString(R.string.provider_health_missing_settings)
@@ -1160,6 +1164,7 @@ private fun settingsProviderConfigured(
 ): Boolean {
     return when (providerKind) {
         TranslationProviderKind.GOOGLE_CLOUD -> apiKey.isNotBlank()
+        TranslationProviderKind.GOOGLE_WEB_TRANSLATE_HTML -> apiKey.isNotBlank()
         TranslationProviderKind.OPENAI_COMPATIBLE_LLM ->
             apiKey.isNotBlank() && llmEndpoint.isNotBlank() && llmModel.isNotBlank()
     }

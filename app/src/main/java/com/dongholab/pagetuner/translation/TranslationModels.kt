@@ -30,6 +30,7 @@ data class TranslationSettings(
     val isProviderConfigured: Boolean
         get() = when (providerKind) {
             TranslationProviderKind.GOOGLE_CLOUD -> apiKey.isNotBlank()
+            TranslationProviderKind.GOOGLE_WEB_TRANSLATE_HTML -> apiKey.isNotBlank()
             TranslationProviderKind.OPENAI_COMPATIBLE_LLM ->
                 apiKey.isNotBlank() && normalizedLlmEndpoint.isNotBlank() && normalizedLlmModel.isNotBlank()
         }
@@ -37,6 +38,7 @@ data class TranslationSettings(
 
 enum class TranslationProviderKind {
     GOOGLE_CLOUD,
+    GOOGLE_WEB_TRANSLATE_HTML,
     OPENAI_COMPATIBLE_LLM,
 }
 
@@ -107,6 +109,16 @@ data class ProviderHealthCheck(
 fun TranslationSettings.checkProviderHealth(): ProviderHealthCheck {
     return when (providerKind) {
         TranslationProviderKind.GOOGLE_CLOUD -> {
+            if (apiKey.isBlank()) {
+                ProviderHealthCheck(
+                    state = ProviderHealthState.MissingConfiguration,
+                    providerKind = providerKind,
+                )
+            } else {
+                ProviderHealthCheck(state = ProviderHealthState.Ready, providerKind = providerKind)
+            }
+        }
+        TranslationProviderKind.GOOGLE_WEB_TRANSLATE_HTML -> {
             if (apiKey.isBlank()) {
                 ProviderHealthCheck(
                     state = ProviderHealthState.MissingConfiguration,

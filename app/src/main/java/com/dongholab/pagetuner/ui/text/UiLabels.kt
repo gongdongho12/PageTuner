@@ -46,12 +46,14 @@ fun TranslationProviderKind.localizedLabel(): String {
 val TranslationProviderKind.labelRes: Int
     @StringRes get() = when (this) {
         TranslationProviderKind.GOOGLE_CLOUD -> R.string.provider_google_cloud
+        TranslationProviderKind.GOOGLE_WEB_TRANSLATE_HTML -> R.string.provider_google_web_translate_html
         TranslationProviderKind.OPENAI_COMPATIBLE_LLM -> R.string.provider_openai_compatible_llm
     }
 
 val TranslationProviderKind.apiKeyLabelRes: Int
     @StringRes get() = when (this) {
         TranslationProviderKind.GOOGLE_CLOUD -> R.string.field_google_api_key
+        TranslationProviderKind.GOOGLE_WEB_TRANSLATE_HTML -> R.string.field_google_web_api_key
         TranslationProviderKind.OPENAI_COMPATIBLE_LLM -> R.string.field_llm_api_key
     }
 

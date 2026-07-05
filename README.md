@@ -80,12 +80,16 @@ not as source-code bases.
 - Translation is separated behind a `TranslationProvider` interface.
 - Current provider options:
   - Google Cloud Translation API
+  - Google Web Translate HTML endpoint
   - OpenAI-compatible LLM API
+- Google Web Translate HTML provider uses a user-supplied API key and does not
+  embed copied browser/session headers in source.
 - LLM provider accepts:
   - API key
   - chat-completions-compatible endpoint
   - model name
-- Provider-specific cache keys keep Google and LLM translation results separate.
+- Provider-specific cache keys keep Google, Google Web HTML, and LLM
+  translation results separate.
 - Korean and English translation presets:
   - auto to Korean
   - English to Korean
@@ -100,7 +104,8 @@ not as source-code bases.
   - resume
   - cancel
   - retry failed pages
-- Provider health check validates required Google/LLM settings before use.
+- Provider health check validates required Google, Google Web HTML, and LLM
+  settings before use.
 - JSON-file translation cache in app-private storage.
 - Cached page loading for offline reading.
 - Per-document translation cache status for the active provider/language pair.

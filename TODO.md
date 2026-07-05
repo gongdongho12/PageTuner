@@ -86,6 +86,7 @@ tracks what still needs to be built.
 
 - [x] Add `TranslationProvider` interface.
 - [x] Add Google Cloud provider.
+- [x] Add Google Web Translate HTML provider.
 - [x] Add OpenAI-compatible LLM provider.
 - [x] Separate cache by provider id.
 - [x] Add reading-speed pacing.

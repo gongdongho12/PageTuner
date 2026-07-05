@@ -10,6 +10,14 @@ pagination, pacing, and offline cache do not depend on a single vendor.
   - Input: Google Cloud Translation API key
   - Best for deterministic machine translation.
 
+- `GOOGLE_WEB_TRANSLATE_HTML`
+  - Provider: `GoogleWebTranslateHtmlProvider`
+  - Input: Google Web Translate API key
+  - Endpoint: `https://translate-pa.googleapis.com/v1/translateHtml`
+  - Best for HTML-segment translation using the web translate request shape.
+  - The app does not embed copied API keys, browser validation headers, or
+    session-specific headers in source.
+
 - `OPENAI_COMPATIBLE_LLM`
   - Provider: `OpenAiCompatibleLlmTranslationProvider`
   - Input: API key, chat-completions endpoint, model name
@@ -27,8 +35,9 @@ To add another provider:
 5. Add provider UI fields in `TranslationControls` only if the provider needs
    extra configuration.
 
-The cache key includes `provider.id`, so results from Google, LLM, and future
-providers stay separated even when document, page, and language pair match.
+The cache key includes `provider.id`, so results from Google Cloud, Google Web
+HTML, LLM, and future providers stay separated even when document, page, and
+language pair match.
 
 ## Provider Contract
 

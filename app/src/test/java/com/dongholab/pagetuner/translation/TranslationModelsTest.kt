@@ -23,6 +23,22 @@ class TranslationModelsTest {
     }
 
     @Test
+    fun checksGoogleWebTranslateProviderConfiguration() {
+        val missing = TranslationSettings(
+            providerKind = TranslationProviderKind.GOOGLE_WEB_TRANSLATE_HTML,
+            apiKey = "",
+        ).checkProviderHealth()
+
+        val ready = TranslationSettings(
+            providerKind = TranslationProviderKind.GOOGLE_WEB_TRANSLATE_HTML,
+            apiKey = "key",
+        ).checkProviderHealth()
+
+        assertEquals(ProviderHealthState.MissingConfiguration, missing.state)
+        assertEquals(ProviderHealthState.Ready, ready.state)
+    }
+
+    @Test
     fun validatesLlmEndpointShape() {
         val invalid = TranslationSettings(
             providerKind = TranslationProviderKind.OPENAI_COMPATIBLE_LLM,
