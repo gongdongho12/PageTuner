@@ -33,6 +33,7 @@
     <string name="field_note_text">노트</string>
     <string name="action_add_highlight">쪽 하이라이트</string>
     <string name="action_add_note">노트 추가</string>
+    <string name="action_export_annotations">내보내기</string>
     <string name="action_delete_annotation">주석 삭제</string>
     <string name="annotations_empty">하이라이트와 노트가 여기에 표시됩니다.</string>
     <string name="annotation_highlight_label">하이라이트 · %1$d쪽</string>
@@ -181,6 +182,7 @@
     <string name="status_note_empty">저장할 노트를 먼저 입력하세요.</string>
     <string name="status_opened_annotation">%1$d쪽 주석을 열었습니다.</string>
     <string name="status_deleted_annotation">주석을 삭제했습니다.</string>
+    <string name="status_exported_annotations">하이라이트와 노트 내보내기를 준비했습니다.</string>
     <string name="status_web_catalog_idle">웹 카탈로그를 사용할 수 있습니다.</string>
     <string name="status_web_catalog_loading">웹 카탈로그를 불러오는 중입니다.</string>
     <string name="status_web_catalog_missing_url">카탈로그 URL이 필요합니다.</string>

@@ -33,6 +33,7 @@
     <string name="field_note_text">Note</string>
     <string name="action_add_highlight">Highlight Page</string>
     <string name="action_add_note">Add Note</string>
+    <string name="action_export_annotations">Export</string>
     <string name="action_delete_annotation">Delete annotation</string>
     <string name="annotations_empty">Highlights and notes will appear here.</string>
     <string name="annotation_highlight_label">Highlight · page %1$d</string>
@@ -181,6 +182,7 @@
     <string name="status_note_empty">Write a note before saving.</string>
     <string name="status_opened_annotation">Opened annotation on page %1$d.</string>
     <string name="status_deleted_annotation">Deleted annotation.</string>
+    <string name="status_exported_annotations">Prepared highlights and notes export.</string>
     <string name="status_web_catalog_idle">Web catalog is ready.</string>
     <string name="status_web_catalog_loading">Loading web catalog.</string>
     <string name="status_web_catalog_missing_url">Catalog URL is required.</string>

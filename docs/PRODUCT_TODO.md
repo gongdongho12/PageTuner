@@ -40,6 +40,7 @@ translation and offline-first reading.
   - done: note text
   - done: annotation list per document
   - done: persist annotation list per local book
+  - done: export notes/highlights through Android share
 - Done: add reader preferences.
   - display mode
   - font size
@@ -206,10 +207,10 @@ translation and offline-first reading.
 
 - Advanced EPUB image layout controls.
 - PDF outline/bookmarks.
-- Highlights.
-- Notes.
+- Advanced text-range highlights.
+- Advanced notes.
 - Dictionary lookup.
-- Export notes/highlights.
+- Advanced notes/highlights export formats.
 - Per-book reading settings.
 - Theme profiles.
   - high contrast

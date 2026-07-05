@@ -1,3 +1,5 @@
+@file:OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
+
 package com.dongholab.pagetuner.ui.reader
 
 import android.graphics.Bitmap
@@ -9,6 +11,7 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -480,6 +483,7 @@ fun ReaderAnnotationPanel(
     onNoteDraftChange: (String) -> Unit,
     onAddHighlight: () -> Unit,
     onAddNote: () -> Unit,
+    onExportAnnotations: () -> Unit,
     onOpenAnnotation: (ReaderAnnotation) -> Unit,
     onRemoveAnnotation: (ReaderAnnotation) -> Unit,
 ) {
@@ -512,10 +516,10 @@ fun ReaderAnnotationPanel(
                 minLines = 1,
                 maxLines = 3,
             )
-            Row(
+            FlowRow(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalAlignment = Alignment.CenterVertically,
+                verticalArrangement = Arrangement.spacedBy(4.dp),
             ) {
                 Button(
                     onClick = onAddHighlight,
@@ -533,6 +537,14 @@ fun ReaderAnnotationPanel(
                     Icon(Icons.Filled.Edit, contentDescription = null, modifier = Modifier.size(18.dp))
                     Spacer(Modifier.width(8.dp))
                     Text(stringResource(R.string.action_add_note))
+                }
+                TextButton(
+                    onClick = onExportAnnotations,
+                    enabled = !busy && annotations.isNotEmpty(),
+                ) {
+                    Icon(Icons.Filled.Edit, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(8.dp))
+                    Text(stringResource(R.string.action_export_annotations))
                 }
             }
             if (annotations.isEmpty()) {

@@ -123,7 +123,7 @@ tracks what still needs to be built.
 - [x] Persist bookmarks per local book.
 - [x] Add highlights.
 - [x] Add notes.
-- [ ] Export notes/highlights.
+- [x] Export notes/highlights.
 
 ## P1: Error Handling
 

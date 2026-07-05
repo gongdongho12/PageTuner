@@ -1,6 +1,7 @@
 package com.dongholab.pagetuner
 
 import android.content.Context
+import android.content.Intent
 import android.graphics.Bitmap
 import android.net.Uri
 import android.os.Bundle
@@ -52,6 +53,7 @@ import com.dongholab.pagetuner.library.LocalBookBookmark
 import com.dongholab.pagetuner.library.LocalLibraryStore
 import com.dongholab.pagetuner.reader.PageTurnMode
 import com.dongholab.pagetuner.reader.ReaderAnnotation
+import com.dongholab.pagetuner.reader.ReaderAnnotationExport
 import com.dongholab.pagetuner.reader.ReaderAnnotationType
 import com.dongholab.pagetuner.reader.ReaderBookmark
 import com.dongholab.pagetuner.reader.ReaderPageMoveResult
@@ -418,6 +420,27 @@ fun PageTurnerApp() {
         appStatusText = context.getString(R.string.status_deleted_annotation)
     }
 
+    fun exportAnnotations() {
+        if (busy) return
+        val exportText = ReaderAnnotationExport.buildText(
+            document = document,
+            annotations = annotations,
+        )
+        val sendIntent = Intent(Intent.ACTION_SEND).apply {
+            type = "text/plain"
+            putExtra(Intent.EXTRA_SUBJECT, document.title)
+            putExtra(Intent.EXTRA_TEXT, exportText)
+        }
+        context.startActivity(
+            Intent.createChooser(
+                sendIntent,
+                context.getString(R.string.action_export_annotations),
+            ),
+        )
+        translationViewModel.clearStatus()
+        appStatusText = context.getString(R.string.status_exported_annotations)
+    }
+
     fun previousPage() {
         changePage(pageIndex - 1)
     }
@@ -747,6 +770,7 @@ fun PageTurnerApp() {
                     onNoteDraftChange = readerViewModel::updateNoteDraftText,
                     onAddHighlight = ::addHighlight,
                     onAddNote = ::addNote,
+                    onExportAnnotations = ::exportAnnotations,
                     onOpenAnnotation = ::openAnnotation,
                     onRemoveAnnotation = ::removeAnnotation,
                 )
