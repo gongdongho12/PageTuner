@@ -104,6 +104,7 @@ not as source-code bases.
   - resume
   - cancel
   - retry failed pages
+- Current-page translation failures expose an explicit retry action.
 - Provider health check validates required Google, Google Web HTML, and LLM
   settings before use.
 - Provider failures are categorized into credential, rate-limit, quota,

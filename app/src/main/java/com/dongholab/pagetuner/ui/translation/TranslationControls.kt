@@ -75,6 +75,7 @@ fun TranslationControls(
     translationQueueStatusText: String,
     busy: Boolean,
     canTranslate: Boolean,
+    canRetryTranslation: Boolean,
     canClearCache: Boolean,
     canPausePrefetch: Boolean,
     canResumePrefetch: Boolean,
@@ -83,6 +84,7 @@ fun TranslationControls(
     onLanguagePreset: (LanguagePreset) -> Unit,
     onCheckProvider: () -> Unit,
     onTranslate: () -> Unit,
+    onRetryTranslation: () -> Unit,
     onPrefetch: () -> Unit,
     onPausePrefetch: () -> Unit,
     onResumePrefetch: () -> Unit,
@@ -280,6 +282,14 @@ fun TranslationControls(
                     Icon(Icons.Filled.Translate, contentDescription = null, modifier = Modifier.size(18.dp))
                     Spacer(Modifier.width(8.dp))
                     Text(stringResource(R.string.action_translate_page))
+                }
+                TextButton(
+                    onClick = onRetryTranslation,
+                    enabled = !busy && canRetryTranslation,
+                ) {
+                    Icon(Icons.Filled.Refresh, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(8.dp))
+                    Text(stringResource(R.string.action_retry_page_translation))
                 }
                 Button(
                     onClick = onPrefetch,

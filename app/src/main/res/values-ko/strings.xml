@@ -131,6 +131,7 @@
     <string name="preset_korean_to_english">한국어 → 영어</string>
     <string name="preset_auto_to_english">자동 → 영어</string>
     <string name="action_translate_page">현재 쪽 번역</string>
+    <string name="action_retry_page_translation">현재 쪽 재시도</string>
     <string name="action_prefetch_offline_cache">오프라인 캐시 미리 저장</string>
     <string name="action_load_offline_saved">오프라인 저장본 불러오기</string>
     <string name="remote_sources_title">원격 서재</string>

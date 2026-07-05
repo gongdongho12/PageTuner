@@ -204,6 +204,7 @@ translation and offline-first reading.
   - done: unsupported format
   - missing API key
   - done: network unavailable
+  - done: current-page translation retry action
 - Add keyboard/D-pad page turning for e-ink devices with buttons.
 
 ## P2: Advanced Reader Features

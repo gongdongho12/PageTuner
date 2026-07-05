@@ -243,6 +243,9 @@ fun PageTurnerApp() {
         readingWordsPerMinute = readerSettings.readingWordsPerMinute,
         paceMode = paceMode,
     )
+    val canTranslateCurrentPage = settings.isProviderConfigured && currentPage.hasText
+    val canRetryCurrentPageTranslation =
+        translationState.status is TranslationStatus.Error && canTranslateCurrentPage
     val repository = remember(settings, cache) {
         TranslationRepository(
             provider = TranslationProviderFactory.create(settings),
@@ -862,7 +865,8 @@ fun PageTurnerApp() {
                     translationCacheStatusText = translationCacheStatusText,
                     translationQueueStatusText = translationQueueStatusText,
                     busy = busy,
-                    canTranslate = settings.isProviderConfigured && currentPage.hasText,
+                    canTranslate = canTranslateCurrentPage,
+                    canRetryTranslation = canRetryCurrentPageTranslation,
                     canClearCache = (translationCacheStatus?.cachedSegments ?: 0) > 0,
                     canPausePrefetch = translationState.queue.canPause,
                     canResumePrefetch = translationState.queue.canResume,
@@ -876,6 +880,7 @@ fun PageTurnerApp() {
                     },
                     onCheckProvider = { translationViewModel.checkProviderHealth(settings) },
                     onTranslate = ::translateCurrentPage,
+                    onRetryTranslation = ::translateCurrentPage,
                     onPrefetch = ::prefetchDocument,
                     onPausePrefetch = translationViewModel::pausePrefetch,
                     onResumePrefetch = translationViewModel::resumePrefetch,

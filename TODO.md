@@ -133,7 +133,7 @@ tracks what still needs to be built.
 - [x] Add network unavailable state.
 - [x] Add missing API key state.
 - [x] Add provider error explanations.
-- [ ] Add retry actions.
+- [x] Add retry actions.
 - [x] Add crash-safe cache writes.
 
 ## P2: Translation Quality
