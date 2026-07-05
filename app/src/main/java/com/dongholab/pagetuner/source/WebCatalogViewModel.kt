@@ -25,6 +25,7 @@ data class WebCatalogUiState(
     val visibleItems: List<RemoteBookItem> = emptyList(),
     val coverThumbnails: Map<String, ByteArray> = emptyMap(),
     val cachedCatalogs: List<CachedWebCatalog> = emptyList(),
+    val sourceAccounts: List<RemoteSourceAccount> = emptyList(),
     val busy: Boolean = false,
     val status: WebCatalogStatus = WebCatalogStatus.Idle,
 )
@@ -51,6 +52,14 @@ sealed interface WebCatalogStatus {
         val title: String,
     ) : WebCatalogStatus
 
+    data class SavedAccount(
+        val title: String,
+    ) : WebCatalogStatus
+
+    data class DeletedAccount(
+        val title: String,
+    ) : WebCatalogStatus
+
     data class Error(
         val detail: String?,
     ) : WebCatalogStatus
@@ -69,6 +78,7 @@ sealed interface WebCatalogEvent {
 
 class WebCatalogViewModel(
     private val cache: RemoteCatalogCache,
+    private val accountStore: RemoteSourceAccountStore,
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(WebCatalogUiState())
     val uiState: StateFlow<WebCatalogUiState> = _uiState.asStateFlow()
@@ -78,6 +88,7 @@ class WebCatalogViewModel(
 
     init {
         refreshCachedCatalogs()
+        refreshSourceAccounts()
     }
 
     fun updateCatalogUrl(url: String) {
@@ -105,6 +116,70 @@ class WebCatalogViewModel(
     fun loadCachedCatalog(cached: CachedWebCatalog) {
         if (_uiState.value.busy) return
         applyCachedCatalog(cached, busy = false)
+    }
+
+    fun loadSourceAccount(account: RemoteSourceAccount) {
+        if (_uiState.value.busy) return
+        when (account.sourceType) {
+            RemoteSourceType.PageTurnerWebCatalog -> {
+                _uiState.update { state ->
+                    state.copy(catalogUrl = account.endpoint)
+                }
+                loadCatalog(forceRefresh = false)
+            }
+            else -> {
+                _uiState.update { state ->
+                    state.copy(status = WebCatalogStatus.Error("Source UI is not wired for ${account.sourceType} yet."))
+                }
+            }
+        }
+    }
+
+    fun saveCurrentCatalogAccount() {
+        if (_uiState.value.busy) return
+        val url = _uiState.value.catalogUrl.trim()
+        if (url.isBlank()) {
+            _uiState.update { state -> state.copy(status = WebCatalogStatus.MissingCatalogUrl) }
+            return
+        }
+        val title = _uiState.value.catalog?.title ?: url
+        viewModelScope.launch {
+            runCatching {
+                accountStore.upsert(
+                    pageTurnerWebCatalogAccount(
+                        catalogUrl = url,
+                        title = title,
+                    ),
+                )
+            }.onSuccess { accounts ->
+                _uiState.update { state ->
+                    state.copy(
+                        sourceAccounts = accounts,
+                        status = WebCatalogStatus.SavedAccount(title),
+                    )
+                }
+            }.onFailure { error ->
+                _uiState.update { state -> state.copy(status = error.toWebCatalogStatus()) }
+            }
+        }
+    }
+
+    fun deleteSourceAccount(account: RemoteSourceAccount) {
+        if (_uiState.value.busy) return
+        viewModelScope.launch {
+            runCatching {
+                accountStore.delete(account.id)
+            }.onSuccess { accounts ->
+                _uiState.update { state ->
+                    state.copy(
+                        sourceAccounts = accounts,
+                        status = WebCatalogStatus.DeletedAccount(account.title),
+                    )
+                }
+            }.onFailure { error ->
+                _uiState.update { state -> state.copy(status = error.toWebCatalogStatus()) }
+            }
+        }
     }
 
     fun importItem(item: RemoteBookItem) {
@@ -143,6 +218,16 @@ class WebCatalogViewModel(
                 cache.list()
             }.onSuccess { cachedCatalogs ->
                 _uiState.update { state -> state.copy(cachedCatalogs = cachedCatalogs) }
+            }
+        }
+    }
+
+    fun refreshSourceAccounts() {
+        viewModelScope.launch {
+            runCatching {
+                accountStore.list()
+            }.onSuccess { accounts ->
+                _uiState.update { state -> state.copy(sourceAccounts = accounts) }
             }
         }
     }
@@ -286,11 +371,12 @@ class WebCatalogViewModel(
 
     class Factory(
         private val cache: RemoteCatalogCache,
+        private val accountStore: RemoteSourceAccountStore,
     ) : ViewModelProvider.Factory {
         @Suppress("UNCHECKED_CAST")
         override fun <T : ViewModel> create(modelClass: Class<T>): T {
             if (modelClass.isAssignableFrom(WebCatalogViewModel::class.java)) {
-                return WebCatalogViewModel(cache) as T
+                return WebCatalogViewModel(cache, accountStore) as T
             }
             throw IllegalArgumentException("Unknown ViewModel class: ${modelClass.name}")
         }

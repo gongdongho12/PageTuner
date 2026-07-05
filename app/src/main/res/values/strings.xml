@@ -135,11 +135,15 @@
     <string name="action_prefetch_offline_cache">Prefetch Offline Cache</string>
     <string name="action_load_offline_saved">Load Offline Saved</string>
     <string name="remote_sources_title">Remote Library</string>
-    <string name="remote_sources_subtitle">Load PageTurner web catalogs now; Drive and FTP remain planned connectors.</string>
+    <string name="remote_sources_subtitle">Load PageTurner web catalogs now; Drive and FTP account wiring is next.</string>
+    <string name="remote_source_accounts_title">Saved sources: %1$d</string>
     <string name="field_web_catalog_url">Catalog URL</string>
     <string name="field_web_catalog_search">Search catalog</string>
     <string name="action_load_catalog">Load Catalog</string>
     <string name="action_refresh_catalog">Refresh</string>
+    <string name="action_save_remote_source">Save Source</string>
+    <string name="action_load_remote_source">Load</string>
+    <string name="action_delete_remote_source">Delete</string>
     <string name="action_import_remote_book">Import</string>
     <string name="web_catalog_empty">No catalog items loaded.</string>
     <string name="web_catalog_cached_count">Saved catalogs: %1$d</string>
@@ -209,5 +213,7 @@
     <string name="status_web_catalog_loaded_cached">Loaded saved catalog %1$s: %2$d books.</string>
     <string name="status_web_catalog_importing">Downloading %1$s.</string>
     <string name="status_web_catalog_downloaded">Downloaded %1$s. Saving to local library.</string>
+    <string name="status_remote_source_account_saved">Saved remote source %1$s.</string>
+    <string name="status_remote_source_account_deleted">Deleted remote source %1$s.</string>
     <string name="status_web_catalog_error">Web catalog error: %1$s</string>
 </resources>

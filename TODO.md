@@ -113,7 +113,9 @@ tracks what still needs to be built.
 - [x] Add FTP folder browsing.
 - [x] Add Google Drive connector.
 - [ ] Add Google Drive OAuth flow.
-- [ ] Add source account management.
+- [x] Add source account management store.
+- [x] Add web catalog source account UI.
+- [ ] Add FTP / Google Drive account UI.
 
 ## P1: Search, Bookmarks, Notes
 

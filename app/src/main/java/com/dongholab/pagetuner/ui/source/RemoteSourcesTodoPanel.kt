@@ -44,6 +44,7 @@ import com.dongholab.pagetuner.display.DisplayMode
 import com.dongholab.pagetuner.display.applyDisplayMode
 import com.dongholab.pagetuner.source.CachedWebCatalog
 import com.dongholab.pagetuner.source.RemoteBookItem
+import com.dongholab.pagetuner.source.RemoteSourceAccount
 import com.dongholab.pagetuner.source.RemoteSourceTodo
 import com.dongholab.pagetuner.source.RemoteSourceTodos
 import com.dongholab.pagetuner.ui.text.localizedName
@@ -60,6 +61,7 @@ fun RemoteSourcesTodoPanel(
     items: List<RemoteBookItem>,
     coverThumbnails: Map<String, ByteArray>,
     cachedCatalogs: List<CachedWebCatalog>,
+    sourceAccounts: List<RemoteSourceAccount>,
     displayMode: DisplayMode,
     busy: Boolean,
     statusText: String,
@@ -67,6 +69,9 @@ fun RemoteSourcesTodoPanel(
     onQueryChange: (String) -> Unit,
     onLoadCatalog: () -> Unit,
     onRefreshCatalog: () -> Unit,
+    onSaveSourceAccount: () -> Unit,
+    onLoadSourceAccount: (RemoteSourceAccount) -> Unit,
+    onDeleteSourceAccount: (RemoteSourceAccount) -> Unit,
     onLoadCachedCatalog: (CachedWebCatalog) -> Unit,
     onImportItem: (RemoteBookItem) -> Unit,
 ) {
@@ -119,12 +124,26 @@ fun RemoteSourcesTodoPanel(
                     Spacer(Modifier.width(8.dp))
                     Text(stringResource(R.string.action_refresh_catalog))
                 }
+                TextButton(
+                    onClick = onSaveSourceAccount,
+                    enabled = !busy && catalogUrl.isNotBlank(),
+                ) {
+                    Text(stringResource(R.string.action_save_remote_source))
+                }
             }
             Text(
                 text = statusText,
                 style = MaterialTheme.typography.bodySmall,
                 color = EinkInk,
             )
+            if (sourceAccounts.isNotEmpty()) {
+                SourceAccountsRow(
+                    sourceAccounts = sourceAccounts,
+                    busy = busy,
+                    onLoadSourceAccount = onLoadSourceAccount,
+                    onDeleteSourceAccount = onDeleteSourceAccount,
+                )
+            }
             if (cachedCatalogs.isNotEmpty()) {
                 CachedCatalogsRow(
                     cachedCatalogs = cachedCatalogs,
@@ -151,6 +170,66 @@ fun RemoteSourcesTodoPanel(
             }
             RemoteSourceTodos.items.take(2).forEach { item ->
                 RemoteSourceTodoRow(item)
+            }
+        }
+    }
+}
+
+@Composable
+private fun SourceAccountsRow(
+    sourceAccounts: List<RemoteSourceAccount>,
+    busy: Boolean,
+    onLoadSourceAccount: (RemoteSourceAccount) -> Unit,
+    onDeleteSourceAccount: (RemoteSourceAccount) -> Unit,
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Text(
+            text = stringResource(R.string.remote_source_accounts_title, sourceAccounts.size),
+            style = MaterialTheme.typography.labelLarge,
+            color = EinkInk,
+        )
+        sourceAccounts.take(4).forEach { account ->
+            Surface(
+                modifier = Modifier.fillMaxWidth(),
+                color = EinkSoft,
+                shape = RoundedCornerShape(4.dp),
+                border = BorderStroke(1.dp, EinkLine),
+            ) {
+                Row(
+                    modifier = Modifier.padding(start = 10.dp, top = 6.dp, end = 4.dp, bottom = 6.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = account.title,
+                            style = MaterialTheme.typography.labelLarge,
+                            color = EinkInk,
+                            fontWeight = FontWeight.SemiBold,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                        Text(
+                            text = account.displayEndpoint,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = EinkMuted,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    }
+                    TextButton(
+                        onClick = { onLoadSourceAccount(account) },
+                        enabled = !busy,
+                    ) {
+                        Text(stringResource(R.string.action_load_remote_source))
+                    }
+                    TextButton(
+                        onClick = { onDeleteSourceAccount(account) },
+                        enabled = !busy,
+                    ) {
+                        Text(stringResource(R.string.action_delete_remote_source))
+                    }
+                }
             }
         }
     }

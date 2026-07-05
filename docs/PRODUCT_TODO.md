@@ -161,10 +161,11 @@ translation and offline-first reading.
   - pending: OAuth
   - pending: account-management UI wiring
 - Add source account management.
-  - add source
-  - edit source
-  - remove source
-  - refresh source
+  - done: account JSON store
+  - done: save/load/remove web catalog sources
+  - pending: FTP / Google Drive account UI
+  - pending: edit source details
+  - pending: refresh source from account list
 
 ## P1: App Architecture
 

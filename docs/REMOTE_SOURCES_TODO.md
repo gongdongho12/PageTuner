@@ -24,6 +24,7 @@ offline access work the same way for every source.
   - Done: define `RemoteBookSource` with `connect`, `list`, `search`, `download`, and
     `refresh` operations.
   - Done: normalize each result into `RemoteBookItem`.
+  - Done: add app-private account storage for saved remote sources.
   - Store a stable remote identity: `sourceType + accountId + remotePath/id`.
   - Save downloaded files into app-private storage.
   - Track sync state: remote modified time, local file hash, local read progress.
@@ -53,6 +54,7 @@ offline access work the same way for every source.
   - Done: support a tiny JSON catalog first for easy self-hosting.
   - Done: parse v0.1 JSON into `RemoteBookItem`.
   - Done: resolve catalog-relative book and cover URLs.
+  - Done: save/load/remove catalog URLs as remote source accounts.
   - Add OPDS 2.0 ingestion as the public interoperability target.
   - Support basic auth or bearer token later, but keep v0.1 public/static.
   - Cache catalog responses for offline browsing.

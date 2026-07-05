@@ -71,6 +71,7 @@ import com.dongholab.pagetuner.settings.ReaderSettings
 import com.dongholab.pagetuner.settings.ReaderSettingsStore
 import com.dongholab.pagetuner.settings.SettingsViewModel
 import com.dongholab.pagetuner.source.RemoteCatalogCache
+import com.dongholab.pagetuner.source.RemoteSourceAccountStore
 import com.dongholab.pagetuner.source.WebCatalogEvent
 import com.dongholab.pagetuner.source.WebCatalogStatus
 import com.dongholab.pagetuner.source.WebCatalogViewModel
@@ -134,6 +135,7 @@ fun PageTurnerApp() {
     val settingsStore = remember(context) { ReaderSettingsStore(context) }
     val localLibraryStore = remember(context) { LocalLibraryStore(context) }
     val remoteCatalogCache = remember(context) { RemoteCatalogCache(context) }
+    val remoteSourceAccountStore = remember(context) { RemoteSourceAccountStore(context) }
     val initialDocument = remember(context) { context.sampleDocument() }
     val settingsViewModel: SettingsViewModel = viewModel(
         factory = SettingsViewModel.Factory(settingsStore),
@@ -145,7 +147,10 @@ fun PageTurnerApp() {
         factory = LibraryViewModel.Factory(localLibraryStore),
     )
     val webCatalogViewModel: WebCatalogViewModel = viewModel(
-        factory = WebCatalogViewModel.Factory(remoteCatalogCache),
+        factory = WebCatalogViewModel.Factory(
+            cache = remoteCatalogCache,
+            accountStore = remoteSourceAccountStore,
+        ),
     )
     val translationViewModel: TranslationViewModel = viewModel()
     val readerSettings by settingsViewModel.settings.collectAsState(initial = ReaderSettings())
@@ -902,6 +907,7 @@ fun PageTurnerApp() {
                     items = webCatalogState.visibleItems,
                     coverThumbnails = webCatalogState.coverThumbnails,
                     cachedCatalogs = webCatalogState.cachedCatalogs,
+                    sourceAccounts = webCatalogState.sourceAccounts,
                     displayMode = displayMode,
                     busy = busy,
                     statusText = webCatalogStatusText,
@@ -909,6 +915,9 @@ fun PageTurnerApp() {
                     onQueryChange = webCatalogViewModel::updateQuery,
                     onLoadCatalog = webCatalogViewModel::loadCatalog,
                     onRefreshCatalog = webCatalogViewModel::refreshCatalog,
+                    onSaveSourceAccount = webCatalogViewModel::saveCurrentCatalogAccount,
+                    onLoadSourceAccount = webCatalogViewModel::loadSourceAccount,
+                    onDeleteSourceAccount = webCatalogViewModel::deleteSourceAccount,
                     onLoadCachedCatalog = webCatalogViewModel::loadCachedCatalog,
                     onImportItem = webCatalogViewModel::importItem,
                 )
@@ -1069,6 +1078,14 @@ private fun WebCatalogStatus.localizedMessage(context: Context): String {
         )
         is WebCatalogStatus.Downloaded -> context.getString(
             R.string.status_web_catalog_downloaded,
+            title,
+        )
+        is WebCatalogStatus.SavedAccount -> context.getString(
+            R.string.status_remote_source_account_saved,
+            title,
+        )
+        is WebCatalogStatus.DeletedAccount -> context.getString(
+            R.string.status_remote_source_account_deleted,
             title,
         )
         is WebCatalogStatus.Error -> context.getString(

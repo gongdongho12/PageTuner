@@ -135,7 +135,7 @@ not as source-code bases.
 ### Remote Library
 
 - In-app remote library panel for PageTurner Web Catalog loading, search,
-  cached catalog reload, and local-library import.
+  saved source accounts, cached catalog reload, and local-library import.
 - `RemoteBookSource` interface for Drive, FTP, and web catalog connectors.
 - PageTurner Web Catalog v0.1 parser/source with relative URL normalization,
   search, refresh, and injectable download support.
@@ -144,6 +144,8 @@ not as source-code bases.
 - Google Drive source core using Drive API v3 file listing and `alt=media`
   downloads through an injected OAuth access token.
 - App-private web catalog metadata cache for offline catalog recall.
+- App-private remote source account store with add/load/delete support for web
+  catalog accounts.
 - Planned source types:
   - Google Drive OAuth/account UI
   - FTP / FTPS account UI
