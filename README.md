@@ -141,9 +141,11 @@ not as source-code bases.
   search, refresh, and injectable download support.
 - FTP/FTPS source core with passive-mode folder browsing, supported-format
   filtering, search, and download through the shared remote source interface.
+- Google Drive source core using Drive API v3 file listing and `alt=media`
+  downloads through an injected OAuth access token.
 - App-private web catalog metadata cache for offline catalog recall.
 - Planned source types:
-  - Google Drive
+  - Google Drive OAuth/account UI
   - FTP / FTPS account UI
   - PageTurner Web Catalog
 - Draft remote-source spec: [docs/REMOTE_SOURCES_TODO.md](docs/REMOTE_SOURCES_TODO.md)
@@ -172,7 +174,8 @@ not as source-code bases.
 - EPUB support is text-first with basic embedded bitmap image rendering.
   Complex layout, custom fonts, advanced CSS, and SVG rendering are not
   implemented yet.
-- Google Drive and FTP account management UI are TODO/planning items.
+- Google Drive OAuth and remote-source account management UI are TODO/planning
+  items.
 - API keys are entered per session and are not persisted yet; production storage
   should use a more secure credential layer.
 - The LLM provider expects OpenAI-compatible chat completions JSON.

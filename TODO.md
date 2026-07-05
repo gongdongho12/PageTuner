@@ -111,7 +111,7 @@ tracks what still needs to be built.
 - [x] Cache catalog metadata.
 - [x] Add FTP / FTPS connector.
 - [x] Add FTP folder browsing.
-- [ ] Add Google Drive connector.
+- [x] Add Google Drive connector.
 - [ ] Add Google Drive OAuth flow.
 - [ ] Add source account management.
 

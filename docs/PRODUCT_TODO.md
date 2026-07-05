@@ -155,10 +155,11 @@ translation and offline-first reading.
   - done: folder browsing
   - done: file download through `RemoteBookSource`
   - pending: account-management UI wiring
-- Implement Google Drive source.
-  - OAuth
-  - list supported files
-  - download selected files
+- Done: implement Google Drive source core.
+  - done: list supported files through Drive API v3
+  - done: download selected binary files with `alt=media`
+  - pending: OAuth
+  - pending: account-management UI wiring
 - Add source account management.
   - add source
   - edit source

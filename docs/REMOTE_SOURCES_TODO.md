@@ -29,13 +29,14 @@ offline access work the same way for every source.
   - Track sync state: remote modified time, local file hash, local read progress.
 
 - Google Drive
-  - Use Google Drive API v3.
-  - OAuth sign-in belongs outside the reader surface.
-  - List candidate files with `files.list`.
-  - Filter by extension and MIME type for EPUB, PDF, Markdown, and text.
-  - Store Drive file id, name, mimeType, modifiedTime, size, and md5Checksum
+  - Done: use Google Drive API v3.
+  - Pending: OAuth sign-in belongs outside the reader surface.
+  - Done: list candidate files with `files.list`.
+  - Done: filter by extension and MIME type for EPUB, PDF, Markdown, and text.
+  - Done: store Drive file id, name, mimeType, modifiedTime, size, and md5Checksum
     when available.
-  - Download via Drive media endpoint, then import locally.
+  - Done: download via Drive media endpoint, then import locally.
+  - Pending: wire account storage/UI into the reader surface.
 
 - FTP / FTPS
   - Done: use a Java/Kotlin FTP client behind the same source interface.
