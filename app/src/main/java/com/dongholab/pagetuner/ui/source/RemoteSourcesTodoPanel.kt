@@ -2,12 +2,16 @@
 
 package com.dongholab.pagetuner.ui.source
 
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -16,6 +20,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CloudDownload
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Image as ImageIcon
 import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -24,14 +29,19 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.dongholab.pagetuner.R
+import com.dongholab.pagetuner.display.DisplayMode
+import com.dongholab.pagetuner.display.applyDisplayMode
 import com.dongholab.pagetuner.source.CachedWebCatalog
 import com.dongholab.pagetuner.source.RemoteBookItem
 import com.dongholab.pagetuner.source.RemoteSourceTodo
@@ -48,7 +58,9 @@ fun RemoteSourcesTodoPanel(
     catalogUrl: String,
     query: String,
     items: List<RemoteBookItem>,
+    coverThumbnails: Map<String, ByteArray>,
     cachedCatalogs: List<CachedWebCatalog>,
+    displayMode: DisplayMode,
     busy: Boolean,
     statusText: String,
     onCatalogUrlChange: (String) -> Unit,
@@ -130,6 +142,8 @@ fun RemoteSourcesTodoPanel(
                 items.take(5).forEach { item ->
                     RemoteBookRow(
                         item = item,
+                        coverBytes = item.coverUrl?.let { coverThumbnails[it] },
+                        displayMode = displayMode,
                         busy = busy,
                         onImportItem = onImportItem,
                     )
@@ -198,6 +212,8 @@ private fun CachedCatalogsRow(
 @Composable
 private fun RemoteBookRow(
     item: RemoteBookItem,
+    coverBytes: ByteArray?,
+    displayMode: DisplayMode,
     busy: Boolean,
     onImportItem: (RemoteBookItem) -> Unit,
 ) {
@@ -213,6 +229,11 @@ private fun RemoteBookRow(
             horizontalArrangement = Arrangement.spacedBy(8.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
+            RemoteCoverThumbnail(
+                coverBytes = coverBytes,
+                displayMode = displayMode,
+                contentDescription = item.title,
+            )
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = item.title,
@@ -251,6 +272,47 @@ private fun RemoteBookRow(
                 Spacer(Modifier.width(8.dp))
                 Text(stringResource(R.string.action_import_remote_book))
             }
+        }
+    }
+}
+
+@Composable
+private fun RemoteCoverThumbnail(
+    coverBytes: ByteArray?,
+    displayMode: DisplayMode,
+    contentDescription: String,
+) {
+    val bitmap = remember(coverBytes, displayMode) {
+        coverBytes?.let { bytes ->
+            BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
+                ?.copy(Bitmap.Config.ARGB_8888, true)
+                ?.also { bitmap -> bitmap.applyDisplayMode(displayMode) }
+        }
+    }
+
+    Surface(
+        modifier = Modifier.size(56.dp),
+        color = EinkPanel,
+        shape = RoundedCornerShape(4.dp),
+        border = BorderStroke(1.dp, EinkLine),
+        shadowElevation = 0.dp,
+    ) {
+        if (bitmap == null) {
+            Icon(
+                imageVector = Icons.Filled.ImageIcon,
+                contentDescription = contentDescription,
+                tint = EinkMuted,
+                modifier = Modifier.padding(14.dp),
+            )
+        } else {
+            Image(
+                bitmap = bitmap.asImageBitmap(),
+                contentDescription = contentDescription,
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(4.dp),
+                contentScale = ContentScale.Fit,
+            )
         }
     }
 }

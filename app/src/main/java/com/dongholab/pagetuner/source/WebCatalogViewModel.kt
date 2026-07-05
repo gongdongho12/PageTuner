@@ -13,12 +13,14 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
 private const val DefaultCatalogUrl = "http://10.0.2.2:8088/catalog.json"
+private const val MaxThumbnailBytes = 2 * 1024 * 1024
 
 data class WebCatalogUiState(
     val catalogUrl: String = DefaultCatalogUrl,
     val query: String = "",
     val catalog: PageTurnerCatalog? = null,
     val visibleItems: List<RemoteBookItem> = emptyList(),
+    val coverThumbnails: Map<String, ByteArray> = emptyMap(),
     val cachedCatalogs: List<CachedWebCatalog> = emptyList(),
     val busy: Boolean = false,
     val status: WebCatalogStatus = WebCatalogStatus.Idle,
@@ -82,6 +84,7 @@ class WebCatalogViewModel(
                 visibleItems = state.catalog.filterItems(query),
             )
         }
+        prefetchCoverThumbnails(_uiState.value.visibleItems)
     }
 
     fun loadCatalog() {
@@ -187,6 +190,7 @@ class WebCatalogViewModel(
                         ),
                     )
                 }
+                prefetchCoverThumbnails(catalog.filterItems(_uiState.value.query))
             }.onFailure { error ->
                 _uiState.update { state ->
                     state.copy(
@@ -236,6 +240,31 @@ class WebCatalogViewModel(
                     itemCount = catalog.items.size,
                 ),
             )
+        }
+        prefetchCoverThumbnails(catalog.filterItems(_uiState.value.query))
+    }
+
+    private fun prefetchCoverThumbnails(items: List<RemoteBookItem>) {
+        val urls = items
+            .take(5)
+            .mapNotNull { it.coverUrl }
+            .filter { url -> url !in _uiState.value.coverThumbnails }
+            .distinct()
+        if (urls.isEmpty()) return
+
+        viewModelScope.launch {
+            urls.forEach { url ->
+                runCatching {
+                    PageTurnerWebCatalogNetwork.fetchBytes(
+                        url = url,
+                        maxBytes = MaxThumbnailBytes,
+                    )
+                }.onSuccess { bytes ->
+                    _uiState.update { state ->
+                        state.copy(coverThumbnails = state.coverThumbnails + (url to bytes))
+                    }
+                }
+            }
         }
     }
 

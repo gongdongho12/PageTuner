@@ -53,6 +53,8 @@ not as source-code bases.
 - PDF rendering follows the selected display mode.
 - EPUB embedded bitmap images are decoded on-page and transformed through the
   selected display mode.
+- Web catalog cover thumbnails are fetched for visible results and transformed
+  through the selected display mode.
 - Shared bitmap display transform serves as the PDF/EPUB/cover/thumbnail image
   pipeline foundation.
 - Manual e-ink refresh action clears rendered page cache and re-renders the
@@ -173,7 +175,7 @@ app/build/outputs/apk/debug/app-debug.apk
 ## Suggested Next Steps
 
 1. Add secure credential storage before using real API keys in production.
-2. Apply display mode to cover images and remote catalog thumbnails.
-3. Add FTP and Google Drive connectors.
-4. Add source account management for remote libraries.
+2. Add FTP and Google Drive connectors.
+3. Add source account management for remote libraries.
+4. Add secure thumbnail metadata caching for offline remote source previews.
 5. Choose and add the project license before distribution.

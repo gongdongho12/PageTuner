@@ -241,5 +241,5 @@ translation and offline-first reading.
 6. Add secure credential storage.
 7. Add release/license/privacy groundwork.
 8. Add instrumented tests for import and reader navigation.
-9. Apply display mode to cover images and remote catalog thumbnails.
+9. Add offline thumbnail cache metadata and eviction policy.
 10. Move renderer side effects behind a renderer state model.
