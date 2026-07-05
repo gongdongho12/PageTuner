@@ -77,6 +77,26 @@ class LocalLibraryStore(context: Context) {
         writeBooks(updated)
     }
 
+    suspend fun updateBookmarks(
+        bookId: String,
+        bookmarks: List<LocalBookBookmark>,
+    ) = withContext(Dispatchers.IO) {
+        val books = readBooks()
+        val updated = books.map { book ->
+            if (book.id == bookId) {
+                book.copy(
+                    bookmarks = bookmarks
+                        .filter { bookmark -> bookmark.pageIndex in 0 until book.pageCount }
+                        .sortedBy { bookmark -> bookmark.pageIndex },
+                    lastOpenedAtMillis = System.currentTimeMillis(),
+                )
+            } else {
+                book
+            }
+        }
+        writeBooks(updated)
+    }
+
     suspend fun deleteBook(bookId: String): Boolean = withContext(Dispatchers.IO) {
         val books = readBooks()
         val target = books.firstOrNull { it.id == bookId } ?: return@withContext false

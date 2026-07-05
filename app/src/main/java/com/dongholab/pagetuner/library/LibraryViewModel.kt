@@ -164,6 +164,19 @@ class LibraryViewModel(
         }
     }
 
+    fun updateBookmarks(bookId: String, bookmarks: List<LocalBookBookmark>) {
+        viewModelScope.launch {
+            runCatching {
+                localLibraryStore.updateBookmarks(bookId, bookmarks)
+                localLibraryStore.listBooks()
+            }.onSuccess { books ->
+                _uiState.update { state -> state.copy(books = books) }
+            }.onFailure { error ->
+                _events.emit(LibraryEvent.Error(error.message))
+            }
+        }
+    }
+
     class Factory(
         private val localLibraryStore: LocalLibraryStore,
     ) : ViewModelProvider.Factory {

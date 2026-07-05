@@ -18,6 +18,14 @@ class LocalBookJsonTest {
             importedAtMillis = 100L,
             lastOpenedAtMillis = 200L,
             fileSizeBytes = 300L,
+            bookmarks = listOf(
+                LocalBookBookmark(
+                    id = "bookmark-1",
+                    pageIndex = 4,
+                    label = "Important",
+                    createdAtMillis = 150L,
+                ),
+            ),
         )
 
         val decoded = LocalBookJson.decode(LocalBookJson.encode(listOf(book)))

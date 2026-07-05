@@ -13,6 +13,7 @@ data class LocalBook(
     val importedAtMillis: Long,
     val lastOpenedAtMillis: Long,
     val fileSizeBytes: Long,
+    val bookmarks: List<LocalBookBookmark> = emptyList(),
 ) {
     val safeCurrentPageIndex: Int
         get() = currentPageIndex.coerceIn(0, (pageCount - 1).coerceAtLeast(0))
@@ -25,3 +26,10 @@ data class LocalBook(
                 .coerceIn(0, 100)
         }
 }
+
+data class LocalBookBookmark(
+    val id: String,
+    val pageIndex: Int,
+    val label: String?,
+    val createdAtMillis: Long,
+)

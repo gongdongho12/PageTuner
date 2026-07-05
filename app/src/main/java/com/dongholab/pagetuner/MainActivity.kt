@@ -46,6 +46,7 @@ import com.dongholab.pagetuner.document.sampleDocument
 import com.dongholab.pagetuner.library.LibraryEvent
 import com.dongholab.pagetuner.library.LibraryViewModel
 import com.dongholab.pagetuner.library.LocalBook
+import com.dongholab.pagetuner.library.LocalBookBookmark
 import com.dongholab.pagetuner.library.LocalLibraryStore
 import com.dongholab.pagetuner.reader.PageTurnMode
 import com.dongholab.pagetuner.reader.ReaderBookmark
@@ -236,10 +237,19 @@ fun PageTurnerApp() {
             loaded = loaded,
             localBookId = localBook?.id,
             requestedPageIndex = requestedPageIndex,
+            bookmarks = localBook?.bookmarks.orEmpty().map { it.toReaderBookmark() },
         )
         pdfPageBitmap = null
         pdfPageCache = emptyMap()
         translationViewModel.resetForDocument()
+    }
+
+    fun persistBookmarks(bookmarks: List<ReaderBookmark>) {
+        val bookId = currentBookId ?: return
+        libraryViewModel.updateBookmarks(
+            bookId = bookId,
+            bookmarks = bookmarks.map { it.toLocalBookBookmark() },
+        )
     }
 
     fun openLocalBook(book: LocalBook) {
@@ -320,6 +330,7 @@ fun PageTurnerApp() {
     fun addBookmark() {
         if (busy) return
         val bookmark = readerViewModel.addBookmark()
+        persistBookmarks(readerViewModel.uiState.value.bookmarks)
         translationViewModel.clearStatus()
         appStatusText = context.getString(
             R.string.status_added_bookmark,
@@ -341,6 +352,7 @@ fun PageTurnerApp() {
     fun removeBookmark(bookmark: ReaderBookmark) {
         if (busy) return
         readerViewModel.removeBookmark(bookmark.id)
+        persistBookmarks(readerViewModel.uiState.value.bookmarks)
         translationViewModel.clearStatus()
         appStatusText = context.getString(R.string.status_deleted_bookmark)
     }
@@ -940,6 +952,24 @@ private fun TranslationQueueState.localizedMessage(context: Context): String {
         )
         else -> context.getString(R.string.translation_queue_idle)
     }
+}
+
+private fun LocalBookBookmark.toReaderBookmark(): ReaderBookmark {
+    return ReaderBookmark(
+        id = id,
+        pageIndex = pageIndex,
+        label = label,
+        createdAtMillis = createdAtMillis,
+    )
+}
+
+private fun ReaderBookmark.toLocalBookBookmark(): LocalBookBookmark {
+    return LocalBookBookmark(
+        id = id,
+        pageIndex = pageIndex,
+        label = label,
+        createdAtMillis = createdAtMillis,
+    )
 }
 
 private fun Throwable.readableMessage(context: Context): String {

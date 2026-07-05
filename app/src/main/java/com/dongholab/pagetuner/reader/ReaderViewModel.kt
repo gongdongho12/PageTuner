@@ -72,6 +72,7 @@ class ReaderViewModel(
         loaded: LoadedReaderDocument,
         localBookId: String?,
         requestedPageIndex: Int,
+        bookmarks: List<ReaderBookmark> = emptyList(),
     ) {
         _uiState.update { current ->
             ReaderUiState(
@@ -81,6 +82,9 @@ class ReaderViewModel(
                 currentBookId = localBookId,
                 controlsVisible = current.controlsVisible,
                 manualRefreshToken = current.manualRefreshToken,
+                bookmarks = bookmarks
+                    .filter { bookmark -> bookmark.pageIndex in 0 until loaded.document.pageCount }
+                    .sortedBy { bookmark -> bookmark.pageIndex },
             )
         }
     }

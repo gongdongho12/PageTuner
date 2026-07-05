@@ -62,7 +62,8 @@ not as source-code bases.
 - PDF fit-page / fit-width controls.
 - PDF page-image cache for previous/current/next pages.
 - Current-book text search with previous/next match navigation.
-- In-reader page bookmarks with optional names and a bookmark list.
+- In-reader page bookmarks with optional names, a bookmark list, and per-book
+  local persistence.
 - Reader font size, line spacing, and page margin settings.
 - DataStore-backed persistent settings for display mode, page-turn mode,
   language pair, translation provider, LLM endpoint/model, reading speed, and
@@ -179,5 +180,5 @@ app/build/outputs/apk/debug/app-debug.apk
 1. Add secure credential storage before using real API keys in production.
 2. Add FTP and Google Drive connectors.
 3. Add source account management for remote libraries.
-4. Persist bookmarks per local book.
+4. Add notes/highlights and export flows.
 5. Choose and add the project license before distribution.

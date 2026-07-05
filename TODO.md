@@ -120,7 +120,7 @@ tracks what still needs to be built.
 - [x] Add page bookmarks.
 - [x] Add named bookmarks.
 - [x] Add bookmark list.
-- [ ] Persist bookmarks per local book.
+- [x] Persist bookmarks per local book.
 - [ ] Add highlights.
 - [ ] Add notes.
 - [ ] Export notes/highlights.
