@@ -74,9 +74,46 @@ fun Context.detectReaderDocumentFormat(uri: Uri, title: String): DocumentFormat 
         mimeType == "application/pdf" || lowerTitle.endsWith(".pdf") -> DocumentFormat.PDF
         mimeType == "application/epub+zip" || lowerTitle.endsWith(".epub") -> DocumentFormat.EPUB
         lowerTitle.endsWith(".md") || lowerTitle.endsWith(".markdown") -> DocumentFormat.MARKDOWN
+        mimeType.startsWith("text/") || lowerTitle.endsWith(".txt") -> DocumentFormat.TEXT
+        lowerTitle.hasUnsupportedDocumentExtension() || mimeType in unsupportedDocumentMimeTypes ->
+            throw UnsupportedReaderDocumentException(title)
         else -> DocumentFormat.TEXT
     }
 }
+
+private fun String.hasUnsupportedDocumentExtension(): Boolean {
+    return unsupportedDocumentExtensions.any { extension -> endsWith(extension) }
+}
+
+private val unsupportedDocumentExtensions = setOf(
+    ".azw",
+    ".azw3",
+    ".cb7",
+    ".cbr",
+    ".cbz",
+    ".doc",
+    ".docx",
+    ".fb2",
+    ".mobi",
+    ".odt",
+    ".pages",
+    ".ppt",
+    ".pptx",
+    ".rtf",
+    ".xls",
+    ".xlsx",
+)
+
+private val unsupportedDocumentMimeTypes = setOf(
+    "application/msword",
+    "application/rtf",
+    "application/vnd.ms-excel",
+    "application/vnd.ms-powerpoint",
+    "application/vnd.oasis.opendocument.text",
+    "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+)
 
 fun Context.readerDocumentDisplayName(uri: Uri): String {
     val queried = contentResolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)

@@ -127,9 +127,9 @@ tracks what still needs to be built.
 
 ## P1: Error Handling
 
-- [ ] Add unsupported format screen.
-- [ ] Add import failure state.
-- [ ] Add network unavailable state.
+- [x] Add unsupported format screen.
+- [x] Add import failure state.
+- [x] Add network unavailable state.
 - [x] Add missing API key state.
 - [ ] Add provider error explanations.
 - [ ] Add retry actions.

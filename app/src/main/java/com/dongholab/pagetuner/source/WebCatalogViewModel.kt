@@ -3,6 +3,9 @@ package com.dongholab.pagetuner.source
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import java.net.SocketException
+import java.net.SocketTimeoutException
+import java.net.UnknownHostException
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -49,6 +52,10 @@ sealed interface WebCatalogStatus {
     ) : WebCatalogStatus
 
     data class Error(
+        val detail: String?,
+    ) : WebCatalogStatus
+
+    data class NetworkUnavailable(
         val detail: String?,
     ) : WebCatalogStatus
 }
@@ -123,7 +130,7 @@ class WebCatalogViewModel(
                 _uiState.update { state ->
                     state.copy(
                         busy = false,
-                        status = WebCatalogStatus.Error(error.message),
+                        status = error.toWebCatalogStatus(),
                     )
                 }
             }
@@ -195,7 +202,7 @@ class WebCatalogViewModel(
                 _uiState.update { state ->
                     state.copy(
                         busy = false,
-                        status = WebCatalogStatus.Error(error.message),
+                        status = error.toWebCatalogStatus(),
                     )
                 }
             }
@@ -224,7 +231,7 @@ class WebCatalogViewModel(
             _uiState.update { state ->
                 state.copy(
                     busy = busy,
-                    status = WebCatalogStatus.Error(error.message),
+                    status = error.toWebCatalogStatus(),
                 )
             }
             return
@@ -265,6 +272,15 @@ class WebCatalogViewModel(
                     }
                 }
             }
+        }
+    }
+
+    private fun Throwable.toWebCatalogStatus(): WebCatalogStatus {
+        return when (this) {
+            is UnknownHostException,
+            is SocketTimeoutException,
+            is SocketException -> WebCatalogStatus.NetworkUnavailable(message)
+            else -> WebCatalogStatus.Error(message)
         }
     }
 

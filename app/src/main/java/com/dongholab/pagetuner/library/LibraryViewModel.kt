@@ -35,6 +35,7 @@ sealed interface LibraryEvent {
 
     data class Error(
         val detail: String?,
+        val cause: Throwable? = null,
     ) : LibraryEvent
 }
 
@@ -64,7 +65,7 @@ class LibraryViewModel(
                     _events.emit(LibraryEvent.OpenedLocalBook(result))
                 }
             }.onFailure { error ->
-                _events.emit(LibraryEvent.Error(error.message))
+                _events.emit(LibraryEvent.Error(error.message, error))
             }
             _uiState.update { state -> state.copy(busy = false) }
         }
@@ -82,7 +83,7 @@ class LibraryViewModel(
                 _uiState.update { state -> state.copy(books = books) }
                 _events.emit(LibraryEvent.OpenedLocalBook(result))
             }.onFailure { error ->
-                _events.emit(LibraryEvent.Error(error.message))
+                _events.emit(LibraryEvent.Error(error.message, error))
             }
             _uiState.update { state -> state.copy(busy = false) }
         }
@@ -100,7 +101,7 @@ class LibraryViewModel(
                 _uiState.update { state -> state.copy(books = books) }
                 _events.emit(LibraryEvent.ImportedBook(result))
             }.onFailure { error ->
-                _events.emit(LibraryEvent.Error(error.message))
+                _events.emit(LibraryEvent.Error(error.message, error))
             }
             _uiState.update { state -> state.copy(busy = false) }
         }
@@ -118,7 +119,7 @@ class LibraryViewModel(
                 _uiState.update { state -> state.copy(books = books) }
                 _events.emit(LibraryEvent.ImportedBook(result))
             }.onFailure { error ->
-                _events.emit(LibraryEvent.Error(error.message))
+                _events.emit(LibraryEvent.Error(error.message, error))
             }
             _uiState.update { state -> state.copy(busy = false) }
         }
@@ -145,7 +146,7 @@ class LibraryViewModel(
                     _events.emit(LibraryEvent.Error("Local book metadata was not found."))
                 }
             }.onFailure { error ->
-                _events.emit(LibraryEvent.Error(error.message))
+                _events.emit(LibraryEvent.Error(error.message, error))
             }
             _uiState.update { state -> state.copy(busy = false) }
         }
@@ -159,7 +160,7 @@ class LibraryViewModel(
             }.onSuccess { books ->
                 _uiState.update { state -> state.copy(books = books) }
             }.onFailure { error ->
-                _events.emit(LibraryEvent.Error(error.message))
+                _events.emit(LibraryEvent.Error(error.message, error))
             }
         }
     }
@@ -172,7 +173,7 @@ class LibraryViewModel(
             }.onSuccess { books ->
                 _uiState.update { state -> state.copy(books = books) }
             }.onFailure { error ->
-                _events.emit(LibraryEvent.Error(error.message))
+                _events.emit(LibraryEvent.Error(error.message, error))
             }
         }
     }
@@ -185,7 +186,7 @@ class LibraryViewModel(
             }.onSuccess { books ->
                 _uiState.update { state -> state.copy(books = books) }
             }.onFailure { error ->
-                _events.emit(LibraryEvent.Error(error.message))
+                _events.emit(LibraryEvent.Error(error.message, error))
             }
         }
     }

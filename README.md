@@ -66,6 +66,8 @@ not as source-code bases.
   local persistence.
 - Page-level highlights and notes with per-book local persistence.
 - Highlights and notes can be exported through the Android share sheet.
+- Unsupported-format, import-failure, and network-unavailable states use
+  distinct reader status messages.
 - Reader font size, line spacing, and page margin settings.
 - DataStore-backed persistent settings for display mode, page-turn mode,
   language pair, translation provider, LLM endpoint/model, reading speed, and

@@ -197,10 +197,10 @@ translation and offline-first reading.
   - source path
 - Add reader top/bottom controls that can hide.
 - Add error surfaces.
-  - failed import
-  - unsupported format
+  - done: failed import
+  - done: unsupported format
   - missing API key
-  - network unavailable
+  - done: network unavailable
 - Add keyboard/D-pad page turning for e-ink devices with buttons.
 
 ## P2: Advanced Reader Features

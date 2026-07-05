@@ -16,7 +16,10 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -43,7 +46,12 @@ import com.dongholab.pagetuner.display.servicePalette
 import com.dongholab.pagetuner.document.DocumentFormat
 import com.dongholab.pagetuner.document.LoadedReaderDocument
 import com.dongholab.pagetuner.document.PdfDocumentReader
+import com.dongholab.pagetuner.document.UnsupportedReaderDocumentException
 import com.dongholab.pagetuner.document.sampleDocument
+import java.io.IOException
+import java.net.SocketException
+import java.net.SocketTimeoutException
+import java.net.UnknownHostException
 import com.dongholab.pagetuner.library.LibraryEvent
 import com.dongholab.pagetuner.library.LibraryViewModel
 import com.dongholab.pagetuner.library.LocalBookAnnotation
@@ -149,6 +157,7 @@ fun PageTurnerApp() {
     var pdfPageBitmap by remember { mutableStateOf<Bitmap?>(null) }
     var pdfPageCache by remember { mutableStateOf<Map<PdfPageCacheKey, Bitmap>>(emptyMap()) }
     var appStatusText by rememberSaveable(initialStatus) { mutableStateOf(initialStatus) }
+    var appErrorText by rememberSaveable { mutableStateOf<String?>(null) }
 
     val localBooks = libraryState.books
     val document = readerState.document
@@ -601,7 +610,10 @@ fun PageTurnerApp() {
                         )
                     }
                     is LibraryEvent.Error -> {
-                        appStatusText = context.readableMessage(event.detail)
+                        val readable = event.cause?.readableMessage(context)
+                            ?: context.readableMessage(event.detail)
+                        appStatusText = readable
+                        appErrorText = readable
                     }
                 }
             }
@@ -667,7 +679,9 @@ fun PageTurnerApp() {
                 pdfPageBitmap = renderedPages[currentKey] ?: pdfPageCache[currentKey]
             }.onFailure { error ->
                 translationViewModel.clearStatus()
-                appStatusText = error.readableMessage(context)
+                val readable = error.readableMessage(context)
+                appStatusText = readable
+                appErrorText = readable
             }
         }
     }
@@ -906,6 +920,19 @@ fun PageTurnerApp() {
             onDismiss = readerViewModel::hideDocumentDetails,
         )
     }
+
+    appErrorText?.let { errorText ->
+        AlertDialog(
+            onDismissRequest = { appErrorText = null },
+            title = { Text(stringResource(R.string.error_dialog_title)) },
+            text = { Text(errorText) },
+            confirmButton = {
+                TextButton(onClick = { appErrorText = null }) {
+                    Text(stringResource(R.string.action_close))
+                }
+            },
+        )
+    }
 }
 
 private fun TranslationStatus.localizedMessage(context: Context): String {
@@ -1019,6 +1046,11 @@ private fun WebCatalogStatus.localizedMessage(context: Context): String {
             detail?.takeIf { it.isNotBlank() }
                 ?: context.getString(R.string.status_generic_error),
         )
+        is WebCatalogStatus.NetworkUnavailable -> context.getString(
+            R.string.status_network_unavailable,
+            detail?.takeIf { it.isNotBlank() }
+                ?: context.getString(R.string.status_generic_error),
+        )
     }
 }
 
@@ -1095,13 +1127,29 @@ private fun ReaderAnnotation.toLocalBookAnnotation(): LocalBookAnnotation {
 }
 
 private fun Throwable.readableMessage(context: Context): String {
-    return context.readableMessage(message)
+    return context.readableMessage(this)
 }
 
 private fun Context.readableMessage(detail: String?): String {
     val safeDetail = detail?.takeIf { it.isNotBlank() }
         ?: getString(R.string.status_generic_error)
-    return getString(R.string.status_translation_error, safeDetail)
+    return getString(R.string.status_generic_operation_error, safeDetail)
+}
+
+private fun Context.readableMessage(error: Throwable): String {
+    val safeDetail = error.message?.takeIf { it.isNotBlank() }
+        ?: getString(R.string.status_generic_error)
+    return when (error) {
+        is UnsupportedReaderDocumentException ->
+            getString(R.string.status_unsupported_format, safeDetail)
+        is UnknownHostException,
+        is SocketTimeoutException,
+        is SocketException ->
+            getString(R.string.status_network_unavailable, safeDetail)
+        is IOException ->
+            getString(R.string.status_import_failed, safeDetail)
+        else -> getString(R.string.status_generic_operation_error, safeDetail)
+    }
 }
 
 private fun settingsProviderConfigured(

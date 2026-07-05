@@ -48,6 +48,7 @@
     <string name="document_details_pages">Pages: %1$d</string>
     <string name="document_details_progress">Progress: %1$d%%</string>
     <string name="document_details_size">File size: %1$s</string>
+    <string name="error_dialog_title">Could not complete action</string>
     <string name="action_close">Close</string>
     <string name="page_turn_settings_title">Page Turn</string>
     <string name="page_turn_left_previous_right_next">Left previous · Right next</string>
@@ -166,6 +167,10 @@
     <string name="status_retrying_translation_page">Retrying page %1$d, attempt %2$d.</string>
     <string name="status_translation_error">Could not prepare translation: %1$s</string>
     <string name="status_generic_error">Something went wrong while preparing translation.</string>
+    <string name="status_generic_operation_error">Something went wrong: %1$s</string>
+    <string name="status_unsupported_format">Unsupported document format: %1$s</string>
+    <string name="status_import_failed">Could not import this document: %1$s</string>
+    <string name="status_network_unavailable">Network is unavailable: %1$s</string>
     <string name="status_first_page">This is the first page.</string>
     <string name="status_last_page">This is the last page.</string>
     <string name="status_first_chapter">This is the first chapter.</string>
