@@ -246,6 +246,7 @@ fun PageTurnerApp() {
         sourceLanguage = sourceLanguage,
         targetLanguage = targetLanguage,
         readingWordsPerMinute = readerSettings.readingWordsPerMinute,
+        batchSize = readerSettings.translationBatchSize,
         paceMode = paceMode,
     )
     val canTranslateCurrentPage = settings.isProviderConfigured && currentPage.hasText
@@ -860,6 +861,10 @@ fun PageTurnerApp() {
                     readingWpm = readerSettings.readingWordsPerMinute.toFloat(),
                     onReadingWpmChange = {
                         settingsViewModel.updateReadingWordsPerMinute(it.roundToInt())
+                    },
+                    batchSize = readerSettings.translationBatchSize.toFloat(),
+                    onBatchSizeChange = {
+                        settingsViewModel.updateTranslationBatchSize(it.roundToInt())
                     },
                     paceMode = paceMode,
                     onPaceModeChange = settingsViewModel::updatePaceMode,

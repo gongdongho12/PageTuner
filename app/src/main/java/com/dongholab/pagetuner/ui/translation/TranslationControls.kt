@@ -65,6 +65,8 @@ fun TranslationControls(
     onTargetLanguageChange: (String) -> Unit,
     readingWpm: Float,
     onReadingWpmChange: (Float) -> Unit,
+    batchSize: Float,
+    onBatchSizeChange: (Float) -> Unit,
     paceMode: TranslationPaceMode,
     onPaceModeChange: (TranslationPaceMode) -> Unit,
     translationDisplayMode: TranslationDisplayMode,
@@ -258,6 +260,20 @@ fun TranslationControls(
                         )
                     }
                 }
+            }
+            Column(modifier = Modifier.fillMaxWidth()) {
+                Text(
+                    text = stringResource(R.string.translation_batch_size, batchSize.toInt()),
+                    style = MaterialTheme.typography.labelLarge,
+                    color = EinkInk,
+                )
+                Slider(
+                    value = batchSize,
+                    onValueChange = onBatchSizeChange,
+                    valueRange = 1f..24f,
+                    steps = 22,
+                    enabled = !busy,
+                )
             }
             Text(
                 text = translationCacheStatusText,

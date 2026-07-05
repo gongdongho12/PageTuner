@@ -144,7 +144,7 @@ tracks what still needs to be built.
 - [ ] Add per-book terminology rules.
 - [ ] Add custom LLM prompt profile.
 - [ ] Add translation memory export/import.
-- [ ] Add batch size tuning per provider.
+- [x] Add batch size tuning per provider.
 - [ ] Add cost estimate before large prefetch.
 
 ## P2: Release Readiness

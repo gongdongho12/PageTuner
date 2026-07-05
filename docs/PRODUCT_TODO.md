@@ -231,7 +231,7 @@ translation and offline-first reading.
 - Custom LLM prompt profile.
 - Translation memory export/import.
 - Side-by-side paragraph alignment.
-- Batch tuning per provider.
+- Done: batch tuning per provider.
 - Cost estimate before whole-document prefetch.
 
 ## P2: Release Readiness

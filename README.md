@@ -96,6 +96,8 @@ not as source-code bases.
   - Korean to English
   - auto to English
 - Reading-speed-based request pacing.
+- Provider request batch size can be tuned from the translation controls and is
+  persisted with reader settings.
 - Fast mode for quicker translation.
 - Offline prefetch mode for saving translations ahead of time.
 - Whole-document offline prefetch runs through a visible translation queue.

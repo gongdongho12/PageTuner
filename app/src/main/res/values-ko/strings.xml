@@ -85,6 +85,7 @@
     <string name="field_source_language">원문</string>
     <string name="field_target_language">번역</string>
     <string name="reading_speed_wpm">분당 %1$d단어</string>
+    <string name="translation_batch_size">요청당 문단 %1$d개</string>
     <string name="pace_reading">읽기</string>
     <string name="pace_fast">빠르게</string>
     <string name="pace_offline_prefetch">오프라인</string>

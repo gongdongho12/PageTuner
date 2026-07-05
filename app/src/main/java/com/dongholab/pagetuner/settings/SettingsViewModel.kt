@@ -75,6 +75,10 @@ class SettingsViewModel(
         update { settingsStore.updateReadingWordsPerMinute(readingWordsPerMinute) }
     }
 
+    fun updateTranslationBatchSize(batchSize: Int) {
+        update { settingsStore.updateTranslationBatchSize(batchSize) }
+    }
+
     fun updatePaceMode(paceMode: TranslationPaceMode) {
         update { settingsStore.updatePaceMode(paceMode) }
     }

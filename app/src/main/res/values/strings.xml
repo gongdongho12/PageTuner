@@ -85,6 +85,7 @@
     <string name="field_source_language">From</string>
     <string name="field_target_language">To</string>
     <string name="reading_speed_wpm">%1$d wpm</string>
+    <string name="translation_batch_size">%1$d segments per request</string>
     <string name="pace_reading">Reading</string>
     <string name="pace_fast">Fast</string>
     <string name="pace_offline_prefetch">Offline</string>

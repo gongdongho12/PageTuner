@@ -20,6 +20,7 @@ data class ReaderSettings(
     val llmEndpoint: String = "",
     val llmModel: String = "",
     val readingWordsPerMinute: Int = 210,
+    val translationBatchSize: Int = 6,
     val paceMode: TranslationPaceMode = TranslationPaceMode.READING,
     val translationDisplayMode: TranslationDisplayMode = TranslationDisplayMode.SideBySide,
 )

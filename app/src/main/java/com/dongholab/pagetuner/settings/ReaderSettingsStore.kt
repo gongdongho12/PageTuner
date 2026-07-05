@@ -114,6 +114,12 @@ class ReaderSettingsStore(context: Context) {
         }
     }
 
+    suspend fun updateTranslationBatchSize(batchSize: Int) {
+        dataStore.edit { preferences ->
+            preferences[Keys.TRANSLATION_BATCH_SIZE] = batchSize.coerceIn(1, 24)
+        }
+    }
+
     suspend fun updatePaceMode(paceMode: TranslationPaceMode) {
         dataStore.edit { preferences ->
             preferences[Keys.PACE_MODE] = paceMode.name
@@ -153,6 +159,10 @@ class ReaderSettingsStore(context: Context) {
                 this[Keys.READING_WORDS_PER_MINUTE]
                     ?: defaults.readingWordsPerMinute
                 ).coerceIn(120, 420),
+            translationBatchSize = (
+                this[Keys.TRANSLATION_BATCH_SIZE]
+                    ?: defaults.translationBatchSize
+                ).coerceIn(1, 24),
             paceMode = enumOrDefault(Keys.PACE_MODE, defaults.paceMode),
             translationDisplayMode = enumOrDefault(
                 Keys.TRANSLATION_DISPLAY_MODE,
@@ -187,6 +197,7 @@ class ReaderSettingsStore(context: Context) {
         val LLM_ENDPOINT = stringPreferencesKey("llm_endpoint")
         val LLM_MODEL = stringPreferencesKey("llm_model")
         val READING_WORDS_PER_MINUTE = intPreferencesKey("reading_words_per_minute")
+        val TRANSLATION_BATCH_SIZE = intPreferencesKey("translation_batch_size")
         val PACE_MODE = stringPreferencesKey("pace_mode")
         val TRANSLATION_DISPLAY_MODE = stringPreferencesKey("translation_display_mode")
     }
