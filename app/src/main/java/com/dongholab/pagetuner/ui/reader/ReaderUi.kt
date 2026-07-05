@@ -20,7 +20,9 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material.icons.filled.Bookmark
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.FolderOpen
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Refresh
@@ -58,6 +60,7 @@ import com.dongholab.pagetuner.document.ReaderDocument
 import com.dongholab.pagetuner.document.ReaderPage
 import com.dongholab.pagetuner.document.ReaderPageImage
 import com.dongholab.pagetuner.library.LocalBook
+import com.dongholab.pagetuner.reader.ReaderBookmark
 import com.dongholab.pagetuner.reader.PageTurnMode
 import com.dongholab.pagetuner.reader.PdfFitMode
 import com.dongholab.pagetuner.translation.TranslationDisplayMode
@@ -325,6 +328,140 @@ fun ReaderSearchPanel(
                     color = EinkInk,
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis,
+                )
+            }
+        }
+    }
+}
+
+@Composable
+fun ReaderBookmarkPanel(
+    bookmarks: List<ReaderBookmark>,
+    currentPageIndex: Int,
+    draftLabel: String,
+    busy: Boolean,
+    onDraftLabelChange: (String) -> Unit,
+    onAddBookmark: () -> Unit,
+    onOpenBookmark: (ReaderBookmark) -> Unit,
+    onRemoveBookmark: (ReaderBookmark) -> Unit,
+) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        color = EinkPaper,
+        shape = RoundedCornerShape(6.dp),
+        border = BorderStroke(1.dp, EinkLine),
+        shadowElevation = 0.dp,
+    ) {
+        Column(
+            modifier = Modifier.padding(10.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            Text(
+                text = stringResource(R.string.bookmarks_title),
+                style = MaterialTheme.typography.titleSmall,
+                color = EinkInk,
+                fontWeight = FontWeight.SemiBold,
+            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                OutlinedTextField(
+                    value = draftLabel,
+                    onValueChange = onDraftLabelChange,
+                    modifier = Modifier.weight(1f),
+                    enabled = !busy,
+                    singleLine = true,
+                    label = { Text(stringResource(R.string.field_bookmark_name)) },
+                    leadingIcon = {
+                        Icon(Icons.Filled.Bookmark, contentDescription = null)
+                    },
+                )
+                Button(
+                    onClick = onAddBookmark,
+                    enabled = !busy,
+                    colors = ButtonDefaults.buttonColors(containerColor = EinkInk, contentColor = EinkPaper),
+                ) {
+                    Icon(Icons.Filled.Bookmark, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(8.dp))
+                    Text(stringResource(R.string.action_add_bookmark))
+                }
+            }
+            if (bookmarks.isEmpty()) {
+                Text(
+                    text = stringResource(R.string.bookmarks_empty),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = EinkMuted,
+                )
+            } else {
+                bookmarks.take(5).forEach { bookmark ->
+                    ReaderBookmarkRow(
+                        bookmark = bookmark,
+                        selected = bookmark.pageIndex == currentPageIndex,
+                        busy = busy,
+                        onOpenBookmark = onOpenBookmark,
+                        onRemoveBookmark = onRemoveBookmark,
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ReaderBookmarkRow(
+    bookmark: ReaderBookmark,
+    selected: Boolean,
+    busy: Boolean,
+    onOpenBookmark: (ReaderBookmark) -> Unit,
+    onRemoveBookmark: (ReaderBookmark) -> Unit,
+) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        color = if (selected) EinkSoft else EinkPaper,
+        shape = RoundedCornerShape(4.dp),
+        border = BorderStroke(1.dp, if (selected) EinkInk else EinkLine),
+        shadowElevation = 0.dp,
+    ) {
+        Row(
+            modifier = Modifier.padding(start = 10.dp, top = 4.dp, end = 2.dp, bottom = 4.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            TextButton(
+                onClick = { onOpenBookmark(bookmark) },
+                enabled = !busy,
+                modifier = Modifier.weight(1f),
+            ) {
+                Column(modifier = Modifier.fillMaxWidth()) {
+                    Text(
+                        text = bookmark.label ?: stringResource(
+                            R.string.bookmark_page_label,
+                            bookmark.pageIndex + 1,
+                        ),
+                        style = MaterialTheme.typography.labelLarge,
+                        color = EinkInk,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                    Text(
+                        text = stringResource(R.string.bookmark_page_label, bookmark.pageIndex + 1),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = EinkMuted,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
+            }
+            IconButton(
+                onClick = { onRemoveBookmark(bookmark) },
+                enabled = !busy,
+            ) {
+                Icon(
+                    imageVector = Icons.Filled.Delete,
+                    contentDescription = stringResource(R.string.action_delete_bookmark),
+                    tint = EinkInk,
                 )
             }
         }

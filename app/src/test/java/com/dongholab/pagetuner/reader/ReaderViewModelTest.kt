@@ -106,6 +106,29 @@ class ReaderViewModelTest {
         assertEquals(0, viewModel.uiState.value.searchResults.size)
     }
 
+    @Test
+    fun addsOpensAndRemovesBookmarks() {
+        val viewModel = ReaderViewModel(documentWithPages("Book", pageCount = 3))
+        viewModel.changePage(1)
+        viewModel.updateBookmarkDraftLabel("Important")
+
+        val bookmark = viewModel.addBookmark()
+
+        assertEquals("Important", bookmark.label)
+        assertEquals(1, bookmark.pageIndex)
+        assertEquals("", viewModel.uiState.value.bookmarkDraftLabel)
+        assertEquals(listOf(bookmark), viewModel.uiState.value.bookmarks)
+
+        viewModel.changePage(2)
+        val opened = viewModel.openBookmark(bookmark.id)
+
+        assertEquals(bookmark, opened)
+        assertEquals(1, viewModel.uiState.value.pageIndex)
+
+        viewModel.removeBookmark(bookmark.id)
+        assertTrue(viewModel.uiState.value.bookmarks.isEmpty())
+    }
+
     private fun documentWithPages(title: String, pageCount: Int) = ReaderDocument(
         id = title.lowercase(),
         title = title,

@@ -21,6 +21,8 @@ data class ReaderUiState(
     val searchQuery: String = "",
     val searchResults: List<ReaderSearchMatch> = emptyList(),
     val selectedSearchResultIndex: Int = -1,
+    val bookmarkDraftLabel: String = "",
+    val bookmarks: List<ReaderBookmark> = emptyList(),
 ) {
     val safePageIndex: Int = pageIndex.coerceIn(0, document.pageCount - 1)
     val currentPage: ReaderPage = document.pages[safePageIndex]
@@ -29,6 +31,13 @@ data class ReaderUiState(
     val selectedSearchResultNumber: Int =
         if (selectedSearchResultIndex in searchResults.indices) selectedSearchResultIndex + 1 else 0
 }
+
+data class ReaderBookmark(
+    val id: String,
+    val pageIndex: Int,
+    val label: String?,
+    val createdAtMillis: Long,
+)
 
 data class ReaderSearchMatch(
     val pageIndex: Int,
@@ -125,6 +134,48 @@ class ReaderViewModel(
                 selectedSearchResultIndex = -1,
             )
         }
+    }
+
+    fun updateBookmarkDraftLabel(label: String) {
+        _uiState.update { state -> state.copy(bookmarkDraftLabel = label) }
+    }
+
+    fun addBookmark(): ReaderBookmark {
+        val current = _uiState.value
+        val pageIndex = current.safePageIndex
+        val now = System.currentTimeMillis()
+        val bookmark = ReaderBookmark(
+            id = "bookmark-$pageIndex-$now",
+            pageIndex = pageIndex,
+            label = current.bookmarkDraftLabel.trim().takeIf { it.isNotBlank() },
+            createdAtMillis = now,
+        )
+        _uiState.update { state ->
+            state.copy(
+                bookmarkDraftLabel = "",
+                bookmarks = (state.bookmarks.filterNot { it.pageIndex == pageIndex } + bookmark)
+                    .sortedBy { it.pageIndex },
+            )
+        }
+        return bookmark
+    }
+
+    fun removeBookmark(bookmarkId: String) {
+        _uiState.update { state ->
+            state.copy(bookmarks = state.bookmarks.filterNot { it.id == bookmarkId })
+        }
+    }
+
+    fun openBookmark(bookmarkId: String): ReaderBookmark? {
+        val bookmark = _uiState.value.bookmarks.firstOrNull { it.id == bookmarkId }
+            ?: return null
+        _uiState.update { state ->
+            state.copy(
+                pageIndex = bookmark.pageIndex.coerceIn(0, state.document.pageCount - 1),
+                selectedSearchResultIndex = -1,
+            )
+        }
+        return bookmark
     }
 
     fun nextSearchResult(): ReaderSearchMoveResult {

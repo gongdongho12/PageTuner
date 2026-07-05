@@ -117,9 +117,10 @@ tracks what still needs to be built.
 ## P1: Search, Bookmarks, Notes
 
 - [x] Search current text-based book.
-- [ ] Add page bookmarks.
-- [ ] Add named bookmarks.
-- [ ] Add bookmark list.
+- [x] Add page bookmarks.
+- [x] Add named bookmarks.
+- [x] Add bookmark list.
+- [ ] Persist bookmarks per local book.
 - [ ] Add highlights.
 - [ ] Add notes.
 - [ ] Export notes/highlights.

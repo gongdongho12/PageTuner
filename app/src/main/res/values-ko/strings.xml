@@ -23,6 +23,12 @@
     <string name="search_no_results">일치하는 결과가 없습니다.</string>
     <string name="search_result_count">결과 %1$d개.</string>
     <string name="search_result_position">결과 %1$d/%2$d.</string>
+    <string name="bookmarks_title">북마크</string>
+    <string name="field_bookmark_name">북마크 이름</string>
+    <string name="action_add_bookmark">추가</string>
+    <string name="action_delete_bookmark">북마크 삭제</string>
+    <string name="bookmarks_empty">저장한 쪽이 여기에 표시됩니다.</string>
+    <string name="bookmark_page_label">%1$d쪽</string>
     <string name="action_show_details">문서 상세 보기</string>
     <string name="action_hide_controls">컨트롤 숨기기</string>
     <string name="action_show_controls">컨트롤 보이기</string>
@@ -159,6 +165,9 @@
     <string name="status_search_empty_query">먼저 검색어를 입력하세요.</string>
     <string name="status_search_no_results">이 책에서 일치하는 결과가 없습니다.</string>
     <string name="status_search_result">%3$d쪽의 검색 결과 %1$d/%2$d.</string>
+    <string name="status_added_bookmark">%1$d쪽에 북마크를 저장했습니다.</string>
+    <string name="status_opened_bookmark">%1$d쪽 북마크를 열었습니다.</string>
+    <string name="status_deleted_bookmark">북마크를 삭제했습니다.</string>
     <string name="status_web_catalog_idle">웹 카탈로그를 사용할 수 있습니다.</string>
     <string name="status_web_catalog_loading">웹 카탈로그를 불러오는 중입니다.</string>
     <string name="status_web_catalog_missing_url">카탈로그 URL이 필요합니다.</string>

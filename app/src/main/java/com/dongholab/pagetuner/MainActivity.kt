@@ -48,6 +48,7 @@ import com.dongholab.pagetuner.library.LibraryViewModel
 import com.dongholab.pagetuner.library.LocalBook
 import com.dongholab.pagetuner.library.LocalLibraryStore
 import com.dongholab.pagetuner.reader.PageTurnMode
+import com.dongholab.pagetuner.reader.ReaderBookmark
 import com.dongholab.pagetuner.reader.ReaderPageMoveResult
 import com.dongholab.pagetuner.reader.ReaderSearchMoveResult
 import com.dongholab.pagetuner.reader.ReaderViewModel
@@ -71,6 +72,7 @@ import com.dongholab.pagetuner.translation.TranslationViewModel
 import com.dongholab.pagetuner.ui.common.StatusStrip
 import com.dongholab.pagetuner.ui.library.LocalLibraryPanel
 import com.dongholab.pagetuner.ui.reader.DocumentDetailsDialog
+import com.dongholab.pagetuner.ui.reader.ReaderBookmarkPanel
 import com.dongholab.pagetuner.ui.reader.ReaderHeader
 import com.dongholab.pagetuner.ui.reader.ReaderPager
 import com.dongholab.pagetuner.ui.reader.ReaderSearchPanel
@@ -152,6 +154,8 @@ fun PageTurnerApp() {
     val searchResultCount = readerState.searchResults.size
     val selectedSearchResultNumber = readerState.selectedSearchResultNumber
     val selectedSearchPreview = readerState.selectedSearchMatch?.preview
+    val bookmarkDraftLabel = readerState.bookmarkDraftLabel
+    val bookmarks = readerState.bookmarks
     val providerKind = readerSettings.providerKind
     val paceMode = readerSettings.paceMode
     val pageTurnMode = readerSettings.pageTurnMode
@@ -311,6 +315,34 @@ fun PageTurnerApp() {
         readerViewModel.clearSearch()
         translationViewModel.clearStatus()
         appStatusText = context.getString(R.string.status_ready)
+    }
+
+    fun addBookmark() {
+        if (busy) return
+        val bookmark = readerViewModel.addBookmark()
+        translationViewModel.clearStatus()
+        appStatusText = context.getString(
+            R.string.status_added_bookmark,
+            bookmark.pageIndex + 1,
+        )
+    }
+
+    fun openBookmark(bookmark: ReaderBookmark) {
+        if (busy) return
+        val opened = readerViewModel.openBookmark(bookmark.id) ?: return
+        translationViewModel.clearPageTranslation()
+        translationViewModel.clearStatus()
+        appStatusText = context.getString(
+            R.string.status_opened_bookmark,
+            opened.pageIndex + 1,
+        )
+    }
+
+    fun removeBookmark(bookmark: ReaderBookmark) {
+        if (busy) return
+        readerViewModel.removeBookmark(bookmark.id)
+        translationViewModel.clearStatus()
+        appStatusText = context.getString(R.string.status_deleted_bookmark)
     }
 
     fun previousPage() {
@@ -623,6 +655,16 @@ fun PageTurnerApp() {
                     onPreviousResult = ::previousSearchResult,
                     onNextResult = ::nextSearchResult,
                     onClearSearch = ::clearSearch,
+                )
+                ReaderBookmarkPanel(
+                    bookmarks = bookmarks,
+                    currentPageIndex = pageIndex,
+                    draftLabel = bookmarkDraftLabel,
+                    busy = busy,
+                    onDraftLabelChange = readerViewModel::updateBookmarkDraftLabel,
+                    onAddBookmark = ::addBookmark,
+                    onOpenBookmark = ::openBookmark,
+                    onRemoveBookmark = ::removeBookmark,
                 )
             }
             ReaderSurface(

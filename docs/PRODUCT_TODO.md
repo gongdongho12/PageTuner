@@ -30,10 +30,11 @@ translation and offline-first reading.
   - duplicate detection
   - safe delete from local library
 - Done: add basic search inside current book for text-based formats.
-- Add bookmarks.
-  - page bookmark
-  - named bookmark
-  - bookmark list per document
+- Done: add in-reader bookmarks.
+  - done: page bookmark
+  - done: named bookmark
+  - done: bookmark list per document
+  - pending: persist bookmark list per local book
 - Done: add reader preferences.
   - display mode
   - font size
