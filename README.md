@@ -87,6 +87,8 @@ not as source-code bases.
   - original and translation together
 - Provider configuration status for missing API keys or LLM endpoint/model
   fields.
+- Translation result, cache status, progress, and busy state are owned by
+  `TranslationViewModel`.
 
 ### Localization
 
@@ -146,7 +148,7 @@ app/build/outputs/apk/debug/app-debug.apk
 
 ## Suggested Next Steps
 
-1. Add translation and library ViewModel boundaries.
+1. Add the library ViewModel boundary.
 2. Add the offline translation queue with pause/resume/cancel controls.
 3. Add the PageTurner Web Catalog connector first, because it is easy to test
    locally.

@@ -20,7 +20,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -53,17 +52,12 @@ import com.dongholab.pagetuner.settings.ReaderSettings
 import com.dongholab.pagetuner.settings.ReaderSettingsStore
 import com.dongholab.pagetuner.settings.SettingsViewModel
 import com.dongholab.pagetuner.translation.JsonFileTranslationCache
-import com.dongholab.pagetuner.translation.PageTranslation
-import com.dongholab.pagetuner.translation.PrefetchStage
-import com.dongholab.pagetuner.translation.PrefetchProgress
-import com.dongholab.pagetuner.translation.TranslatedSegment
-import com.dongholab.pagetuner.translation.TranslationCacheStatus
-import com.dongholab.pagetuner.translation.TranslationDisplayMode
-import com.dongholab.pagetuner.translation.TranslationPaceMode
 import com.dongholab.pagetuner.translation.TranslationProviderFactory
 import com.dongholab.pagetuner.translation.TranslationProviderKind
 import com.dongholab.pagetuner.translation.TranslationRepository
 import com.dongholab.pagetuner.translation.TranslationSettings
+import com.dongholab.pagetuner.translation.TranslationStatus
+import com.dongholab.pagetuner.translation.TranslationViewModel
 import com.dongholab.pagetuner.ui.common.StatusStrip
 import com.dongholab.pagetuner.ui.library.LocalLibraryPanel
 import com.dongholab.pagetuner.ui.reader.DocumentDetailsDialog
@@ -115,8 +109,10 @@ fun PageTurnerApp() {
     val readerViewModel: ReaderViewModel = viewModel(
         factory = ReaderViewModel.Factory(initialDocument),
     )
+    val translationViewModel: TranslationViewModel = viewModel()
     val readerSettings by settingsViewModel.settings.collectAsState(initial = ReaderSettings())
     val readerState by readerViewModel.uiState.collectAsState()
+    val translationState by translationViewModel.uiState.collectAsState()
     val scope = rememberCoroutineScope()
     val focusRequester = remember { FocusRequester() }
     val initialStatus = stringResource(R.string.status_ready)
@@ -124,12 +120,8 @@ fun PageTurnerApp() {
     var pdfPageBitmap by remember { mutableStateOf<Bitmap?>(null) }
     var pdfPageCache by remember { mutableStateOf<Map<PdfPageCacheKey, Bitmap>>(emptyMap()) }
     var localBooks by remember { mutableStateOf<List<LocalBook>>(emptyList()) }
-    var apiKey by rememberSaveable { mutableStateOf("") }
-    var translation by remember { mutableStateOf<PageTranslation?>(null) }
-    var translationCacheStatus by remember { mutableStateOf<TranslationCacheStatus?>(null) }
-    var statusText by rememberSaveable(initialStatus) { mutableStateOf(initialStatus) }
-    var progress by remember { mutableFloatStateOf(0f) }
-    var busy by remember { mutableStateOf(false) }
+    var appStatusText by rememberSaveable(initialStatus) { mutableStateOf(initialStatus) }
+    var documentBusy by remember { mutableStateOf(false) }
 
     val document = readerState.document
     val pageIndex = readerState.safePageIndex
@@ -144,6 +136,15 @@ fun PageTurnerApp() {
     val displayMode = readerSettings.displayMode
     val sourceLanguage = readerSettings.sourceLanguage
     val targetLanguage = readerSettings.targetLanguage
+    val apiKey = translationState.apiKey
+    val translation = translationState.translation
+    val translationCacheStatus = translationState.cacheStatus
+    val busy = documentBusy || translationState.busy
+    val progress = translationState.progress
+    val statusText = when (val status = translationState.status) {
+        TranslationStatus.Ready -> appStatusText
+        else -> status.localizedMessage(context)
+    }
     val tableOfContents = document.tableOfContents
     val currentChapterIndex = tableOfContents.indexOfLast { outline ->
         outline.pageIndex <= currentPage.index
@@ -208,16 +209,15 @@ fun PageTurnerApp() {
         )
         pdfPageBitmap = null
         pdfPageCache = emptyMap()
-        translation = null
-        translationCacheStatus = null
-        progress = 0f
+        translationViewModel.resetForDocument()
     }
 
     fun openLocalBook(book: LocalBook) {
         if (busy) return
         scope.launch {
-            busy = true
-            statusText = context.getString(R.string.status_opening_document)
+            documentBusy = true
+            translationViewModel.clearStatus()
+            appStatusText = context.getString(R.string.status_opening_document)
             try {
                 val result = localLibraryStore.openBook(book.id)
                 applyLoadedDocument(
@@ -226,11 +226,11 @@ fun PageTurnerApp() {
                     requestedPageIndex = result.book.safeCurrentPageIndex,
                 )
                 localBooks = localLibraryStore.listBooks()
-                statusText = context.getString(R.string.status_opened_local_book, result.book.title)
+                appStatusText = context.getString(R.string.status_opened_local_book, result.book.title)
             } catch (error: Exception) {
-                statusText = error.readableMessage(context)
+                appStatusText = error.readableMessage(context)
             } finally {
-                busy = false
+                documentBusy = false
             }
         }
     }
@@ -238,7 +238,8 @@ fun PageTurnerApp() {
     fun deleteLocalBook(book: LocalBook) {
         if (busy) return
         scope.launch {
-            busy = true
+            documentBusy = true
+            translationViewModel.clearStatus()
             try {
                 val deleted = localLibraryStore.deleteBook(book.id)
                 localBooks = localLibraryStore.listBooks()
@@ -246,15 +247,13 @@ fun PageTurnerApp() {
                     readerViewModel.resetDocument(context.sampleDocument())
                     pdfPageBitmap = null
                     pdfPageCache = emptyMap()
-                    translation = null
-                    translationCacheStatus = null
-                    progress = 0f
+                    translationViewModel.resetForDocument()
                 }
-                statusText = context.getString(R.string.status_deleted_book, book.title)
+                appStatusText = context.getString(R.string.status_deleted_book, book.title)
             } catch (error: Exception) {
-                statusText = error.readableMessage(context)
+                appStatusText = error.readableMessage(context)
             } finally {
-                busy = false
+                documentBusy = false
             }
         }
     }
@@ -262,14 +261,15 @@ fun PageTurnerApp() {
     fun changePage(targetIndex: Int) {
         when (readerViewModel.changePage(targetIndex)) {
             ReaderPageMoveResult.Moved -> {
-                translation = null
-                progress = 0f
+                translationViewModel.clearPageTranslation()
             }
             ReaderPageMoveResult.FirstPage -> {
-                statusText = context.getString(R.string.status_first_page)
+                translationViewModel.clearStatus()
+                appStatusText = context.getString(R.string.status_first_page)
             }
             ReaderPageMoveResult.LastPage -> {
-                statusText = context.getString(R.string.status_last_page)
+                translationViewModel.clearStatus()
+                appStatusText = context.getString(R.string.status_last_page)
             }
         }
     }
@@ -284,7 +284,8 @@ fun PageTurnerApp() {
 
     fun previousChapter() {
         if (!canPreviousChapter) {
-            statusText = context.getString(R.string.status_first_chapter)
+            translationViewModel.clearStatus()
+            appStatusText = context.getString(R.string.status_first_chapter)
             return
         }
         changePage(tableOfContents[currentChapterIndex - 1].pageIndex)
@@ -299,7 +300,8 @@ fun PageTurnerApp() {
         }
 
         if (nextChapterIndex == null) {
-            statusText = context.getString(R.string.status_last_chapter)
+            translationViewModel.clearStatus()
+            appStatusText = context.getString(R.string.status_last_chapter)
             return
         }
 
@@ -325,108 +327,43 @@ fun PageTurnerApp() {
     }
 
     fun loadCachedCurrentPage() {
-        scope.launch {
-            val cached = repository.loadCachedPage(document, currentPage, settings)
-            translation = cached
-            translationCacheStatus = repository.cacheStatus(document, settings)
-            if (cached != null) {
-                progress = 1f
-                statusText = context.getString(R.string.status_loaded_cached)
-            } else {
-                progress = 0f
-                statusText = context.getString(R.string.status_no_cached)
-            }
-        }
+        translationViewModel.loadCachedPage(
+            document = document,
+            page = currentPage,
+            settings = settings,
+            repository = repository,
+            showMissingStatus = true,
+        )
     }
 
     fun translateCurrentPage() {
         if (busy) return
-        scope.launch {
-            busy = true
-            progress = 0f
-            statusText = context.getString(
-                R.string.status_starting_translation,
-                paceMode.localizedLabel(context).lowercase(),
-            )
-            translation = null
-            try {
-                val result = repository.translatePage(document, currentPage, settings) { update ->
-                    progress = update.fraction
-                    statusText = context.getString(
-                        R.string.status_translated_segments,
-                        update.completedSegments,
-                        update.totalSegments,
-                    )
-                    translation = PageTranslation(
-                        page = currentPage,
-                        sourceLanguage = settings.normalizedSourceLanguage,
-                        targetLanguage = settings.normalizedTargetLanguage,
-                        segments = update.currentText.split("\n\n").mapIndexed { index, text ->
-                            val segmentId = currentPage.segments.getOrNull(index)?.id ?: "progress-$index"
-                            TranslatedSegment(segmentId, text)
-                        },
-                        completedFromCache = false,
-                    )
-                }
-                translation = result
-                translationCacheStatus = repository.cacheStatus(document, settings)
-                progress = 1f
-                statusText = if (result.completedFromCache) {
-                    context.getString(R.string.status_served_from_cache)
-                } else {
-                    context.getString(R.string.status_translated_saved_page, currentPage.index + 1)
-                }
-            } catch (error: Exception) {
-                statusText = error.readableMessage(context)
-            } finally {
-                busy = false
-            }
-        }
+        translationViewModel.translatePage(
+            document = document,
+            page = currentPage,
+            settings = settings,
+            repository = repository,
+        )
     }
 
     fun prefetchDocument() {
         if (busy) return
-        scope.launch {
-            busy = true
-            progress = 0f
-            statusText = context.getString(R.string.status_preparing_offline_cache)
-            try {
-                repository.prefetchDocument(
-                    document = document,
-                    startPageIndex = pageIndex,
-                    settings = settings.copy(paceMode = TranslationPaceMode.OFFLINE_PREFETCH),
-                ) { update: PrefetchProgress ->
-                    progress = update.fraction
-                    statusText = context.localizedPrefetchStatus(update)
-                }
-                statusText = context.getString(R.string.status_offline_cache_ready)
-                translationCacheStatus = repository.cacheStatus(document, settings)
-                progress = 1f
-                loadCachedCurrentPage()
-            } catch (error: Exception) {
-                statusText = error.readableMessage(context)
-            } finally {
-                busy = false
-            }
-        }
+        translationViewModel.prefetchDocument(
+            document = document,
+            currentPage = currentPage,
+            startPageIndex = pageIndex,
+            settings = settings,
+            repository = repository,
+        )
     }
 
     fun clearTranslationCache() {
         if (busy) return
-        scope.launch {
-            busy = true
-            try {
-                val deleted = repository.clearDocumentCache(document, settings)
-                translation = null
-                translationCacheStatus = repository.cacheStatus(document, settings)
-                progress = 0f
-                statusText = context.getString(R.string.status_cleared_translation_cache, deleted)
-            } catch (error: Exception) {
-                statusText = error.readableMessage(context)
-            } finally {
-                busy = false
-            }
-        }
+        translationViewModel.clearTranslationCache(
+            document = document,
+            settings = settings,
+            repository = repository,
+        )
     }
 
     val openDocumentLauncher = rememberLauncherForActivityResult(
@@ -434,8 +371,9 @@ fun PageTurnerApp() {
     ) { uri: Uri? ->
         if (uri == null) return@rememberLauncherForActivityResult
         scope.launch {
-            busy = true
-            statusText = context.getString(R.string.status_opening_document)
+            documentBusy = true
+            translationViewModel.clearStatus()
+            appStatusText = context.getString(R.string.status_opening_document)
             try {
                 val imported = localLibraryStore.importBook(uri)
                 applyLoadedDocument(
@@ -444,15 +382,15 @@ fun PageTurnerApp() {
                     requestedPageIndex = imported.book.safeCurrentPageIndex,
                 )
                 localBooks = localLibraryStore.listBooks()
-                statusText = if (imported.wasDuplicateImport) {
+                appStatusText = if (imported.wasDuplicateImport) {
                     context.getString(R.string.status_duplicate_book, imported.book.title)
                 } else {
                     context.getString(R.string.status_imported_book, imported.book.title)
                 }
             } catch (error: Exception) {
-                statusText = error.readableMessage(context)
+                appStatusText = error.readableMessage(context)
             } finally {
-                busy = false
+                documentBusy = false
             }
         }
     }
@@ -474,13 +412,15 @@ fun PageTurnerApp() {
                         requestedPageIndex = result.book.safeCurrentPageIndex,
                     )
                     localBooks = localLibraryStore.listBooks()
-                    statusText = context.getString(
+                    translationViewModel.clearStatus()
+                    appStatusText = context.getString(
                         R.string.status_opened_local_book,
                         result.book.title,
                     )
                 }
                 .onFailure { error ->
-                    statusText = error.readableMessage(context)
+                    translationViewModel.clearStatus()
+                    appStatusText = error.readableMessage(context)
                 }
         }
     }
@@ -492,7 +432,7 @@ fun PageTurnerApp() {
     }
 
     LaunchedEffect(document.id, settings, repository) {
-        translationCacheStatus = repository.cacheStatus(document, settings)
+        translationViewModel.refreshCacheStatus(document, settings, repository)
     }
 
     LaunchedEffect(document.id, pageIndex, pdfSourceUri, displayMode) {
@@ -526,22 +466,20 @@ fun PageTurnerApp() {
                     }
                 pdfPageBitmap = renderedPages[currentKey] ?: pdfPageCache[currentKey]
             }.onFailure { error ->
-                statusText = error.readableMessage(context)
+                translationViewModel.clearStatus()
+                appStatusText = error.readableMessage(context)
             }
         }
     }
 
-    LaunchedEffect(document.id, pageIndex, sourceLanguage, targetLanguage) {
-        val cached = repository.loadCachedPage(document, currentPage, settings)
-        translation = cached
-        if (cached != null) {
-            progress = 1f
-            statusText = context.getString(
-                R.string.status_cached_segments,
-                currentPage.segments.size,
-                currentPage.segments.size,
-            )
-        }
+    LaunchedEffect(document.id, pageIndex, settings, repository) {
+        translationViewModel.loadCachedPage(
+            document = document,
+            page = currentPage,
+            settings = settings,
+            repository = repository,
+            showMissingStatus = false,
+        )
     }
 
     Scaffold(
@@ -647,7 +585,7 @@ fun PageTurnerApp() {
                     providerKind = providerKind,
                     onProviderKindChange = settingsViewModel::updateProviderKind,
                     apiKey = apiKey,
-                    onApiKeyChange = { apiKey = it },
+                    onApiKeyChange = translationViewModel::updateApiKey,
                     llmEndpoint = readerSettings.llmEndpoint,
                     onLlmEndpointChange = settingsViewModel::updateLlmEndpoint,
                     llmModel = readerSettings.llmModel,
@@ -700,17 +638,50 @@ fun PageTurnerApp() {
     }
 }
 
-private fun Context.localizedPrefetchStatus(update: PrefetchProgress): String {
-    return when (update.stage) {
-        PrefetchStage.PREPARING -> getString(
-            R.string.status_prefetch_preparing_page,
-            update.activePageNumber,
-            update.totalPages,
+private fun TranslationStatus.localizedMessage(context: Context): String {
+    return when (this) {
+        TranslationStatus.Ready -> context.getString(R.string.status_ready)
+        TranslationStatus.LoadedCached -> context.getString(R.string.status_loaded_cached)
+        TranslationStatus.NoCached -> context.getString(R.string.status_no_cached)
+        TranslationStatus.ServedFromCache -> context.getString(R.string.status_served_from_cache)
+        TranslationStatus.PreparingOfflineCache -> context.getString(R.string.status_preparing_offline_cache)
+        TranslationStatus.OfflineCacheReady -> context.getString(R.string.status_offline_cache_ready)
+        is TranslationStatus.Starting -> context.getString(
+            R.string.status_starting_translation,
+            paceMode.localizedLabel(context).lowercase(),
         )
-        PrefetchStage.SAVED -> getString(
+        is TranslationStatus.CachedSegments -> context.getString(
+            R.string.status_cached_segments,
+            cachedSegments,
+            totalSegments,
+        )
+        is TranslationStatus.TranslatedSegments -> context.getString(
+            R.string.status_translated_segments,
+            completedSegments,
+            totalSegments,
+        )
+        is TranslationStatus.TranslatedSavedPage -> context.getString(
+            R.string.status_translated_saved_page,
+            pageNumber,
+        )
+        is TranslationStatus.PrefetchPreparingPage -> context.getString(
+            R.string.status_prefetch_preparing_page,
+            activePageNumber,
+            totalPages,
+        )
+        is TranslationStatus.PrefetchSavedPage -> context.getString(
             R.string.status_prefetch_saved_page,
-            update.activePageNumber,
-            update.totalPages,
+            activePageNumber,
+            totalPages,
+        )
+        is TranslationStatus.ClearedCache -> context.getString(
+            R.string.status_cleared_translation_cache,
+            deletedSegments,
+        )
+        is TranslationStatus.Error -> context.getString(
+            R.string.status_translation_error,
+            detail?.takeIf { it.isNotBlank() }
+                ?: context.getString(R.string.status_generic_error),
         )
     }
 }

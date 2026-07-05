@@ -12,8 +12,8 @@ tracks what still needs to be built.
 - [x] Move remote source panel to `ui/source`.
 - [x] Add `ReaderViewModel`.
 - [x] Add `SettingsViewModel`.
-- [ ] Add `TranslationViewModel`.
-- [ ] Add app-level state models for translation/library side effects.
+- [x] Add `TranslationViewModel`.
+- [ ] Add app-level state models for library side effects.
 
 ## P0: Persistent Settings
 

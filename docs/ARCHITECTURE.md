@@ -39,6 +39,7 @@ translation/
   -> Translation pacing
   -> Offline cache
   -> Page/document translation repository
+  -> TranslationViewModel for translation result, progress, and cache status
 
 source/
   -> Remote library TODO model
@@ -70,11 +71,10 @@ ui/
 ## Next Refactor Target
 
 `MainActivity` now launches the app and `PageTurnerApp` assembles the feature
-components. Reader document/page state and persistent settings already have
-ViewModel boundaries. The next structure pass should move the remaining state
-and side effects behind stable app models:
+components. Reader document/page state, persistent settings, and translation
+state already have ViewModel boundaries. The next structure pass should move
+the remaining state and side effects behind stable app models:
 
-- `TranslationViewModel`: page translation, prefetch progress, cache status.
 - `LibraryViewModel`: recent books, import/delete/open flows.
 - Renderer state model: PDF bitmap loading and future EPUB image rendering.
 - Persistent settings through DataStore.

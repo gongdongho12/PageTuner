@@ -87,6 +87,7 @@ PageTurner는 전자잉크 단말기용 Android 리더 프로토타입입니다.
   - 번역만
   - 원문과 번역 함께 보기
 - API 키 또는 LLM 엔드포인트/모델 누락을 알려주는 provider 설정 상태.
+- 번역 결과, 캐시 상태, 진행률, busy 상태는 `TranslationViewModel`이 관리합니다.
 
 ### 로컬라이징
 
@@ -146,7 +147,7 @@ app/build/outputs/apk/debug/app-debug.apk
 
 ## 추천 다음 작업
 
-1. 번역과 서재 상태를 ViewModel 경계로 분리.
+1. 서재 상태를 ViewModel 경계로 분리.
 2. 일시정지/재개/취소가 가능한 오프라인 번역 큐 추가.
 3. 로컬 테스트가 쉬운 PageTurner Web Catalog connector부터 구현.
 4. 실제 API 키 사용 전 안전한 credential storage 추가.

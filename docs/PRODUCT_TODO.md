@@ -113,7 +113,8 @@ translation and offline-first reading.
 - Reduce recomposition churn.
   - done: move reader document/page state into `ReaderViewModel`
   - done: move persistent settings into `SettingsViewModel`
-  - pending: move translation and library side effects into view models
+  - done: move translation result/cache/progress state into `TranslationViewModel`
+  - pending: move library side effects into a view model
   - pending: keep renderer state separate from settings state
 - Add no-animation mode as default.
 - Add manual refresh hooks for devices that support explicit e-ink refresh.
@@ -154,7 +155,7 @@ translation and offline-first reading.
 - Add view models.
   - done: `ReaderViewModel`
   - pending: `LibraryViewModel`
-  - pending: `TranslationViewModel`
+  - done: `TranslationViewModel`
   - done: `SettingsViewModel`
 - Add repositories.
   - `DocumentRepository`
@@ -229,7 +230,7 @@ translation and offline-first reading.
 ## Suggested Implementation Order
 
 1. Add local library and app-private file import.
-2. Add translation and library ViewModel boundaries.
+2. Add the library ViewModel boundary.
 3. Add translation queue and cache management UI.
 4. Implement PageTurner Web Catalog source.
 5. Add FTP source.
