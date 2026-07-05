@@ -18,10 +18,13 @@ document/
 
 display/
   -> Color / grayscale / monochrome / e-ink high-contrast mode model
+  -> App-wide color-service and monochrome-service palettes
+  -> Shared bitmap transform for PDF and future image renderers
 
 reader/
   -> Page-turn behavior model
   -> ReaderViewModel for current document, page index, and reader chrome state
+  -> Manual e-ink refresh token for renderer-specific refresh hooks
 
 settings/
   -> DataStore-backed reader settings model and persistence

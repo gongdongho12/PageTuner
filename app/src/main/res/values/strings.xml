@@ -18,6 +18,7 @@
     <string name="action_show_details">Show document details</string>
     <string name="action_hide_controls">Hide controls</string>
     <string name="action_show_controls">Show controls</string>
+    <string name="action_manual_refresh">Refresh e-ink page</string>
     <string name="document_details_title">Document Details</string>
     <string name="document_details_name">Name: %1$s</string>
     <string name="document_details_format">Format: %1$s</string>
@@ -134,4 +135,5 @@
     <string name="status_last_page">This is the last page.</string>
     <string name="status_first_chapter">This is the first chapter.</string>
     <string name="status_last_chapter">This is the last chapter.</string>
+    <string name="status_manual_refresh_requested">Manual e-ink refresh requested.</string>
 </resources>

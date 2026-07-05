@@ -17,6 +17,7 @@ data class ReaderUiState(
     val currentBookId: String? = null,
     val controlsVisible: Boolean = true,
     val showDocumentDetails: Boolean = false,
+    val manualRefreshToken: Int = 0,
 ) {
     val safePageIndex: Int = pageIndex.coerceIn(0, document.pageCount - 1)
     val currentPage: ReaderPage = document.pages[safePageIndex]
@@ -46,6 +47,7 @@ class ReaderViewModel(
                 pdfSourceUri = loaded.pdfSourceUri,
                 currentBookId = localBookId,
                 controlsVisible = current.controlsVisible,
+                manualRefreshToken = current.manualRefreshToken,
             )
         }
     }
@@ -55,6 +57,7 @@ class ReaderViewModel(
             ReaderUiState(
                 document = document,
                 controlsVisible = current.controlsVisible,
+                manualRefreshToken = current.manualRefreshToken,
             )
         }
     }
@@ -84,6 +87,12 @@ class ReaderViewModel(
 
     fun hideDocumentDetails() {
         _uiState.update { state -> state.copy(showDocumentDetails = false) }
+    }
+
+    fun requestManualRefresh() {
+        _uiState.update { state ->
+            state.copy(manualRefreshToken = state.manualRefreshToken + 1)
+        }
     }
 
     class Factory(

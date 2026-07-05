@@ -21,6 +21,7 @@ import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.FolderOpen
 import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.AlertDialog
@@ -68,6 +69,7 @@ fun ReaderHeader(
     controlsVisible: Boolean,
     onOpen: () -> Unit,
     onToggleControls: () -> Unit,
+    onManualRefresh: () -> Unit,
     onShowDetails: () -> Unit,
 ) {
     Row(
@@ -108,6 +110,13 @@ fun ReaderHeader(
             horizontalArrangement = Arrangement.spacedBy(4.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
+            IconButton(onClick = onManualRefresh) {
+                Icon(
+                    imageVector = Icons.Filled.Refresh,
+                    contentDescription = stringResource(R.string.action_manual_refresh),
+                    tint = EinkInk,
+                )
+            }
             IconButton(onClick = onShowDetails) {
                 Icon(
                     imageVector = Icons.Filled.Info,

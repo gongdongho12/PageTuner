@@ -38,6 +38,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.dongholab.pagetuner.display.DisplayMode
+import com.dongholab.pagetuner.display.servicePalette
 import com.dongholab.pagetuner.document.DocumentFormat
 import com.dongholab.pagetuner.document.LoadedReaderDocument
 import com.dongholab.pagetuner.document.PdfDocumentReader
@@ -73,8 +74,8 @@ import com.dongholab.pagetuner.ui.settings.PageTurnSettingsPanel
 import com.dongholab.pagetuner.ui.settings.ReaderPreferencesPanel
 import com.dongholab.pagetuner.ui.source.RemoteSourcesTodoPanel
 import com.dongholab.pagetuner.ui.text.localizedLabel
-import com.dongholab.pagetuner.ui.theme.EinkPaper
 import com.dongholab.pagetuner.ui.theme.PageTurnerTheme
+import com.dongholab.pagetuner.ui.theme.paperColor
 import com.dongholab.pagetuner.ui.translation.TranslationControls
 import kotlin.math.abs
 import kotlin.math.roundToInt
@@ -140,6 +141,7 @@ fun PageTurnerApp() {
     val paceMode = readerSettings.paceMode
     val pageTurnMode = readerSettings.pageTurnMode
     val displayMode = readerSettings.displayMode
+    val paperColor = displayMode.servicePalette().paperColor()
     val sourceLanguage = readerSettings.sourceLanguage
     val targetLanguage = readerSettings.targetLanguage
     val apiKey = translationState.apiKey
@@ -258,6 +260,14 @@ fun PageTurnerApp() {
 
     fun nextPage() {
         changePage(pageIndex + 1)
+    }
+
+    fun requestManualRefresh() {
+        readerViewModel.requestManualRefresh()
+        pdfPageBitmap = null
+        pdfPageCache = emptyMap()
+        translationViewModel.clearStatus()
+        appStatusText = context.getString(R.string.status_manual_refresh_requested)
     }
 
     fun previousChapter() {
@@ -421,7 +431,7 @@ fun PageTurnerApp() {
         translationViewModel.refreshCacheStatus(document, settings, repository)
     }
 
-    LaunchedEffect(document.id, pageIndex, pdfSourceUri, displayMode) {
+    LaunchedEffect(document.id, pageIndex, pdfSourceUri, displayMode, readerState.manualRefreshToken) {
         pdfPageBitmap = null
         val source = pdfSourceUri
         if (document.format == DocumentFormat.PDF && source != null) {
@@ -476,12 +486,12 @@ fun PageTurnerApp() {
             .onPreviewKeyEvent { event ->
                 event.type == KeyEventType.KeyDown && handleReaderKey(event.key)
             },
-        containerColor = EinkPaper,
+        containerColor = paperColor,
     ) { innerPadding ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .background(EinkPaper)
+                .background(paperColor)
                 .padding(innerPadding)
                 .padding(14.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp),
@@ -502,6 +512,7 @@ fun PageTurnerApp() {
                     )
                 },
                 onToggleControls = readerViewModel::toggleControls,
+                onManualRefresh = ::requestManualRefresh,
                 onShowDetails = readerViewModel::showDocumentDetails,
             )
             if (controlsVisible) {

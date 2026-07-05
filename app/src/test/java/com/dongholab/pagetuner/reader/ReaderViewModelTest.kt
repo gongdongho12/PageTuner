@@ -56,6 +56,15 @@ class ReaderViewModelTest {
         assertFalse(viewModel.uiState.value.showDocumentDetails)
     }
 
+    @Test
+    fun incrementsManualRefreshToken() {
+        val viewModel = ReaderViewModel(documentWithPages("Book", pageCount = 1))
+
+        assertEquals(0, viewModel.uiState.value.manualRefreshToken)
+        viewModel.requestManualRefresh()
+        assertEquals(1, viewModel.uiState.value.manualRefreshToken)
+    }
+
     private fun documentWithPages(title: String, pageCount: Int) = ReaderDocument(
         id = title.lowercase(),
         title = title,

@@ -107,10 +107,11 @@ translation and offline-first reading.
   - current page
   - next page
 - Add monochrome bitmap pipeline.
-  - color passthrough mode
-  - threshold mode
-  - grayscale mode
-  - high-contrast mode
+  - done: color passthrough mode
+  - done: threshold mode
+  - done: grayscale mode
+  - done: high-contrast mode
+  - done: shared bitmap transform for PDF and future image renderers
 - Reduce recomposition churn.
   - done: move reader document/page state into `ReaderViewModel`
   - done: move persistent settings into `SettingsViewModel`
@@ -118,7 +119,7 @@ translation and offline-first reading.
   - done: move library side effects into `LibraryViewModel`
   - pending: keep renderer state separate from settings state
 - Add no-animation mode as default.
-- Add manual refresh hooks for devices that support explicit e-ink refresh.
+- Done: add manual refresh hooks for devices that support explicit e-ink refresh.
 - Add memory guard for large PDFs.
   - capped bitmap size
   - bitmap recycle strategy

@@ -18,6 +18,7 @@
     <string name="action_show_details">문서 상세 보기</string>
     <string name="action_hide_controls">컨트롤 숨기기</string>
     <string name="action_show_controls">컨트롤 보이기</string>
+    <string name="action_manual_refresh">전자잉크 화면 새로고침</string>
     <string name="document_details_title">문서 상세</string>
     <string name="document_details_name">이름: %1$s</string>
     <string name="document_details_format">형식: %1$s</string>
@@ -134,4 +135,5 @@
     <string name="status_last_page">마지막 쪽입니다.</string>
     <string name="status_first_chapter">첫 챕터입니다.</string>
     <string name="status_last_chapter">마지막 챕터입니다.</string>
+    <string name="status_manual_refresh_requested">수동 전자잉크 새로고침을 요청했습니다.</string>
 </resources>

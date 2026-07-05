@@ -49,7 +49,12 @@ not as source-code bases.
   `LibraryViewModel`.
 - Current-page-only rendering to keep e-ink page turns light.
 - Display mode flow for color, grayscale, monochrome, and e-ink high contrast.
+- App-wide display palettes for color-service and monochrome-service modes.
 - PDF rendering follows the selected display mode.
+- Shared bitmap display transform for PDF now serves as the EPUB/cover/thumbnail
+  image pipeline foundation.
+- Manual e-ink refresh action clears rendered page cache and re-renders the
+  active page.
 - PDF fit-page / fit-width controls.
 - PDF page-image cache for previous/current/next pages.
 - Reader font size, line spacing, and page margin settings.

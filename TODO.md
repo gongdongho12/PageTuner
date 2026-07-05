@@ -78,9 +78,9 @@ tracks what still needs to be built.
 - [ ] Apply display mode to EPUB images.
 - [ ] Apply display mode to cover images.
 - [ ] Apply display mode to remote catalog thumbnails.
-- [ ] Add app-wide color-service palette.
-- [ ] Add app-wide monochrome-service palette.
-- [ ] Add manual refresh hooks for e-ink devices.
+- [x] Add app-wide color-service palette.
+- [x] Add app-wide monochrome-service palette.
+- [x] Add manual refresh hooks for e-ink devices.
 
 ## P0: Translation
 
