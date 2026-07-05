@@ -49,6 +49,7 @@ import com.dongholab.pagetuner.library.LocalBook
 import com.dongholab.pagetuner.library.LocalLibraryStore
 import com.dongholab.pagetuner.reader.PageTurnMode
 import com.dongholab.pagetuner.reader.ReaderPageMoveResult
+import com.dongholab.pagetuner.reader.ReaderSearchMoveResult
 import com.dongholab.pagetuner.reader.ReaderViewModel
 import com.dongholab.pagetuner.settings.ReaderSettings
 import com.dongholab.pagetuner.settings.ReaderSettingsStore
@@ -72,6 +73,7 @@ import com.dongholab.pagetuner.ui.library.LocalLibraryPanel
 import com.dongholab.pagetuner.ui.reader.DocumentDetailsDialog
 import com.dongholab.pagetuner.ui.reader.ReaderHeader
 import com.dongholab.pagetuner.ui.reader.ReaderPager
+import com.dongholab.pagetuner.ui.reader.ReaderSearchPanel
 import com.dongholab.pagetuner.ui.reader.ReaderSurface
 import com.dongholab.pagetuner.ui.settings.DisplaySettingsPanel
 import com.dongholab.pagetuner.ui.settings.PageTurnSettingsPanel
@@ -146,6 +148,10 @@ fun PageTurnerApp() {
     val currentBookId = readerState.currentBookId
     val controlsVisible = readerState.controlsVisible
     val showDocumentDetails = readerState.showDocumentDetails
+    val searchQuery = readerState.searchQuery
+    val searchResultCount = readerState.searchResults.size
+    val selectedSearchResultNumber = readerState.selectedSearchResultNumber
+    val selectedSearchPreview = readerState.selectedSearchMatch?.preview
     val providerKind = readerSettings.providerKind
     val paceMode = readerSettings.paceMode
     val pageTurnMode = readerSettings.pageTurnMode
@@ -262,6 +268,49 @@ fun PageTurnerApp() {
                 appStatusText = context.getString(R.string.status_last_page)
             }
         }
+    }
+
+    fun handleSearchMove(result: ReaderSearchMoveResult) {
+        when (result) {
+            is ReaderSearchMoveResult.Moved -> {
+                translationViewModel.clearPageTranslation()
+                translationViewModel.clearStatus()
+                appStatusText = context.getString(
+                    R.string.status_search_result,
+                    result.resultNumber,
+                    result.totalResults,
+                    result.match.pageIndex + 1,
+                )
+            }
+            ReaderSearchMoveResult.NoQuery -> {
+                translationViewModel.clearStatus()
+                appStatusText = context.getString(R.string.status_search_empty_query)
+            }
+            ReaderSearchMoveResult.NoResults -> {
+                translationViewModel.clearStatus()
+                appStatusText = context.getString(R.string.status_search_no_results)
+            }
+        }
+    }
+
+    fun updateSearchQuery(query: String) {
+        readerViewModel.updateSearchQuery(query)
+    }
+
+    fun previousSearchResult() {
+        if (busy) return
+        handleSearchMove(readerViewModel.previousSearchResult())
+    }
+
+    fun nextSearchResult() {
+        if (busy) return
+        handleSearchMove(readerViewModel.nextSearchResult())
+    }
+
+    fun clearSearch() {
+        readerViewModel.clearSearch()
+        translationViewModel.clearStatus()
+        appStatusText = context.getString(R.string.status_ready)
     }
 
     fun previousPage() {
@@ -563,6 +612,19 @@ fun PageTurnerApp() {
                 onPreviousChapter = ::previousChapter,
                 onNextChapter = ::nextChapter,
             )
+            if (controlsVisible) {
+                ReaderSearchPanel(
+                    query = searchQuery,
+                    resultCount = searchResultCount,
+                    selectedResultNumber = selectedSearchResultNumber,
+                    selectedPreview = selectedSearchPreview,
+                    busy = busy,
+                    onQueryChange = ::updateSearchQuery,
+                    onPreviousResult = ::previousSearchResult,
+                    onNextResult = ::nextSearchResult,
+                    onClearSearch = ::clearSearch,
+                )
+            }
             ReaderSurface(
                 page = currentPage,
                 documentFormat = document.format,

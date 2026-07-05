@@ -65,6 +65,47 @@ class ReaderViewModelTest {
         assertEquals(1, viewModel.uiState.value.manualRefreshToken)
     }
 
+    @Test
+    fun searchesCurrentDocumentAndMovesBetweenMatches() {
+        val viewModel = ReaderViewModel(
+            documentWithTextPages(
+                "Book",
+                listOf(
+                    "Opening page",
+                    "Needle is here",
+                    "Another needle lives here",
+                ),
+            ),
+        )
+
+        viewModel.updateSearchQuery("needle")
+
+        assertEquals(2, viewModel.uiState.value.searchResults.size)
+        assertTrue(viewModel.nextSearchResult() is ReaderSearchMoveResult.Moved)
+        assertEquals(1, viewModel.uiState.value.pageIndex)
+        assertEquals(1, viewModel.uiState.value.selectedSearchResultNumber)
+
+        viewModel.nextSearchResult()
+        assertEquals(2, viewModel.uiState.value.pageIndex)
+        assertEquals(2, viewModel.uiState.value.selectedSearchResultNumber)
+
+        viewModel.nextSearchResult()
+        assertEquals(1, viewModel.uiState.value.pageIndex)
+        assertEquals(1, viewModel.uiState.value.selectedSearchResultNumber)
+    }
+
+    @Test
+    fun reportsSearchEmptyAndNoResults() {
+        val viewModel = ReaderViewModel(documentWithPages("Book", pageCount = 1))
+
+        assertEquals(ReaderSearchMoveResult.NoQuery, viewModel.nextSearchResult())
+
+        viewModel.updateSearchQuery("missing")
+
+        assertEquals(ReaderSearchMoveResult.NoResults, viewModel.nextSearchResult())
+        assertEquals(0, viewModel.uiState.value.searchResults.size)
+    }
+
     private fun documentWithPages(title: String, pageCount: Int) = ReaderDocument(
         id = title.lowercase(),
         title = title,
@@ -78,6 +119,25 @@ class ReaderViewModelTest {
                         pageIndex = pageIndex,
                         indexInPage = 0,
                         text = "Page ${pageIndex + 1}",
+                    ),
+                ),
+            )
+        },
+    )
+
+    private fun documentWithTextPages(title: String, pageTexts: List<String>) = ReaderDocument(
+        id = title.lowercase(),
+        title = title,
+        format = DocumentFormat.TEXT,
+        pages = pageTexts.mapIndexed { pageIndex, text ->
+            ReaderPage(
+                index = pageIndex,
+                segments = listOf(
+                    TextSegment(
+                        id = "$title-$pageIndex",
+                        pageIndex = pageIndex,
+                        indexInPage = 0,
+                        text = text,
                     ),
                 ),
             )

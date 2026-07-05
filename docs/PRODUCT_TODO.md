@@ -29,7 +29,7 @@ translation and offline-first reading.
   - stable document id from file hash
   - duplicate detection
   - safe delete from local library
-- Add basic search inside current book for text-based formats.
+- Done: add basic search inside current book for text-based formats.
 - Add bookmarks.
   - page bookmark
   - named bookmark

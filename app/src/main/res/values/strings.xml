@@ -15,6 +15,14 @@
     <string name="action_next">Next</string>
     <string name="action_previous_chapter">Prev chapter</string>
     <string name="action_next_chapter">Next chapter</string>
+    <string name="field_search_book">Search book</string>
+    <string name="action_previous_match">Previous match</string>
+    <string name="action_next_match">Next match</string>
+    <string name="action_clear_search">Clear search</string>
+    <string name="search_idle">Search the current book.</string>
+    <string name="search_no_results">No matches.</string>
+    <string name="search_result_count">%1$d matches.</string>
+    <string name="search_result_position">%1$d/%2$d matches.</string>
     <string name="action_show_details">Show document details</string>
     <string name="action_hide_controls">Hide controls</string>
     <string name="action_show_controls">Show controls</string>
@@ -148,6 +156,9 @@
     <string name="status_first_chapter">This is the first chapter.</string>
     <string name="status_last_chapter">This is the last chapter.</string>
     <string name="status_manual_refresh_requested">Manual e-ink refresh requested.</string>
+    <string name="status_search_empty_query">Enter a search term first.</string>
+    <string name="status_search_no_results">No matches in this book.</string>
+    <string name="status_search_result">Match %1$d/%2$d on page %3$d.</string>
     <string name="status_web_catalog_idle">Web catalog is ready.</string>
     <string name="status_web_catalog_loading">Loading web catalog.</string>
     <string name="status_web_catalog_missing_url">Catalog URL is required.</string>

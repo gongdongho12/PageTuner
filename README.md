@@ -61,6 +61,7 @@ not as source-code bases.
   active page.
 - PDF fit-page / fit-width controls.
 - PDF page-image cache for previous/current/next pages.
+- Current-book text search with previous/next match navigation.
 - Reader font size, line spacing, and page margin settings.
 - DataStore-backed persistent settings for display mode, page-turn mode,
   language pair, translation provider, LLM endpoint/model, reading speed, and

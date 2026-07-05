@@ -15,6 +15,14 @@
     <string name="action_next">다음</string>
     <string name="action_previous_chapter">이전 챕터</string>
     <string name="action_next_chapter">다음 챕터</string>
+    <string name="field_search_book">책 검색</string>
+    <string name="action_previous_match">이전 결과</string>
+    <string name="action_next_match">다음 결과</string>
+    <string name="action_clear_search">검색 지우기</string>
+    <string name="search_idle">현재 책에서 검색합니다.</string>
+    <string name="search_no_results">일치하는 결과가 없습니다.</string>
+    <string name="search_result_count">결과 %1$d개.</string>
+    <string name="search_result_position">결과 %1$d/%2$d.</string>
     <string name="action_show_details">문서 상세 보기</string>
     <string name="action_hide_controls">컨트롤 숨기기</string>
     <string name="action_show_controls">컨트롤 보이기</string>
@@ -148,6 +156,9 @@
     <string name="status_first_chapter">첫 챕터입니다.</string>
     <string name="status_last_chapter">마지막 챕터입니다.</string>
     <string name="status_manual_refresh_requested">수동 전자잉크 새로고침을 요청했습니다.</string>
+    <string name="status_search_empty_query">먼저 검색어를 입력하세요.</string>
+    <string name="status_search_no_results">이 책에서 일치하는 결과가 없습니다.</string>
+    <string name="status_search_result">%3$d쪽의 검색 결과 %1$d/%2$d.</string>
     <string name="status_web_catalog_idle">웹 카탈로그를 사용할 수 있습니다.</string>
     <string name="status_web_catalog_loading">웹 카탈로그를 불러오는 중입니다.</string>
     <string name="status_web_catalog_missing_url">카탈로그 URL이 필요합니다.</string>

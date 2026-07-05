@@ -20,9 +20,11 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.FolderOpen
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.AlertDialog
@@ -31,6 +33,7 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -230,6 +233,119 @@ fun ReaderPager(
                 }
             }
         }
+    }
+}
+
+@Composable
+fun ReaderSearchPanel(
+    query: String,
+    resultCount: Int,
+    selectedResultNumber: Int,
+    selectedPreview: String?,
+    busy: Boolean,
+    onQueryChange: (String) -> Unit,
+    onPreviousResult: () -> Unit,
+    onNextResult: () -> Unit,
+    onClearSearch: () -> Unit,
+) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        color = EinkPaper,
+        shape = RoundedCornerShape(6.dp),
+        border = BorderStroke(1.dp, EinkLine),
+        shadowElevation = 0.dp,
+    ) {
+        Column(
+            modifier = Modifier.padding(10.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                OutlinedTextField(
+                    value = query,
+                    onValueChange = onQueryChange,
+                    modifier = Modifier.weight(1f),
+                    enabled = !busy,
+                    singleLine = true,
+                    label = { Text(stringResource(R.string.field_search_book)) },
+                    leadingIcon = {
+                        Icon(Icons.Filled.Search, contentDescription = null)
+                    },
+                )
+                IconButton(
+                    onClick = onClearSearch,
+                    enabled = !busy && query.isNotBlank(),
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.Close,
+                        contentDescription = stringResource(R.string.action_clear_search),
+                        tint = EinkInk,
+                    )
+                }
+            }
+            Text(
+                text = searchSummaryText(
+                    query = query,
+                    resultCount = resultCount,
+                    selectedResultNumber = selectedResultNumber,
+                ),
+                modifier = Modifier.fillMaxWidth(),
+                style = MaterialTheme.typography.bodySmall,
+                color = EinkMuted,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.End,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                TextButton(
+                    onClick = onPreviousResult,
+                    enabled = !busy && query.isNotBlank() && resultCount > 0,
+                ) {
+                    Icon(Icons.AutoMirrored.Filled.KeyboardArrowLeft, contentDescription = null)
+                    Text(stringResource(R.string.action_previous_match))
+                }
+                TextButton(
+                    onClick = onNextResult,
+                    enabled = !busy && query.isNotBlank() && resultCount > 0,
+                ) {
+                    Text(stringResource(R.string.action_next_match))
+                    Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null)
+                }
+            }
+            selectedPreview?.takeIf { it.isNotBlank() }?.let { preview ->
+                Text(
+                    text = preview,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = EinkInk,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun searchSummaryText(
+    query: String,
+    resultCount: Int,
+    selectedResultNumber: Int,
+): String {
+    return when {
+        query.isBlank() -> stringResource(R.string.search_idle)
+        resultCount == 0 -> stringResource(R.string.search_no_results)
+        selectedResultNumber > 0 -> stringResource(
+            R.string.search_result_position,
+            selectedResultNumber,
+            resultCount,
+        )
+        else -> stringResource(R.string.search_result_count, resultCount)
     }
 }
 

@@ -116,7 +116,7 @@ tracks what still needs to be built.
 
 ## P1: Search, Bookmarks, Notes
 
-- [ ] Search current text-based book.
+- [x] Search current text-based book.
 - [ ] Add page bookmarks.
 - [ ] Add named bookmarks.
 - [ ] Add bookmark list.
