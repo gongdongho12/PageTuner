@@ -21,9 +21,10 @@ fun Context.sampleDocument(): ReaderDocument {
 fun Context.readReaderDocument(
     uri: Uri,
     preferredTitle: String? = null,
+    preferredFormat: DocumentFormat? = null,
 ): LoadedReaderDocument {
     val title = preferredTitle?.takeIf { it.isNotBlank() } ?: readerDocumentDisplayName(uri)
-    val format = detectReaderDocumentFormat(uri, title)
+    val format = preferredFormat ?: detectReaderDocumentFormat(uri, title)
 
     return when (format) {
         DocumentFormat.PDF -> LoadedReaderDocument(

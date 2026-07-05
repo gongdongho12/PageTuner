@@ -4,6 +4,7 @@ import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import com.dongholab.pagetuner.source.RemoteBookItem
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -93,6 +94,24 @@ class LibraryViewModel(
             _uiState.update { state -> state.copy(busy = true) }
             runCatching {
                 val result = localLibraryStore.importBook(uri)
+                val books = localLibraryStore.listBooks()
+                result to books
+            }.onSuccess { (result, books) ->
+                _uiState.update { state -> state.copy(books = books) }
+                _events.emit(LibraryEvent.ImportedBook(result))
+            }.onFailure { error ->
+                _events.emit(LibraryEvent.Error(error.message))
+            }
+            _uiState.update { state -> state.copy(busy = false) }
+        }
+    }
+
+    fun importRemoteBook(remoteBook: RemoteBookItem, bytes: ByteArray) {
+        if (_uiState.value.busy) return
+        viewModelScope.launch {
+            _uiState.update { state -> state.copy(busy = true) }
+            runCatching {
+                val result = localLibraryStore.importRemoteBook(remoteBook, bytes)
                 val books = localLibraryStore.listBooks()
                 result to books
             }.onSuccess { (result, books) ->

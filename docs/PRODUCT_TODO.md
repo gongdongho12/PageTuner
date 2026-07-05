@@ -136,8 +136,9 @@ translation and offline-first reading.
 - Done: implement PageTurner Web Catalog first.
   - done: static `catalog.json`
   - done: parser/source abstraction
-  - pending: local HTTP fetch UI
-  - pending: import selected item
+  - done: local HTTP fetch UI
+  - done: import selected item
+  - done: catalog metadata cache
 - Implement FTP / FTPS source.
   - passive mode
   - username/password

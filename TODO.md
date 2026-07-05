@@ -106,8 +106,8 @@ tracks what still needs to be built.
 - [x] Add static sample catalog.
 - [x] Add `RemoteBookSource` interface.
 - [x] Implement PageTurner Web Catalog connector.
-- [ ] Import book from web catalog.
-- [ ] Cache catalog metadata.
+- [x] Import book from web catalog.
+- [x] Cache catalog metadata.
 - [ ] Add FTP / FTPS connector.
 - [ ] Add FTP folder browsing.
 - [ ] Add Google Drive connector.

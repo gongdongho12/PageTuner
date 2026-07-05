@@ -53,6 +53,10 @@ import com.dongholab.pagetuner.reader.ReaderViewModel
 import com.dongholab.pagetuner.settings.ReaderSettings
 import com.dongholab.pagetuner.settings.ReaderSettingsStore
 import com.dongholab.pagetuner.settings.SettingsViewModel
+import com.dongholab.pagetuner.source.RemoteCatalogCache
+import com.dongholab.pagetuner.source.WebCatalogEvent
+import com.dongholab.pagetuner.source.WebCatalogStatus
+import com.dongholab.pagetuner.source.WebCatalogViewModel
 import com.dongholab.pagetuner.translation.JsonFileTranslationCache
 import com.dongholab.pagetuner.translation.ProviderHealthCheck
 import com.dongholab.pagetuner.translation.ProviderHealthState
@@ -107,6 +111,7 @@ fun PageTurnerApp() {
     val cache = remember(context) { JsonFileTranslationCache(context) }
     val settingsStore = remember(context) { ReaderSettingsStore(context) }
     val localLibraryStore = remember(context) { LocalLibraryStore(context) }
+    val remoteCatalogCache = remember(context) { RemoteCatalogCache(context) }
     val initialDocument = remember(context) { context.sampleDocument() }
     val settingsViewModel: SettingsViewModel = viewModel(
         factory = SettingsViewModel.Factory(settingsStore),
@@ -117,10 +122,14 @@ fun PageTurnerApp() {
     val libraryViewModel: LibraryViewModel = viewModel(
         factory = LibraryViewModel.Factory(localLibraryStore),
     )
+    val webCatalogViewModel: WebCatalogViewModel = viewModel(
+        factory = WebCatalogViewModel.Factory(remoteCatalogCache),
+    )
     val translationViewModel: TranslationViewModel = viewModel()
     val readerSettings by settingsViewModel.settings.collectAsState(initial = ReaderSettings())
     val readerState by readerViewModel.uiState.collectAsState()
     val libraryState by libraryViewModel.uiState.collectAsState()
+    val webCatalogState by webCatalogViewModel.uiState.collectAsState()
     val translationState by translationViewModel.uiState.collectAsState()
     val focusRequester = remember { FocusRequester() }
     val initialStatus = stringResource(R.string.status_ready)
@@ -147,10 +156,11 @@ fun PageTurnerApp() {
     val apiKey = translationState.apiKey
     val translation = translationState.translation
     val translationCacheStatus = translationState.cacheStatus
-    val busy = libraryState.busy || translationState.busy
+    val busy = libraryState.busy || translationState.busy || webCatalogState.busy
     val progress = translationState.progress
     val providerHealthText = translationState.providerHealth.localizedMessage(context)
     val translationQueueStatusText = translationState.queue.localizedMessage(context)
+    val webCatalogStatusText = webCatalogState.status.localizedMessage(context)
     val statusText = when (val status = translationState.status) {
         TranslationStatus.Ready -> appStatusText
         else -> status.localizedMessage(context)
@@ -422,6 +432,23 @@ fun PageTurnerApp() {
         libraryViewModel.loadInitialLibrary()
     }
 
+    LaunchedEffect(webCatalogViewModel) {
+        launch {
+            webCatalogViewModel.events.collect { event ->
+                when (event) {
+                    is WebCatalogEvent.ImportDownloaded -> {
+                        translationViewModel.clearStatus()
+                        appStatusText = context.getString(
+                            R.string.status_web_catalog_downloaded,
+                            event.item.title,
+                        )
+                        libraryViewModel.importRemoteBook(event.item, event.bytes)
+                    }
+                }
+            }
+        }
+    }
+
     LaunchedEffect(currentBookId, pageIndex, document.id) {
         val bookId = currentBookId ?: return@LaunchedEffect
         libraryViewModel.updateProgress(bookId, pageIndex)
@@ -633,7 +660,20 @@ fun PageTurnerApp() {
                     onLoadCached = ::loadCachedCurrentPage,
                     onClearCache = ::clearTranslationCache,
                 )
-                RemoteSourcesTodoPanel()
+                RemoteSourcesTodoPanel(
+                    catalogUrl = webCatalogState.catalogUrl,
+                    query = webCatalogState.query,
+                    items = webCatalogState.visibleItems,
+                    cachedCatalogs = webCatalogState.cachedCatalogs,
+                    busy = busy,
+                    statusText = webCatalogStatusText,
+                    onCatalogUrlChange = webCatalogViewModel::updateCatalogUrl,
+                    onQueryChange = webCatalogViewModel::updateQuery,
+                    onLoadCatalog = webCatalogViewModel::loadCatalog,
+                    onRefreshCatalog = webCatalogViewModel::refreshCatalog,
+                    onLoadCachedCatalog = webCatalogViewModel::loadCachedCatalog,
+                    onImportItem = webCatalogViewModel::importItem,
+                )
                 StatusStrip(
                     statusText = statusText,
                     progress = progress,
@@ -732,6 +772,38 @@ private fun ProviderHealthCheck.localizedMessage(context: Context): String {
         }
         ProviderHealthState.InvalidConfiguration ->
             context.getString(R.string.provider_health_invalid_llm_endpoint)
+    }
+}
+
+private fun WebCatalogStatus.localizedMessage(context: Context): String {
+    return when (this) {
+        WebCatalogStatus.Idle -> context.getString(R.string.status_web_catalog_idle)
+        WebCatalogStatus.Loading -> context.getString(R.string.status_web_catalog_loading)
+        WebCatalogStatus.MissingCatalogUrl ->
+            context.getString(R.string.status_web_catalog_missing_url)
+        is WebCatalogStatus.LoadedRemote -> context.getString(
+            R.string.status_web_catalog_loaded_remote,
+            title,
+            itemCount,
+        )
+        is WebCatalogStatus.LoadedCached -> context.getString(
+            R.string.status_web_catalog_loaded_cached,
+            title,
+            itemCount,
+        )
+        is WebCatalogStatus.Importing -> context.getString(
+            R.string.status_web_catalog_importing,
+            title,
+        )
+        is WebCatalogStatus.Downloaded -> context.getString(
+            R.string.status_web_catalog_downloaded,
+            title,
+        )
+        is WebCatalogStatus.Error -> context.getString(
+            R.string.status_web_catalog_error,
+            detail?.takeIf { it.isNotBlank() }
+                ?: context.getString(R.string.status_generic_error),
+        )
     }
 }
 

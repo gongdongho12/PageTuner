@@ -95,8 +95,18 @@
     <string name="action_translate_page">Translate Page</string>
     <string name="action_prefetch_offline_cache">Prefetch Offline Cache</string>
     <string name="action_load_offline_saved">Load Offline Saved</string>
-    <string name="remote_sources_title">Remote Library TODO</string>
-    <string name="remote_sources_subtitle">Planned import sources for Drive, FTP, and web catalogs.</string>
+    <string name="remote_sources_title">Remote Library</string>
+    <string name="remote_sources_subtitle">Load PageTurner web catalogs now; Drive and FTP remain planned connectors.</string>
+    <string name="field_web_catalog_url">Catalog URL</string>
+    <string name="field_web_catalog_search">Search catalog</string>
+    <string name="action_load_catalog">Load Catalog</string>
+    <string name="action_refresh_catalog">Refresh</string>
+    <string name="action_import_remote_book">Import</string>
+    <string name="web_catalog_empty">No catalog items loaded.</string>
+    <string name="web_catalog_cached_count">Saved catalogs: %1$d</string>
+    <string name="web_catalog_cached_entry">%1$s · %2$d items</string>
+    <string name="web_catalog_book_meta">%1$s · %2$s</string>
+    <string name="web_catalog_unknown_language">unknown</string>
     <string name="source_google_drive_title">Google Drive</string>
     <string name="source_google_drive_description">Browse Drive files, filter EPUB/PDF/Markdown, then save imported books for offline reading.</string>
     <string name="source_ftp_title">FTP / FTPS server</string>
@@ -137,4 +147,12 @@
     <string name="status_first_chapter">This is the first chapter.</string>
     <string name="status_last_chapter">This is the last chapter.</string>
     <string name="status_manual_refresh_requested">Manual e-ink refresh requested.</string>
+    <string name="status_web_catalog_idle">Web catalog is ready.</string>
+    <string name="status_web_catalog_loading">Loading web catalog.</string>
+    <string name="status_web_catalog_missing_url">Catalog URL is required.</string>
+    <string name="status_web_catalog_loaded_remote">Loaded %1$s from network: %2$d books.</string>
+    <string name="status_web_catalog_loaded_cached">Loaded saved catalog %1$s: %2$d books.</string>
+    <string name="status_web_catalog_importing">Downloading %1$s.</string>
+    <string name="status_web_catalog_downloaded">Downloaded %1$s. Saving to local library.</string>
+    <string name="status_web_catalog_error">Web catalog error: %1$s</string>
 </resources>

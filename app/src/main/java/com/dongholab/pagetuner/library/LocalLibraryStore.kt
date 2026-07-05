@@ -8,6 +8,7 @@ import com.dongholab.pagetuner.document.LoadedReaderDocument
 import com.dongholab.pagetuner.document.detectReaderDocumentFormat
 import com.dongholab.pagetuner.document.readReaderDocument
 import com.dongholab.pagetuner.document.readerDocumentDisplayName
+import com.dongholab.pagetuner.source.RemoteBookItem
 import java.io.File
 import java.io.IOException
 import kotlinx.coroutines.Dispatchers
@@ -36,38 +37,23 @@ class LocalLibraryStore(context: Context) {
         val format = appContext.detectReaderDocumentFormat(uri, title)
         val bytes = appContext.contentResolver.openInputStream(uri)?.use { it.readBytes() }
             ?: throw IOException("Unable to open source document.")
-        val contentHash = DocumentIds.sha256(bytes)
-        val books = readBooks()
-        val existing = books.firstOrNull { it.contentHash == contentHash }
-
-        if (existing != null && safeBookFile(existing).exists()) {
-            return@withContext openStoredBook(existing, wasDuplicateImport = true)
-        }
-
-        val fileName = "${contentHash.take(16)}-${sanitizeFileName(title, format)}"
-        val storedFile = File(booksDir, fileName)
-        storedFile.writeBytes(bytes)
-
-        val loaded = appContext.readReaderDocument(
-            uri = Uri.fromFile(storedFile),
-            preferredTitle = title,
+        importBytes(
+            title = title,
+            format = format,
+            bytes = bytes,
         )
-        val now = System.currentTimeMillis()
-        val book = LocalBook(
-            id = contentHash.take(24),
-            title = loaded.document.title,
-            format = loaded.document.format,
-            relativePath = "books/$fileName",
-            contentHash = contentHash,
-            pageCount = loaded.document.pageCount.coerceAtLeast(1),
-            currentPageIndex = 0,
-            importedAtMillis = now,
-            lastOpenedAtMillis = now,
-            fileSizeBytes = bytes.size.toLong(),
-        )
+    }
 
-        writeBooks(books.filterNot { it.id == book.id || it.contentHash == book.contentHash } + book)
-        LocalLibraryOpenResult(book = book, loadedDocument = loaded)
+    suspend fun importRemoteBook(
+        remoteBook: RemoteBookItem,
+        bytes: ByteArray,
+    ): LocalLibraryOpenResult = withContext(Dispatchers.IO) {
+        ensureDirectories()
+        importBytes(
+            title = remoteBook.title,
+            format = remoteBook.format,
+            bytes = bytes,
+        )
     }
 
     suspend fun openBook(bookId: String): LocalLibraryOpenResult = withContext(Dispatchers.IO) {
@@ -125,6 +111,47 @@ class LocalLibraryStore(context: Context) {
             loadedDocument = loaded,
             wasDuplicateImport = wasDuplicateImport,
         )
+    }
+
+    private fun importBytes(
+        title: String,
+        format: DocumentFormat,
+        bytes: ByteArray,
+    ): LocalLibraryOpenResult {
+        ensureDirectories()
+        val contentHash = DocumentIds.sha256(bytes)
+        val books = readBooks()
+        val existing = books.firstOrNull { it.contentHash == contentHash }
+
+        if (existing != null && safeBookFile(existing).exists()) {
+            return openStoredBook(existing, wasDuplicateImport = true)
+        }
+
+        val fileName = "${contentHash.take(16)}-${sanitizeFileName(title, format)}"
+        val storedFile = File(booksDir, fileName)
+        storedFile.writeBytes(bytes)
+
+        val loaded = appContext.readReaderDocument(
+            uri = Uri.fromFile(storedFile),
+            preferredTitle = title,
+            preferredFormat = format,
+        )
+        val now = System.currentTimeMillis()
+        val book = LocalBook(
+            id = contentHash.take(24),
+            title = loaded.document.title,
+            format = loaded.document.format,
+            relativePath = "books/$fileName",
+            contentHash = contentHash,
+            pageCount = loaded.document.pageCount.coerceAtLeast(1),
+            currentPageIndex = 0,
+            importedAtMillis = now,
+            lastOpenedAtMillis = now,
+            fileSizeBytes = bytes.size.toLong(),
+        )
+
+        writeBooks(books.filterNot { it.id == book.id || it.contentHash == book.contentHash } + book)
+        return LocalLibraryOpenResult(book = book, loadedDocument = loaded)
     }
 
     private fun readBooks(): List<LocalBook> {

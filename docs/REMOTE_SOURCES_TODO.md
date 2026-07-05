@@ -148,8 +148,15 @@ Then open:
 http://localhost:8088/catalog.json
 ```
 
-When the web catalog connector exists, adding that URL should list the sample
-book and allow the app to download it into the local reader.
+In an Android emulator, use this app URL instead:
+
+```text
+http://10.0.2.2:8088/catalog.json
+```
+
+On a physical e-ink device, use the host computer's LAN IP address. Adding that
+URL in the app lists the sample book, saves catalog metadata for later recall,
+and imports downloaded items into the local reader.
 
 ## References
 

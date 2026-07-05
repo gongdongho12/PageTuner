@@ -112,12 +112,14 @@ not as source-code bases.
   - `app/src/main/res/values/strings.xml`
   - `app/src/main/res/values-ko/strings.xml`
 
-### Remote Library Planning
+### Remote Library
 
-- In-app TODO panel for future remote library sources.
+- In-app remote library panel for PageTurner Web Catalog loading, search,
+  cached catalog reload, and local-library import.
 - `RemoteBookSource` interface for Drive, FTP, and web catalog connectors.
 - PageTurner Web Catalog v0.1 parser/source with relative URL normalization,
   search, refresh, and injectable download support.
+- App-private web catalog metadata cache for offline catalog recall.
 - Planned source types:
   - Google Drive
   - FTP / FTPS
@@ -125,6 +127,8 @@ not as source-code bases.
 - Draft remote-source spec: [docs/REMOTE_SOURCES_TODO.md](docs/REMOTE_SOURCES_TODO.md)
 - Static sample catalog:
   - [examples/pagetuner-catalog/catalog.json](examples/pagetuner-catalog/catalog.json)
+- Local emulator trial URL:
+  - `http://10.0.2.2:8088/catalog.json`
 
 ### Developer Docs
 
@@ -145,7 +149,7 @@ not as source-code bases.
   still need OCR implementation.
 - EPUB support is a text-first reader. Complex layout, rendered embedded media,
   custom fonts, and advanced CSS are not rendered yet.
-- Google Drive, FTP, and web catalog connectors are TODO/planning items.
+- Google Drive and FTP connectors are TODO/planning items.
 - API keys are entered per session and are not persisted yet; production storage
   should use a more secure credential layer.
 - The LLM provider expects OpenAI-compatible chat completions JSON.
@@ -165,8 +169,8 @@ app/build/outputs/apk/debug/app-debug.apk
 
 ## Suggested Next Steps
 
-1. Wire PageTurner Web Catalog item import into the local library UI.
-2. Add secure credential storage before using real API keys in production.
-3. Add EPUB embedded image rendering and display-mode processing.
-4. Add FTP and Google Drive connectors.
+1. Add secure credential storage before using real API keys in production.
+2. Add EPUB embedded image rendering and display-mode processing.
+3. Add FTP and Google Drive connectors.
+4. Add source account management for remote libraries.
 5. Choose and add the project license before distribution.
