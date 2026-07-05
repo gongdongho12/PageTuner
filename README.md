@@ -106,7 +106,8 @@ not as source-code bases.
   - retry failed pages
 - Provider health check validates required Google, Google Web HTML, and LLM
   settings before use.
-- JSON-file translation cache in app-private storage.
+- JSON-file translation cache in app-private storage with temporary-file
+  replacement for crash-safer writes.
 - Cached page loading for offline reading.
 - Per-document translation cache status for the active provider/language pair.
 - Clear translation cache action for the active document and provider/language

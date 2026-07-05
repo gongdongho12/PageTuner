@@ -3,6 +3,8 @@ package com.dongholab.pagetuner.translation
 import android.content.Context
 import com.dongholab.pagetuner.document.DocumentIds
 import java.io.File
+import java.io.FileOutputStream
+import java.io.IOException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
@@ -33,11 +35,14 @@ interface TranslationCache {
     suspend fun deleteMany(keys: List<TranslationCacheKey>): Int
 }
 
-class JsonFileTranslationCache(
-    context: Context,
+class JsonFileTranslationCache internal constructor(
+    private val cacheFile: File,
 ) : TranslationCache {
+    constructor(context: Context) : this(
+        File(context.applicationContext.filesDir, "translation-cache/page-turner-cache.json"),
+    )
+
     private val lock = Any()
-    private val cacheFile: File = File(context.filesDir, "translation-cache/page-turner-cache.json")
     private var memory: MutableMap<String, CachedTranslation>? = null
 
     override suspend fun getMany(keys: List<TranslationCacheKey>): Map<String, CachedTranslation> {
@@ -128,6 +133,24 @@ class JsonFileTranslationCache(
 
         root.put("version", 1)
         root.put("records", items)
-        cacheFile.writeText(root.toString(), Charsets.UTF_8)
+        cacheFile.writeAtomically(root.toString().toByteArray(Charsets.UTF_8))
+    }
+
+    private fun File.writeAtomically(bytes: ByteArray) {
+        parentFile?.mkdirs()
+        val tmpFile = File(requireNotNull(parentFile), "$name.tmp")
+        try {
+            FileOutputStream(tmpFile).use { output ->
+                output.write(bytes)
+                output.fd.sync()
+            }
+            if (!tmpFile.renameTo(this)) {
+                throw IOException("Could not replace translation cache file.")
+            }
+        } finally {
+            if (tmpFile.exists()) {
+                tmpFile.delete()
+            }
+        }
     }
 }

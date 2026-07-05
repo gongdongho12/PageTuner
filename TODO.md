@@ -134,7 +134,7 @@ tracks what still needs to be built.
 - [x] Add missing API key state.
 - [ ] Add provider error explanations.
 - [ ] Add retry actions.
-- [ ] Add crash-safe cache writes.
+- [x] Add crash-safe cache writes.
 
 ## P2: Translation Quality
 

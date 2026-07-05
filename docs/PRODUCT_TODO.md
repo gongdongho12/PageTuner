@@ -90,6 +90,7 @@ translation and offline-first reading.
 - Done: add translation cache management.
   - done: per-document cache status
   - done: clear translation cache for active provider/language
+  - done: crash-safer temporary-file cache writes
   - pending: clear all provider-specific cache
 - Done: add offline prefetch queue.
   - done: whole document
