@@ -54,6 +54,8 @@ not as source-code bases.
 - DataStore-backed persistent settings for display mode, page-turn mode,
   language pair, translation provider, LLM endpoint/model, reading speed, and
   pacing mode.
+- Reader document/page state is owned by `ReaderViewModel`.
+- Persistent settings are exposed through `SettingsViewModel`.
 
 ### Translation
 
@@ -144,7 +146,7 @@ app/build/outputs/apk/debug/app-debug.apk
 
 ## Suggested Next Steps
 
-1. Add settings, reader, and translation ViewModel boundaries.
+1. Add translation and library ViewModel boundaries.
 2. Add the offline translation queue with pause/resume/cancel controls.
 3. Add the PageTurner Web Catalog connector first, because it is easy to test
    locally.

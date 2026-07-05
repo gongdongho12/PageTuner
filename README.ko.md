@@ -56,6 +56,8 @@ PageTurner는 전자잉크 단말기용 Android 리더 프로토타입입니다.
   - LLM 엔드포인트/모델
   - 읽기 속도
   - 번역 pacing 모드
+- 리더 문서/쪽 상태는 `ReaderViewModel`이 관리합니다.
+- 영속 설정은 `SettingsViewModel`을 통해 화면에 제공됩니다.
 
 ### 번역
 
@@ -144,7 +146,7 @@ app/build/outputs/apk/debug/app-debug.apk
 
 ## 추천 다음 작업
 
-1. 설정, 리더, 번역 상태를 ViewModel 경계로 분리.
+1. 번역과 서재 상태를 ViewModel 경계로 분리.
 2. 일시정지/재개/취소가 가능한 오프라인 번역 큐 추가.
 3. 로컬 테스트가 쉬운 PageTurner Web Catalog connector부터 구현.
 4. 실제 API 키 사용 전 안전한 credential storage 추가.

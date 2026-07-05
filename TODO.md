@@ -10,10 +10,10 @@ tracks what still needs to be built.
 - [x] Move translation controls to `ui/translation`.
 - [x] Move display/page-turn settings to `ui/settings`.
 - [x] Move remote source panel to `ui/source`.
-- [ ] Add `ReaderViewModel`.
-- [ ] Add `SettingsViewModel`.
+- [x] Add `ReaderViewModel`.
+- [x] Add `SettingsViewModel`.
 - [ ] Add `TranslationViewModel`.
-- [ ] Add app-level state models instead of many local `rememberSaveable` fields.
+- [ ] Add app-level state models for translation/library side effects.
 
 ## P0: Persistent Settings
 

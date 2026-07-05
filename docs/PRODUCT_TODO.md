@@ -111,8 +111,10 @@ translation and offline-first reading.
   - grayscale mode
   - high-contrast mode
 - Reduce recomposition churn.
-  - move UI state into view models
-  - keep renderer state separate from settings state
+  - done: move reader document/page state into `ReaderViewModel`
+  - done: move persistent settings into `SettingsViewModel`
+  - pending: move translation and library side effects into view models
+  - pending: keep renderer state separate from settings state
 - Add no-animation mode as default.
 - Add manual refresh hooks for devices that support explicit e-ink refresh.
 - Add memory guard for large PDFs.
@@ -150,10 +152,10 @@ translation and offline-first reading.
 ## P1: App Architecture
 
 - Add view models.
-  - `ReaderViewModel`
-  - `LibraryViewModel`
-  - `TranslationViewModel`
-  - `SettingsViewModel`
+  - done: `ReaderViewModel`
+  - pending: `LibraryViewModel`
+  - pending: `TranslationViewModel`
+  - done: `SettingsViewModel`
 - Add repositories.
   - `DocumentRepository`
   - `LibraryRepository`
@@ -227,7 +229,7 @@ translation and offline-first reading.
 ## Suggested Implementation Order
 
 1. Add local library and app-private file import.
-2. Add settings and reader ViewModel boundaries.
+2. Add translation and library ViewModel boundaries.
 3. Add translation queue and cache management UI.
 4. Implement PageTurner Web Catalog source.
 5. Add FTP source.

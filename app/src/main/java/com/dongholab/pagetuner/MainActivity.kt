@@ -21,7 +21,6 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -39,6 +38,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.viewmodel.compose.viewModel
 import com.dongholab.pagetuner.display.DisplayMode
 import com.dongholab.pagetuner.document.DocumentFormat
 import com.dongholab.pagetuner.document.LoadedReaderDocument
@@ -47,8 +47,11 @@ import com.dongholab.pagetuner.document.sampleDocument
 import com.dongholab.pagetuner.library.LocalBook
 import com.dongholab.pagetuner.library.LocalLibraryStore
 import com.dongholab.pagetuner.reader.PageTurnMode
+import com.dongholab.pagetuner.reader.ReaderPageMoveResult
+import com.dongholab.pagetuner.reader.ReaderViewModel
 import com.dongholab.pagetuner.settings.ReaderSettings
 import com.dongholab.pagetuner.settings.ReaderSettingsStore
+import com.dongholab.pagetuner.settings.SettingsViewModel
 import com.dongholab.pagetuner.translation.JsonFileTranslationCache
 import com.dongholab.pagetuner.translation.PageTranslation
 import com.dongholab.pagetuner.translation.PrefetchStage
@@ -105,17 +108,21 @@ fun PageTurnerApp() {
     val cache = remember(context) { JsonFileTranslationCache(context) }
     val settingsStore = remember(context) { ReaderSettingsStore(context) }
     val localLibraryStore = remember(context) { LocalLibraryStore(context) }
-    val readerSettings by settingsStore.settings.collectAsState(initial = ReaderSettings())
+    val initialDocument = remember(context) { context.sampleDocument() }
+    val settingsViewModel: SettingsViewModel = viewModel(
+        factory = SettingsViewModel.Factory(settingsStore),
+    )
+    val readerViewModel: ReaderViewModel = viewModel(
+        factory = ReaderViewModel.Factory(initialDocument),
+    )
+    val readerSettings by settingsViewModel.settings.collectAsState(initial = ReaderSettings())
+    val readerState by readerViewModel.uiState.collectAsState()
     val scope = rememberCoroutineScope()
     val focusRequester = remember { FocusRequester() }
     val initialStatus = stringResource(R.string.status_ready)
 
-    var document by remember(context) { mutableStateOf(context.sampleDocument()) }
-    var pdfSourceUri by rememberSaveable { mutableStateOf<String?>(null) }
     var pdfPageBitmap by remember { mutableStateOf<Bitmap?>(null) }
     var pdfPageCache by remember { mutableStateOf<Map<PdfPageCacheKey, Bitmap>>(emptyMap()) }
-    var pageIndex by rememberSaveable { mutableIntStateOf(0) }
-    var currentBookId by rememberSaveable { mutableStateOf<String?>(null) }
     var localBooks by remember { mutableStateOf<List<LocalBook>>(emptyList()) }
     var apiKey by rememberSaveable { mutableStateOf("") }
     var translation by remember { mutableStateOf<PageTranslation?>(null) }
@@ -123,16 +130,20 @@ fun PageTurnerApp() {
     var statusText by rememberSaveable(initialStatus) { mutableStateOf(initialStatus) }
     var progress by remember { mutableFloatStateOf(0f) }
     var busy by remember { mutableStateOf(false) }
-    var controlsVisible by rememberSaveable { mutableStateOf(true) }
-    var showDocumentDetails by rememberSaveable { mutableStateOf(false) }
 
+    val document = readerState.document
+    val pageIndex = readerState.safePageIndex
+    val currentPage = readerState.currentPage
+    val pdfSourceUri = readerState.pdfSourceUri
+    val currentBookId = readerState.currentBookId
+    val controlsVisible = readerState.controlsVisible
+    val showDocumentDetails = readerState.showDocumentDetails
     val providerKind = readerSettings.providerKind
     val paceMode = readerSettings.paceMode
     val pageTurnMode = readerSettings.pageTurnMode
     val displayMode = readerSettings.displayMode
     val sourceLanguage = readerSettings.sourceLanguage
     val targetLanguage = readerSettings.targetLanguage
-    val currentPage = document.pages[pageIndex.coerceIn(0, document.pages.lastIndex)]
     val tableOfContents = document.tableOfContents
     val currentChapterIndex = tableOfContents.indexOfLast { outline ->
         outline.pageIndex <= currentPage.index
@@ -190,12 +201,13 @@ fun PageTurnerApp() {
         localBook: LocalBook?,
         requestedPageIndex: Int,
     ) {
-        document = loaded.document
-        pdfSourceUri = loaded.pdfSourceUri
+        readerViewModel.applyLoadedDocument(
+            loaded = loaded,
+            localBookId = localBook?.id,
+            requestedPageIndex = requestedPageIndex,
+        )
         pdfPageBitmap = null
         pdfPageCache = emptyMap()
-        pageIndex = requestedPageIndex.coerceIn(0, loaded.document.pageCount - 1)
-        currentBookId = localBook?.id
         translation = null
         translationCacheStatus = null
         progress = 0f
@@ -231,12 +243,9 @@ fun PageTurnerApp() {
                 val deleted = localLibraryStore.deleteBook(book.id)
                 localBooks = localLibraryStore.listBooks()
                 if (deleted && currentBookId == book.id) {
-                    document = context.sampleDocument()
-                    pdfSourceUri = null
+                    readerViewModel.resetDocument(context.sampleDocument())
                     pdfPageBitmap = null
                     pdfPageCache = emptyMap()
-                    pageIndex = 0
-                    currentBookId = null
                     translation = null
                     translationCacheStatus = null
                     progress = 0f
@@ -251,19 +260,18 @@ fun PageTurnerApp() {
     }
 
     fun changePage(targetIndex: Int) {
-        val boundedIndex = targetIndex.coerceIn(0, document.pageCount - 1)
-        if (boundedIndex == pageIndex) {
-            statusText = if (targetIndex < pageIndex) {
-                context.getString(R.string.status_first_page)
-            } else {
-                context.getString(R.string.status_last_page)
+        when (readerViewModel.changePage(targetIndex)) {
+            ReaderPageMoveResult.Moved -> {
+                translation = null
+                progress = 0f
             }
-            return
+            ReaderPageMoveResult.FirstPage -> {
+                statusText = context.getString(R.string.status_first_page)
+            }
+            ReaderPageMoveResult.LastPage -> {
+                statusText = context.getString(R.string.status_last_page)
+            }
         }
-
-        pageIndex = boundedIndex
-        translation = null
-        progress = 0f
     }
 
     fun previousPage() {
@@ -569,8 +577,8 @@ fun PageTurnerApp() {
                         ),
                     )
                 },
-                onToggleControls = { controlsVisible = !controlsVisible },
-                onShowDetails = { showDocumentDetails = true },
+                onToggleControls = readerViewModel::toggleControls,
+                onShowDetails = readerViewModel::showDocumentDetails,
             )
             if (controlsVisible) {
                 LocalLibraryPanel(
@@ -616,13 +624,13 @@ fun PageTurnerApp() {
                     onDisplayModeChange = {
                         pdfPageBitmap = null
                         pdfPageCache = emptyMap()
-                        scope.launch { settingsStore.updateDisplayMode(it) }
+                        settingsViewModel.updateDisplayMode(it)
                     },
                 )
                 PageTurnSettingsPanel(
                     pageTurnMode = pageTurnMode,
                     busy = busy,
-                    onPageTurnModeChange = { scope.launch { settingsStore.updatePageTurnMode(it) } },
+                    onPageTurnModeChange = settingsViewModel::updatePageTurnMode,
                 )
                 ReaderPreferencesPanel(
                     pdfFitMode = readerSettings.pdfFitMode,
@@ -630,46 +638,42 @@ fun PageTurnerApp() {
                     lineSpacing = readerSettings.readerLineSpacing,
                     pageMarginDp = readerSettings.readerPageMarginDp,
                     busy = busy,
-                    onPdfFitModeChange = { scope.launch { settingsStore.updatePdfFitMode(it) } },
-                    onFontSizeChange = { scope.launch { settingsStore.updateReaderFontSize(it) } },
-                    onLineSpacingChange = { scope.launch { settingsStore.updateReaderLineSpacing(it) } },
-                    onPageMarginChange = { scope.launch { settingsStore.updateReaderPageMargin(it) } },
+                    onPdfFitModeChange = settingsViewModel::updatePdfFitMode,
+                    onFontSizeChange = settingsViewModel::updateReaderFontSize,
+                    onLineSpacingChange = settingsViewModel::updateReaderLineSpacing,
+                    onPageMarginChange = settingsViewModel::updateReaderPageMargin,
                 )
                 TranslationControls(
                     providerKind = providerKind,
-                    onProviderKindChange = { scope.launch { settingsStore.updateProviderKind(it) } },
+                    onProviderKindChange = settingsViewModel::updateProviderKind,
                     apiKey = apiKey,
                     onApiKeyChange = { apiKey = it },
                     llmEndpoint = readerSettings.llmEndpoint,
-                    onLlmEndpointChange = { scope.launch { settingsStore.updateLlmEndpoint(it) } },
+                    onLlmEndpointChange = settingsViewModel::updateLlmEndpoint,
                     llmModel = readerSettings.llmModel,
-                    onLlmModelChange = { scope.launch { settingsStore.updateLlmModel(it) } },
+                    onLlmModelChange = settingsViewModel::updateLlmModel,
                     sourceLanguage = sourceLanguage,
-                    onSourceLanguageChange = { scope.launch { settingsStore.updateSourceLanguage(it) } },
+                    onSourceLanguageChange = settingsViewModel::updateSourceLanguage,
                     targetLanguage = targetLanguage,
-                    onTargetLanguageChange = { scope.launch { settingsStore.updateTargetLanguage(it) } },
+                    onTargetLanguageChange = settingsViewModel::updateTargetLanguage,
                     readingWpm = readerSettings.readingWordsPerMinute.toFloat(),
                     onReadingWpmChange = {
-                        scope.launch { settingsStore.updateReadingWordsPerMinute(it.roundToInt()) }
+                        settingsViewModel.updateReadingWordsPerMinute(it.roundToInt())
                     },
                     paceMode = paceMode,
-                    onPaceModeChange = { scope.launch { settingsStore.updatePaceMode(it) } },
+                    onPaceModeChange = settingsViewModel::updatePaceMode,
                     translationDisplayMode = readerSettings.translationDisplayMode,
-                    onTranslationDisplayModeChange = {
-                        scope.launch { settingsStore.updateTranslationDisplayMode(it) }
-                    },
+                    onTranslationDisplayModeChange = settingsViewModel::updateTranslationDisplayMode,
                     providerStatusText = providerStatusText,
                     translationCacheStatusText = translationCacheStatusText,
                     busy = busy,
                     canTranslate = settings.isProviderConfigured && currentPage.hasText,
                     canClearCache = (translationCacheStatus?.cachedSegments ?: 0) > 0,
                     onLanguagePreset = { preset ->
-                        scope.launch {
-                            settingsStore.updateLanguages(
-                                sourceLanguage = preset.sourceLanguage,
-                                targetLanguage = preset.targetLanguage,
-                            )
-                        }
+                        settingsViewModel.updateLanguages(
+                            sourceLanguage = preset.sourceLanguage,
+                            targetLanguage = preset.targetLanguage,
+                        )
                     },
                     onTranslate = ::translateCurrentPage,
                     onPrefetch = ::prefetchDocument,
@@ -691,7 +695,7 @@ fun PageTurnerApp() {
             document = document,
             currentBook = currentBook,
             pageIndex = pageIndex,
-            onDismiss = { showDocumentDetails = false },
+            onDismiss = readerViewModel::hideDocumentDetails,
         )
     }
 }
