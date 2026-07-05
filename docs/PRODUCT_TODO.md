@@ -241,7 +241,7 @@ translation and offline-first reading.
 - Add secure credential storage.
 - Add backup/restore policy.
 - Add crash-safe cache writes.
-- Add CI build.
+- Done: add CI build for `testDebugUnitTest`.
 - Add instrumented tests for import and reader navigation.
 
 ## Suggested Implementation Order

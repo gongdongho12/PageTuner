@@ -153,7 +153,7 @@ tracks what still needs to be built.
 - [ ] Add privacy notes for translation providers.
 - [ ] Add secure credential storage.
 - [ ] Add backup/restore policy.
-- [ ] Add CI build.
+- [x] Add CI build.
 - [ ] Add instrumented tests for import flow.
 - [ ] Add instrumented tests for page navigation.
 

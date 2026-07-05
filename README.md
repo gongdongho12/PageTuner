@@ -166,6 +166,8 @@ not as source-code bases.
   [docs/REMOTE_SOURCES_TODO.md](docs/REMOTE_SOURCES_TODO.md)
 - OCR plan for scanned PDFs:
   [docs/OCR_PLAN.md](docs/OCR_PLAN.md)
+- Android CI:
+  [`.github/workflows/android-ci.yml`](.github/workflows/android-ci.yml)
 
 ## Current Limitations
 
