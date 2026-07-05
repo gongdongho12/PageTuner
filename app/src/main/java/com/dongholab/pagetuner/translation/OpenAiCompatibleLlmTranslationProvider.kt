@@ -23,22 +23,32 @@ class OpenAiCompatibleLlmTranslationProvider(
     }
 
     override suspend fun translate(request: TranslationRequest): List<TranslatedSegment> {
-        require(apiKey.isNotBlank()) { "LLM API key is required." }
-        require(endpoint.isNotBlank()) { "LLM endpoint is required." }
-        require(model.isNotBlank()) { "LLM model is required." }
+        if (apiKey.isBlank()) {
+            throw providerConfigurationException(ProviderName, "LLM API key is required.")
+        }
+        if (endpoint.isBlank()) {
+            throw providerConfigurationException(ProviderName, "LLM endpoint is required.")
+        }
+        if (model.isBlank()) {
+            throw providerConfigurationException(ProviderName, "LLM model is required.")
+        }
         if (request.segments.isEmpty()) return emptyList()
 
         return withContext(Dispatchers.IO) {
-            val response = transport.post(
-                endpoint = endpoint,
-                headers = mapOf(
-                    "Authorization" to "Bearer ${apiKey.trim()}",
-                    "Content-Type" to "application/json; charset=utf-8",
-                    "Accept" to "application/json",
-                ),
-                body = buildRequestBody(request),
-            )
-            parseResponse(request, response)
+            runCatching {
+                val response = transport.post(
+                    endpoint = endpoint,
+                    headers = mapOf(
+                        "Authorization" to "Bearer ${apiKey.trim()}",
+                        "Content-Type" to "application/json; charset=utf-8",
+                        "Accept" to "application/json",
+                    ),
+                    body = buildRequestBody(request),
+                )
+                parseResponse(request, response)
+            }.getOrElse { error ->
+                throw error.asProviderNetworkFailure(ProviderName)
+            }
         }
     }
 
@@ -83,15 +93,34 @@ class OpenAiCompatibleLlmTranslationProvider(
         request: TranslationRequest,
         response: String,
     ): List<TranslatedSegment> {
-        val content = JSONObject(response)
-            .getJSONArray("choices")
-            .getJSONObject(0)
-            .getJSONObject("message")
-            .getString("content")
+        val content = runCatching {
+            JSONObject(response)
+                .getJSONArray("choices")
+                .getJSONObject(0)
+                .getJSONObject("message")
+                .getString("content")
+        }.getOrElse { error ->
+            throw providerResponseFormatException(
+                providerName = ProviderName,
+                detail = "LLM response did not contain a chat completion message.",
+                cause = error,
+            )
+        }
 
-        val translations = extractJsonObject(content).getJSONArray("translations")
+        val translations = runCatching {
+            extractJsonObject(content).getJSONArray("translations")
+        }.getOrElse { error ->
+            throw providerResponseFormatException(
+                providerName = ProviderName,
+                detail = "LLM response did not contain translation JSON.",
+                cause = error,
+            )
+        }
         if (translations.length() != request.segments.size) {
-            throw IOException("LLM translation response size did not match request size.")
+            throw providerResponseFormatException(
+                providerName = ProviderName,
+                detail = "LLM translation response size did not match request size.",
+            )
         }
 
         return request.segments.mapIndexed { index, segment ->
@@ -117,6 +146,10 @@ class OpenAiCompatibleLlmTranslationProvider(
             if (start < 0 || end <= start) throw IOException("LLM response did not contain JSON.", error)
             JSONObject(trimmed.substring(start, end + 1))
         }
+    }
+
+    private companion object {
+        const val ProviderName = "LLM API"
     }
 }
 
@@ -151,7 +184,11 @@ fun interface LlmHttpTransport {
             connection.disconnect()
 
             if (responseCode !in 200..299) {
-                throw IOException("LLM translation request failed: HTTP $responseCode $response")
+                throw providerHttpException(
+                    providerName = "LLM API",
+                    statusCode = responseCode,
+                    responseBody = response,
+                )
             }
             response
         }

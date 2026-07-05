@@ -77,7 +77,9 @@ import com.dongholab.pagetuner.source.WebCatalogViewModel
 import com.dongholab.pagetuner.translation.JsonFileTranslationCache
 import com.dongholab.pagetuner.translation.ProviderHealthCheck
 import com.dongholab.pagetuner.translation.ProviderHealthState
+import com.dongholab.pagetuner.translation.TranslationProviderErrorKind
 import com.dongholab.pagetuner.translation.TranslationQueueState
+import com.dongholab.pagetuner.translation.TranslationProviderFailure
 import com.dongholab.pagetuner.translation.TranslationProviderFactory
 import com.dongholab.pagetuner.translation.TranslationProviderKind
 import com.dongholab.pagetuner.translation.TranslationRepository
@@ -978,7 +980,8 @@ private fun TranslationStatus.localizedMessage(context: Context): String {
         is TranslationStatus.PrefetchFailedPage -> context.getString(
             R.string.status_prefetch_failed_page,
             pageNumber,
-            detail?.takeIf { it.isNotBlank() }
+            providerFailure?.localizedMessage(context)
+                ?: detail?.takeIf { it.isNotBlank() }
                 ?: context.getString(R.string.status_generic_error),
         )
         is TranslationStatus.PrefetchCompletedWithFailures -> context.getString(
@@ -997,10 +1000,28 @@ private fun TranslationStatus.localizedMessage(context: Context): String {
         )
         is TranslationStatus.Error -> context.getString(
             R.string.status_translation_error,
-            detail?.takeIf { it.isNotBlank() }
+            providerFailure?.localizedMessage(context)
+                ?: detail?.takeIf { it.isNotBlank() }
                 ?: context.getString(R.string.status_generic_error),
         )
     }
+}
+
+private fun TranslationProviderFailure.localizedMessage(context: Context): String {
+    val detailText = detail?.takeIf { it.isNotBlank() }
+        ?: context.getString(R.string.status_generic_error)
+    val messageRes = when (kind) {
+        TranslationProviderErrorKind.Authentication -> R.string.provider_error_authentication
+        TranslationProviderErrorKind.RateLimited -> R.string.provider_error_rate_limited
+        TranslationProviderErrorKind.Quota -> R.string.provider_error_quota
+        TranslationProviderErrorKind.BadRequest -> R.string.provider_error_bad_request
+        TranslationProviderErrorKind.Server -> R.string.provider_error_server
+        TranslationProviderErrorKind.Network -> R.string.provider_error_network
+        TranslationProviderErrorKind.ResponseFormat -> R.string.provider_error_response_format
+        TranslationProviderErrorKind.Configuration -> R.string.provider_error_configuration
+        TranslationProviderErrorKind.Unknown -> R.string.provider_error_unknown
+    }
+    return context.getString(messageRes, providerName, detailText)
 }
 
 private fun ProviderHealthCheck.localizedMessage(context: Context): String {

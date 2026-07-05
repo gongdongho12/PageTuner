@@ -20,20 +20,29 @@ class GoogleWebTranslateHtmlProvider(
     }
 
     override suspend fun translate(request: TranslationRequest): List<TranslatedSegment> {
-        require(apiKey.isNotBlank()) { "Google Web Translate API key is required." }
+        if (apiKey.isBlank()) {
+            throw providerConfigurationException(
+                providerName = ProviderName,
+                detail = "Google Web Translate API key is required.",
+            )
+        }
         if (request.segments.isEmpty()) return emptyList()
 
         return withContext(Dispatchers.IO) {
-            val response = transport.post(
-                endpoint = endpoint,
-                headers = mapOf(
-                    "Accept" to "*/*",
-                    "Content-Type" to "application/json+protobuf",
-                    "X-Goog-Api-Key" to apiKey.trim(),
-                ),
-                body = buildRequestBody(request),
-            )
-            parseResponse(request, response)
+            runCatching {
+                val response = transport.post(
+                    endpoint = endpoint,
+                    headers = mapOf(
+                        "Accept" to "*/*",
+                        "Content-Type" to "application/json+protobuf",
+                        "X-Goog-Api-Key" to apiKey.trim(),
+                    ),
+                    body = buildRequestBody(request),
+                )
+                parseResponse(request, response)
+            }.getOrElse { error ->
+                throw error.asProviderNetworkFailure(ProviderName)
+            }
         }
     }
 
@@ -63,7 +72,13 @@ class GoogleWebTranslateHtmlProvider(
         val translations = GoogleWebTranslateHtmlResponseParser.parse(
             response = response,
             expectedCount = request.segments.size,
-        )
+        ).getOrElse { error ->
+            throw providerResponseFormatException(
+                providerName = ProviderName,
+                detail = "Google Web HTML response did not contain the expected translated segments.",
+                cause = error,
+            )
+        }
 
         return request.segments.mapIndexed { index, segment ->
             TranslatedSegment(
@@ -75,6 +90,7 @@ class GoogleWebTranslateHtmlProvider(
 
     companion object {
         const val DefaultEndpoint = "https://translate-pa.googleapis.com/v1/translateHtml"
+        const val ProviderName = "Google Web HTML"
     }
 }
 
@@ -109,7 +125,11 @@ fun interface GoogleWebTranslateHtmlTransport {
             connection.disconnect()
 
             if (responseCode !in 200..299) {
-                throw IOException("Google Web Translate request failed: HTTP $responseCode $response")
+                throw providerHttpException(
+                    providerName = GoogleWebTranslateHtmlProvider.ProviderName,
+                    statusCode = responseCode,
+                    responseBody = response,
+                )
             }
             response
         }
@@ -122,21 +142,21 @@ object GoogleWebTranslateHtmlResponseParser {
         options = setOf(RegexOption.IGNORE_CASE, RegexOption.DOT_MATCHES_ALL),
     )
 
-    fun parse(response: String, expectedCount: Int): List<String> {
+    fun parse(response: String, expectedCount: Int): Result<List<String>> {
         val root = runCatching { JSONTokener(response).nextValue() }
-            .getOrElse { error -> throw IOException("Google Web Translate response was not JSON.", error) }
+            .getOrElse { error -> return Result.failure(IOException("Response was not JSON.", error)) }
         val allStrings = mutableListOf<String>()
         collectStrings(root, allStrings)
 
         val anchored = parseAnchoredTranslations(allStrings, expectedCount)
-        if (anchored != null) return anchored
+        if (anchored != null) return Result.success(anchored)
 
         val directCandidate = findDirectStringArrayCandidate(root, expectedCount)
         if (directCandidate != null) {
-            return directCandidate.take(expectedCount).map { it.cleanupTranslatedHtml() }
+            return Result.success(directCandidate.take(expectedCount).map { it.cleanupTranslatedHtml() })
         }
 
-        throw IOException("Google Web Translate response size did not match request size.")
+        return Result.failure(IOException("Response size did not match request size."))
     }
 
     private fun parseAnchoredTranslations(

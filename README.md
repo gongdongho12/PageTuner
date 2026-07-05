@@ -106,6 +106,8 @@ not as source-code bases.
   - retry failed pages
 - Provider health check validates required Google, Google Web HTML, and LLM
   settings before use.
+- Provider failures are categorized into credential, rate-limit, quota,
+  request, server, network, response-format, and configuration explanations.
 - JSON-file translation cache in app-private storage with temporary-file
   replacement for crash-safer writes.
 - Cached page loading for offline reading.

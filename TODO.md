@@ -132,7 +132,7 @@ tracks what still needs to be built.
 - [x] Add import failure state.
 - [x] Add network unavailable state.
 - [x] Add missing API key state.
-- [ ] Add provider error explanations.
+- [x] Add provider error explanations.
 - [ ] Add retry actions.
 - [x] Add crash-safe cache writes.
 

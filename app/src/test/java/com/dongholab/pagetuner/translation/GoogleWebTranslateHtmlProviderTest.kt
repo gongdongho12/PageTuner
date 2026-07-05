@@ -6,6 +6,7 @@ import org.json.JSONArray
 import org.json.JSONTokener
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
+import org.junit.Assert.fail
 import org.junit.Test
 
 class GoogleWebTranslateHtmlProviderTest {
@@ -58,8 +59,34 @@ class GoogleWebTranslateHtmlProviderTest {
         val parsed = GoogleWebTranslateHtmlResponseParser.parse(
             response = """[[["안녕", "세계"]]]""",
             expectedCount = 2,
-        )
+        ).getOrThrow()
 
         assertEquals(listOf("안녕", "세계"), parsed)
+    }
+
+    @Test
+    fun wrapsUnexpectedResponsesAsProviderFailures() = runTest {
+        val provider = GoogleWebTranslateHtmlProvider(
+            apiKey = "test-key",
+            transport = GoogleWebTranslateHtmlTransport { _, _, _ -> """{"unexpected":true}""" },
+        )
+        val document = PlainTextDocumentParser.parse(
+            title = "Google Web",
+            rawText = "Hello",
+        )
+
+        try {
+            provider.translate(
+                TranslationRequest(
+                    sourceLanguage = "en",
+                    targetLanguage = "ko",
+                    segments = document.pages.first().segments,
+                ),
+            )
+            fail("Expected provider failure.")
+        } catch (error: TranslationProviderException) {
+            assertEquals("Google Web HTML", error.failure.providerName)
+            assertEquals(TranslationProviderErrorKind.ResponseFormat, error.failure.kind)
+        }
     }
 }

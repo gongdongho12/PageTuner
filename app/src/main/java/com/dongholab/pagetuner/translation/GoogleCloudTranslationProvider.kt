@@ -15,12 +15,21 @@ class GoogleCloudTranslationProvider(
     override val id: String = "google-cloud-v2"
 
     override suspend fun translate(request: TranslationRequest): List<TranslatedSegment> {
-        require(apiKey.isNotBlank()) { "Google Cloud Translation API key is required." }
+        if (apiKey.isBlank()) {
+            throw providerConfigurationException(
+                providerName = ProviderName,
+                detail = "Google Cloud Translation API key is required.",
+            )
+        }
         if (request.segments.isEmpty()) return emptyList()
 
         return withContext(Dispatchers.IO) {
-            val response = executeRequest(request)
-            parseResponse(request, response)
+            runCatching {
+                val response = executeRequest(request)
+                parseResponse(request, response)
+            }.getOrElse { error ->
+                throw error.asProviderNetworkFailure(ProviderName)
+            }
         }
     }
 
@@ -61,7 +70,11 @@ class GoogleCloudTranslationProvider(
         connection.disconnect()
 
         if (responseCode !in 200..299) {
-            throw IOException("Google Translation request failed: HTTP $responseCode $response")
+            throw providerHttpException(
+                providerName = ProviderName,
+                statusCode = responseCode,
+                responseBody = response,
+            )
         }
 
         return response
@@ -71,12 +84,23 @@ class GoogleCloudTranslationProvider(
         request: TranslationRequest,
         response: String,
     ): List<TranslatedSegment> {
-        val translations = JSONObject(response)
-            .getJSONObject("data")
-            .getJSONArray("translations")
+        val translations = runCatching {
+            JSONObject(response)
+                .getJSONObject("data")
+                .getJSONArray("translations")
+        }.getOrElse { error ->
+            throw providerResponseFormatException(
+                providerName = ProviderName,
+                detail = "Google Cloud response did not contain translated text.",
+                cause = error,
+            )
+        }
 
         if (translations.length() != request.segments.size) {
-            throw IOException("Translation response size did not match request size.")
+            throw providerResponseFormatException(
+                providerName = ProviderName,
+                detail = "Google Cloud response size did not match request size.",
+            )
         }
 
         return request.segments.mapIndexed { index, segment ->
@@ -85,5 +109,9 @@ class GoogleCloudTranslationProvider(
                 translatedText = translations.getJSONObject(index).getString("translatedText"),
             )
         }
+    }
+
+    private companion object {
+        const val ProviderName = "Google Cloud"
     }
 }

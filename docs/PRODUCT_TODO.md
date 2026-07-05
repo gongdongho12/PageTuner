@@ -86,6 +86,7 @@ translation and offline-first reading.
 - Done: add Google Web Translate HTML provider.
 - Done: add provider health check.
   - done: validate required API key/endpoint/model fields locally
+  - done: explain provider failures by category
   - pending: perform optional network health request
 - Done: add translation cache management.
   - done: per-document cache status

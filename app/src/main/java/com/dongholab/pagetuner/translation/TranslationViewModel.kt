@@ -65,6 +65,7 @@ sealed interface TranslationStatus {
     data class PrefetchFailedPage(
         val pageNumber: Int,
         val detail: String?,
+        val providerFailure: TranslationProviderFailure? = null,
     ) : TranslationStatus
 
     data class PrefetchCompletedWithFailures(
@@ -83,6 +84,7 @@ sealed interface TranslationStatus {
 
     data class Error(
         val detail: String?,
+        val providerFailure: TranslationProviderFailure? = null,
     ) : TranslationStatus
 }
 
@@ -137,7 +139,7 @@ class TranslationViewModel : ViewModel() {
             }.onSuccess { cacheStatus ->
                 _uiState.update { state -> state.copy(cacheStatus = cacheStatus) }
             }.onFailure { error ->
-                _uiState.update { state -> state.copy(status = TranslationStatus.Error(error.message)) }
+                _uiState.update { state -> state.copy(status = error.toTranslationErrorStatus()) }
             }
         }
     }
@@ -172,7 +174,7 @@ class TranslationViewModel : ViewModel() {
                     )
                 }
             }.onFailure { error ->
-                _uiState.update { state -> state.copy(status = TranslationStatus.Error(error.message)) }
+                _uiState.update { state -> state.copy(status = error.toTranslationErrorStatus()) }
             }
         }
     }
@@ -224,7 +226,7 @@ class TranslationViewModel : ViewModel() {
                 _uiState.update { state ->
                     state.copy(
                         busy = false,
-                        status = TranslationStatus.Error(error.message),
+                        status = error.toTranslationErrorStatus(),
                     )
                 }
             }
@@ -415,6 +417,7 @@ class TranslationViewModel : ViewModel() {
                                 status = TranslationStatus.PrefetchFailedPage(
                                     pageNumber = page.index + 1,
                                     detail = error.message,
+                                    providerFailure = error.providerFailureOrNull(),
                                 ),
                             )
                         }
@@ -568,7 +571,7 @@ class TranslationViewModel : ViewModel() {
                 _uiState.update { state ->
                     state.copy(
                         busy = false,
-                        status = TranslationStatus.Error(error.message),
+                        status = error.toTranslationErrorStatus(),
                     )
                 }
             }
@@ -579,4 +582,11 @@ class TranslationViewModel : ViewModel() {
         const val MaxTranslationAttempts = 2
         const val RetryDelayMillis = 500L
     }
+}
+
+private fun Throwable.toTranslationErrorStatus(): TranslationStatus.Error {
+    return TranslationStatus.Error(
+        detail = message,
+        providerFailure = providerFailureOrNull(),
+    )
 }

@@ -45,6 +45,10 @@ Providers receive a `TranslationRequest` containing ordered text segments and
 must return exactly one `TranslatedSegment` per input segment, preserving ids and
 order. Providers should not merge, split, summarize, or add commentary.
 
+Providers should wrap HTTP, configuration, network, and response-shape failures
+with `TranslationProviderException` so the reader can explain the problem in the
+current UI language.
+
 The repository handles:
 
 - batching

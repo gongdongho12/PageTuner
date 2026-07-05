@@ -111,6 +111,15 @@
     <string name="provider_health_missing_llm_settings">Provider check failed: LLM API key, endpoint, and model required.</string>
     <string name="provider_health_missing_settings">Provider check failed: missing settings.</string>
     <string name="provider_health_invalid_llm_endpoint">Provider check failed: LLM endpoint must be an http(s) URL.</string>
+    <string name="provider_error_authentication">%1$s rejected the credentials. Check the API key or account access. Detail: %2$s</string>
+    <string name="provider_error_rate_limited">%1$s is rate limiting requests. Slow the pace or retry later. Detail: %2$s</string>
+    <string name="provider_error_quota">%1$s quota or billing is not available. Check provider usage limits. Detail: %2$s</string>
+    <string name="provider_error_bad_request">%1$s rejected the request shape. Check languages, model, or endpoint settings. Detail: %2$s</string>
+    <string name="provider_error_server">%1$s returned a server error. Retry later or switch providers. Detail: %2$s</string>
+    <string name="provider_error_network">%1$s could not be reached. Check network and retry. Detail: %2$s</string>
+    <string name="provider_error_response_format">%1$s returned an unexpected response. The provider format may have changed. Detail: %2$s</string>
+    <string name="provider_error_configuration">%1$s is missing required settings. Detail: %2$s</string>
+    <string name="provider_error_unknown">%1$s failed for an unknown provider reason. Detail: %2$s</string>
     <string name="translation_queue_idle">Translation queue is idle.</string>
     <string name="translation_queue_running">Queue %1$d/%2$d pages · active page %3$d.</string>
     <string name="translation_queue_paused">Queue paused at %1$d/%2$d pages · active page %3$d.</string>
