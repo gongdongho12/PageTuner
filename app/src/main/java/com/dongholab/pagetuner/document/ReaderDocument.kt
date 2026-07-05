@@ -17,10 +17,18 @@ data class ReaderPage(
     val segments: List<TextSegment>,
     val chapterTitle: String? = null,
     val imageCount: Int = 0,
+    val images: List<ReaderPageImage> = emptyList(),
 ) {
     val plainText: String = segments.joinToString(separator = "\n\n") { it.text }
     val hasText: Boolean = segments.any { it.text.isNotBlank() }
 }
+
+data class ReaderPageImage(
+    val id: String,
+    val altText: String?,
+    val mimeType: String,
+    val bytes: ByteArray,
+)
 
 data class DocumentOutlineItem(
     val title: String,

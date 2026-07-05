@@ -198,7 +198,7 @@ translation and offline-first reading.
 
 ## P2: Advanced Reader Features
 
-- EPUB embedded image rendering.
+- Advanced EPUB image layout controls.
 - PDF outline/bookmarks.
 - Highlights.
 - Notes.
@@ -241,5 +241,5 @@ translation and offline-first reading.
 6. Add secure credential storage.
 7. Add release/license/privacy groundwork.
 8. Add instrumented tests for import and reader navigation.
-9. Add EPUB embedded image rendering and display-mode processing.
+9. Apply display mode to cover images and remote catalog thumbnails.
 10. Move renderer side effects behind a renderer state model.

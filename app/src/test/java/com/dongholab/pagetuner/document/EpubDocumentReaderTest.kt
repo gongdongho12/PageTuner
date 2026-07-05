@@ -1,8 +1,10 @@
 package com.dongholab.pagetuner.document
 
 import java.io.ByteArrayOutputStream
+import java.util.Base64
 import java.util.zip.ZipEntry
 import java.util.zip.ZipOutputStream
+import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -26,6 +28,7 @@ class EpubDocumentReaderTest {
                       <manifest>
                         <item id="chapter1" href="chapter1.xhtml" media-type="application/xhtml+xml"/>
                         <item id="chapter2" href="text/chapter2.xhtml" media-type="application/xhtml+xml"/>
+                        <item id="map" href="images/map.png" media-type="image/png"/>
                       </manifest>
                       <spine>
                         <itemref idref="chapter1"/>
@@ -49,6 +52,7 @@ class EpubDocumentReaderTest {
                     </html>
                 """.trimIndent(),
             ),
+            mapOf("OEBPS/images/map.png" to onePixelPng),
         )
 
         val document = EpubDocumentReader.parse(
@@ -67,17 +71,34 @@ class EpubDocumentReaderTest {
         assertTrue(body.contains("- Point one"))
         assertTrue(body.contains("[Image: Map]"))
         assertTrue(body.contains("Second chapter."))
+
+        val image = document.pages.first().images.single()
+        assertEquals("Map", image.altText)
+        assertEquals("image/png", image.mimeType)
+        assertArrayEquals(onePixelPng, image.bytes)
     }
 
-    private fun buildEpub(entries: Map<String, String>): ByteArray {
+    private fun buildEpub(
+        textEntries: Map<String, String>,
+        binaryEntries: Map<String, ByteArray> = emptyMap(),
+    ): ByteArray {
         val output = ByteArrayOutputStream()
         ZipOutputStream(output).use { zip ->
-            entries.forEach { (path, text) ->
+            textEntries.forEach { (path, text) ->
                 zip.putNextEntry(ZipEntry(path))
                 zip.write(text.toByteArray(Charsets.UTF_8))
+                zip.closeEntry()
+            }
+            binaryEntries.forEach { (path, bytes) ->
+                zip.putNextEntry(ZipEntry(path))
+                zip.write(bytes)
                 zip.closeEntry()
             }
         }
         return output.toByteArray()
     }
+
+    private val onePixelPng: ByteArray = Base64.getDecoder().decode(
+        "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAFgwJ/lY4kWQAAAABJRU5ErkJggg==",
+    )
 }

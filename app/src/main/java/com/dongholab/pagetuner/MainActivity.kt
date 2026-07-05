@@ -568,6 +568,7 @@ fun PageTurnerApp() {
                 documentFormat = document.format,
                 pdfPageBitmap = pdfPageBitmap,
                 pdfFitMode = readerSettings.pdfFitMode,
+                displayMode = displayMode,
                 translation = translation,
                 translationDisplayMode = readerSettings.translationDisplayMode,
                 pageTurnMode = pageTurnMode,

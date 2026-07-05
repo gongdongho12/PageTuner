@@ -36,8 +36,13 @@ private fun Bitmap.applyMonochromeThreshold(threshold: Int) {
 }
 
 private fun Int.luminance(): Int {
-    val red = Color.red(this)
-    val green = Color.green(this)
-    val blue = Color.blue(this)
+    val alpha = Color.alpha(this)
+    val red = blendOnWhite(Color.red(this), alpha)
+    val green = blendOnWhite(Color.green(this), alpha)
+    val blue = blendOnWhite(Color.blue(this), alpha)
     return ((red * 299) + (green * 587) + (blue * 114)) / 1000
+}
+
+private fun blendOnWhite(channel: Int, alpha: Int): Int {
+    return ((channel * alpha) + (255 * (255 - alpha))) / 255
 }

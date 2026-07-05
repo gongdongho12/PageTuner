@@ -8,6 +8,7 @@ object PlainTextDocumentParser {
         val title: String?,
         val rawText: String,
         val imageCount: Int = 0,
+        val images: List<ReaderPageImage> = emptyList(),
     )
 
     fun parse(
@@ -120,6 +121,7 @@ object PlainTextDocumentParser {
         var currentChars = 0
         var currentChapterTitle: String? = null
         var currentChapterImageCount = 0
+        var currentChapterImages = emptyList<ReaderPageImage>()
         var isFirstPageInChapter = true
 
         fun flush() {
@@ -138,6 +140,7 @@ object PlainTextDocumentParser {
                 segments = pageSegments,
                 chapterTitle = currentChapterTitle,
                 imageCount = if (isFirstPageInChapter) currentChapterImageCount else 0,
+                images = if (isFirstPageInChapter) currentChapterImages else emptyList(),
             )
             current = mutableListOf()
             currentChars = 0
@@ -148,6 +151,7 @@ object PlainTextDocumentParser {
             flush()
             currentChapterTitle = chapter.title?.takeIf { it.isNotBlank() }
             currentChapterImageCount = chapter.imageCount
+            currentChapterImages = chapter.images
             isFirstPageInChapter = true
 
             val sourceSegments = splitIntoSegments(chapter.rawText)

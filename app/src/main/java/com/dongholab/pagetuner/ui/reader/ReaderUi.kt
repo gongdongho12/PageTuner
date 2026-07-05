@@ -1,6 +1,7 @@
 package com.dongholab.pagetuner.ui.reader
 
 import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
@@ -47,9 +48,12 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.dongholab.pagetuner.R
+import com.dongholab.pagetuner.display.DisplayMode
+import com.dongholab.pagetuner.display.applyDisplayMode
 import com.dongholab.pagetuner.document.DocumentFormat
 import com.dongholab.pagetuner.document.ReaderDocument
 import com.dongholab.pagetuner.document.ReaderPage
+import com.dongholab.pagetuner.document.ReaderPageImage
 import com.dongholab.pagetuner.library.LocalBook
 import com.dongholab.pagetuner.reader.PageTurnMode
 import com.dongholab.pagetuner.reader.PdfFitMode
@@ -235,6 +239,7 @@ fun ReaderSurface(
     documentFormat: DocumentFormat,
     pdfPageBitmap: Bitmap?,
     pdfFitMode: PdfFitMode,
+    displayMode: DisplayMode,
     translation: PageTranslation?,
     translationDisplayMode: TranslationDisplayMode,
     pageTurnMode: PageTurnMode,
@@ -297,14 +302,12 @@ fun ReaderSurface(
                     verticalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
                     if (showOriginal) {
-                        Text(
-                            text = page.plainText.ifBlank {
-                                if (documentFormat == DocumentFormat.PDF) {
-                                    stringResource(R.string.viewer_pdf_rendering)
-                                } else {
-                                    stringResource(R.string.viewer_no_text)
-                                }
-                            },
+                        OriginalPageContent(
+                            page = page,
+                            documentFormat = documentFormat,
+                            displayMode = displayMode,
+                            fontSizeSp = fontSizeSp,
+                            lineSpacing = lineSpacing,
                             modifier = Modifier.weight(
                                 if (showTranslation) {
                                     0.55f
@@ -312,10 +315,6 @@ fun ReaderSurface(
                                     1f
                                 },
                             ),
-                            style = MaterialTheme.typography.bodyLarge.copy(fontSize = fontSizeSp.sp),
-                            color = EinkInk,
-                            lineHeight = (fontSizeSp * lineSpacing).sp,
-                            overflow = TextOverflow.Ellipsis,
                         )
                     }
                     if (translation != null && showTranslation) {
@@ -341,6 +340,86 @@ fun ReaderSurface(
                 enabled = pageTurningEnabled,
                 onPreviousPage = onPreviousPage,
                 onNextPage = onNextPage,
+            )
+        }
+    }
+}
+
+@Composable
+private fun OriginalPageContent(
+    page: ReaderPage,
+    documentFormat: DocumentFormat,
+    displayMode: DisplayMode,
+    fontSizeSp: Int,
+    lineSpacing: Float,
+    modifier: Modifier = Modifier,
+) {
+    Column(
+        modifier = modifier,
+        verticalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        Text(
+            text = page.plainText.ifBlank {
+                if (documentFormat == DocumentFormat.PDF) {
+                    stringResource(R.string.viewer_pdf_rendering)
+                } else {
+                    stringResource(R.string.viewer_no_text)
+                }
+            },
+            modifier = Modifier.weight(if (page.images.isEmpty()) 1f else 0.7f),
+            style = MaterialTheme.typography.bodyLarge.copy(fontSize = fontSizeSp.sp),
+            color = EinkInk,
+            lineHeight = (fontSizeSp * lineSpacing).sp,
+            overflow = TextOverflow.Ellipsis,
+        )
+        page.images.take(2).forEach { image ->
+            EmbeddedPageImage(
+                image = image,
+                displayMode = displayMode,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(0.45f),
+            )
+        }
+    }
+}
+
+@Composable
+private fun EmbeddedPageImage(
+    image: ReaderPageImage,
+    displayMode: DisplayMode,
+    modifier: Modifier = Modifier,
+) {
+    val bitmap = remember(image.id, displayMode) {
+        BitmapFactory.decodeByteArray(image.bytes, 0, image.bytes.size)
+            ?.copy(Bitmap.Config.ARGB_8888, true)
+            ?.also { bitmap -> bitmap.applyDisplayMode(displayMode) }
+    }
+
+    Surface(
+        modifier = modifier,
+        color = Color.White,
+        shape = RoundedCornerShape(4.dp),
+        border = BorderStroke(1.dp, EinkLine),
+        shadowElevation = 0.dp,
+    ) {
+        if (bitmap == null) {
+            Text(
+                text = image.altText ?: stringResource(R.string.viewer_image_unavailable),
+                modifier = Modifier.padding(10.dp),
+                style = MaterialTheme.typography.bodySmall,
+                color = EinkMuted,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+            )
+        } else {
+            Image(
+                bitmap = bitmap.asImageBitmap(),
+                contentDescription = image.altText,
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(6.dp),
+                contentScale = ContentScale.Fit,
             )
         }
     }

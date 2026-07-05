@@ -45,6 +45,7 @@
     <string name="translation_preparing">번역을 준비하고 있습니다.</string>
     <string name="viewer_pdf_rendering">PDF 쪽을 렌더링하고 있습니다.</string>
     <string name="viewer_no_text">이 쪽에는 추출 가능한 텍스트가 없습니다.</string>
+    <string name="viewer_image_unavailable">이미지를 렌더링할 수 없습니다.</string>
     <string name="library_title">로컬 서재</string>
     <string name="library_empty">가져온 책은 오프라인 읽기를 위해 여기에 표시됩니다.</string>
     <string name="library_book_meta">%1$s · %2$d/%3$d쪽 · %4$d%%</string>

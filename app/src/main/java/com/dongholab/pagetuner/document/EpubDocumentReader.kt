@@ -14,6 +14,16 @@ object EpubDocumentReader {
         val title: String?,
         val text: String,
         val imageCount: Int,
+        val images: List<ReaderPageImage>,
+    )
+
+    private data class EpubPackage(
+        val spinePaths: List<String>,
+        val imageResources: Map<String, EpubImageResource>,
+    )
+
+    private data class EpubImageResource(
+        val mediaType: String,
     )
 
     fun parse(
@@ -24,13 +34,20 @@ object EpubDocumentReader {
         val containerXml = readZipEntry(bytes, "META-INF/container.xml").decodeToString()
         val opfPath = parseContainerRootfile(containerXml)
         val opfXml = readZipEntry(bytes, opfPath).decodeToString()
-        val chapters = parseSpineItems(opfXml, opfPath)
+        val epubPackage = parsePackage(opfXml, opfPath)
+        val chapters = epubPackage.spinePaths
             .mapNotNull { path ->
                 readZipEntryOrNull(bytes, path)?.decodeToString()?.let { xhtml ->
                     EpubChapter(
                         title = extractChapterTitle(xhtml) ?: path.substringAfterLast('/'),
                         text = extractXhtmlText(xhtml),
                         imageCount = countImages(xhtml),
+                        images = extractImages(
+                            epubBytes = bytes,
+                            xhtml = xhtml,
+                            chapterPath = path,
+                            imageResources = epubPackage.imageResources,
+                        ),
                     )
                 }
             }
@@ -43,6 +60,7 @@ object EpubDocumentReader {
                     title = chapter.title,
                     rawText = chapter.text,
                     imageCount = chapter.imageCount,
+                    images = chapter.images,
                 )
             },
             format = DocumentFormat.EPUB,
@@ -59,12 +77,13 @@ object EpubDocumentReader {
         return requireNotNull(path) { "EPUB rootfile path is missing." }
     }
 
-    private fun parseSpineItems(
+    private fun parsePackage(
         opfXml: String,
         opfPath: String,
-    ): List<String> {
+    ): EpubPackage {
         val document = parseXml(opfXml.byteInputStream())
-        val manifest = mutableMapOf<String, String>()
+        val spineManifest = mutableMapOf<String, String>()
+        val imageResources = mutableMapOf<String, EpubImageResource>()
         val items = document.getElementsByTagNameNS("*", "item")
 
         for (index in 0 until items.length) {
@@ -72,8 +91,14 @@ object EpubDocumentReader {
             val id = attributes.getNamedItem("id")?.nodeValue ?: continue
             val href = attributes.getNamedItem("href")?.nodeValue ?: continue
             val mediaType = attributes.getNamedItem("media-type")?.nodeValue.orEmpty()
+            val resolvedPath = resolveRelativePath(opfPath.substringBeforeLast('/', ""), href)
             if (mediaType.contains("html") || href.endsWith(".xhtml") || href.endsWith(".html")) {
-                manifest[id] = resolveRelativePath(opfPath.substringBeforeLast('/', ""), href)
+                spineManifest[id] = resolvedPath
+            }
+            if (mediaType.startsWith("image/")) {
+                imageResources[resolvedPath] = EpubImageResource(
+                    mediaType = mediaType,
+                )
             }
         }
 
@@ -81,10 +106,13 @@ object EpubDocumentReader {
         val itemRefs = document.getElementsByTagNameNS("*", "itemref")
         for (index in 0 until itemRefs.length) {
             val idRef = itemRefs.item(index).attributes.getNamedItem("idref")?.nodeValue ?: continue
-            manifest[idRef]?.let { spinePaths += it }
+            spineManifest[idRef]?.let { spinePaths += it }
         }
 
-        return spinePaths
+        return EpubPackage(
+            spinePaths = spinePaths,
+            imageResources = imageResources,
+        )
     }
 
     private fun extractXhtmlText(xhtml: String): String {
@@ -166,9 +194,55 @@ object EpubDocumentReader {
         return Regex("(?is)<img\\b").findAll(xhtml).count()
     }
 
+    private fun extractImages(
+        epubBytes: ByteArray,
+        xhtml: String,
+        chapterPath: String,
+        imageResources: Map<String, EpubImageResource>,
+    ): List<ReaderPageImage> {
+        val chapterBasePath = chapterPath.substringBeforeLast('/', "")
+        return Regex("(?is)<img\\b[^>]*>").findAll(xhtml).mapNotNull { match ->
+            val tag = match.value
+            val source = tag.attributeValue("src")
+                ?: tag.attributeValue("href")
+                ?: tag.attributeValue("xlink:href")
+                ?: return@mapNotNull null
+            val imagePath = resolveRelativePath(
+                basePath = chapterBasePath,
+                href = source.substringBefore('#'),
+            )
+            val imageBytes = readZipEntryOrNull(epubBytes, imagePath) ?: return@mapNotNull null
+            val mimeType = imageResources[imagePath]?.mediaType ?: inferImageMimeType(imagePath)
+
+            ReaderPageImage(
+                id = DocumentIds.sha256("$imagePath:${DocumentIds.sha256(imageBytes)}").take(24),
+                altText = tag.attributeValue("alt")?.takeIf { it.isNotBlank() },
+                mimeType = mimeType,
+                bytes = imageBytes,
+            )
+        }.toList()
+    }
+
     private fun imagePlaceholder(alt: String?): String {
         val label = alt?.trim()?.takeIf { it.isNotBlank() }
         return if (label == null) "[Image]" else "[Image: $label]"
+    }
+
+    private fun String.attributeValue(name: String): String? {
+        val escapedName = Regex.escape(name)
+        val pattern = Regex("""(?is)(?:^|\s)$escapedName\s*=\s*["']([^"']*)["']""")
+        return pattern.find(this)?.groupValues?.getOrNull(1)?.trim()
+    }
+
+    private fun inferImageMimeType(path: String): String {
+        return when (path.substringAfterLast('.', "").lowercase()) {
+            "jpg",
+            "jpeg" -> "image/jpeg"
+            "gif" -> "image/gif"
+            "webp" -> "image/webp"
+            "svg" -> "image/svg+xml"
+            else -> "image/png"
+        }
     }
 
     private fun parseXml(inputStream: InputStream): org.w3c.dom.Document {

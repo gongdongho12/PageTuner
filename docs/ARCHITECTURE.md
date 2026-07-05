@@ -81,5 +81,5 @@ components. Reader document/page state, persistent settings, translation state,
 and local library side effects already have ViewModel boundaries. The next
 structure pass should move renderer side effects behind stable app models:
 
-- Renderer state model: PDF bitmap loading and future EPUB image rendering.
+- Renderer state model: PDF bitmap loading and EPUB image rendering cache.
 - Persistent settings through DataStore.

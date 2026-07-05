@@ -51,8 +51,10 @@ not as source-code bases.
 - Display mode flow for color, grayscale, monochrome, and e-ink high contrast.
 - App-wide display palettes for color-service and monochrome-service modes.
 - PDF rendering follows the selected display mode.
-- Shared bitmap display transform for PDF now serves as the EPUB/cover/thumbnail
-  image pipeline foundation.
+- EPUB embedded bitmap images are decoded on-page and transformed through the
+  selected display mode.
+- Shared bitmap display transform serves as the PDF/EPUB/cover/thumbnail image
+  pipeline foundation.
 - Manual e-ink refresh action clears rendered page cache and re-renders the
   active page.
 - PDF fit-page / fit-width controls.
@@ -147,8 +149,9 @@ not as source-code bases.
 
 - PDF native text extraction depends on Android 15+ platform APIs. Scanned PDFs
   still need OCR implementation.
-- EPUB support is a text-first reader. Complex layout, rendered embedded media,
-  custom fonts, and advanced CSS are not rendered yet.
+- EPUB support is text-first with basic embedded bitmap image rendering.
+  Complex layout, custom fonts, advanced CSS, and SVG rendering are not
+  implemented yet.
 - Google Drive and FTP connectors are TODO/planning items.
 - API keys are entered per session and are not persisted yet; production storage
   should use a more secure credential layer.
@@ -170,7 +173,7 @@ app/build/outputs/apk/debug/app-debug.apk
 ## Suggested Next Steps
 
 1. Add secure credential storage before using real API keys in production.
-2. Add EPUB embedded image rendering and display-mode processing.
+2. Apply display mode to cover images and remote catalog thumbnails.
 3. Add FTP and Google Drive connectors.
 4. Add source account management for remote libraries.
 5. Choose and add the project license before distribution.

@@ -62,7 +62,7 @@ tracks what still needs to be built.
 - [x] EPUB chapter navigation.
 - [x] EPUB basic inline formatting.
 - [x] EPUB image placeholders.
-- [ ] EPUB embedded image rendering.
+- [x] EPUB embedded image rendering.
 - [x] PDF text extraction.
 - [x] PDF text-to-page mapping for translation.
 - [x] OCR plan for scanned PDFs.
@@ -75,7 +75,7 @@ tracks what still needs to be built.
 - [x] Add monochrome mode.
 - [x] Add e-ink high contrast mode.
 - [x] Apply display mode to PDF rendering.
-- [ ] Apply display mode to EPUB images.
+- [x] Apply display mode to EPUB images.
 - [ ] Apply display mode to cover images.
 - [ ] Apply display mode to remote catalog thumbnails.
 - [x] Add app-wide color-service palette.

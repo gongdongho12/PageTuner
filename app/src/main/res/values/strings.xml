@@ -45,6 +45,7 @@
     <string name="translation_preparing">Translation is being prepared.</string>
     <string name="viewer_pdf_rendering">Rendering PDF page.</string>
     <string name="viewer_no_text">This page has no extractable text.</string>
+    <string name="viewer_image_unavailable">Image cannot be rendered.</string>
     <string name="library_title">Local Library</string>
     <string name="library_empty">Imported books will appear here for offline reading.</string>
     <string name="library_book_meta">%1$s · page %2$d/%3$d · %4$d%%</string>
