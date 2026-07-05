@@ -20,8 +20,8 @@ object LocalBookJson {
                     .put("importedAtMillis", book.importedAtMillis)
                     .put("lastOpenedAtMillis", book.lastOpenedAtMillis)
                     .put("fileSizeBytes", book.fileSizeBytes)
-                    .put("bookmarks", book.bookmarks.toJsonArray())
-                    .put("annotations", book.annotations.toJsonArray()),
+                    .put("bookmarks", book.bookmarksToJsonArray())
+                    .put("annotations", book.annotationsToJsonArray()),
             )
         }
         return array.toString(2)
@@ -59,9 +59,9 @@ object LocalBookJson {
         return runCatching { DocumentFormat.valueOf(stored) }.getOrDefault(DocumentFormat.TEXT)
     }
 
-    private fun List<LocalBookBookmark>.toJsonArray(): JSONArray {
+    private fun LocalBook.bookmarksToJsonArray(): JSONArray {
         val array = JSONArray()
-        forEach { bookmark ->
+        bookmarks.forEach { bookmark ->
             array.put(
                 JSONObject()
                     .put("id", bookmark.id)
@@ -92,9 +92,9 @@ object LocalBookJson {
         }.sortedBy { it.pageIndex }
     }
 
-    private fun List<LocalBookAnnotation>.toJsonArray(): JSONArray {
+    private fun LocalBook.annotationsToJsonArray(): JSONArray {
         val array = JSONArray()
-        forEach { annotation ->
+        annotations.forEach { annotation ->
             array.put(
                 JSONObject()
                     .put("id", annotation.id)
