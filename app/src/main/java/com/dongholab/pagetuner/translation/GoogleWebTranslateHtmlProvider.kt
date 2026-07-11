@@ -7,6 +7,7 @@ import java.net.URL
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
+import org.json.JSONObject
 import org.json.JSONTokener
 
 class GoogleWebTranslateHtmlProvider(
@@ -32,11 +33,7 @@ class GoogleWebTranslateHtmlProvider(
             runCatching {
                 val response = transport.post(
                     endpoint = endpoint,
-                    headers = mapOf(
-                        "Accept" to "*/*",
-                        "Content-Type" to "application/json+protobuf",
-                        "X-Goog-Api-Key" to apiKey.trim(),
-                    ),
+                    headers = buildHeaders(request),
                     body = buildRequestBody(request),
                 )
                 parseResponse(request, response)
@@ -44,6 +41,15 @@ class GoogleWebTranslateHtmlProvider(
                 throw error.asProviderNetworkFailure(ProviderName)
             }
         }
+    }
+
+    private fun buildHeaders(request: TranslationRequest): Map<String, String> {
+        return mapOf(
+            "Accept" to "*/*",
+            "Accept-Language" to request.acceptLanguageHeader(),
+            "Content-Type" to "application/json+protobuf",
+            "X-Goog-Api-Key" to apiKey.trim(),
+        )
     }
 
     private fun buildRequestBody(request: TranslationRequest): String {
@@ -143,13 +149,16 @@ object GoogleWebTranslateHtmlResponseParser {
     )
 
     fun parse(response: String, expectedCount: Int): Result<List<String>> {
-        val root = runCatching { JSONTokener(response).nextValue() }
+        val root = runCatching { JSONTokener(response.withoutGoogleJsonPrefix()).nextValue() }
             .getOrElse { error -> return Result.failure(IOException("Response was not JSON.", error)) }
         val allStrings = mutableListOf<String>()
         collectStrings(root, allStrings)
 
         val anchored = parseAnchoredTranslations(allStrings, expectedCount)
         if (anchored != null) return Result.success(anchored)
+
+        val joinedAnchored = parseAnchoredTranslations(listOf(allStrings.joinToString("")), expectedCount)
+        if (joinedAnchored != null) return Result.success(joinedAnchored)
 
         val directCandidate = findDirectStringArrayCandidate(root, expectedCount)
         if (directCandidate != null) {
@@ -187,6 +196,11 @@ object GoogleWebTranslateHtmlResponseParser {
                     collectStrings(value.opt(index), output)
                 }
             }
+            is JSONObject -> {
+                value.keys().forEach { key ->
+                    collectStrings(value.opt(key), output)
+                }
+            }
             is String -> output += value
         }
     }
@@ -210,6 +224,20 @@ object GoogleWebTranslateHtmlResponseParser {
         }
         return null
     }
+}
+
+private fun TranslationRequest.acceptLanguageHeader(): String {
+    val target = targetLanguage.trim().ifBlank { "en" }
+    val source = sourceLanguage.trim().takeUnless { it.isBlank() || it.equals("auto", ignoreCase = true) }
+    return buildList {
+        add(target)
+        if (source != null && !source.equals(target, ignoreCase = true)) {
+            add("$source;q=0.9")
+        }
+        if (!target.equals("en", ignoreCase = true) && source?.equals("en", ignoreCase = true) != true) {
+            add("en;q=0.8")
+        }
+    }.joinToString(",")
 }
 
 private fun String.escapeHtml(): String {
@@ -237,6 +265,18 @@ private fun String.decodeHtmlEntities(): String {
             "nbsp" -> " "
             else -> entity.decodeNumericHtmlEntity() ?: match.value
         }
+    }
+}
+
+private fun String.withoutGoogleJsonPrefix(): String {
+    val trimmed = trimStart()
+    return if (trimmed.startsWith(")]}'")) {
+        trimmed.substringAfter(
+            delimiter = "\n",
+            missingDelimiterValue = trimmed.removePrefix(")]}'"),
+        ).trimStart()
+    } else {
+        this
     }
 }
 

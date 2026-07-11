@@ -16,7 +16,7 @@ data class ReaderSettings(
     val readerPageMarginDp: Int = 18,
     val sourceLanguage: String = "auto",
     val targetLanguage: String = "ko",
-    val providerKind: TranslationProviderKind = TranslationProviderKind.GOOGLE_CLOUD,
+    val providerKind: TranslationProviderKind = TranslationProviderKind.GOOGLE_WEB_TRANSLATE_HTML,
     val llmEndpoint: String = "",
     val llmModel: String = "",
     val readingWordsPerMinute: Int = 210,

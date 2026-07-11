@@ -5,6 +5,7 @@ import kotlinx.coroutines.test.runTest
 import org.json.JSONArray
 import org.json.JSONTokener
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Assert.fail
 import org.junit.Test
@@ -41,7 +42,12 @@ class GoogleWebTranslateHtmlProviderTest {
         assertEquals(listOf("안녕 & 반가워", "세계"), translated.map { it.translatedText })
         assertEquals("https://example.com/v1/translateHtml", capturedEndpoint)
         assertEquals("test-key", capturedHeaders["X-Goog-Api-Key"])
+        assertEquals("*/*", capturedHeaders["Accept"])
+        assertEquals("ko,en;q=0.9", capturedHeaders["Accept-Language"])
         assertEquals("application/json+protobuf", capturedHeaders["Content-Type"])
+        assertFalse(capturedHeaders.containsKey("X-Browser-Validation"))
+        assertFalse(capturedHeaders.containsKey("X-Client-Data"))
+        assertFalse(capturedHeaders.containsKey("Origin"))
         assertTrue(provider.id.startsWith("google-web-translate-html:"))
 
         val root = JSONTokener(capturedBody).nextValue() as JSONArray
@@ -58,6 +64,29 @@ class GoogleWebTranslateHtmlProviderTest {
     fun parserFallsBackToDirectStringArrays() {
         val parsed = GoogleWebTranslateHtmlResponseParser.parse(
             response = """[[["안녕", "세계"]]]""",
+            expectedCount = 2,
+        ).getOrThrow()
+
+        assertEquals(listOf("안녕", "세계"), parsed)
+    }
+
+    @Test
+    fun parserHandlesGoogleJsonPrefixAndObjectWrappedStrings() {
+        val parsed = GoogleWebTranslateHtmlResponseParser.parse(
+            response = """
+                )]}'
+                {"payload":["<a i=0>안녕</a>","<a i=1>세계</a>"]}
+            """.trimIndent(),
+            expectedCount = 2,
+        ).getOrThrow()
+
+        assertEquals(listOf("안녕", "세계"), parsed)
+    }
+
+    @Test
+    fun parserHandlesAnchorsSplitAcrossCollectedStrings() {
+        val parsed = GoogleWebTranslateHtmlResponseParser.parse(
+            response = """[["<a i=0>안","녕</a><a i=1>세","계</a>"]]""",
             expectedCount = 2,
         ).getOrThrow()
 
