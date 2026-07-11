@@ -23,19 +23,21 @@ class TranslationModelsTest {
     }
 
     @Test
-    fun checksGoogleWebTranslateProviderConfiguration() {
-        val missing = TranslationSettings(
+    fun googleWebTranslateProviderDoesNotRequireApiKey() {
+        val withoutKey = TranslationSettings(
             providerKind = TranslationProviderKind.GOOGLE_WEB_TRANSLATE_HTML,
             apiKey = "",
-        ).checkProviderHealth()
+        )
 
-        val ready = TranslationSettings(
+        val withKey = TranslationSettings(
             providerKind = TranslationProviderKind.GOOGLE_WEB_TRANSLATE_HTML,
             apiKey = "key",
-        ).checkProviderHealth()
+        )
 
-        assertEquals(ProviderHealthState.MissingConfiguration, missing.state)
-        assertEquals(ProviderHealthState.Ready, ready.state)
+        assertTrue(withoutKey.isProviderConfigured)
+        assertEquals(ProviderHealthState.Ready, withoutKey.checkProviderHealth().state)
+        assertTrue(withKey.isProviderConfigured)
+        assertEquals(ProviderHealthState.Ready, withKey.checkProviderHealth().state)
     }
 
     @Test

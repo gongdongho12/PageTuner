@@ -90,8 +90,9 @@ translation and offline-first reading.
 - Done: add independent source/target language selector chips.
 - Done: add manual translation sample files under `examples/translation-samples`.
 - Done: add Google Web Translate HTML provider.
+  - done: allow use without an API key
 - Done: add provider health check.
-  - done: validate required API key/endpoint/model fields locally
+  - done: validate required API key/endpoint/model fields locally where required
   - done: explain provider failures by category
   - pending: perform optional network health request
 - Done: add translation cache management.

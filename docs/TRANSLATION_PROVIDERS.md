@@ -14,10 +14,11 @@ pagination, pacing, and offline cache do not depend on a single vendor.
 
 - `GOOGLE_WEB_TRANSLATE_HTML`
   - Provider: `GoogleWebTranslateHtmlProvider`
-  - Input: Google Web Translate API key
+  - Input: no API key required; an optional key can be sent as
+    `X-Goog-Api-Key` when supplied.
   - Endpoint: `https://translate-pa.googleapis.com/v1/translateHtml`
   - Best for HTML-segment translation using the web translate request shape.
-  - The app does not embed copied API keys, browser validation headers, or
+  - The app does not embed copied browser validation headers or
     session-specific headers in source.
 
 - `OPENAI_COMPATIBLE_LLM`

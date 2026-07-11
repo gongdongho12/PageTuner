@@ -109,7 +109,7 @@ fun ProviderHealthCheck.localizedMessage(context: Context): String {
             TranslationProviderKind.GOOGLE_CLOUD ->
                 context.getString(R.string.provider_health_missing_google_key)
             TranslationProviderKind.GOOGLE_WEB_TRANSLATE_HTML ->
-                context.getString(R.string.provider_health_missing_google_web_key)
+                context.getString(R.string.provider_health_google_web_no_key_required)
             TranslationProviderKind.OPENAI_COMPATIBLE_LLM ->
                 context.getString(R.string.provider_health_missing_llm_settings)
             null -> context.getString(R.string.provider_health_missing_settings)
@@ -226,7 +226,7 @@ fun settingsProviderConfigured(
 ): Boolean {
     return when (providerKind) {
         TranslationProviderKind.GOOGLE_CLOUD -> apiKey.isNotBlank()
-        TranslationProviderKind.GOOGLE_WEB_TRANSLATE_HTML -> apiKey.isNotBlank()
+        TranslationProviderKind.GOOGLE_WEB_TRANSLATE_HTML -> true
         TranslationProviderKind.OPENAI_COMPATIBLE_LLM ->
             apiKey.isNotBlank() && llmEndpoint.isNotBlank() && llmModel.isNotBlank()
     }

@@ -61,6 +61,36 @@ class GoogleWebTranslateHtmlProviderTest {
     }
 
     @Test
+    fun postsTranslateHtmlPayloadWithoutApiKeyHeaderWhenKeyIsBlank() = runTest {
+        var capturedHeaders = emptyMap<String, String>()
+        val provider = GoogleWebTranslateHtmlProvider(
+            apiKey = "",
+            endpoint = "https://example.com/v1/translateHtml",
+            transport = GoogleWebTranslateHtmlTransport { _, headers, _ ->
+                capturedHeaders = headers
+                """[["<a i=0>안녕</a>"]]"""
+            },
+        )
+        val document = PlainTextDocumentParser.parse(
+            title = "Google Web",
+            rawText = "Hello",
+        )
+
+        val translated = provider.translate(
+            TranslationRequest(
+                sourceLanguage = "en",
+                targetLanguage = "ko",
+                segments = document.pages.first().segments,
+            ),
+        )
+
+        assertEquals(listOf("안녕"), translated.map { it.translatedText })
+        assertFalse(capturedHeaders.containsKey("X-Goog-Api-Key"))
+        assertEquals("*/*", capturedHeaders["Accept"])
+        assertEquals("application/json+protobuf", capturedHeaders["Content-Type"])
+    }
+
+    @Test
     fun parserFallsBackToDirectStringArrays() {
         val parsed = GoogleWebTranslateHtmlResponseParser.parse(
             response = """[[["안녕", "세계"]]]""",

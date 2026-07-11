@@ -85,8 +85,10 @@ not as source-code bases.
   - Google Cloud Translation API
   - Google Web Translate HTML endpoint
   - OpenAI-compatible LLM API
-- Google Web Translate HTML provider uses a user-supplied API key and does not
-  embed copied browser/session headers in source.
+- Google Web Translate HTML provider can run without an API key; if a key is
+  entered, it is sent as an optional request header.
+- Google Web Translate HTML provider does not embed copied browser/session
+  headers in source.
 - LLM provider accepts:
   - API key
   - chat-completions-compatible endpoint
@@ -112,8 +114,8 @@ not as source-code bases.
   - cancel
   - retry failed pages
 - Current-page translation failures expose an explicit retry action.
-- Provider health check validates required Google, Google Web HTML, and LLM
-  settings before use.
+- Provider health check validates provider-specific required settings before
+  use.
 - Provider failures are categorized into credential, rate-limit, quota,
   request, server, network, response-format, and configuration explanations.
 - JSON-file translation cache in app-private storage with temporary-file
@@ -198,8 +200,8 @@ not as source-code bases.
   implemented yet.
 - Google Drive OAuth and remote-source account management UI are TODO/planning
   items.
-- API keys are entered per session and are not persisted yet; production storage
-  should use a more secure credential layer.
+- Google Cloud and LLM API keys are entered per session and are not persisted
+  yet; production storage should use a more secure credential layer.
 - The LLM provider expects OpenAI-compatible chat completions JSON.
 - No product license has been selected yet.
 

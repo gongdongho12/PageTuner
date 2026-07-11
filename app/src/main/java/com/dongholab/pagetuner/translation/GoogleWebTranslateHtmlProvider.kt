@@ -21,12 +21,6 @@ class GoogleWebTranslateHtmlProvider(
     }
 
     override suspend fun translate(request: TranslationRequest): List<TranslatedSegment> {
-        if (apiKey.isBlank()) {
-            throw providerConfigurationException(
-                providerName = ProviderName,
-                detail = "Google Web Translate API key is required.",
-            )
-        }
         if (request.segments.isEmpty()) return emptyList()
 
         return withContext(Dispatchers.IO) {
@@ -44,12 +38,14 @@ class GoogleWebTranslateHtmlProvider(
     }
 
     private fun buildHeaders(request: TranslationRequest): Map<String, String> {
-        return mapOf(
-            "Accept" to "*/*",
-            "Accept-Language" to request.acceptLanguageHeader(),
-            "Content-Type" to "application/json+protobuf",
-            "X-Goog-Api-Key" to apiKey.trim(),
-        )
+        return buildMap {
+            put("Accept", "*/*")
+            put("Accept-Language", request.acceptLanguageHeader())
+            put("Content-Type", "application/json+protobuf")
+            apiKey.trim().takeIf { it.isNotBlank() }?.let { key ->
+                put("X-Goog-Api-Key", key)
+            }
+        }
     }
 
     private fun buildRequestBody(request: TranslationRequest): String {

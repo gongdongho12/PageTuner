@@ -217,7 +217,7 @@ fun PageTurnerApp() {
         providerKind == TranslationProviderKind.GOOGLE_CLOUD ->
             stringResource(R.string.provider_status_missing_google_key)
         providerKind == TranslationProviderKind.GOOGLE_WEB_TRANSLATE_HTML ->
-            stringResource(R.string.provider_status_missing_google_web_key)
+            stringResource(R.string.provider_status_google_web_no_key_required)
         else -> stringResource(R.string.provider_status_missing_llm_settings)
     }
     val translationCacheStatusText = translationCacheStatus?.let { cacheStatus ->

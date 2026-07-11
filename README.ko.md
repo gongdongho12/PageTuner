@@ -76,8 +76,10 @@ PageTurner는 전자잉크 단말기용 Android 리더 프로토타입입니다.
   - Google Cloud Translation API
   - Google Web Translate HTML endpoint
   - OpenAI-compatible LLM API
-- Google Web Translate HTML provider는 사용자 제공 API 키를 사용하며, 브라우저
-  세션 헤더를 소스에 내장하지 않습니다.
+- Google Web Translate HTML provider는 API 키 없이 실행할 수 있고, 키를
+  입력하면 선택 요청 헤더로만 전송합니다.
+- Google Web Translate HTML provider는 복사한 브라우저/세션 헤더를 소스에
+  내장하지 않습니다.
 - LLM provider 입력값:
   - API 키
   - chat-completions 호환 엔드포인트
@@ -169,8 +171,8 @@ PageTurner는 전자잉크 단말기용 Android 리더 프로토타입입니다.
 - EPUB은 텍스트 우선 리더입니다. 복잡한 레이아웃, 실제 임베디드 미디어 렌더링,
   커스텀 폰트, 고급 CSS 렌더링은 아직 지원하지 않습니다.
 - Google Drive, FTP, 웹 카탈로그 connector는 아직 TODO/계획 단계입니다.
-- API 키는 세션 중 화면에서 입력하며 아직 저장하지 않습니다. 제품화 전에는 더
-  안전한 credential storage가 필요합니다.
+- Google Cloud와 LLM API 키는 세션 중 화면에서 입력하며 아직 저장하지
+  않습니다. 제품화 전에는 더 안전한 credential storage가 필요합니다.
 - LLM provider는 OpenAI-compatible chat completions JSON 형식을 기대합니다.
 - 아직 프로젝트 라이선스는 선택하지 않았습니다.
 
