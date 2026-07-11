@@ -10,6 +10,9 @@ tracks what still needs to be built.
 - [x] Move translation controls to `ui/translation`.
 - [x] Move display/page-turn settings to `ui/settings`.
 - [x] Move remote source panel to `ui/source`.
+- [x] Move app status/localized message helpers to `ui/text`.
+- [x] Move translation language selector UI to a dedicated component.
+- [x] Move local-library reader model mappers to `library`.
 - [x] Add `ReaderViewModel`.
 - [x] Add `SettingsViewModel`.
 - [x] Add `TranslationViewModel`.
