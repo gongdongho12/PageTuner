@@ -98,6 +98,8 @@ not as source-code bases.
   - English to Korean
   - Korean to English
   - auto to English
+- Source and target languages can also be chosen independently with language
+  chips while still allowing manual language-code entry.
 - Reading-speed-based request pacing.
 - Provider request batch size can be tuned from the translation controls and is
   persisted with reader settings.

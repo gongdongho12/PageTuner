@@ -42,6 +42,7 @@ import com.dongholab.pagetuner.translation.TranslationDisplayMode
 import com.dongholab.pagetuner.translation.TranslationPaceMode
 import com.dongholab.pagetuner.translation.TranslationProviderKind
 import com.dongholab.pagetuner.ui.LanguagePreset
+import com.dongholab.pagetuner.ui.TranslationLanguageOption
 import com.dongholab.pagetuner.ui.text.apiKeyLabelRes
 import com.dongholab.pagetuner.ui.text.localizedLabel
 import com.dongholab.pagetuner.ui.theme.EinkInk
@@ -207,6 +208,20 @@ fun TranslationControls(
                     )
                 }
             }
+            LanguageOptionRow(
+                title = stringResource(R.string.language_source_title),
+                options = TranslationLanguageOption.entries.filter { option -> option.canBeSource },
+                selectedCode = sourceLanguage,
+                busy = busy,
+                onSelect = onSourceLanguageChange,
+            )
+            LanguageOptionRow(
+                title = stringResource(R.string.language_target_title),
+                options = TranslationLanguageOption.entries.filter { option -> option.canBeTarget },
+                selectedCode = targetLanguage,
+                busy = busy,
+                onSelect = onTargetLanguageChange,
+            )
             FlowRow(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -363,6 +378,36 @@ fun TranslationControls(
                     Text(stringResource(R.string.action_clear_translation_cache))
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun LanguageOptionRow(
+    title: String,
+    options: List<TranslationLanguageOption>,
+    selectedCode: String,
+    busy: Boolean,
+    onSelect: (String) -> Unit,
+) {
+    FlowRow(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalArrangement = Arrangement.spacedBy(4.dp),
+    ) {
+        Text(
+            text = title,
+            style = MaterialTheme.typography.labelLarge,
+            color = EinkInk,
+            modifier = Modifier.padding(top = 8.dp),
+        )
+        options.forEach { option ->
+            FilterChip(
+                selected = selectedCode.equals(option.code, ignoreCase = true),
+                onClick = { onSelect(option.code) },
+                enabled = !busy,
+                label = { Text(stringResource(option.labelRes)) },
+            )
         }
     }
 }

@@ -100,6 +100,7 @@ tracks what still needs to be built.
 - [x] Add translation queue.
 - [x] Add pause/resume/cancel for prefetch.
 - [x] Add whole-document translation progress screen.
+- [x] Add source/target language selector chips.
 - [x] Add translation cache status per book.
 - [x] Add clear translation cache action.
 - [x] Add original-only / translation-only / side-by-side modes.

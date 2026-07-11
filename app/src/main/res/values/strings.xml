@@ -91,6 +91,13 @@
     <string name="field_llm_model">Model</string>
     <string name="field_source_language">From</string>
     <string name="field_target_language">To</string>
+    <string name="language_source_title">Source</string>
+    <string name="language_target_title">Target</string>
+    <string name="language_auto">Auto</string>
+    <string name="language_korean">Korean</string>
+    <string name="language_english">English</string>
+    <string name="language_japanese">Japanese</string>
+    <string name="language_chinese">Chinese</string>
     <string name="reading_speed_wpm">%1$d wpm</string>
     <string name="translation_batch_size">%1$d segments per request</string>
     <string name="pace_reading">Reading</string>
