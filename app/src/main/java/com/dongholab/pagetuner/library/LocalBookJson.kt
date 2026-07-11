@@ -20,6 +20,8 @@ object LocalBookJson {
                     .put("importedAtMillis", book.importedAtMillis)
                     .put("lastOpenedAtMillis", book.lastOpenedAtMillis)
                     .put("fileSizeBytes", book.fileSizeBytes)
+                    .put("folder", book.folder)
+                    .put("tags", book.tagsToJsonArray())
                     .put("bookmarks", book.bookmarksToJsonArray())
                     .put("annotations", book.annotationsToJsonArray()),
             )
@@ -46,6 +48,8 @@ object LocalBookJson {
                         importedAtMillis = item.optLong("importedAtMillis", 0L),
                         lastOpenedAtMillis = item.optLong("lastOpenedAtMillis", 0L),
                         fileSizeBytes = item.optLong("fileSizeBytes", 0L),
+                        folder = normalizeLocalBookFolder(item.optString("folder")),
+                        tags = item.optTags(),
                         bookmarks = item.optBookmarks(),
                         annotations = item.optAnnotations(),
                     ),
@@ -57,6 +61,21 @@ object LocalBookJson {
     private fun JSONObject.optDocumentFormat(): DocumentFormat {
         val stored = optString("format", DocumentFormat.TEXT.name)
         return runCatching { DocumentFormat.valueOf(stored) }.getOrDefault(DocumentFormat.TEXT)
+    }
+
+    private fun LocalBook.tagsToJsonArray(): JSONArray {
+        val array = JSONArray()
+        tags.forEach { tag -> array.put(tag) }
+        return array
+    }
+
+    private fun JSONObject.optTags(): List<String> {
+        val array = optJSONArray("tags") ?: return parseLocalBookTags(optString("tag"))
+        return buildList {
+            for (index in 0 until array.length()) {
+                add(array.optString(index))
+            }
+        }.let { tags -> parseLocalBookTags(tags.joinToString(",")) }
     }
 
     private fun LocalBook.bookmarksToJsonArray(): JSONArray {

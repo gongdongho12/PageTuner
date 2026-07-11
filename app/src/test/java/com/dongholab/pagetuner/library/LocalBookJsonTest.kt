@@ -18,6 +18,8 @@ class LocalBookJsonTest {
             importedAtMillis = 100L,
             lastOpenedAtMillis = 200L,
             fileSizeBytes = 300L,
+            folder = "Novels",
+            tags = listOf("Sci-Fi", "Offline"),
             bookmarks = listOf(
                 LocalBookBookmark(
                     id = "bookmark-1",
@@ -49,7 +51,7 @@ class LocalBookJsonTest {
             """
             [
               {"id": "", "relativePath": "books/missing.txt"},
-              {"id": "ok", "relativePath": "books/ok.txt", "format": "TEXT"}
+              {"id": "ok", "relativePath": "books/ok.txt", "format": "TEXT", "folder": "  My  Folder  ", "tags": ["tag", "Tag", "ko"]}
             ]
             """.trimIndent(),
         )
@@ -57,5 +59,7 @@ class LocalBookJsonTest {
         assertEquals(1, decoded.size)
         assertEquals("ok", decoded.single().id)
         assertEquals(DocumentFormat.TEXT, decoded.single().format)
+        assertEquals("My Folder", decoded.single().folder)
+        assertEquals(listOf("tag", "ko"), decoded.single().tags)
     }
 }

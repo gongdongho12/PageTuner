@@ -39,8 +39,11 @@ PageTurner는 전자잉크 단말기용 Android 리더 프로토타입입니다.
 - 가져온 책은 오프라인에서 다시 열 수 있도록 앱 내부 저장소에 복사됩니다.
 - 로컬 메타데이터는 제목, 형식, 파일 경로, 현재 쪽, 전체 쪽 수, 읽기 진행률,
   가져온 시각, 마지막으로 연 시각을 저장합니다.
+- 로컬 메타데이터는 책별 폴더와 카테고리 태그도 저장합니다.
 - 파일 해시로 중복 import를 감지하고 저장된 사본을 다시 엽니다.
 - 최근 책은 로컬 서재에서 다시 열거나 삭제할 수 있습니다.
+- 로컬 서재는 폴더별로 책을 묶어 보여주고, 각 책 row에서 폴더/태그를 저장할
+  수 있습니다.
 - 앱 시작 시 마지막으로 열었던 저장 책을 자동으로 복원합니다.
 - 로컬 서재 목록, import, open, delete, progress 저장은 `LibraryViewModel`이
   관리합니다.
@@ -71,12 +74,16 @@ PageTurner는 전자잉크 단말기용 Android 리더 프로토타입입니다.
 - `TranslationProvider` 인터페이스 뒤에 번역 provider를 분리.
 - 현재 provider 옵션:
   - Google Cloud Translation API
+  - Google Web Translate HTML endpoint
   - OpenAI-compatible LLM API
+- Google Web Translate HTML provider는 사용자 제공 API 키를 사용하며, 브라우저
+  세션 헤더를 소스에 내장하지 않습니다.
 - LLM provider 입력값:
   - API 키
   - chat-completions 호환 엔드포인트
   - 모델명
-- provider별 캐시 키 분리로 Google 번역과 LLM 번역 결과가 섞이지 않음.
+- provider별 캐시 키 분리로 Google Cloud, Google Web HTML, LLM 번역 결과가
+  섞이지 않음.
 - 한국어/영어 번역 프리셋:
   - 자동 감지 → 한국어
   - 영어 → 한국어
@@ -93,6 +100,9 @@ PageTurner는 전자잉크 단말기용 Android 리더 프로토타입입니다.
   - 실패한 쪽 재시도
 - Provider health check로 Google/LLM 필수 설정을 사용 전에 확인합니다.
 - 앱 내부 저장소의 JSON 번역 캐시.
+- 가져온 로컬 책은 저장된 책 파일 옆
+  `local_library/books/translate/<책이름>.translations.json`에 번역 캐시를
+  저장합니다.
 - 저장된 페이지 번역을 불러오는 오프라인 읽기 흐름.
 - 현재 provider/언어 조합 기준 문서별 번역 캐시 상태 표시.
 - 현재 문서와 provider/언어 조합의 번역 캐시 삭제 액션.

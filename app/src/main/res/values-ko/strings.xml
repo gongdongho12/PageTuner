@@ -74,6 +74,13 @@
     <string name="library_empty">가져온 책은 오프라인 읽기를 위해 여기에 표시됩니다.</string>
     <string name="library_book_meta">%1$s · %2$d/%3$d쪽 · %4$d%%</string>
     <string name="action_delete_book">책 삭제</string>
+    <string name="library_folder_header">폴더: %1$s</string>
+    <string name="library_folder_uncategorized">미분류</string>
+    <string name="library_folder_label">폴더</string>
+    <string name="library_tags_label">태그</string>
+    <string name="library_tags_empty">태그 없음</string>
+    <string name="library_tags_value">태그: %1$s</string>
+    <string name="action_save_organization">저장</string>
     <string name="provider_google_cloud">Google Cloud</string>
     <string name="provider_google_web_translate_html">Google Web HTML</string>
     <string name="provider_openai_compatible_llm">LLM API</string>

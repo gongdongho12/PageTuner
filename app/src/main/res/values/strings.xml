@@ -74,6 +74,13 @@
     <string name="library_empty">Imported books will appear here for offline reading.</string>
     <string name="library_book_meta">%1$s · page %2$d/%3$d · %4$d%%</string>
     <string name="action_delete_book">Delete book</string>
+    <string name="library_folder_header">Folder: %1$s</string>
+    <string name="library_folder_uncategorized">Uncategorized</string>
+    <string name="library_folder_label">Folder</string>
+    <string name="library_tags_label">Tags</string>
+    <string name="library_tags_empty">No tags</string>
+    <string name="library_tags_value">Tags: %1$s</string>
+    <string name="action_save_organization">Save</string>
     <string name="provider_google_cloud">Google Cloud</string>
     <string name="provider_google_web_translate_html">Google Web HTML</string>
     <string name="provider_openai_compatible_llm">LLM API</string>

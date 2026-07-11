@@ -24,6 +24,10 @@ translation and offline-first reading.
   - title, format, file path, last opened time
   - current page
   - reading progress percentage
+  - done: folder grouping
+  - done: per-book category tags
+  - done: folder/tag editing in the library panel
+  - pending: folder/tag filtering and search
 - Done: add robust file import.
   - copy imported files into app-private storage
   - stable document id from file hash
@@ -92,6 +96,8 @@ translation and offline-first reading.
   - done: per-document cache status
   - done: clear translation cache for active provider/language
   - done: crash-safer temporary-file cache writes
+  - done: imported-book cache files under `books/translate/<book>.translations.json`
+  - pending: SAF write permission flow for external original-folder cache export
   - pending: clear all provider-specific cache
 - Done: add offline prefetch queue.
   - done: whole document

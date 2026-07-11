@@ -39,7 +39,14 @@ class JsonFileTranslationCache internal constructor(
     private val cacheFile: File,
 ) : TranslationCache {
     constructor(context: Context) : this(
-        File(context.applicationContext.filesDir, "translation-cache/page-turner-cache.json"),
+        fallbackTranslationCacheFile(context.applicationContext),
+    )
+
+    constructor(context: Context, localBookRelativePath: String?) : this(
+        translationCacheFileForContext(
+            context = context.applicationContext,
+            localBookRelativePath = localBookRelativePath,
+        ),
     )
 
     private val lock = Any()
@@ -153,4 +160,52 @@ class JsonFileTranslationCache internal constructor(
             }
         }
     }
+
+    companion object {
+        private fun translationCacheFileForContext(
+            context: Context,
+            localBookRelativePath: String?,
+        ): File {
+            if (localBookRelativePath.isNullOrBlank()) {
+                return fallbackTranslationCacheFile(context)
+            }
+            val libraryDir = File(context.filesDir, "local_library")
+            return runCatching {
+                translationCacheFileForLocalBook(
+                    libraryDir = libraryDir,
+                    relativePath = localBookRelativePath,
+                )
+            }.getOrElse {
+                fallbackTranslationCacheFile(context)
+            }
+        }
+    }
+}
+
+internal fun translationCacheFileForLocalBook(
+    libraryDir: File,
+    relativePath: String,
+): File {
+    val root = libraryDir.canonicalFile
+    val sourceFile = File(root, relativePath).canonicalFile
+    require(sourceFile.path == root.path || sourceFile.path.startsWith(root.path + File.separator)) {
+        "Invalid local book path."
+    }
+    val sourceParent = sourceFile.parentFile ?: root
+    val cacheBaseName = sourceFile.nameWithoutExtension
+        .ifBlank { sourceFile.name }
+        .ifBlank { "book" }
+        .sanitizeTranslationCacheFileName()
+    return File(File(sourceParent, "translate"), "$cacheBaseName.translations.json")
+}
+
+private fun fallbackTranslationCacheFile(context: Context): File {
+    return File(context.filesDir, "translation-cache/page-turner-cache.json")
+}
+
+private fun String.sanitizeTranslationCacheFileName(): String {
+    return replace(Regex("[^A-Za-z0-9._ -]"), "_")
+        .trim('.', '_', '-')
+        .take(96)
+        .ifBlank { "book" }
 }

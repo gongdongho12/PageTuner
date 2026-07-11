@@ -123,6 +123,25 @@ class LocalLibraryStore(context: Context) {
         writeBooks(updated)
     }
 
+    suspend fun updateOrganization(
+        bookId: String,
+        folder: String,
+        rawTags: String,
+    ) = withContext(Dispatchers.IO) {
+        val books = readBooks()
+        val updated = books.map { book ->
+            if (book.id == bookId) {
+                book.copy(
+                    folder = normalizeLocalBookFolder(folder),
+                    tags = parseLocalBookTags(rawTags),
+                )
+            } else {
+                book
+            }
+        }
+        writeBooks(updated)
+    }
+
     suspend fun deleteBook(bookId: String): Boolean = withContext(Dispatchers.IO) {
         val books = readBooks()
         val target = books.firstOrNull { it.id == bookId } ?: return@withContext false

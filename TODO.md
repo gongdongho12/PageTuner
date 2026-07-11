@@ -39,6 +39,10 @@ tracks what still needs to be built.
 - [x] Reopen last book.
 - [x] Detect duplicate imported files.
 - [x] Delete local book safely.
+- [x] Add library folder grouping.
+- [x] Add per-book category tags.
+- [x] Add folder/tag editing in the local library panel.
+- [ ] Add folder/tag filtering and search.
 
 ## P0: Reader Basics
 
@@ -100,6 +104,8 @@ tracks what still needs to be built.
 - [x] Add clear translation cache action.
 - [x] Add original-only / translation-only / side-by-side modes.
 - [x] Add retry handling for failed batches.
+- [x] Store imported-book translation caches under `books/translate/<book>.translations.json`.
+- [ ] Add SAF write permission flow for external original-folder `translate/` cache export.
 
 ## P1: Remote Sources
 

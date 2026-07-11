@@ -131,7 +131,6 @@ private data class PdfPageCacheKey(
 @Composable
 fun PageTurnerApp() {
     val context = LocalContext.current
-    val cache = remember(context) { JsonFileTranslationCache(context) }
     val settingsStore = remember(context) { ReaderSettingsStore(context) }
     val localLibraryStore = remember(context) { LocalLibraryStore(context) }
     val remoteCatalogCache = remember(context) { RemoteCatalogCache(context) }
@@ -172,6 +171,10 @@ fun PageTurnerApp() {
     val currentPage = readerState.currentPage
     val pdfSourceUri = readerState.pdfSourceUri
     val currentBookId = readerState.currentBookId
+    val currentBook = localBooks.firstOrNull { it.id == currentBookId }
+    val cache = remember(context, currentBook?.relativePath) {
+        JsonFileTranslationCache(context, currentBook?.relativePath)
+    }
     val controlsVisible = readerState.controlsVisible
     val showDocumentDetails = readerState.showDocumentDetails
     val searchQuery = readerState.searchQuery
@@ -213,7 +216,6 @@ fun PageTurnerApp() {
         currentChapterIndex == -1 -> true
         else -> currentChapterIndex < tableOfContents.lastIndex
     }
-    val currentBook = localBooks.firstOrNull { it.id == currentBookId }
     val providerStatusText = when {
         settingsProviderConfigured(
             providerKind = providerKind,
@@ -753,6 +755,7 @@ fun PageTurnerApp() {
                     busy = busy,
                     onOpenBook = ::openLocalBook,
                     onDeleteBook = ::deleteLocalBook,
+                    onUpdateBookOrganization = libraryViewModel::updateOrganization,
                 )
             }
             ReaderPager(

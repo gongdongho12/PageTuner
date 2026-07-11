@@ -5,6 +5,8 @@ pagination, pacing, and offline cache do not depend on a single vendor.
 
 ## Current Providers
 
+- Default provider kind for fresh installs: `GOOGLE_WEB_TRANSLATE_HTML`.
+
 - `GOOGLE_CLOUD`
   - Provider: `GoogleCloudTranslationProvider`
   - Input: Google Cloud Translation API key
@@ -38,6 +40,11 @@ To add another provider:
 The cache key includes `provider.id`, so results from Google Cloud, Google Web
 HTML, LLM, and future providers stay separated even when document, page, and
 language pair match.
+
+For imported local books, the JSON cache file is placed beside the app-private
+saved copy under `local_library/books/translate/<book-name>.translations.json`.
+When no local book path is available, PageTurner falls back to the app-private
+global cache at `translation-cache/page-turner-cache.json`.
 
 ## Provider Contract
 

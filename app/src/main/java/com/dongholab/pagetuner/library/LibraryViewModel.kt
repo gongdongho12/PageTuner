@@ -191,6 +191,23 @@ class LibraryViewModel(
         }
     }
 
+    fun updateOrganization(book: LocalBook, folder: String, rawTags: String) {
+        viewModelScope.launch {
+            runCatching {
+                localLibraryStore.updateOrganization(
+                    bookId = book.id,
+                    folder = folder,
+                    rawTags = rawTags,
+                )
+                localLibraryStore.listBooks()
+            }.onSuccess { books ->
+                _uiState.update { state -> state.copy(books = books) }
+            }.onFailure { error ->
+                _events.emit(LibraryEvent.Error(error.message, error))
+            }
+        }
+    }
+
     class Factory(
         private val localLibraryStore: LocalLibraryStore,
     ) : ViewModelProvider.Factory {

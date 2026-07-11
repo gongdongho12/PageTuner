@@ -58,6 +58,21 @@ class JsonFileTranslationCacheTest {
         assertFalse(cacheFile.resolveSibling("${cacheFile.name}.tmp").exists())
     }
 
+    @Test
+    fun resolvesLocalBookCacheBesideStoredBookInTranslateFolder() {
+        val libraryDir = temporaryFolder.newFolder("local_library")
+
+        val cacheFile = translationCacheFileForLocalBook(
+            libraryDir = libraryDir,
+            relativePath = "books/hash-Example Book.txt",
+        )
+
+        assertEquals(
+            libraryDir.resolve("books/translate/hash-Example Book.translations.json").canonicalFile,
+            cacheFile.canonicalFile,
+        )
+    }
+
     private fun testCacheKey(segmentId: String): TranslationCacheKey {
         return TranslationCacheKey(
             documentId = "document",

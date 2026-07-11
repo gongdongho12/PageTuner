@@ -13,6 +13,8 @@ data class LocalBook(
     val importedAtMillis: Long,
     val lastOpenedAtMillis: Long,
     val fileSizeBytes: Long,
+    val folder: String = "",
+    val tags: List<String> = emptyList(),
     val bookmarks: List<LocalBookBookmark> = emptyList(),
     val annotations: List<LocalBookAnnotation> = emptyList(),
 ) {
@@ -46,4 +48,17 @@ data class LocalBookAnnotation(
 enum class LocalBookAnnotationType {
     Highlight,
     Note,
+}
+
+fun normalizeLocalBookFolder(folder: String): String {
+    return folder.trim().replace(Regex("\\s+"), " ").take(80)
+}
+
+fun parseLocalBookTags(rawTags: String): List<String> {
+    return rawTags
+        .split(',', '#')
+        .map { tag -> tag.trim().replace(Regex("\\s+"), " ").take(40) }
+        .filter { tag -> tag.isNotBlank() }
+        .distinctBy { tag -> tag.lowercase() }
+        .take(12)
 }

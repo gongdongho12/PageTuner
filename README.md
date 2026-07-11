@@ -42,8 +42,11 @@ not as source-code bases.
 - Imported books are copied into app-private storage for offline reopening.
 - Local metadata tracks title, format, file path, current page, page count,
   reading progress, import time, and last-opened time.
+- Local metadata also tracks a user-editable folder and category tags per book.
 - Duplicate imports are detected by file hash and reopen the saved copy.
 - Recent books can be reopened or deleted from the local library.
+- Local library rows are grouped by folder, and each book can save folder/tag
+  organization from the library panel.
 - The most recently opened saved book is restored on app start.
 - Local library list, import, open, delete, and progress writes are owned by
   `LibraryViewModel`.
@@ -113,6 +116,8 @@ not as source-code bases.
   request, server, network, response-format, and configuration explanations.
 - JSON-file translation cache in app-private storage with temporary-file
   replacement for crash-safer writes.
+- Imported local books store translation cache beside the saved book copy under
+  `local_library/books/translate/<book-name>.translations.json`.
 - Cached page loading for offline reading.
 - Per-document translation cache status for the active provider/language pair.
 - Clear translation cache action for the active document and provider/language
