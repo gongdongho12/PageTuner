@@ -1,0 +1,15 @@
+PageTurner Translation Sample: English to Korean
+
+Mina carried a small e-ink reader in the side pocket of her travel bag. The screen looked plain in bright sunlight, but every page turned quickly and without glare.
+
+At the station, she opened a short technical article about battery chemistry. She wanted the original English nearby, but she also wanted a Korean translation saved before the train entered the mountain tunnel.
+
+The reader translated one paragraph at a time. It waited between requests, almost as if it were following her reading pace instead of rushing ahead.
+
+When the signal disappeared, the saved translation still opened. Mina checked the cache status, smiled, and kept reading in offline mode.
+
+Checklist:
+- translate the current page
+- prefetch the whole document
+- reopen the saved translation
+- compare English and Korean side by side

@@ -165,6 +165,15 @@ not as source-code bases.
 - Local emulator trial URL:
   - `http://10.0.2.2:8088/catalog.json`
 
+### Translation Test Samples
+
+- Manual translation sample files:
+  - [examples/translation-samples/en-to-ko-short-reader.txt](examples/translation-samples/en-to-ko-short-reader.txt)
+  - [examples/translation-samples/ko-to-en-short-reader.txt](examples/translation-samples/ko-to-en-short-reader.txt)
+  - [examples/translation-samples/mixed-markdown-language-check.md](examples/translation-samples/mixed-markdown-language-check.md)
+- Sample usage notes:
+  [examples/translation-samples/README.md](examples/translation-samples/README.md)
+
 ### Developer Docs
 
 - Product TODO:

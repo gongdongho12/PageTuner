@@ -140,6 +140,15 @@ PageTurner는 전자잉크 단말기용 Android 리더 프로토타입입니다.
 - 정적 샘플 카탈로그:
   - [examples/pagetuner-catalog/catalog.json](examples/pagetuner-catalog/catalog.json)
 
+### 번역 테스트 샘플
+
+- 수동 번역 테스트용 샘플 파일:
+  - [examples/translation-samples/en-to-ko-short-reader.txt](examples/translation-samples/en-to-ko-short-reader.txt)
+  - [examples/translation-samples/ko-to-en-short-reader.txt](examples/translation-samples/ko-to-en-short-reader.txt)
+  - [examples/translation-samples/mixed-markdown-language-check.md](examples/translation-samples/mixed-markdown-language-check.md)
+- 샘플 사용법:
+  [examples/translation-samples/README.md](examples/translation-samples/README.md)
+
 ### 개발 문서
 
 - 제품 TODO:

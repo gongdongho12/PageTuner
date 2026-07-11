@@ -88,6 +88,7 @@ translation and offline-first reading.
 - Keep all translation behind `TranslationProvider`.
 - Done: add provider settings persistence.
 - Done: add independent source/target language selector chips.
+- Done: add manual translation sample files under `examples/translation-samples`.
 - Done: add Google Web Translate HTML provider.
 - Done: add provider health check.
   - done: validate required API key/endpoint/model fields locally
