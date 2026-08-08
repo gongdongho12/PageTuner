@@ -421,9 +421,10 @@ fun RemoteSourcesTodoPanel(
                         modifier = Modifier.padding(top = 8.dp),
                     )
                 } else {
-                    com.dongholab.pagetuner.ui.common.EinkPagingContainer(
+                    com.dongholab.pagetuner.ui.common.EinkAutoFitPagingContainer(
                         items = filteredCatalogItems,
-                        pageSize = 5,
+                        estimatedItemHeight = 62.dp,
+                        fallbackPageSize = 6,
                         busy = busy,
                     ) { item ->
                         RemoteBookRow(

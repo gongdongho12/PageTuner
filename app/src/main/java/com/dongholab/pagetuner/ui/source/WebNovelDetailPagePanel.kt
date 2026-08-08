@@ -268,20 +268,116 @@ fun WebNovelDetailPagePanel(
                 }
             }
 
-            // Section Header: Table of Contents
+            var isFullScreenChapterViewer by remember { mutableStateOf(false) }
+
+            if (isFullScreenChapterViewer) {
+                // 100% DEDICATED FULL-SCREEN CHAPTER LIST VIEWER MODE (Zero Header, Max Chapters!)
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    TextButton(onClick = { isFullScreenChapterViewer = false }) {
+                        Icon(Icons.Filled.ArrowBack, contentDescription = "Back to Overview", tint = EinkInk, modifier = Modifier.size(18.dp))
+                        Spacer(Modifier.width(4.dp))
+                        Text("◄ Back to Book Overview", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold, color = EinkInk)
+                    }
+                    Text(
+                        text = "📖 Full Chapter List (${chapters.size} Ch.)",
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = EinkInk,
+                    )
+                }
+
+                // Compact Search & Page Size Bar
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    OutlinedTextField(
+                        value = searchQuery,
+                        onValueChange = { searchQuery = it },
+                        modifier = Modifier.weight(1f),
+                        enabled = !busy,
+                        label = { Text("Filter chapters...") },
+                        singleLine = true,
+                    )
+                    Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                        listOf(8, 15, 25).forEach { size ->
+                            val isSelected = selectedPageSize == size
+                            androidx.compose.material3.FilterChip(
+                                selected = isSelected,
+                                onClick = { selectedPageSize = size },
+                                enabled = !busy,
+                                label = { Text("$size/p", style = MaterialTheme.typography.labelSmall) },
+                                colors = androidx.compose.material3.FilterChipDefaults.filterChipColors(
+                                    containerColor = if (isSelected) EinkInk else EinkSoft,
+                                    labelColor = if (isSelected) EinkPanel else EinkInk,
+                                ),
+                            )
+                        }
+                    }
+                }
+
+                // Dedicated Full-Screen Dynamic EinkAutoFitPagingContainer (Zero Clipping!)
+                com.dongholab.pagetuner.ui.common.EinkAutoFitPagingContainer(
+                    items = filteredChapters,
+                    busy = busy,
+                    estimatedItemHeight = 44.dp,
+                    fallbackPageSize = selectedPageSize,
+                    emptyContent = {
+                        Text(
+                            text = if (chapters.isEmpty()) "Fetching chapter list..." else "No chapters match your filter.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = EinkMuted,
+                        )
+                    },
+                ) { chapter ->
+                    val chapterIndex = chapters.indexOf(chapter) + 1
+                    ChapterRowItem(
+                        chapter = chapter,
+                        chapterIndex = chapterIndex,
+                        accountId = novelItem.identity.accountId,
+                        busy = busy,
+                        onSaveChapterTxt = onSaveChapterTxt,
+                        onReadChapter = onReadChapter,
+                    )
+                }
+                return@Column
+            }
+
+            // Section Header: Table of Contents & Dedicated Full-Screen Viewer Switcher Button
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.Start,
+                horizontalArrangement = Arrangement.SpaceBetween,
             ) {
-                Icon(Icons.Filled.ListAlt, contentDescription = null, tint = EinkInk, modifier = Modifier.size(20.dp))
-                Spacer(Modifier.width(6.dp))
-                Text(
-                    text = "Table of Contents (${chapters.size} Ch.)",
-                    style = MaterialTheme.typography.titleSmall,
-                    fontWeight = FontWeight.Bold,
-                    color = EinkInk,
-                )
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.Start,
+                ) {
+                    Icon(Icons.Filled.ListAlt, contentDescription = null, tint = EinkInk, modifier = Modifier.size(20.dp))
+                    Spacer(Modifier.width(6.dp))
+                    Text(
+                        text = "Table of Contents (${chapters.size} Ch.)",
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = EinkInk,
+                    )
+                }
+                Button(
+                    onClick = { isFullScreenChapterViewer = true },
+                    enabled = !busy && chapters.isNotEmpty(),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = EinkInk,
+                        contentColor = EinkPanel,
+                    ),
+                    shape = RoundedCornerShape(2.dp),
+                ) {
+                    Text("📖 Full Screen View 🚀", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
+                }
             }
 
             // Horizontal Action Bar: Quick Jump & Batch Download (Prevents Vertical Squeezing)
@@ -422,6 +518,7 @@ fun WebNovelDetailPagePanel(
                 items = filteredChapters,
                 busy = busy,
                 estimatedItemHeight = 48.dp,
+                fallbackPageSize = selectedPageSize,
                 emptyContent = {
                     Text(
                         text = if (chapters.isEmpty()) "Fetching chapter list from novel page..." else "No chapters match your filter.",
@@ -431,68 +528,87 @@ fun WebNovelDetailPagePanel(
                 },
             ) { chapter ->
                 val chapterIndex = chapters.indexOf(chapter) + 1
-                Surface(
-                    modifier = Modifier.fillMaxWidth(),
-                    color = EinkSoft,
-                    shape = RoundedCornerShape(4.dp),
-                    border = BorderStroke(1.dp, EinkLine),
-                ) {
-                    Row(
-                        modifier = Modifier.padding(8.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Row(
-                            modifier = Modifier.weight(1f),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        ) {
-                            Icon(Icons.Filled.Book, contentDescription = null, tint = EinkMuted, modifier = Modifier.size(16.dp))
-                            Column {
-                                val isOfflineSaved = com.dongholab.pagetuner.source.offline.OfflineNovelStorageStore.globalOfflineStore.isChapterDownloaded(novelItem.identity.accountId, chapterIndex)
-                                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                                    Text(
-                                        text = "Ch. #$chapterIndex - ${chapter.title}",
-                                        style = MaterialTheme.typography.bodySmall,
-                                        fontWeight = FontWeight.SemiBold,
-                                        color = EinkInk,
-                                        maxLines = 2,
-                                        overflow = TextOverflow.Ellipsis,
-                                        modifier = Modifier.weight(1f, fill = false),
-                                    )
-                                    if (isOfflineSaved) {
-                                        Text(
-                                            text = "Offline Ready ✅",
-                                            style = MaterialTheme.typography.labelSmall,
-                                            fontWeight = FontWeight.Bold,
-                                            color = EinkInk,
-                                        )
-                                    }
-                                }
-                            }
-                        }
-                        Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                            TextButton(
-                                onClick = { onSaveChapterTxt?.invoke(chapter) },
-                                enabled = !busy,
-                            ) {
-                                Text("Save .txt 💾", style = MaterialTheme.typography.labelSmall, color = EinkInk)
-                            }
-                            Button(
-                                onClick = { onReadChapter(chapter) },
-                                enabled = !busy,
-                                colors = ButtonDefaults.buttonColors(
-                                    containerColor = EinkInk,
-                                    contentColor = EinkPanel,
-                                ),
-                                shape = RoundedCornerShape(2.dp),
-                            ) {
-                                Icon(Icons.Filled.PlayArrow, contentDescription = "Read", modifier = Modifier.size(16.dp))
-                                Spacer(Modifier.width(4.dp))
-                                Text("Read & Translate", style = MaterialTheme.typography.labelSmall)
-                            }
+                ChapterRowItem(
+                    chapter = chapter,
+                    chapterIndex = chapterIndex,
+                    accountId = novelItem.identity.accountId,
+                    busy = busy,
+                    onSaveChapterTxt = onSaveChapterTxt,
+                    onReadChapter = onReadChapter,
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun ChapterRowItem(
+    chapter: com.dongholab.pagetuner.source.RemoteBookItem,
+    chapterIndex: Int,
+    accountId: String,
+    busy: Boolean,
+    onSaveChapterTxt: ((com.dongholab.pagetuner.source.RemoteBookItem) -> Unit)?,
+    onReadChapter: (com.dongholab.pagetuner.source.RemoteBookItem) -> Unit,
+) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        color = EinkSoft,
+        shape = RoundedCornerShape(4.dp),
+        border = BorderStroke(1.dp, EinkLine),
+    ) {
+        Row(
+            modifier = Modifier.padding(8.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Row(
+                modifier = Modifier.weight(1f),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                Icon(Icons.Filled.Book, contentDescription = null, tint = EinkMuted, modifier = Modifier.size(16.dp))
+                Column {
+                    val isOfflineSaved = com.dongholab.pagetuner.source.offline.OfflineNovelStorageStore.globalOfflineStore.isChapterDownloaded(accountId, chapterIndex)
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Text(
+                            text = "Ch. #$chapterIndex - ${chapter.title}",
+                            style = MaterialTheme.typography.bodySmall,
+                            fontWeight = FontWeight.SemiBold,
+                            color = EinkInk,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.weight(1f, fill = false),
+                        )
+                        if (isOfflineSaved) {
+                            Text(
+                                text = "Offline Ready ✅",
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = FontWeight.Bold,
+                                color = EinkInk,
+                            )
                         }
                     }
+                }
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                TextButton(
+                    onClick = { onSaveChapterTxt?.invoke(chapter) },
+                    enabled = !busy,
+                ) {
+                    Text("Save .txt 💾", style = MaterialTheme.typography.labelSmall, color = EinkInk)
+                }
+                Button(
+                    onClick = { onReadChapter(chapter) },
+                    enabled = !busy,
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = EinkInk,
+                        contentColor = EinkPanel,
+                    ),
+                    shape = RoundedCornerShape(2.dp),
+                ) {
+                    Icon(Icons.Filled.PlayArrow, contentDescription = "Read", modifier = Modifier.size(16.dp))
+                    Spacer(Modifier.width(4.dp))
+                    Text("Read & Translate", style = MaterialTheme.typography.labelSmall)
                 }
             }
         }

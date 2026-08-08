@@ -23,6 +23,7 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.isSpecified
 import com.dongholab.pagetuner.ui.theme.EinkInk
 import com.dongholab.pagetuner.ui.theme.EinkLine
 import com.dongholab.pagetuner.ui.theme.EinkMuted
@@ -35,8 +36,9 @@ import com.dongholab.pagetuner.ui.theme.EinkPaper
 @Composable
 fun <T> EinkAutoFitPagingContainer(
     items: List<T>,
-    estimatedItemHeight: Dp = 58.dp,
+    estimatedItemHeight: Dp = 54.dp,
     itemSpacing: Dp = 6.dp,
+    fallbackPageSize: Int = 6,
     busy: Boolean = false,
     emptyContent: @Composable () -> Unit = {},
     itemContent: @Composable (T) -> Unit,
@@ -47,13 +49,19 @@ fun <T> EinkAutoFitPagingContainer(
     }
 
     BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
-        // Reserve height for pagination header (44.dp) and safe bottom padding (16.dp)
-        val reservedHeaderAndPadding = 60.dp
-        val availableHeight = (maxHeight - reservedHeaderAndPadding).coerceAtLeast(estimatedItemHeight)
+        val reservedHeaderAndPadding = 56.dp
+        val availableHeight = if (maxHeight.isSpecified && maxHeight.value > 0 && !maxHeight.value.isInfinite()) {
+            (maxHeight - reservedHeaderAndPadding).coerceAtLeast(estimatedItemHeight)
+        } else {
+            Dp.Unspecified
+        }
 
-        // Strict floor division: only include an item if 100% of its full height fits
         val itemSlotHeight = estimatedItemHeight + itemSpacing
-        val calculatedPageSize = (availableHeight / itemSlotHeight).toInt().coerceIn(1, 8)
+        val calculatedPageSize = if (availableHeight.isSpecified) {
+            (availableHeight / itemSlotHeight).toInt().coerceIn(1, 15)
+        } else {
+            fallbackPageSize
+        }
 
         var currentPageIndex by remember(items, calculatedPageSize) { mutableStateOf(0) }
         val totalPages = (items.size + calculatedPageSize - 1) / calculatedPageSize
