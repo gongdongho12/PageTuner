@@ -1,10 +1,24 @@
 package com.dongholab.pagetuner.ui.screen
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.dongholab.pagetuner.display.DisplayMode
 import com.dongholab.pagetuner.reader.PageTurnMode
@@ -19,12 +33,22 @@ import com.dongholab.pagetuner.ui.reader.DiagnosticLogPanel
 import com.dongholab.pagetuner.ui.settings.DisplaySettingsPanel
 import com.dongholab.pagetuner.ui.settings.PageTurnSettingsPanel
 import com.dongholab.pagetuner.ui.settings.ReaderPreferencesPanel
+import com.dongholab.pagetuner.ui.theme.EinkInk
+import com.dongholab.pagetuner.ui.theme.EinkLine
+import com.dongholab.pagetuner.ui.theme.EinkPaper
 import com.dongholab.pagetuner.ui.translation.TranslationControls
 import kotlin.math.roundToInt
 
+private enum class SettingsCategoryTab(val title: String) {
+    DISPLAY_PAGING("Display & Page Turn"),
+    READER_DEFAULTS("Reader Preferences"),
+    AI_TRANSLATION("AI Translation"),
+    DIAGNOSTICS("Diagnostics Log"),
+}
+
 /**
- * Settings 탭 전체를 하나의 Composable로 묶습니다.
- * MainActivity의 Settings when 브랜치 (90줄 인라인) → 이 함수 한 줄 호출로 대체됩니다.
+ * Settings Screen structured with E-Ink Discrete Sub-Tab Pagination.
+ * Eliminates screen overflow and prevents vertical drag-scrolling.
  */
 @Composable
 fun SettingsScreen(
@@ -70,76 +94,122 @@ fun SettingsScreen(
     onClearCache: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    var selectedCategory by remember { mutableStateOf(SettingsCategoryTab.DISPLAY_PAGING) }
+
     Column(
         modifier = modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(10.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        DisplaySettingsPanel(
-            displayMode = readerSettings.displayMode,
-            busy = busy,
-            onDisplayModeChange = onDisplayModeChange,
-        )
-        PageTurnSettingsPanel(
-            pageTurnMode = readerSettings.pageTurnMode,
-            busy = busy,
-            onPageTurnModeChange = onPageTurnModeChange,
-        )
-        ReaderPreferencesPanel(
-            pdfFitMode = readerSettings.pdfFitMode,
-            fontSizeSp = readerSettings.readerFontSizeSp,
-            lineSpacing = readerSettings.readerLineSpacing,
-            pageMarginDp = readerSettings.readerPageMarginDp,
-            busy = busy,
-            onPdfFitModeChange = onPdfFitModeChange,
-            onFontSizeChange = onFontSizeChange,
-            onLineSpacingChange = onLineSpacingChange,
-            onPageMarginChange = onPageMarginChange,
-        )
-        TranslationControls(
-            providerKind = providerKind,
-            onProviderKindChange = onProviderKindChange,
-            apiKey = apiKey,
-            onApiKeyChange = onApiKeyChange,
-            llmEndpoint = readerSettings.llmEndpoint,
-            onLlmEndpointChange = onLlmEndpointChange,
-            llmModel = readerSettings.llmModel,
-            onLlmModelChange = onLlmModelChange,
-            sourceLanguage = readerSettings.sourceLanguage,
-            onSourceLanguageChange = onSourceLanguageChange,
-            targetLanguage = readerSettings.targetLanguage,
-            onTargetLanguageChange = onTargetLanguageChange,
-            readingWpm = readerSettings.readingWordsPerMinute.toFloat(),
-            onReadingWpmChange = { onReadingWpmChange(it) },
-            batchSize = readerSettings.translationBatchSize.toFloat(),
-            onBatchSizeChange = { onBatchSizeChange(it) },
-            paceMode = readerSettings.paceMode,
-            onPaceModeChange = onPaceModeChange,
-            translationDisplayMode = readerSettings.translationDisplayMode,
-            onTranslationDisplayModeChange = onTranslationDisplayModeChange,
-            providerStatusText = providerStatusText,
-            providerHealthText = providerHealthText,
-            translationCacheStatusText = translationCacheStatusText,
-            translationQueueStatusText = translationQueueStatusText,
-            busy = busy,
-            canTranslate = canTranslate,
-            canRetryTranslation = canRetryTranslation,
-            canClearCache = canClearCache,
-            canPausePrefetch = translationState.queue.canPause,
-            canResumePrefetch = translationState.queue.canResume,
-            canCancelPrefetch = translationState.queue.canCancel,
-            canRetryPrefetch = translationState.queue.canRetry,
-            onLanguagePreset = onLanguagePreset,
-            onCheckProvider = onCheckProvider,
-            onTranslate = onTranslate,
-            onRetryTranslation = onRetryTranslation,
-            onPrefetch = onPrefetch,
-            onPausePrefetch = onPausePrefetch,
-            onResumePrefetch = onResumePrefetch,
-            onCancelPrefetch = onCancelPrefetch,
-            onRetryPrefetch = onRetryPrefetch,
-            onLoadCached = onLoadCached,
-            onClearCache = onClearCache,
-        )
-        DiagnosticLogPanel()
+        // E-Ink Sub-Tab Navigation Bar
+        Surface(
+            modifier = Modifier.fillMaxWidth(),
+            color = EinkPaper,
+            shape = RoundedCornerShape(4.dp),
+            border = BorderStroke(1.dp, EinkLine),
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(6.dp),
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                SettingsCategoryTab.entries.forEach { tab ->
+                    FilterChip(
+                        selected = selectedCategory == tab,
+                        onClick = { selectedCategory = tab },
+                        enabled = !busy,
+                        label = {
+                            Text(
+                                text = tab.title,
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = if (selectedCategory == tab) FontWeight.Bold else FontWeight.Normal,
+                            )
+                        },
+                    )
+                }
+            }
+        }
+
+        // Active Category Panel Rendering (Discrete Non-Overflowing View)
+        when (selectedCategory) {
+            SettingsCategoryTab.DISPLAY_PAGING -> {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    DisplaySettingsPanel(
+                        displayMode = readerSettings.displayMode,
+                        busy = busy,
+                        onDisplayModeChange = onDisplayModeChange,
+                    )
+                    PageTurnSettingsPanel(
+                        pageTurnMode = readerSettings.pageTurnMode,
+                        busy = busy,
+                        onPageTurnModeChange = onPageTurnModeChange,
+                    )
+                }
+            }
+            SettingsCategoryTab.READER_DEFAULTS -> {
+                ReaderPreferencesPanel(
+                    pdfFitMode = readerSettings.pdfFitMode,
+                    fontSizeSp = readerSettings.readerFontSizeSp,
+                    lineSpacing = readerSettings.readerLineSpacing,
+                    pageMarginDp = readerSettings.readerPageMarginDp,
+                    busy = busy,
+                    onPdfFitModeChange = onPdfFitModeChange,
+                    onFontSizeChange = onFontSizeChange,
+                    onLineSpacingChange = onLineSpacingChange,
+                    onPageMarginChange = onPageMarginChange,
+                )
+            }
+            SettingsCategoryTab.AI_TRANSLATION -> {
+                TranslationControls(
+                    providerKind = providerKind,
+                    onProviderKindChange = onProviderKindChange,
+                    apiKey = apiKey,
+                    onApiKeyChange = onApiKeyChange,
+                    llmEndpoint = readerSettings.llmEndpoint,
+                    onLlmEndpointChange = onLlmEndpointChange,
+                    llmModel = readerSettings.llmModel,
+                    onLlmModelChange = onLlmModelChange,
+                    sourceLanguage = readerSettings.sourceLanguage,
+                    onSourceLanguageChange = onSourceLanguageChange,
+                    targetLanguage = readerSettings.targetLanguage,
+                    onTargetLanguageChange = onTargetLanguageChange,
+                    readingWpm = readerSettings.readingWordsPerMinute.toFloat(),
+                    onReadingWpmChange = { onReadingWpmChange(it) },
+                    batchSize = readerSettings.translationBatchSize.toFloat(),
+                    onBatchSizeChange = { onBatchSizeChange(it) },
+                    paceMode = readerSettings.paceMode,
+                    onPaceModeChange = onPaceModeChange,
+                    translationDisplayMode = readerSettings.translationDisplayMode,
+                    onTranslationDisplayModeChange = onTranslationDisplayModeChange,
+                    providerStatusText = providerStatusText,
+                    providerHealthText = providerHealthText,
+                    translationCacheStatusText = translationCacheStatusText,
+                    translationQueueStatusText = translationQueueStatusText,
+                    busy = busy,
+                    canTranslate = canTranslate,
+                    canRetryTranslation = canRetryTranslation,
+                    canClearCache = canClearCache,
+                    canPausePrefetch = translationState.queue.canPause,
+                    canResumePrefetch = translationState.queue.canResume,
+                    canCancelPrefetch = translationState.queue.canCancel,
+                    canRetryPrefetch = translationState.queue.canRetry,
+                    onLanguagePreset = onLanguagePreset,
+                    onCheckProvider = onCheckProvider,
+                    onTranslate = onTranslate,
+                    onRetryTranslation = onRetryTranslation,
+                    onPrefetch = onPrefetch,
+                    onPausePrefetch = onPausePrefetch,
+                    onResumePrefetch = onResumePrefetch,
+                    onCancelPrefetch = onCancelPrefetch,
+                    onRetryPrefetch = onRetryPrefetch,
+                    onLoadCached = onLoadCached,
+                    onClearCache = onClearCache,
+                )
+            }
+            SettingsCategoryTab.DIAGNOSTICS -> {
+                DiagnosticLogPanel()
+            }
+        }
     }
 }
