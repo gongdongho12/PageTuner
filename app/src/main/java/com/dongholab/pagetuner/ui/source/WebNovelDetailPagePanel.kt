@@ -222,6 +222,21 @@ fun WebNovelDetailPagePanel(
                                 }
                             }
                         }
+
+                        // Tag Chips List (.tags-list .tag-chip)
+                        androidx.compose.foundation.layout.FlowRow(
+                            horizontalArrangement = Arrangement.spacedBy(4.dp),
+                            verticalArrangement = Arrangement.spacedBy(4.dp),
+                            modifier = Modifier.padding(top = 4.dp),
+                        ) {
+                            listOf("System 💻", "Transmigration 🌀", "Action ⚔️", "Fantasy 🪄").forEach { tag ->
+                                androidx.compose.material3.FilterChip(
+                                    selected = true,
+                                    onClick = {},
+                                    label = { Text(tag, style = MaterialTheme.typography.labelSmall) },
+                                )
+                            }
+                        }
                     }
                 }
             }
