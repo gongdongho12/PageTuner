@@ -190,236 +190,175 @@ fun RemoteSourcesTodoPanel(
                 }
             }
 
-            // E-Ink Segmented Switcher Sub-Tab Bar ([ 📚 Catalog (Count) | ⚙️ Sources & Filters ])
-            Surface(
-                modifier = Modifier.fillMaxWidth(),
-                color = EinkPanel,
-                shape = RoundedCornerShape(4.dp),
-                border = BorderStroke(1.dp, EinkInk),
-            ) {
-                Row(
-                    modifier = Modifier.padding(2.dp),
-                    horizontalArrangement = Arrangement.spacedBy(2.dp),
-                ) {
-                    Surface(
-                        modifier = Modifier
-                            .weight(1f)
-                            .height(38.dp)
-                            .clickable { activeSubTab = 0 },
-                        color = if (activeSubTab == 0) EinkPaper else EinkPanel,
-                        shape = RoundedCornerShape(3.dp),
-                        border = BorderStroke(1.dp, if (activeSubTab == 0) EinkInk else EinkLine),
-                    ) {
-                        Box(
-                            modifier = Modifier.fillMaxSize(),
-                            contentAlignment = Alignment.Center,
-                        ) {
-                            Column(
-                                modifier = Modifier.fillMaxSize(),
-                                verticalArrangement = Arrangement.SpaceBetween,
-                                horizontalAlignment = Alignment.CenterHorizontally,
-                            ) {
-                                Spacer(Modifier.height(4.dp))
-                                Text(
-                                    text = "📚 Novel Catalog (${items.size})",
-                                    style = MaterialTheme.typography.labelLarge,
-                                    fontWeight = if (activeSubTab == 0) FontWeight.Bold else FontWeight.Medium,
-                                    color = if (activeSubTab == 0) EinkInk else EinkMuted,
-                                )
-                                Box(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .height(3.dp)
-                                        .background(if (activeSubTab == 0) EinkInk else EinkPaper),
-                                )
-                            }
-                        }
-                    }
+            var showDirectUrlDialog by remember { mutableStateOf(false) }
 
-                    Surface(
-                        modifier = Modifier
-                            .weight(1f)
-                            .height(38.dp)
-                            .clickable { activeSubTab = 1 },
-                        color = if (activeSubTab == 1) EinkPaper else EinkPanel,
-                        shape = RoundedCornerShape(3.dp),
-                        border = BorderStroke(1.dp, if (activeSubTab == 1) EinkInk else EinkLine),
-                    ) {
-                        Box(
-                            modifier = Modifier.fillMaxSize(),
-                            contentAlignment = Alignment.Center,
+            if (showDirectUrlDialog) {
+                androidx.compose.material3.AlertDialog(
+                    onDismissRequest = { showDirectUrlDialog = false },
+                    confirmButton = {
+                        Button(
+                            onClick = {
+                                if (catalogUrl.isNotBlank()) {
+                                    onSaveSourceAccount()
+                                    onLoadCatalog()
+                                    selectedNovelForDetail = com.dongholab.pagetuner.source.RemoteBookItem(
+                                        identity = com.dongholab.pagetuner.source.RemoteBookIdentity(
+                                            sourceType = com.dongholab.pagetuner.source.RemoteSourceType.WebNovel,
+                                            accountId = "direct_url",
+                                            remoteId = "direct_1",
+                                        ),
+                                        title = catalogUrl.substringAfterLast("/").ifBlank { "Web Novel" },
+                                        authors = listOf("WTR-Lab Author"),
+                                        format = com.dongholab.pagetuner.document.DocumentFormat.TEXT,
+                                        language = "en",
+                                        contentType = "text/plain",
+                                        downloadUrl = catalogUrl,
+                                        coverUrl = null,
+                                    )
+                                    showDirectUrlDialog = false
+                                }
+                            },
+                            enabled = !busy && catalogUrl.isNotBlank(),
+                            colors = androidx.compose.material3.ButtonDefaults.buttonColors(
+                                containerColor = EinkInk,
+                                contentColor = EinkPanel,
+                            ),
+                            shape = RoundedCornerShape(2.dp),
                         ) {
-                            Column(
+                            Text("Load Novel & Open Overview 🚀", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
+                        }
+                    },
+                    dismissButton = {
+                        TextButton(onClick = { showDirectUrlDialog = false }) {
+                            Text("Cancel", style = MaterialTheme.typography.labelSmall, color = EinkMuted)
+                        }
+                    },
+                    title = {
+                        Text("Direct Web Novel URL Access 🌐", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = EinkInk)
+                    },
+                    text = {
+                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Text("Enter WTR-Lab or Web Novel URL directly:", style = MaterialTheme.typography.bodySmall, color = EinkMuted)
+                            OutlinedTextField(
+                                value = catalogUrl,
+                                onValueChange = onCatalogUrlChange,
+                                modifier = Modifier.fillMaxWidth(),
+                                enabled = !busy,
+                                label = { Text("https://wtr-lab.com/...") },
+                                singleLine = true,
+                            )
+                        }
+                    },
+                    containerColor = EinkPaper,
+                    shape = RoundedCornerShape(6.dp),
+                )
+            }
+
+            // Top Header Bar with 1-Click Direct URL Modal Launcher
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                // E-Ink Segmented Switcher Sub-Tab Bar ([ 📚 Catalog (Count) | ⚙️ Sources & Filters ])
+                Surface(
+                    modifier = Modifier.weight(1f),
+                    color = EinkPanel,
+                    shape = RoundedCornerShape(4.dp),
+                    border = BorderStroke(1.dp, EinkInk),
+                ) {
+                    Row(
+                        modifier = Modifier.padding(2.dp),
+                        horizontalArrangement = Arrangement.spacedBy(2.dp),
+                    ) {
+                        Surface(
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(38.dp)
+                                .clickable { activeSubTab = 0 },
+                            color = if (activeSubTab == 0) EinkPaper else EinkPanel,
+                            shape = RoundedCornerShape(3.dp),
+                            border = BorderStroke(1.dp, if (activeSubTab == 0) EinkInk else EinkLine),
+                        ) {
+                            Box(
                                 modifier = Modifier.fillMaxSize(),
-                                verticalArrangement = Arrangement.SpaceBetween,
-                                horizontalAlignment = Alignment.CenterHorizontally,
+                                contentAlignment = Alignment.Center,
                             ) {
-                                Spacer(Modifier.height(4.dp))
-                                Text(
-                                    text = "⚙️ Sources & Filters",
-                                    style = MaterialTheme.typography.labelLarge,
-                                    fontWeight = if (activeSubTab == 1) FontWeight.Bold else FontWeight.Medium,
-                                    color = if (activeSubTab == 1) EinkInk else EinkMuted,
-                                )
-                                Box(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .height(3.dp)
-                                        .background(if (activeSubTab == 1) EinkInk else EinkPaper),
-                                )
+                                Column(
+                                    modifier = Modifier.fillMaxSize(),
+                                    verticalArrangement = Arrangement.SpaceBetween,
+                                    horizontalAlignment = Alignment.CenterHorizontally,
+                                ) {
+                                    Spacer(Modifier.height(4.dp))
+                                    Text(
+                                        text = "📚 Catalog (${items.size})",
+                                        style = MaterialTheme.typography.labelLarge,
+                                        fontWeight = if (activeSubTab == 0) FontWeight.Bold else FontWeight.Medium,
+                                        color = if (activeSubTab == 0) EinkInk else EinkMuted,
+                                    )
+                                    Box(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .height(3.dp)
+                                            .background(if (activeSubTab == 0) EinkInk else EinkPaper),
+                                    )
+                                }
+                            }
+                        }
+
+                        Surface(
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(38.dp)
+                                .clickable { activeSubTab = 1 },
+                            color = if (activeSubTab == 1) EinkPaper else EinkPanel,
+                            shape = RoundedCornerShape(3.dp),
+                            border = BorderStroke(1.dp, if (activeSubTab == 1) EinkInk else EinkLine),
+                        ) {
+                            Box(
+                                modifier = Modifier.fillMaxSize(),
+                                contentAlignment = Alignment.Center,
+                            ) {
+                                Column(
+                                    modifier = Modifier.fillMaxSize(),
+                                    verticalArrangement = Arrangement.SpaceBetween,
+                                    horizontalAlignment = Alignment.CenterHorizontally,
+                                ) {
+                                    Spacer(Modifier.height(4.dp))
+                                    Text(
+                                        text = "⚙️ Sources & Filters",
+                                        style = MaterialTheme.typography.labelLarge,
+                                        fontWeight = if (activeSubTab == 1) FontWeight.Bold else FontWeight.Medium,
+                                        color = if (activeSubTab == 1) EinkInk else EinkMuted,
+                                    )
+                                    Box(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .height(3.dp)
+                                            .background(if (activeSubTab == 1) EinkInk else EinkPaper),
+                                    )
+                                }
                             }
                         }
                     }
+                }
+
+                Spacer(Modifier.width(6.dp))
+                Button(
+                    onClick = { showDirectUrlDialog = true },
+                    enabled = !busy,
+                    colors = androidx.compose.material3.ButtonDefaults.buttonColors(
+                        containerColor = EinkInk,
+                        contentColor = EinkPanel,
+                    ),
+                    shape = RoundedCornerShape(4.dp),
+                    modifier = Modifier.height(38.dp),
+                ) {
+                    Text("🌐 Direct URL", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
                 }
             }
 
             if (activeSubTab == 0) {
-                // Sub-Tab 1: 📚 Novel Catalog View (Refined Quick Launcher & Maximum Exposure!)
-                var isQuickActionsExpanded by remember { mutableStateOf(false) }
-
-                Surface(
-                    modifier = Modifier.fillMaxWidth(),
-                    color = EinkSoft,
-                    shape = RoundedCornerShape(4.dp),
-                    border = BorderStroke(1.dp, EinkLine),
-                ) {
-                    Column(modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)) {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(32.dp)
-                                .clickable { isQuickActionsExpanded = !isQuickActionsExpanded },
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            Row(
-                                horizontalArrangement = Arrangement.spacedBy(6.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                            ) {
-                                Icon(Icons.Filled.CloudDownload, contentDescription = null, tint = EinkInk, modifier = Modifier.size(16.dp))
-                                Text(
-                                    text = "⚡ Quick Actions & Direct URL 🚀",
-                                    style = MaterialTheme.typography.labelMedium,
-                                    fontWeight = FontWeight.Bold,
-                                    color = EinkInk,
-                                )
-                            }
-                            Text(
-                                text = if (isQuickActionsExpanded) "Collapse ▲" else "Expand ▼",
-                                style = MaterialTheme.typography.labelSmall,
-                                fontWeight = FontWeight.Bold,
-                                color = EinkInk,
-                            )
-                        }
-
-                        if (isQuickActionsExpanded) {
-                            Spacer(Modifier.height(6.dp))
-                            // Quick Resume Card (.recent-read-card)
-                            Surface(
-                                modifier = Modifier.fillMaxWidth(),
-                                color = EinkPanel,
-                                shape = RoundedCornerShape(4.dp),
-                                border = BorderStroke(1.dp, EinkInk),
-                            ) {
-                                Row(
-                                    modifier = Modifier.padding(8.dp),
-                                    horizontalArrangement = Arrangement.SpaceBetween,
-                                    verticalAlignment = Alignment.CenterVertically,
-                                ) {
-                                    Column(modifier = Modifier.weight(1f)) {
-                                        Text(
-                                            text = "Quick Resume (최근 읽던 작품) 🚀",
-                                            style = MaterialTheme.typography.labelSmall,
-                                            fontWeight = FontWeight.Bold,
-                                            color = EinkMuted,
-                                        )
-                                        Text(
-                                            text = "1 HP, 10,000 SHIELD, IS THAT HOW YOU PLAY A BERSERKER?",
-                                            style = MaterialTheme.typography.labelMedium,
-                                            fontWeight = FontWeight.Bold,
-                                            color = EinkInk,
-                                            maxLines = 1,
-                                            overflow = TextOverflow.Ellipsis,
-                                        )
-                                    }
-                                    Button(
-                                        onClick = {
-                                            selectedNovelForDetail = com.dongholab.pagetuner.source.RemoteBookItem(
-                                                identity = com.dongholab.pagetuner.source.RemoteBookIdentity(
-                                                    sourceType = com.dongholab.pagetuner.source.RemoteSourceType.WebNovel,
-                                                    accountId = "quick_resume",
-                                                    remoteId = "qr_65434",
-                                                ),
-                                                title = "1 HP, 10,000 SHIELD, IS THAT HOW YOU PLAY A BERSERKER?",
-                                                authors = listOf("Author Name"),
-                                                format = com.dongholab.pagetuner.document.DocumentFormat.TEXT,
-                                                language = "en",
-                                                contentType = "text/plain",
-                                                downloadUrl = "https://wtr-lab.com/en/novel/65434/1-hp-10-000-shield",
-                                                coverUrl = null,
-                                            )
-                                        },
-                                        enabled = !busy,
-                                        colors = androidx.compose.material3.ButtonDefaults.buttonColors(
-                                            containerColor = EinkInk,
-                                            contentColor = EinkPanel,
-                                        ),
-                                        shape = RoundedCornerShape(2.dp),
-                                    ) {
-                                        Text("Continue 🚀", style = MaterialTheme.typography.labelSmall)
-                                    }
-                                }
-                            }
-
-                            Spacer(Modifier.height(6.dp))
-                            // Direct Web Novel URL Access Bar
-                            Column(
-                                modifier = Modifier.fillMaxWidth(),
-                                verticalArrangement = Arrangement.spacedBy(6.dp),
-                            ) {
-                                OutlinedTextField(
-                                    value = catalogUrl,
-                                    onValueChange = onCatalogUrlChange,
-                                    modifier = Modifier.fillMaxWidth(),
-                                    enabled = !busy,
-                                    label = { Text("Direct Novel URL (e.g. https://wtr-lab.com/...) 🌐") },
-                                    singleLine = true,
-                                )
-                                Button(
-                                    onClick = {
-                                        if (catalogUrl.isNotBlank()) {
-                                            onSaveSourceAccount()
-                                            onLoadCatalog()
-                                            selectedNovelForDetail = com.dongholab.pagetuner.source.RemoteBookItem(
-                                                identity = com.dongholab.pagetuner.source.RemoteBookIdentity(
-                                                    sourceType = com.dongholab.pagetuner.source.RemoteSourceType.WebNovel,
-                                                    accountId = "direct_url",
-                                                    remoteId = "direct_1",
-                                                ),
-                                                title = catalogUrl.substringAfterLast("/").ifBlank { "Web Novel" },
-                                                authors = listOf("WTR-Lab Author"),
-                                                format = com.dongholab.pagetuner.document.DocumentFormat.TEXT,
-                                                language = "en",
-                                                contentType = "text/plain",
-                                                downloadUrl = catalogUrl,
-                                                coverUrl = null,
-                                            )
-                                        }
-                                    },
-                                    enabled = !busy && catalogUrl.isNotBlank(),
-                                    modifier = Modifier.fillMaxWidth(),
-                                    colors = androidx.compose.material3.ButtonDefaults.buttonColors(
-                                        containerColor = EinkInk,
-                                        contentColor = EinkPanel,
-                                    ),
-                                    shape = RoundedCornerShape(2.dp),
-                                ) {
-                                    Text("Load Novel & Open Overview 🚀", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
-                                }
-                            }
-                        }
-                    }
-                }
                 if (filteredCatalogItems.isEmpty()) {
                     Text(
                         text = if (items.isEmpty()) stringResource(R.string.web_catalog_empty) else "No novels match your language or genre filter.",
