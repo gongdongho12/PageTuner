@@ -588,63 +588,81 @@ fun PageTurnerApp() {
                         )
                     }
                     com.dongholab.pagetuner.ui.reader.ReaderSubPage.SEARCH -> {
-                        ReaderSearchPanel(
-                            query = readerState.searchQuery,
-                            resultCount = readerState.searchResults.size,
-                            selectedResultNumber = readerState.selectedSearchResultNumber,
-                            selectedPreview = readerState.selectedSearchMatch?.preview,
-                            busy = busy,
-                            onQueryChange = actions.updateSearchQuery,
-                            onPreviousResult = {
-                                navHistoryStack.add(NavigationHistoryFrame.PageJumpFrame(pageIndex))
-                                navHistoryStack.add(NavigationHistoryFrame.ReaderSubPageFrame(readerSubPage))
-                                actions.previousSearchResult()
-                                readerSubPage = com.dongholab.pagetuner.ui.reader.ReaderSubPage.READER
-                            },
-                            onNextResult = {
-                                navHistoryStack.add(NavigationHistoryFrame.PageJumpFrame(pageIndex))
-                                navHistoryStack.add(NavigationHistoryFrame.ReaderSubPageFrame(readerSubPage))
-                                actions.nextSearchResult()
-                                readerSubPage = com.dongholab.pagetuner.ui.reader.ReaderSubPage.READER
-                            },
-                            onClearSearch = actions.clearSearch,
-                        )
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .weight(1f),
+                        ) {
+                            ReaderSearchPanel(
+                                query = readerState.searchQuery,
+                                resultCount = readerState.searchResults.size,
+                                selectedResultNumber = readerState.selectedSearchResultNumber,
+                                selectedPreview = readerState.selectedSearchMatch?.preview,
+                                busy = busy,
+                                onQueryChange = actions.updateSearchQuery,
+                                onPreviousResult = {
+                                    navHistoryStack.add(NavigationHistoryFrame.PageJumpFrame(pageIndex))
+                                    navHistoryStack.add(NavigationHistoryFrame.ReaderSubPageFrame(readerSubPage))
+                                    actions.previousSearchResult()
+                                    readerSubPage = com.dongholab.pagetuner.ui.reader.ReaderSubPage.READER
+                                },
+                                onNextResult = {
+                                    navHistoryStack.add(NavigationHistoryFrame.PageJumpFrame(pageIndex))
+                                    navHistoryStack.add(NavigationHistoryFrame.ReaderSubPageFrame(readerSubPage))
+                                    actions.nextSearchResult()
+                                    readerSubPage = com.dongholab.pagetuner.ui.reader.ReaderSubPage.READER
+                                },
+                                onClearSearch = actions.clearSearch,
+                            )
+                        }
                     }
                     com.dongholab.pagetuner.ui.reader.ReaderSubPage.BOOKMARKS -> {
-                        ReaderBookmarkPanel(
-                            draftLabel = readerState.bookmarkDraftLabel,
-                            bookmarks = bookmarks,
-                            currentPageIndex = pageIndex,
-                            busy = busy,
-                            onDraftLabelChange = readerViewModel::updateBookmarkDraftLabel,
-                            onAddBookmark = actions.addBookmark,
-                            onOpenBookmark = { bookmark ->
-                                navHistoryStack.add(NavigationHistoryFrame.PageJumpFrame(pageIndex))
-                                navHistoryStack.add(NavigationHistoryFrame.ReaderSubPageFrame(readerSubPage))
-                                actions.openBookmark(bookmark)
-                                readerSubPage = com.dongholab.pagetuner.ui.reader.ReaderSubPage.READER
-                            },
-                            onRemoveBookmark = actions.removeBookmark,
-                        )
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .weight(1f),
+                        ) {
+                            ReaderBookmarkPanel(
+                                draftLabel = readerState.bookmarkDraftLabel,
+                                bookmarks = bookmarks,
+                                currentPageIndex = pageIndex,
+                                busy = busy,
+                                onDraftLabelChange = readerViewModel::updateBookmarkDraftLabel,
+                                onAddBookmark = actions.addBookmark,
+                                onOpenBookmark = { bookmark ->
+                                    navHistoryStack.add(NavigationHistoryFrame.PageJumpFrame(pageIndex))
+                                    navHistoryStack.add(NavigationHistoryFrame.ReaderSubPageFrame(readerSubPage))
+                                    actions.openBookmark(bookmark)
+                                    readerSubPage = com.dongholab.pagetuner.ui.reader.ReaderSubPage.READER
+                                },
+                                onRemoveBookmark = actions.removeBookmark,
+                            )
+                        }
                     }
                     com.dongholab.pagetuner.ui.reader.ReaderSubPage.ANNOTATIONS -> {
-                        ReaderAnnotationPanel(
-                            noteDraft = readerState.noteDraftText,
-                            annotations = annotations,
-                            currentPageIndex = pageIndex,
-                            busy = busy,
-                            onNoteDraftChange = readerViewModel::updateNoteDraftText,
-                            onAddHighlight = actions.addHighlight,
-                            onAddNote = actions.addNote,
-                            onOpenAnnotation = { annotation ->
-                                navHistoryStack.add(NavigationHistoryFrame.PageJumpFrame(pageIndex))
-                                navHistoryStack.add(NavigationHistoryFrame.ReaderSubPageFrame(readerSubPage))
-                                actions.openAnnotation(annotation)
-                                readerSubPage = com.dongholab.pagetuner.ui.reader.ReaderSubPage.READER
-                            },
-                            onRemoveAnnotation = actions.removeAnnotation,
-                            onExportAnnotations = actions.exportAnnotations,
-                        )
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .weight(1f),
+                        ) {
+                            ReaderAnnotationPanel(
+                                noteDraft = readerState.noteDraftText,
+                                annotations = annotations,
+                                currentPageIndex = pageIndex,
+                                busy = busy,
+                                onNoteDraftChange = readerViewModel::updateNoteDraftText,
+                                onAddHighlight = actions.addHighlight,
+                                onAddNote = actions.addNote,
+                                onOpenAnnotation = { annotation ->
+                                    navHistoryStack.add(NavigationHistoryFrame.PageJumpFrame(pageIndex))
+                                    navHistoryStack.add(NavigationHistoryFrame.ReaderSubPageFrame(readerSubPage))
+                                    actions.openAnnotation(annotation)
+                                    readerSubPage = com.dongholab.pagetuner.ui.reader.ReaderSubPage.READER
+                                },
+                                onRemoveAnnotation = actions.removeAnnotation,
+                                onExportAnnotations = actions.exportAnnotations,
+                            )
+                        }
                     }
                 }
             }

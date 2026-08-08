@@ -82,16 +82,26 @@ object PageTurnerWebCatalogNetwork {
     }
 
     private fun unwrapNextJsImageUrl(rawUrl: String): String {
-        if (rawUrl.contains("/_next/image") && rawUrl.contains("url=")) {
+        var processed = rawUrl.trim()
+        if (processed.startsWith("//")) {
+            processed = "https:$processed"
+        } else if (processed.startsWith("/")) {
+            processed = "https://wtr-lab.com$processed"
+        }
+
+        if (processed.contains("/_next/image") && processed.contains("url=")) {
             runCatching {
-                val param = rawUrl.substringAfter("url=").substringBefore("&")
+                val param = processed.substringAfter("url=").substringBefore("&")
                 val decoded = URLDecoder.decode(param, "UTF-8")
                 if (decoded.startsWith("http")) {
                     return decoded
+                } else if (decoded.startsWith("/")) {
+                    val domain = runCatching { URL(processed).host }.getOrDefault("wtr-lab.com")
+                    return "https://$domain$decoded"
                 }
             }
         }
-        return rawUrl
+        return processed
     }
 
     private fun InputStream.readBytes(maxBytes: Int): ByteArray {

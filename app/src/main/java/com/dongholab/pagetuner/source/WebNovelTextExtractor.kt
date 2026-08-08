@@ -115,7 +115,13 @@ object WebNovelTextExtractor {
         content = content.replace(Regex("(?i)</h[1-6]>"), "\n\n")
         content = content.replace(Regex("(?i)</li>"), "\n")
 
-        // Strip HTML tags
+        // Preserve content <img> tags as Markdown images
+        content = content.replace(Regex("(?i)<img\\s+[^>]*?(?:src|data-src|srcset)=[\"']([^\"']+)[\"'][^>]*>")) { match ->
+            val imgUrl = match.groupValues[1].trim()
+            "\n\n![Image]($imgUrl)\n\n"
+        }
+
+        // Strip remaining HTML tags
         content = content.replace(Regex("<[^>]+>"), "")
 
         // Decode HTML entities

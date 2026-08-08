@@ -285,38 +285,11 @@ fun RemoteSourcesTodoPanel(
                     color = EinkMuted,
                 )
             } else {
-                var listPageIndex by remember(filteredCatalogItems) { mutableStateOf(0) }
-                val pageSize = 5
-                val totalPages = (filteredCatalogItems.size + pageSize - 1) / pageSize
-                val currentPageItems = filteredCatalogItems.drop(listPageIndex * pageSize).take(pageSize)
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Text(
-                        text = "Items ${listPageIndex * pageSize + 1}-${minOf((listPageIndex + 1) * pageSize, filteredCatalogItems.size)} of ${filteredCatalogItems.size}",
-                        style = MaterialTheme.typography.labelMedium,
-                        color = EinkMuted,
-                    )
-                    Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                        TextButton(
-                            onClick = { if (listPageIndex > 0) listPageIndex-- },
-                            enabled = listPageIndex > 0 && !busy,
-                        ) {
-                            Text("◄ Prev")
-                        }
-                        TextButton(
-                            onClick = { if (listPageIndex < totalPages - 1) listPageIndex++ },
-                            enabled = listPageIndex < totalPages - 1 && !busy,
-                        ) {
-                            Text("Next ►")
-                        }
-                    }
-                }
-
-                currentPageItems.forEach { item ->
+                com.dongholab.pagetuner.ui.common.EinkPagingContainer(
+                    items = filteredCatalogItems,
+                    pageSize = 5,
+                    busy = busy,
+                ) { item ->
                     RemoteBookRow(
                         item = item,
                         coverBytes = item.coverUrl?.let { coverThumbnails[it] },
@@ -557,10 +530,10 @@ fun RemoteCoverThumbnail(
 
     Surface(
         modifier = Modifier
-            .width(34.dp)
-            .height(48.dp),
+            .width(44.dp)
+            .height(62.dp),
         color = if (bitmap == null) EinkSoft else EinkPanel,
-        shape = RoundedCornerShape(2.dp),
+        shape = RoundedCornerShape(3.dp),
         border = BorderStroke(1.dp, EinkLine),
         shadowElevation = 0.dp,
     ) {
@@ -573,7 +546,7 @@ fun RemoteCoverThumbnail(
                     imageVector = Icons.Filled.Book,
                     contentDescription = contentDescription,
                     tint = EinkInk,
-                    modifier = Modifier.size(18.dp),
+                    modifier = Modifier.size(22.dp),
                 )
             }
         } else {
