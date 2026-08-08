@@ -485,74 +485,103 @@ fun PageTurnerApp() {
 
                 StatusStrip(statusText = statusText, progress = progress, busy = busy)
             } else {
-                // Reader View Mode (full focus reading screen)
-                ReaderSearchPanel(
-                    query = readerState.searchQuery,
-                    resultCount = readerState.searchResults.size,
-                    selectedResultNumber = readerState.selectedSearchResultNumber,
-                    selectedPreview = readerState.selectedSearchMatch?.preview,
+                // Reader Mode: Sub-Page Navigation
+                var readerSubPage by remember { mutableStateOf(com.dongholab.pagetuner.ui.reader.ReaderSubPage.READER) }
+
+                com.dongholab.pagetuner.ui.reader.ReaderSubPageSelector(
+                    selectedPage = readerSubPage,
                     busy = busy,
-                    onQueryChange = actions.updateSearchQuery,
-                    onPreviousResult = actions.previousSearchResult,
-                    onNextResult = actions.nextSearchResult,
-                    onClearSearch = actions.clearSearch,
-                )
-                ReaderBookmarkPanel(
-                    draftLabel = readerState.bookmarkDraftLabel,
-                    bookmarks = bookmarks,
-                    currentPageIndex = pageIndex,
-                    busy = busy,
-                    onDraftLabelChange = readerViewModel::updateBookmarkDraftLabel,
-                    onAddBookmark = actions.addBookmark,
-                    onOpenBookmark = actions.openBookmark,
-                    onRemoveBookmark = actions.removeBookmark,
-                )
-                ReaderAnnotationPanel(
-                    noteDraft = readerState.noteDraftText,
-                    annotations = annotations,
-                    currentPageIndex = pageIndex,
-                    busy = busy,
-                    onNoteDraftChange = readerViewModel::updateNoteDraftText,
-                    onAddHighlight = actions.addHighlight,
-                    onAddNote = actions.addNote,
-                    onOpenAnnotation = actions.openAnnotation,
-                    onRemoveAnnotation = actions.removeAnnotation,
-                    onExportAnnotations = actions.exportAnnotations,
+                    onSelectPage = { readerSubPage = it },
                 )
 
-                ReaderSurface(
-                    modifier = Modifier.weight(1f),
-                    page = currentPage,
-                    documentFormat = document.format,
-                    pdfPageBitmap = pdfPageBitmap,
-                    pdfFitMode = readerSettings.pdfFitMode,
-                    displayMode = displayMode,
-                    translation = translationState.translation,
-                    translationDisplayMode = readerSettings.translationDisplayMode,
-                    pageTurnMode = readerSettings.pageTurnMode,
-                    pageTurningEnabled = !busy,
-                    fontSizeSp = readerSettings.readerFontSizeSp,
-                    lineSpacing = readerSettings.readerLineSpacing,
-                    pageMarginDp = readerSettings.readerPageMarginDp,
-                    onPreviousPage = actions.previousPage,
-                    onNextPage = actions.nextPage,
-                )
-                ReaderPager(
-                    pageIndex = pageIndex,
-                    pageCount = document.pageCount,
-                    currentChapterTitle = tableOfContents.getOrNull(currentChapterIndex)?.title,
-                    canPreviousChapter = currentChapterIndex > 0,
-                    canNextChapter = when {
-                        tableOfContents.isEmpty() -> false
-                        currentChapterIndex == -1 -> true
-                        else -> currentChapterIndex < tableOfContents.lastIndex
-                    },
-                    busy = busy,
-                    onPrevious = actions.previousPage,
-                    onNext = actions.nextPage,
-                    onPreviousChapter = actions.previousChapter,
-                    onNextChapter = actions.nextChapter,
-                )
+                when (readerSubPage) {
+                    com.dongholab.pagetuner.ui.reader.ReaderSubPage.READER -> {
+                        ReaderSurface(
+                            modifier = Modifier.weight(1f),
+                            page = currentPage,
+                            documentFormat = document.format,
+                            pdfPageBitmap = pdfPageBitmap,
+                            pdfFitMode = readerSettings.pdfFitMode,
+                            displayMode = displayMode,
+                            translation = translationState.translation,
+                            translationDisplayMode = readerSettings.translationDisplayMode,
+                            pageTurnMode = readerSettings.pageTurnMode,
+                            pageTurningEnabled = !busy,
+                            fontSizeSp = readerSettings.readerFontSizeSp,
+                            lineSpacing = readerSettings.readerLineSpacing,
+                            pageMarginDp = readerSettings.readerPageMarginDp,
+                            onPreviousPage = actions.previousPage,
+                            onNextPage = actions.nextPage,
+                        )
+                        ReaderPager(
+                            pageIndex = pageIndex,
+                            pageCount = document.pageCount,
+                            currentChapterTitle = tableOfContents.getOrNull(currentChapterIndex)?.title,
+                            canPreviousChapter = currentChapterIndex > 0,
+                            canNextChapter = when {
+                                tableOfContents.isEmpty() -> false
+                                currentChapterIndex == -1 -> true
+                                else -> currentChapterIndex < tableOfContents.lastIndex
+                            },
+                            busy = busy,
+                            onPrevious = actions.previousPage,
+                            onNext = actions.nextPage,
+                            onPreviousChapter = actions.previousChapter,
+                            onNextChapter = actions.nextChapter,
+                        )
+                    }
+                    com.dongholab.pagetuner.ui.reader.ReaderSubPage.SEARCH -> {
+                        ReaderSearchPanel(
+                            query = readerState.searchQuery,
+                            resultCount = readerState.searchResults.size,
+                            selectedResultNumber = readerState.selectedSearchResultNumber,
+                            selectedPreview = readerState.selectedSearchMatch?.preview,
+                            busy = busy,
+                            onQueryChange = actions.updateSearchQuery,
+                            onPreviousResult = {
+                                actions.previousSearchResult()
+                                readerSubPage = com.dongholab.pagetuner.ui.reader.ReaderSubPage.READER
+                            },
+                            onNextResult = {
+                                actions.nextSearchResult()
+                                readerSubPage = com.dongholab.pagetuner.ui.reader.ReaderSubPage.READER
+                            },
+                            onClearSearch = actions.clearSearch,
+                        )
+                    }
+                    com.dongholab.pagetuner.ui.reader.ReaderSubPage.BOOKMARKS -> {
+                        ReaderBookmarkPanel(
+                            draftLabel = readerState.bookmarkDraftLabel,
+                            bookmarks = bookmarks,
+                            currentPageIndex = pageIndex,
+                            busy = busy,
+                            onDraftLabelChange = readerViewModel::updateBookmarkDraftLabel,
+                            onAddBookmark = actions.addBookmark,
+                            onOpenBookmark = { bookmark ->
+                                actions.openBookmark(bookmark)
+                                readerSubPage = com.dongholab.pagetuner.ui.reader.ReaderSubPage.READER
+                            },
+                            onRemoveBookmark = actions.removeBookmark,
+                        )
+                    }
+                    com.dongholab.pagetuner.ui.reader.ReaderSubPage.ANNOTATIONS -> {
+                        ReaderAnnotationPanel(
+                            noteDraft = readerState.noteDraftText,
+                            annotations = annotations,
+                            currentPageIndex = pageIndex,
+                            busy = busy,
+                            onNoteDraftChange = readerViewModel::updateNoteDraftText,
+                            onAddHighlight = actions.addHighlight,
+                            onAddNote = actions.addNote,
+                            onOpenAnnotation = { annotation ->
+                                actions.openAnnotation(annotation)
+                                readerSubPage = com.dongholab.pagetuner.ui.reader.ReaderSubPage.READER
+                            },
+                            onRemoveAnnotation = actions.removeAnnotation,
+                            onExportAnnotations = actions.exportAnnotations,
+                        )
+                    }
+                }
             }
         }
     }
