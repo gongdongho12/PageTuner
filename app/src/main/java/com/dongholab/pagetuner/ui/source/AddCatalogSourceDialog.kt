@@ -36,6 +36,12 @@ fun AddCatalogSourceDialog(
 ) {
     var title by remember { mutableStateOf("") }
     var url by remember { mutableStateOf("https://wtr-lab.com/en") }
+    var showAdvancedRules by remember { mutableStateOf(false) }
+
+    var titleSelector by remember { mutableStateOf(".title, h1") }
+    var synopsisSelector by remember { mutableStateOf(".description, .synopsis") }
+    var chapterLinkSelector by remember { mutableStateOf("a[href*='/chapter/']") }
+    var paragraphSelector by remember { mutableStateOf(".chapter-content p, article p") }
 
     Dialog(onDismissRequest = onDismiss) {
         Surface(
@@ -46,10 +52,10 @@ fun AddCatalogSourceDialog(
         ) {
             Column(
                 modifier = Modifier.padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp),
             ) {
                 Text(
-                    text = "Add New Web Novel Catalog Source",
+                    text = "Add Custom Web Novel Source",
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
                     color = EinkInk,
@@ -60,7 +66,7 @@ fun AddCatalogSourceDialog(
                     onValueChange = { title = it },
                     modifier = Modifier.fillMaxWidth(),
                     enabled = !busy,
-                    label = { Text("Source Title (e.g. WTR-Lab English)") },
+                    label = { Text("Source Title (e.g. RoyalRoad / Custom)") },
                     singleLine = true,
                 )
 
@@ -69,9 +75,69 @@ fun AddCatalogSourceDialog(
                     onValueChange = { url = it },
                     modifier = Modifier.fillMaxWidth(),
                     enabled = !busy,
-                    label = { Text("Catalog URL (http:// or https://)") },
+                    label = { Text("Endpoint URL (http:// or https://)") },
                     singleLine = true,
                 )
+
+                // Advanced Custom Selectors Toggle
+                TextButton(
+                    onClick = { showAdvancedRules = !showAdvancedRules },
+                    enabled = !busy,
+                ) {
+                    Text(
+                        text = if (showAdvancedRules) "Hide Custom Selectors ▲" else "Advanced Custom Selectors ▼",
+                        style = MaterialTheme.typography.labelSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = EinkInk,
+                    )
+                }
+
+                if (showAdvancedRules) {
+                    Surface(
+                        modifier = Modifier.fillMaxWidth(),
+                        color = com.dongholab.pagetuner.ui.theme.EinkSoft,
+                        shape = RoundedCornerShape(4.dp),
+                        border = BorderStroke(1.dp, EinkLine),
+                    ) {
+                        Column(
+                            modifier = Modifier.padding(8.dp),
+                            verticalArrangement = Arrangement.spacedBy(6.dp),
+                        ) {
+                            OutlinedTextField(
+                                value = titleSelector,
+                                onValueChange = { titleSelector = it },
+                                modifier = Modifier.fillMaxWidth(),
+                                enabled = !busy,
+                                label = { Text("Title CSS Selector") },
+                                singleLine = true,
+                            )
+                            OutlinedTextField(
+                                value = synopsisSelector,
+                                onValueChange = { synopsisSelector = it },
+                                modifier = Modifier.fillMaxWidth(),
+                                enabled = !busy,
+                                label = { Text("Synopsis CSS Selector") },
+                                singleLine = true,
+                            )
+                            OutlinedTextField(
+                                value = chapterLinkSelector,
+                                onValueChange = { chapterLinkSelector = it },
+                                modifier = Modifier.fillMaxWidth(),
+                                enabled = !busy,
+                                label = { Text("Chapter Link CSS Selector") },
+                                singleLine = true,
+                            )
+                            OutlinedTextField(
+                                value = paragraphSelector,
+                                onValueChange = { paragraphSelector = it },
+                                modifier = Modifier.fillMaxWidth(),
+                                enabled = !busy,
+                                label = { Text("Content Paragraph CSS Selector") },
+                                singleLine = true,
+                            )
+                        }
+                    }
+                }
 
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -84,7 +150,21 @@ fun AddCatalogSourceDialog(
                     Button(
                         onClick = {
                             if (url.isNotBlank()) {
-                                onAddCatalog(title.ifBlank { "Custom Web Source" }, url)
+                                val cleanTitle = title.ifBlank { "Custom Web Source" }
+                                val customRule = com.dongholab.pagetuner.source.scraper.CustomWebSourceRule(
+                                    id = "rule_${System.currentTimeMillis()}",
+                                    name = cleanTitle,
+                                    domainUrl = url,
+                                    titleSelector = titleSelector,
+                                    synopsisSelector = synopsisSelector,
+                                    chapterLinkSelector = chapterLinkSelector,
+                                    paragraphSelector = paragraphSelector,
+                                )
+                                com.dongholab.pagetuner.source.scraper.CustomWebSourceRuleStore.globalStore.addRule(customRule)
+                                com.dongholab.pagetuner.source.scraper.WebNovelScraperRegistry.registerScraper(
+                                    com.dongholab.pagetuner.source.scraper.CustomRuleScraperAdapter(customRule)
+                                )
+                                onAddCatalog(cleanTitle, url)
                                 onDismiss()
                             }
                         },
@@ -95,7 +175,7 @@ fun AddCatalogSourceDialog(
                         ),
                         shape = RoundedCornerShape(2.dp),
                     ) {
-                        Text("Add Source & Load 🚀")
+                        Text("Save Rule & Load 🚀")
                     }
                 }
             }

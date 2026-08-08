@@ -396,14 +396,26 @@ fun WebNovelDetailPagePanel(
                         ) {
                             Icon(Icons.Filled.Book, contentDescription = null, tint = EinkMuted, modifier = Modifier.size(16.dp))
                             Column {
-                                Text(
-                                    text = "Ch. #$chapterIndex - ${chapter.title}",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    fontWeight = FontWeight.SemiBold,
-                                    color = EinkInk,
-                                    maxLines = 2,
-                                    overflow = TextOverflow.Ellipsis,
-                                )
+                                val isOfflineSaved = com.dongholab.pagetuner.source.offline.OfflineNovelStorageStore.globalOfflineStore.isChapterDownloaded(novelItem.identity.accountId, chapterIndex)
+                                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                                    Text(
+                                        text = "Ch. #$chapterIndex - ${chapter.title}",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = EinkInk,
+                                        maxLines = 2,
+                                        overflow = TextOverflow.Ellipsis,
+                                        modifier = Modifier.weight(1f, fill = false),
+                                    )
+                                    if (isOfflineSaved) {
+                                        Text(
+                                            text = "Offline Ready ✅",
+                                            style = MaterialTheme.typography.labelSmall,
+                                            fontWeight = FontWeight.Bold,
+                                            color = EinkInk,
+                                        )
+                                    }
+                                }
                             }
                         }
                         Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {

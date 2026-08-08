@@ -38,6 +38,14 @@ object WebNovelBatchDownloader {
                     endpointUrl = item.downloadUrl,
                 )
                 val bytes = source.download(item)
+                val contentText = bytes.toString(Charsets.UTF_8)
+                val chNum = com.dongholab.pagetuner.source.WebNovelTextExtractor.extractVolumeNumber(item.title, item.downloadUrl) ?: (index + 1)
+                com.dongholab.pagetuner.source.offline.OfflineNovelStorageStore.globalOfflineStore.saveOfflineChapter(
+                    novelId = item.identity.accountId,
+                    chapterNumber = chNum,
+                    chapterTitle = item.title,
+                    contentText = contentText,
+                )
                 onSaveChapter(item, bytes)
             }.onFailure { error ->
                 // Log failure and continue to next item in queue
