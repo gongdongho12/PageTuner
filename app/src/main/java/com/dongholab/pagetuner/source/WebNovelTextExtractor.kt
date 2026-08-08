@@ -298,6 +298,14 @@ object WebNovelTextExtractor {
         return textMatch?.groupValues?.get(1)?.toIntOrNull()
     }
 
+    fun extractParagraphs(html: String): List<String> {
+        val rawText = extractNovelText(html)
+        if (rawText.isBlank()) return emptyList()
+        return rawText.split("\n\n")
+            .map { it.trim() }
+            .filter { it.isNotBlank() }
+    }
+
     private fun decodeHtmlEntities(text: String): String {
         return text
             .replace("&nbsp;", " ")

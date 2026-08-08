@@ -257,6 +257,8 @@ fun RemoteSourcesTodoPanel(
 
             var selectedLanguageFilter by remember { mutableStateOf("All") }
             var selectedGenreFilter by remember { mutableStateOf("All") }
+            var selectedOrderByFilter by remember { mutableStateOf("addition_date") }
+            var selectedStatusFilter by remember { mutableStateOf("all") }
 
             val filteredCatalogItems = remember(items, selectedLanguageFilter, selectedGenreFilter) {
                 items.filter { item ->
@@ -275,14 +277,38 @@ fun RemoteSourcesTodoPanel(
                 }
             }
 
-            // Language & Genre Filter Controls Header
+            // WTR-LAB OrderBy, Status & Language Filter Controls Header
             if (items.isNotEmpty()) {
                 Column(
                     modifier = Modifier.fillMaxWidth(),
                     verticalArrangement = Arrangement.spacedBy(6.dp),
                 ) {
                     Text(
-                        text = "Language Filter:",
+                        text = "Sort Order (orderBy):",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = EinkMuted,
+                    )
+                    FlowRow(
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        verticalArrangement = Arrangement.spacedBy(4.dp),
+                    ) {
+                        com.dongholab.pagetuner.source.WtrLabCatalogQueryParams.ORDER_BY_OPTIONS.forEach { (key, label) ->
+                            androidx.compose.material3.FilterChip(
+                                selected = selectedOrderByFilter == key,
+                                onClick = {
+                                    selectedOrderByFilter = key
+                                    val newUrl = com.dongholab.pagetuner.source.WtrLabCatalogQueryParams(orderBy = key, status = selectedStatusFilter).buildUrl()
+                                    onCatalogUrlChange(newUrl)
+                                    onLoadCatalog()
+                                },
+                                enabled = !busy,
+                                label = { Text(label, style = MaterialTheme.typography.labelSmall) },
+                            )
+                        }
+                    }
+
+                    Text(
+                        text = "Language & Status Filter:",
                         style = MaterialTheme.typography.labelSmall,
                         color = EinkMuted,
                     )
@@ -306,6 +332,19 @@ fun RemoteSourcesTodoPanel(
                                         style = MaterialTheme.typography.labelSmall,
                                     )
                                 },
+                            )
+                        }
+                        com.dongholab.pagetuner.source.WtrLabCatalogQueryParams.STATUS_OPTIONS.filter { it.first != "all" }.forEach { (key, label) ->
+                            androidx.compose.material3.FilterChip(
+                                selected = selectedStatusFilter == key,
+                                onClick = {
+                                    selectedStatusFilter = key
+                                    val newUrl = com.dongholab.pagetuner.source.WtrLabCatalogQueryParams(orderBy = selectedOrderByFilter, status = key).buildUrl()
+                                    onCatalogUrlChange(newUrl)
+                                    onLoadCatalog()
+                                },
+                                enabled = !busy,
+                                label = { Text(label, style = MaterialTheme.typography.labelSmall) },
                             )
                         }
                     }

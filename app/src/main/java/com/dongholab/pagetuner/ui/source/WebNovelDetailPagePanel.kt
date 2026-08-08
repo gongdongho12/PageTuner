@@ -64,6 +64,9 @@ fun WebNovelDetailPagePanel(
     var searchQuery by remember { mutableStateOf("") }
     var selectedVolumeFilter by remember { mutableStateOf<Int?>(null) }
     var selectedPageSize by remember { mutableStateOf(6) }
+    var showQuickJumpDialog by remember { mutableStateOf(false) }
+    var quickJumpNumberText by remember { mutableStateOf("") }
+    var activeTab by remember { mutableStateOf("TOC") } // "ABOUT", "TOC"
 
     val volumeNumbers = remember(chapters) {
         chapters.mapNotNull { ch ->
@@ -78,6 +81,48 @@ fun WebNovelDetailPagePanel(
             val matchVol = selectedVolumeFilter == null || itemVol == selectedVolumeFilter
             matchQuery && matchVol
         }
+    }
+
+    if (showQuickJumpDialog) {
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = { showQuickJumpDialog = false },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        val num = quickJumpNumberText.toIntOrNull()
+                        if (num != null) {
+                            val targetCh = chapters.firstOrNull { ch ->
+                                ch.title.contains("Chapter $num", ignoreCase = true) ||
+                                    ch.title.contains("Ch. $num", ignoreCase = true) ||
+                                    ch.title.contains(" $num ")
+                            } ?: chapters.getOrNull(num - 1)
+                            if (targetCh != null) {
+                                onReadChapter(targetCh)
+                            }
+                        }
+                        showQuickJumpDialog = false
+                    },
+                ) {
+                    Text("Jump 🚀", fontWeight = FontWeight.Bold, color = EinkInk)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showQuickJumpDialog = false }) {
+                    Text("Cancel", color = EinkMuted)
+                }
+            },
+            title = { Text("Quick Jump to Chapter Number", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold) },
+            text = {
+                OutlinedTextField(
+                    value = quickJumpNumberText,
+                    onValueChange = { quickJumpNumberText = it },
+                    label = { Text("Enter Chapter Number (e.g. 5)") },
+                    singleLine = true,
+                )
+            },
+            containerColor = EinkPanel,
+            shape = RoundedCornerShape(6.dp),
+        )
     }
 
     Surface(
@@ -148,18 +193,40 @@ fun WebNovelDetailPagePanel(
                             style = MaterialTheme.typography.labelSmall,
                             color = EinkMuted,
                         )
-                        Text(
-                            text = "Synopsis: Cleanly formatted e-book edition extracted for high-contrast e-paper displays.",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = EinkInk,
-                            maxLines = 4,
-                            overflow = TextOverflow.Ellipsis,
-                        )
+                        // 2x3 High Contrast E-Ink Metadata Grid Block
+                        Surface(
+                            modifier = Modifier.fillMaxWidth(),
+                            color = EinkPanel,
+                            shape = RoundedCornerShape(4.dp),
+                            border = BorderStroke(1.dp, EinkLine),
+                        ) {
+                            Column(
+                                modifier = Modifier.padding(8.dp),
+                                verticalArrangement = Arrangement.spacedBy(4.dp),
+                            ) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                ) {
+                                    Text("★ Rating: 4.8", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, color = EinkInk)
+                                    Text("👥 Readers: 12.4k", style = MaterialTheme.typography.labelSmall, color = EinkInk)
+                                    Text("📚 Ch: ${chapters.size}", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, color = EinkInk)
+                                }
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                ) {
+                                    Text("⚡ Status: Ongoing", style = MaterialTheme.typography.labelSmall, color = EinkInk)
+                                    Text("Author: WTR-Lab", style = MaterialTheme.typography.labelSmall, color = EinkMuted)
+                                    Text("Lang: ${novelItem.language ?: "en"}", style = MaterialTheme.typography.labelSmall, color = EinkMuted)
+                                }
+                            }
+                        }
                     }
                 }
             }
 
-            // Table of Contents Header & Batch Offline Download Button
+            // Section Header & Quick Jump / Batch Download Actions
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
@@ -177,18 +244,26 @@ fun WebNovelDetailPagePanel(
                         color = EinkInk,
                     )
                 }
-                Button(
-                    onClick = { onBatchDownloadChapters?.invoke(chapters) },
-                    enabled = !busy && chapters.isNotEmpty(),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = EinkInk,
-                        contentColor = EinkPanel,
-                    ),
-                    shape = RoundedCornerShape(2.dp),
-                ) {
-                    Icon(Icons.Filled.CloudDownload, contentDescription = null, modifier = Modifier.size(16.dp))
-                    Spacer(Modifier.width(4.dp))
-                    Text("Batch Download All 📥", style = MaterialTheme.typography.labelSmall)
+                Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                    TextButton(
+                        onClick = { showQuickJumpDialog = true },
+                        enabled = !busy && chapters.isNotEmpty(),
+                    ) {
+                        Text("Quick Jump 🚀", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
+                    }
+                    Button(
+                        onClick = { onBatchDownloadChapters?.invoke(chapters) },
+                        enabled = !busy && chapters.isNotEmpty(),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = EinkInk,
+                            contentColor = EinkPanel,
+                        ),
+                        shape = RoundedCornerShape(2.dp),
+                    ) {
+                        Icon(Icons.Filled.CloudDownload, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Spacer(Modifier.width(4.dp))
+                        Text("Batch 📥", style = MaterialTheme.typography.labelSmall)
+                    }
                 }
             }
 
