@@ -1,11 +1,15 @@
 package com.dongholab.pagetuner.ui.common
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -15,9 +19,14 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import com.dongholab.pagetuner.ui.theme.EinkInk
+import com.dongholab.pagetuner.ui.theme.EinkLine
 import com.dongholab.pagetuner.ui.theme.EinkMuted
+import com.dongholab.pagetuner.ui.theme.EinkPaper
 
 /**
  * An E-Ink Discrete Paging Container that strictly enforces ZERO item clipping.
@@ -41,7 +50,7 @@ fun <T> EinkAutoFitPagingContainer(
         // Reserve height for pagination header (44.dp) and safe bottom padding (16.dp)
         val reservedHeaderAndPadding = 60.dp
         val availableHeight = (maxHeight - reservedHeaderAndPadding).coerceAtLeast(estimatedItemHeight)
-        
+
         // Strict floor division: only include an item if 100% of its full height fits
         val itemSlotHeight = estimatedItemHeight + itemSpacing
         val calculatedPageSize = (availableHeight / itemSlotHeight).toInt().coerceIn(1, 8)
@@ -51,33 +60,57 @@ fun <T> EinkAutoFitPagingContainer(
         val safePageIndex = currentPageIndex.coerceIn(0, (totalPages - 1).coerceAtLeast(0))
         val currentPageItems = items.drop(safePageIndex * calculatedPageSize).take(calculatedPageSize)
 
+        val startIndex = safePageIndex * calculatedPageSize + 1
+        val endIndex = minOf((safePageIndex + 1) * calculatedPageSize, items.size)
+
         Column(
             modifier = Modifier.fillMaxWidth(),
             verticalArrangement = Arrangement.spacedBy(itemSpacing),
         ) {
             if (totalPages > 1) {
-                Row(
+                Surface(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically,
+                    color = EinkPaper,
+                    shape = RoundedCornerShape(4.dp),
+                    border = BorderStroke(1.dp, EinkLine),
                 ) {
-                    Text(
-                        text = "${safePageIndex * calculatedPageSize + 1}-${minOf((safePageIndex + 1) * calculatedPageSize, items.size)} / ${items.size} (Page ${safePageIndex + 1} of $totalPages)",
-                        style = MaterialTheme.typography.labelMedium,
-                        color = EinkMuted,
-                    )
-                    Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 8.dp, vertical = 2.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
                         TextButton(
                             onClick = { if (safePageIndex > 0) currentPageIndex = safePageIndex - 1 },
                             enabled = safePageIndex > 0 && !busy,
                         ) {
-                            Text("◄ Prev")
+                            Text(
+                                text = "◄ Prev",
+                                style = MaterialTheme.typography.labelLarge,
+                                fontWeight = FontWeight.Bold,
+                                color = if (safePageIndex > 0 && !busy) EinkInk else EinkMuted,
+                            )
                         }
+
+                        Text(
+                            text = "$startIndex-$endIndex / ${items.size} (Page ${safePageIndex + 1}/$totalPages)",
+                            style = MaterialTheme.typography.labelMedium,
+                            fontWeight = FontWeight.SemiBold,
+                            fontFamily = FontFamily.Monospace,
+                            color = EinkInk,
+                        )
+
                         TextButton(
                             onClick = { if (safePageIndex < totalPages - 1) currentPageIndex = safePageIndex + 1 },
                             enabled = safePageIndex < totalPages - 1 && !busy,
                         ) {
-                            Text("Next ►")
+                            Text(
+                                text = "Next ►",
+                                style = MaterialTheme.typography.labelLarge,
+                                fontWeight = FontWeight.Bold,
+                                color = if (safePageIndex < totalPages - 1 && !busy) EinkInk else EinkMuted,
+                            )
                         }
                     }
                 }

@@ -13,6 +13,7 @@ import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Scaffold
@@ -389,163 +390,170 @@ fun PageTurnerApp() {
             if (controlsVisible) {
                 AppTabNavigation(selectedTab = selectedTab, onSelectTab = { selectedTab = it })
 
-                when (selectedTab) {
-                    AppTab.Local -> LocalScreen(
-                        books = localBooks,
-                        currentBookId = currentBookId,
-                        busy = busy,
-                        onOpenBook = actions.openLocalBook,
-                        onDeleteBook = actions.deleteLocalBook,
-                        onUpdateBookOrganization = libraryViewModel::updateOrganization,
-                        onImportFile = { file -> libraryViewModel.importBook(Uri.fromFile(file)) },
-                    )
-                    AppTab.Favorites -> FavoritesScreen(
-                        favorites = favoritesList,
-                        displayMode = displayMode,
-                        busy = busy,
-                        onOpenNovelDetail = { novel ->
-                            webCatalogViewModel.updateCatalogUrl(novel.downloadUrl)
-                            selectedTab = AppTab.WebNovel
-                            webCatalogViewModel.loadCatalog()
-                        },
-                        onRemoveFavorite = { novel -> favoritesList = favoriteStore.toggleFavorite(novel) },
-                    )
-                    AppTab.WebNovel -> WebNovelScreen(
-                        state = webCatalogState,
-                        displayMode = displayMode,
-                        busy = busy,
-                        statusText = webCatalogStatusText,
-                        onCatalogUrlChange = webCatalogViewModel::updateCatalogUrl,
-                        onQueryChange = webCatalogViewModel::updateQuery,
-                        onLoadCatalog = webCatalogViewModel::loadCatalog,
-                        onRefreshCatalog = webCatalogViewModel::refreshCatalog,
-                        onSaveSourceAccount = webCatalogViewModel::saveCurrentCatalogAccount,
-                        onLoadSourceAccount = webCatalogViewModel::loadSourceAccount,
-                        onDeleteSourceAccount = webCatalogViewModel::deleteSourceAccount,
-                        onLoadCachedCatalog = webCatalogViewModel::loadCachedCatalog,
-                        onImportItem = webCatalogViewModel::importItem,
-                    )
-                    AppTab.RemoteDrive -> ComingSoonPanel(
-                        title = "Drive",
-                        description = "Google Drive / FTP 연동 기능은 준비중입니다.",
-                    )
-                    AppTab.Settings -> SettingsScreen(
-                        readerSettings = readerSettings,
-                        translationState = translationState,
-                        providerKind = providerKind,
-                        apiKey = apiKey,
-                        busy = busy,
-                        canTranslate = canTranslateCurrentPage,
-                        canRetryTranslation = canRetryCurrentPageTranslation,
-                        canClearCache = (translationCacheStatus?.cachedSegments ?: 0) > 0,
-                        providerStatusText = providerStatusText,
-                        providerHealthText = providerHealthText,
-                        translationCacheStatusText = translationCacheStatusText,
-                        translationQueueStatusText = translationQueueStatusText,
-                        onDisplayModeChange = { pdfPageBitmap = null; pdfPageCache = emptyMap(); settingsViewModel.updateDisplayMode(it) },
-                        onPageTurnModeChange = settingsViewModel::updatePageTurnMode,
-                        onPdfFitModeChange = settingsViewModel::updatePdfFitMode,
-                        onFontSizeChange = settingsViewModel::updateReaderFontSize,
-                        onLineSpacingChange = settingsViewModel::updateReaderLineSpacing,
-                        onPageMarginChange = settingsViewModel::updateReaderPageMargin,
-                        onProviderKindChange = settingsViewModel::updateProviderKind,
-                        onApiKeyChange = translationViewModel::updateApiKey,
-                        onLlmEndpointChange = settingsViewModel::updateLlmEndpoint,
-                        onLlmModelChange = settingsViewModel::updateLlmModel,
-                        onSourceLanguageChange = settingsViewModel::updateSourceLanguage,
-                        onTargetLanguageChange = settingsViewModel::updateTargetLanguage,
-                        onReadingWpmChange = { settingsViewModel.updateReadingWordsPerMinute(it.roundToInt()) },
-                        onBatchSizeChange = { settingsViewModel.updateTranslationBatchSize(it.roundToInt()) },
-                        onPaceModeChange = settingsViewModel::updatePaceMode,
-                        onTranslationDisplayModeChange = settingsViewModel::updateTranslationDisplayMode,
-                        onLanguagePreset = { preset ->
-                            settingsViewModel.updateLanguages(preset.sourceLanguage, preset.targetLanguage)
-                        },
-                        onCheckProvider = { translationViewModel.checkProviderHealth(settings) },
-                        onTranslate = actions.translateCurrentPage,
-                        onRetryTranslation = actions.translateCurrentPage,
-                        onPrefetch = actions.prefetchDocument,
-                        onPausePrefetch = translationViewModel::pausePrefetch,
-                        onResumePrefetch = translationViewModel::resumePrefetch,
-                        onCancelPrefetch = translationViewModel::cancelPrefetch,
-                        onRetryPrefetch = {
-                            translationViewModel.retryFailedPrefetch(document, currentPage, settings, repository)
-                        },
-                        onLoadCached = actions.loadCachedCurrentPage,
-                        onClearCache = actions.clearTranslationCache,
-                    )
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f),
+                ) {
+                    when (selectedTab) {
+                        AppTab.Local -> LocalScreen(
+                            books = localBooks,
+                            currentBookId = currentBookId,
+                            busy = busy,
+                            onOpenBook = actions.openLocalBook,
+                            onDeleteBook = actions.deleteLocalBook,
+                            onUpdateBookOrganization = libraryViewModel::updateOrganization,
+                            onImportFile = { file -> libraryViewModel.importBook(Uri.fromFile(file)) },
+                        )
+                        AppTab.Favorites -> FavoritesScreen(
+                            favorites = favoritesList,
+                            displayMode = displayMode,
+                            busy = busy,
+                            onOpenNovelDetail = { novel ->
+                                webCatalogViewModel.updateCatalogUrl(novel.downloadUrl)
+                                selectedTab = AppTab.WebNovel
+                                webCatalogViewModel.loadCatalog()
+                            },
+                            onRemoveFavorite = { novel -> favoritesList = favoriteStore.toggleFavorite(novel) },
+                        )
+                        AppTab.WebNovel -> WebNovelScreen(
+                            state = webCatalogState,
+                            displayMode = displayMode,
+                            busy = busy,
+                            statusText = webCatalogStatusText,
+                            onCatalogUrlChange = webCatalogViewModel::updateCatalogUrl,
+                            onQueryChange = webCatalogViewModel::updateQuery,
+                            onLoadCatalog = webCatalogViewModel::loadCatalog,
+                            onRefreshCatalog = webCatalogViewModel::refreshCatalog,
+                            onSaveSourceAccount = webCatalogViewModel::saveCurrentCatalogAccount,
+                            onLoadSourceAccount = webCatalogViewModel::loadSourceAccount,
+                            onDeleteSourceAccount = webCatalogViewModel::deleteSourceAccount,
+                            onLoadCachedCatalog = webCatalogViewModel::loadCachedCatalog,
+                            onImportItem = webCatalogViewModel::importItem,
+                        )
+                        AppTab.RemoteDrive -> ComingSoonPanel(
+                            title = "Drive",
+                            description = "Google Drive / FTP 연동 기능은 준비중입니다.",
+                        )
+                        AppTab.Settings -> SettingsScreen(
+                            readerSettings = readerSettings,
+                            translationState = translationState,
+                            providerKind = providerKind,
+                            apiKey = apiKey,
+                            busy = busy,
+                            canTranslate = canTranslateCurrentPage,
+                            canRetryTranslation = canRetryCurrentPageTranslation,
+                            canClearCache = (translationCacheStatus?.cachedSegments ?: 0) > 0,
+                            providerStatusText = providerStatusText,
+                            providerHealthText = providerHealthText,
+                            translationCacheStatusText = translationCacheStatusText,
+                            translationQueueStatusText = translationQueueStatusText,
+                            onDisplayModeChange = { pdfPageBitmap = null; pdfPageCache = emptyMap(); settingsViewModel.updateDisplayMode(it) },
+                            onPageTurnModeChange = settingsViewModel::updatePageTurnMode,
+                            onPdfFitModeChange = settingsViewModel::updatePdfFitMode,
+                            onFontSizeChange = settingsViewModel::updateReaderFontSize,
+                            onLineSpacingChange = settingsViewModel::updateReaderLineSpacing,
+                            onPageMarginChange = settingsViewModel::updateReaderPageMargin,
+                            onProviderKindChange = settingsViewModel::updateProviderKind,
+                            onApiKeyChange = translationViewModel::updateApiKey,
+                            onLlmEndpointChange = settingsViewModel::updateLlmEndpoint,
+                            onLlmModelChange = settingsViewModel::updateLlmModel,
+                            onSourceLanguageChange = settingsViewModel::updateSourceLanguage,
+                            onTargetLanguageChange = settingsViewModel::updateTargetLanguage,
+                            onReadingWpmChange = { settingsViewModel.updateReadingWordsPerMinute(it.roundToInt()) },
+                            onBatchSizeChange = { settingsViewModel.updateTranslationBatchSize(it.roundToInt()) },
+                            onPaceModeChange = settingsViewModel::updatePaceMode,
+                            onTranslationDisplayModeChange = settingsViewModel::updateTranslationDisplayMode,
+                            onLanguagePreset = { preset ->
+                                settingsViewModel.updateLanguages(preset.sourceLanguage, preset.targetLanguage)
+                            },
+                            onCheckProvider = { translationViewModel.checkProviderHealth(settings) },
+                            onTranslate = actions.translateCurrentPage,
+                            onRetryTranslation = actions.translateCurrentPage,
+                            onPrefetch = actions.prefetchDocument,
+                            onPausePrefetch = translationViewModel::pausePrefetch,
+                            onResumePrefetch = translationViewModel::resumePrefetch,
+                            onCancelPrefetch = translationViewModel::cancelPrefetch,
+                            onRetryPrefetch = {
+                                translationViewModel.retryFailedPrefetch(document, currentPage, settings, repository)
+                            },
+                            onLoadCached = actions.loadCachedCurrentPage,
+                            onClearCache = actions.clearTranslationCache,
+                        )
+                    }
                 }
 
                 StatusStrip(statusText = statusText, progress = progress, busy = busy)
+            } else {
+                // Reader View Mode (full focus reading screen)
+                ReaderSearchPanel(
+                    query = readerState.searchQuery,
+                    resultCount = readerState.searchResults.size,
+                    selectedResultNumber = readerState.selectedSearchResultNumber,
+                    selectedPreview = readerState.selectedSearchMatch?.preview,
+                    busy = busy,
+                    onQueryChange = actions.updateSearchQuery,
+                    onPreviousResult = actions.previousSearchResult,
+                    onNextResult = actions.nextSearchResult,
+                    onClearSearch = actions.clearSearch,
+                )
+                ReaderBookmarkPanel(
+                    draftLabel = readerState.bookmarkDraftLabel,
+                    bookmarks = bookmarks,
+                    currentPageIndex = pageIndex,
+                    busy = busy,
+                    onDraftLabelChange = readerViewModel::updateBookmarkDraftLabel,
+                    onAddBookmark = actions.addBookmark,
+                    onOpenBookmark = actions.openBookmark,
+                    onRemoveBookmark = actions.removeBookmark,
+                )
+                ReaderAnnotationPanel(
+                    noteDraft = readerState.noteDraftText,
+                    annotations = annotations,
+                    currentPageIndex = pageIndex,
+                    busy = busy,
+                    onNoteDraftChange = readerViewModel::updateNoteDraftText,
+                    onAddHighlight = actions.addHighlight,
+                    onAddNote = actions.addNote,
+                    onOpenAnnotation = actions.openAnnotation,
+                    onRemoveAnnotation = actions.removeAnnotation,
+                    onExportAnnotations = actions.exportAnnotations,
+                )
+
+                ReaderSurface(
+                    modifier = Modifier.weight(1f),
+                    page = currentPage,
+                    documentFormat = document.format,
+                    pdfPageBitmap = pdfPageBitmap,
+                    pdfFitMode = readerSettings.pdfFitMode,
+                    displayMode = displayMode,
+                    translation = translationState.translation,
+                    translationDisplayMode = readerSettings.translationDisplayMode,
+                    pageTurnMode = readerSettings.pageTurnMode,
+                    pageTurningEnabled = !busy,
+                    fontSizeSp = readerSettings.readerFontSizeSp,
+                    lineSpacing = readerSettings.readerLineSpacing,
+                    pageMarginDp = readerSettings.readerPageMarginDp,
+                    onPreviousPage = actions.previousPage,
+                    onNextPage = actions.nextPage,
+                )
+                ReaderPager(
+                    pageIndex = pageIndex,
+                    pageCount = document.pageCount,
+                    currentChapterTitle = tableOfContents.getOrNull(currentChapterIndex)?.title,
+                    canPreviousChapter = currentChapterIndex > 0,
+                    canNextChapter = when {
+                        tableOfContents.isEmpty() -> false
+                        currentChapterIndex == -1 -> true
+                        else -> currentChapterIndex < tableOfContents.lastIndex
+                    },
+                    busy = busy,
+                    onPrevious = actions.previousPage,
+                    onNext = actions.nextPage,
+                    onPreviousChapter = actions.previousChapter,
+                    onNextChapter = actions.nextChapter,
+                )
             }
-
-            // Reader panels (search, bookmarks, annotations)
-            ReaderSearchPanel(
-                query = readerState.searchQuery,
-                resultCount = readerState.searchResults.size,
-                selectedResultNumber = readerState.selectedSearchResultNumber,
-                selectedPreview = readerState.selectedSearchMatch?.preview,
-                busy = busy,
-                onQueryChange = actions.updateSearchQuery,
-                onPreviousResult = actions.previousSearchResult,
-                onNextResult = actions.nextSearchResult,
-                onClearSearch = actions.clearSearch,
-            )
-            ReaderBookmarkPanel(
-                draftLabel = readerState.bookmarkDraftLabel,
-                bookmarks = bookmarks,
-                currentPageIndex = pageIndex,
-                busy = busy,
-                onDraftLabelChange = readerViewModel::updateBookmarkDraftLabel,
-                onAddBookmark = actions.addBookmark,
-                onOpenBookmark = actions.openBookmark,
-                onRemoveBookmark = actions.removeBookmark,
-            )
-            ReaderAnnotationPanel(
-                noteDraft = readerState.noteDraftText,
-                annotations = annotations,
-                currentPageIndex = pageIndex,
-                busy = busy,
-                onNoteDraftChange = readerViewModel::updateNoteDraftText,
-                onAddHighlight = actions.addHighlight,
-                onAddNote = actions.addNote,
-                onOpenAnnotation = actions.openAnnotation,
-                onRemoveAnnotation = actions.removeAnnotation,
-                onExportAnnotations = actions.exportAnnotations,
-            )
-
-            ReaderSurface(
-                page = currentPage,
-                documentFormat = document.format,
-                pdfPageBitmap = pdfPageBitmap,
-                pdfFitMode = readerSettings.pdfFitMode,
-                displayMode = displayMode,
-                translation = translationState.translation,
-                translationDisplayMode = readerSettings.translationDisplayMode,
-                pageTurnMode = readerSettings.pageTurnMode,
-                pageTurningEnabled = !busy,
-                fontSizeSp = readerSettings.readerFontSizeSp,
-                lineSpacing = readerSettings.readerLineSpacing,
-                pageMarginDp = readerSettings.readerPageMarginDp,
-                onPreviousPage = actions.previousPage,
-                onNextPage = actions.nextPage,
-            )
-            ReaderPager(
-                pageIndex = pageIndex,
-                pageCount = document.pageCount,
-                currentChapterTitle = tableOfContents.getOrNull(currentChapterIndex)?.title,
-                canPreviousChapter = currentChapterIndex > 0,
-                canNextChapter = when {
-                    tableOfContents.isEmpty() -> false
-                    currentChapterIndex == -1 -> true
-                    else -> currentChapterIndex < tableOfContents.lastIndex
-                },
-                busy = busy,
-                onPrevious = actions.previousPage,
-                onNext = actions.nextPage,
-                onPreviousChapter = actions.previousChapter,
-                onNextChapter = actions.nextChapter,
-            )
         }
     }
 

@@ -118,38 +118,11 @@ fun LocalDirectoryBrowserPanel(
                     color = EinkMuted,
                 )
             } else {
-                var folderPageIndex by remember(entries) { mutableStateOf(0) }
-                val pageSize = 8
-                val totalPages = (entries.size + pageSize - 1) / pageSize
-                val currentPageEntries = entries.drop(folderPageIndex * pageSize).take(pageSize)
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Text(
-                        text = "Files ${folderPageIndex * pageSize + 1}-${minOf((folderPageIndex + 1) * pageSize, entries.size)} of ${entries.size}",
-                        style = MaterialTheme.typography.labelMedium,
-                        color = EinkMuted,
-                    )
-                    Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                        androidx.compose.material3.TextButton(
-                            onClick = { if (folderPageIndex > 0) folderPageIndex-- },
-                            enabled = folderPageIndex > 0 && !busy,
-                        ) {
-                            Text("◄ Prev")
-                        }
-                        androidx.compose.material3.TextButton(
-                            onClick = { if (folderPageIndex < totalPages - 1) folderPageIndex++ },
-                            enabled = folderPageIndex < totalPages - 1 && !busy,
-                        ) {
-                            Text("Next ►")
-                        }
-                    }
-                }
-
-                currentPageEntries.forEach { file ->
+                com.dongholab.pagetuner.ui.common.EinkPagingContainer(
+                    items = entries,
+                    pageSize = 6,
+                    busy = busy,
+                ) { file ->
                     Surface(
                         modifier = Modifier
                             .fillMaxWidth()

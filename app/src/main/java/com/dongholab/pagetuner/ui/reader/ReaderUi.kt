@@ -402,7 +402,11 @@ fun ReaderBookmarkPanel(
                     color = EinkMuted,
                 )
             } else {
-                bookmarks.take(5).forEach { bookmark ->
+                com.dongholab.pagetuner.ui.common.EinkPagingContainer(
+                    items = bookmarks,
+                    pageSize = 5,
+                    busy = busy,
+                ) { bookmark ->
                     ReaderBookmarkRow(
                         bookmark = bookmark,
                         selected = bookmark.pageIndex == currentPageIndex,
@@ -555,7 +559,11 @@ fun ReaderAnnotationPanel(
                     color = EinkMuted,
                 )
             } else {
-                annotations.takeLast(5).reversed().forEach { annotation ->
+                com.dongholab.pagetuner.ui.common.EinkPagingContainer(
+                    items = annotations.reversed(),
+                    pageSize = 5,
+                    busy = busy,
+                ) { annotation ->
                     ReaderAnnotationRow(
                         annotation = annotation,
                         selected = annotation.pageIndex == currentPageIndex,
