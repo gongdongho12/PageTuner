@@ -58,7 +58,9 @@ fun EinkSingleLineToolbar(
                     fontWeight = FontWeight.Bold,
                     color = EinkInk,
                     maxLines = 1,
+                    softWrap = false,
                     overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f, fill = false),
                 )
             }
             if (trailingActions != null) {

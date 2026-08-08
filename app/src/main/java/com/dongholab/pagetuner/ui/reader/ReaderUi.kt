@@ -97,10 +97,11 @@ fun ReaderHeader(
         Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = document.title,
-                style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.SemiBold,
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
                 color = EinkInk,
-                maxLines = 1,
+                maxLines = 2,
+                softWrap = true,
                 overflow = TextOverflow.Ellipsis,
             )
             Text(
@@ -110,15 +111,17 @@ fun ReaderHeader(
                     page.index + 1,
                     document.pageCount,
                 ),
-                style = MaterialTheme.typography.bodyMedium,
+                style = MaterialTheme.typography.bodySmall,
                 color = EinkMuted,
             )
             page.chapterTitle?.takeIf { it.isNotBlank() }?.let { title ->
                 Text(
                     text = stringResource(R.string.chapter_label, title),
                     style = MaterialTheme.typography.bodySmall,
-                    color = EinkMuted,
-                    maxLines = 1,
+                    fontWeight = FontWeight.SemiBold,
+                    color = EinkInk,
+                    maxLines = 2,
+                    softWrap = true,
                     overflow = TextOverflow.Ellipsis,
                 )
             }

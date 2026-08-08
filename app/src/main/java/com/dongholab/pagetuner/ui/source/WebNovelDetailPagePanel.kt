@@ -180,6 +180,7 @@ fun WebNovelDetailPagePanel(
                             fontWeight = FontWeight.Bold,
                             color = EinkInk,
                             maxLines = 2,
+                            softWrap = true,
                             overflow = TextOverflow.Ellipsis,
                         )
                         Text(
@@ -187,11 +188,17 @@ fun WebNovelDetailPagePanel(
                             style = MaterialTheme.typography.bodySmall,
                             fontWeight = FontWeight.SemiBold,
                             color = EinkInk,
+                            maxLines = 1,
+                            softWrap = true,
+                            overflow = TextOverflow.Ellipsis,
                         )
                         Text(
                             text = "Genre: Web Novel / Fantasy • Language: ${novelItem.language ?: "en"}",
                             style = MaterialTheme.typography.labelSmall,
                             color = EinkMuted,
+                            maxLines = 1,
+                            softWrap = true,
+                            overflow = TextOverflow.Ellipsis,
                         )
                         // 2x3 High Contrast E-Ink Metadata Grid Block
                         Surface(
