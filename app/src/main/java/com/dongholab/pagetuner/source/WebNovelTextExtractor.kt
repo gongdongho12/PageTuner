@@ -258,6 +258,46 @@ object WebNovelTextExtractor {
         return hasNovelPath || hasChapterText
     }
 
+    fun extractNovelSynopsis(html: String): String {
+        // Strategy A: Next.js __NEXT_DATA__ JSON Parser
+        val nextDataMatch = Regex("(?is)<script[^>]*id=[\"']__NEXT_DATA__[\"'][^>]*>(.*?)</script>").find(html)
+        if (nextDataMatch != null) {
+            runCatching {
+                val jsonString = nextDataMatch.groupValues[1].trim()
+                val jsonObj = JSONObject(jsonString)
+                val props = jsonObj.optJSONObject("props")?.optJSONObject("pageProps")
+                val serie = props?.optJSONObject("serie")
+                    ?: props?.optJSONObject("novel")
+                    ?: props?.optJSONObject("data")
+                val desc = serie?.optString("description")?.takeIf { it.isNotBlank() }
+                    ?: serie?.optString("synopsis")
+                if (!desc.isNullOrBlank()) {
+                    return decodeHtmlEntities(desc.replace(Regex("<[^>]+>"), "")).trim()
+                }
+            }
+        }
+
+        // Strategy B: HTML Container
+        val descMatch = Regex("(?is)<div[^>]*class=[\"'][^\"']*(?:synopsis|description|novel-desc|summary)[^\"']*[\"'][^>]*>(.*?)</div>").find(html)
+            ?: Regex("(?is)<div[^>]*id=[\"'][^\"']*(?:synopsis|description|novel-desc|summary)[^\"']*[\"'][^>]*>(.*?)</div>").find(html)
+            ?: Regex("(?is)<p[^>]*class=[\"'][^\"']*(?:synopsis|description|summary)[^\"']*[\"'][^>]*>(.*?)</p>").find(html)
+
+        if (descMatch != null) {
+            val text = descMatch.groupValues[1].replace(Regex("<[^>]+>"), "").trim()
+            if (text.isNotBlank()) {
+                return decodeHtmlEntities(text)
+            }
+        }
+        return "High-contrast web novel edition. Cleanly extracted e-book pages formatted for e-paper displays."
+    }
+
+    fun extractVolumeNumber(title: String, url: String): Int? {
+        val textMatch = Regex("(?i)(?:Volume|Vol\\.?|Book)\\s*(\\d+)").find(title)
+            ?: Regex("(?i)(?:Volume|Vol\\.?|Book)\\s*(\\d+)").find(url)
+            ?: Regex("(?i)(\\d+)권").find(title)
+        return textMatch?.groupValues?.get(1)?.toIntOrNull()
+    }
+
     private fun decodeHtmlEntities(text: String): String {
         return text
             .replace("&nbsp;", " ")

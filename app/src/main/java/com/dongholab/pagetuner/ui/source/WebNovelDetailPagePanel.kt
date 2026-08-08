@@ -62,11 +62,21 @@ fun WebNovelDetailPagePanel(
     onBatchDownloadChapters: ((List<RemoteBookItem>) -> Unit)? = null,
 ) {
     var searchQuery by remember { mutableStateOf("") }
-    val filteredChapters = remember(chapters, searchQuery) {
-        if (searchQuery.isBlank()) {
-            chapters
-        } else {
-            chapters.filter { it.title.contains(searchQuery, ignoreCase = true) }
+    var selectedVolumeFilter by remember { mutableStateOf<Int?>(null) }
+    var selectedPageSize by remember { mutableStateOf(6) }
+
+    val volumeNumbers = remember(chapters) {
+        chapters.mapNotNull { ch ->
+            com.dongholab.pagetuner.source.WebNovelTextExtractor.extractVolumeNumber(ch.title, ch.downloadUrl)
+        }.distinct().sorted()
+    }
+
+    val filteredChapters = remember(chapters, searchQuery, selectedVolumeFilter) {
+        chapters.filter { item ->
+            val matchQuery = searchQuery.isBlank() || item.title.contains(searchQuery, ignoreCase = true)
+            val itemVol = com.dongholab.pagetuner.source.WebNovelTextExtractor.extractVolumeNumber(item.title, item.downloadUrl)
+            val matchVol = selectedVolumeFilter == null || itemVol == selectedVolumeFilter
+            matchQuery && matchVol
         }
     }
 
@@ -110,7 +120,7 @@ fun WebNovelDetailPagePanel(
                     horizontalArrangement = Arrangement.spacedBy(12.dp),
                     verticalAlignment = Alignment.Top,
                 ) {
-                    RemoteCoverThumbnail(
+                    com.dongholab.pagetuner.ui.source.RemoteCoverThumbnail(
                         coverBytes = coverBytes,
                         displayMode = displayMode,
                         contentDescription = novelItem.title,
@@ -124,7 +134,7 @@ fun WebNovelDetailPagePanel(
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold,
                             color = EinkInk,
-                            maxLines = 3,
+                            maxLines = 2,
                             overflow = TextOverflow.Ellipsis,
                         )
                         Text(
@@ -134,15 +144,15 @@ fun WebNovelDetailPagePanel(
                             color = EinkInk,
                         )
                         Text(
-                            text = "Genre: Web Novel / Fantasy | Language: ${novelItem.language ?: "en"}",
+                            text = "Genre: Web Novel / Fantasy • Language: ${novelItem.language ?: "en"}",
                             style = MaterialTheme.typography.labelSmall,
                             color = EinkMuted,
                         )
                         Text(
-                            text = "Description: High-contrast web novel edition. Extracted cleanly for e-paper reading without ads or scripts.",
+                            text = "Synopsis: Cleanly formatted e-book edition extracted for high-contrast e-paper displays.",
                             style = MaterialTheme.typography.bodySmall,
                             color = EinkInk,
-                            maxLines = 3,
+                            maxLines = 4,
                             overflow = TextOverflow.Ellipsis,
                         )
                     }
@@ -205,7 +215,35 @@ fun WebNovelDetailPagePanel(
                 }
             }
 
-            var selectedPageSize by remember { mutableStateOf(6) }
+            // Volume (권) Filter Bar
+            if (volumeNumbers.isNotEmpty()) {
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text(
+                        text = "Select Volume (권):",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = EinkMuted,
+                    )
+                    androidx.compose.foundation.layout.FlowRow(
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        verticalArrangement = Arrangement.spacedBy(4.dp),
+                    ) {
+                        androidx.compose.material3.FilterChip(
+                            selected = selectedVolumeFilter == null,
+                            onClick = { selectedVolumeFilter = null },
+                            enabled = !busy,
+                            label = { Text("All Volumes", style = MaterialTheme.typography.labelSmall) },
+                        )
+                        volumeNumbers.forEach { vol ->
+                            androidx.compose.material3.FilterChip(
+                                selected = selectedVolumeFilter == vol,
+                                onClick = { selectedVolumeFilter = vol },
+                                enabled = !busy,
+                                label = { Text("Volume $vol", style = MaterialTheme.typography.labelSmall) },
+                            )
+                        }
+                    }
+                }
+            }
 
             // Search / Filter Chapters Box & Page Size Controls
             Row(
