@@ -1,8 +1,9 @@
 package com.dongholab.pagetuner.document
 
 object PlainTextDocumentParser {
-    private const val TargetPageChars = 1_050
-    private const val MaxSegmentChars = 520
+    // Sized conservatively for a 6–8 inch E-Ink viewport at the largest supported reader font.
+    private const val TargetPageChars = 620
+    private const val MaxSegmentChars = 400
 
     data class TextChapter(
         val title: String?,
@@ -156,12 +157,13 @@ object PlainTextDocumentParser {
 
             val sourceSegments = splitIntoSegments(chapter.rawText)
             for (segment in sourceSegments) {
-                val nextChars = currentChars + segment.length
+                val separatorChars = if (current.isEmpty()) 0 else 2
+                val nextChars = currentChars + separatorChars + segment.length
                 if (current.isNotEmpty() && nextChars > TargetPageChars) {
                     flush()
                 }
                 current += segment
-                currentChars += segment.length
+                currentChars += (if (current.size == 1) 0 else 2) + segment.length
             }
         }
         flush()

@@ -47,6 +47,7 @@ import com.dongholab.pagetuner.ui.theme.EinkInk
 import com.dongholab.pagetuner.ui.theme.EinkLine
 import com.dongholab.pagetuner.ui.theme.EinkPaper
 import com.dongholab.pagetuner.ui.translation.TranslationControls
+import com.dongholab.pagetuner.ui.common.EinkSegmentedControl
 import kotlin.math.roundToInt
 
 private enum class SettingsCategoryTab(val title: String) {
@@ -111,59 +112,14 @@ fun SettingsScreen(
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         // E-Ink Sub-Tab Navigation Bar with Active Tab Indicator
-        Surface(
-            modifier = Modifier.fillMaxWidth(),
-            color = EinkPanel,
-            shape = RoundedCornerShape(4.dp),
-            border = BorderStroke(1.dp, EinkLine),
-        ) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(4.dp),
-                horizontalArrangement = Arrangement.spacedBy(4.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                SettingsCategoryTab.entries.forEach { tab ->
-                    val selected = selectedCategory == tab
-                    Surface(
-                        modifier = Modifier
-                            .weight(1f)
-                            .clickable(enabled = !busy) { selectedCategory = tab },
-                        color = if (selected) EinkSoft else EinkPanel,
-                        shape = RoundedCornerShape(3.dp),
-                        border = BorderStroke(1.dp, if (selected) EinkInk else EinkLine),
-                    ) {
-                        Column(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                        ) {
-                            Row(
-                                modifier = Modifier.padding(vertical = 6.dp, horizontal = 2.dp),
-                                horizontalArrangement = Arrangement.Center,
-                                verticalAlignment = Alignment.CenterVertically,
-                            ) {
-                                Text(
-                                    text = tab.title,
-                                    style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp),
-                                    fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
-                                    color = if (selected) EinkInk else EinkMuted,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis,
-                                )
-                            }
-                            // E-Ink Active Tab Indicator Bar (3.dp Solid Line)
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .height(3.dp)
-                                    .background(if (selected) EinkInk else EinkPanel),
-                            )
-                        }
-                    }
-                }
-            }
-        }
+        EinkSegmentedControl(
+            options = SettingsCategoryTab.entries,
+            selected = selectedCategory,
+            onSelect = { selectedCategory = it },
+            enabled = !busy,
+            itemHeight = 54.dp,
+            label = SettingsCategoryTab::title,
+        )
 
         // Active Category Panel Rendering (Discrete Non-Overflowing View)
         when (selectedCategory) {

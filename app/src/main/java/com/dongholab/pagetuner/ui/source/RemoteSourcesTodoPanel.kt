@@ -49,7 +49,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -58,8 +57,6 @@ import com.dongholab.pagetuner.display.applyDisplayMode
 import com.dongholab.pagetuner.source.CachedWebCatalog
 import com.dongholab.pagetuner.source.RemoteBookItem
 import com.dongholab.pagetuner.source.RemoteSourceAccount
-import com.dongholab.pagetuner.source.RemoteSourceTodo
-import com.dongholab.pagetuner.source.RemoteSourceTodos
 import com.dongholab.pagetuner.ui.text.localizedName
 import com.dongholab.pagetuner.ui.theme.EinkInk
 import com.dongholab.pagetuner.ui.theme.EinkLine
@@ -67,6 +64,8 @@ import com.dongholab.pagetuner.ui.theme.EinkMuted
 import com.dongholab.pagetuner.ui.theme.EinkPanel
 import com.dongholab.pagetuner.ui.theme.EinkPaper
 import com.dongholab.pagetuner.ui.theme.EinkSoft
+import com.dongholab.pagetuner.ui.common.EinkOperationIndicator
+import com.dongholab.pagetuner.ui.common.EinkSegmentedControl
 
 @Composable
 fun RemoteSourcesTodoPanel(
@@ -88,49 +87,78 @@ fun RemoteSourcesTodoPanel(
     onDeleteSourceAccount: (RemoteSourceAccount) -> Unit,
     onLoadCachedCatalog: (CachedWebCatalog) -> Unit,
     onImportItem: (RemoteBookItem) -> Unit,
+    onReadAndTranslateItem: (RemoteBookItem) -> Unit,
 ) {
     Surface(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier.fillMaxSize(),
         color = EinkPanel,
         shape = RoundedCornerShape(6.dp),
         border = BorderStroke(1.dp, EinkLine),
         shadowElevation = 0.dp,
     ) {
         Column(
-            modifier = Modifier.padding(12.dp),
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(12.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
             var showAddSourceDialog by remember { mutableStateOf(false) }
             var activeCatalogUrlPage by remember { mutableStateOf<String?>(null) }
             var selectedNovelForDetail by remember { mutableStateOf<RemoteBookItem?>(null) }
+            var detailedNovel by remember { mutableStateOf<RemoteBookItem?>(null) }
             var fetchedChapters by remember { mutableStateOf<List<RemoteBookItem>>(emptyList()) }
+            var detailLoading by remember { mutableStateOf(false) }
+            var detailLoadError by remember { mutableStateOf<String?>(null) }
 
             LaunchedEffect(selectedNovelForDetail) {
                 val item = selectedNovelForDetail
                 if (item != null) {
                     fetchedChapters = emptyList()
-                    val chapters = runCatching {
-                        kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
-                            com.dongholab.pagetuner.source.WebNovelRemoteBookSource(
-                                accountId = item.identity.accountId,
-                                endpointUrl = item.downloadUrl,
-                            ).list()
-                        }
-                    }.getOrDefault(emptyList())
-                    fetchedChapters = chapters
+                    detailedNovel = item
+                    detailLoading = true
+                    detailLoadError = null
+                    runCatching {
+                        val source = com.dongholab.pagetuner.source.WebNovelRemoteBookSource(
+                            accountId = item.identity.accountId,
+                            endpointUrl = item.downloadUrl,
+                        )
+                        val detail = source.loadNovelDetail()
+                        val chapters = source.list()
+                        val enrichedItem = item.copy(
+                            title = detail.title.ifBlank { item.title },
+                            authors = listOf(detail.author).filter { it.isNotBlank() },
+                            coverUrl = detail.coverUrl ?: item.coverUrl,
+                            description = detail.summary.takeIf { it.isNotBlank() },
+                            chapterCount = detail.totalChapters.takeIf { it > 0 },
+                            tags = detail.tags,
+                        )
+                        enrichedItem to chapters
+                    }.onSuccess { (enrichedItem, chapters) ->
+                        detailedNovel = enrichedItem
+                        fetchedChapters = chapters
+                    }.onFailure { error ->
+                        detailLoadError = error.message ?: "Unable to load this novel page."
+                    }
+                    detailLoading = false
+                } else {
+                    detailedNovel = null
+                    fetchedChapters = emptyList()
+                    detailLoadError = null
                 }
             }
 
             val currentSelectedNovel = selectedNovelForDetail
             if (currentSelectedNovel != null) {
+                val displayedNovel = detailedNovel ?: currentSelectedNovel
                 WebNovelDetailPagePanel(
-                    novelItem = currentSelectedNovel,
-                    coverBytes = currentSelectedNovel.coverUrl?.let { coverThumbnails[it] },
+                    novelItem = displayedNovel,
+                    coverBytes = displayedNovel.coverUrl?.let { coverThumbnails[it] },
                     chapters = fetchedChapters,
                     displayMode = displayMode,
-                    busy = busy,
+                    busy = busy || detailLoading,
+                    loadError = detailLoadError,
                     onBackToList = { selectedNovelForDetail = null },
-                    onReadChapter = onImportItem,
+                    onReadChapter = onReadAndTranslateItem,
                 )
                 return@Column
             }
@@ -172,6 +200,7 @@ fun RemoteSourcesTodoPanel(
             var selectedGenreFilter by remember { mutableStateOf("All") }
             var selectedOrderByFilter by remember { mutableStateOf("addition_date") }
             var selectedStatusFilter by remember { mutableStateOf("all") }
+            var sourceManagerSection by remember { mutableStateOf(0) }
 
             val filteredCatalogItems = remember(items, selectedLanguageFilter, selectedGenreFilter) {
                 items.filter { item ->
@@ -257,93 +286,18 @@ fun RemoteSourcesTodoPanel(
             // Top Header Bar with 1-Click Direct URL Modal Launcher
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                // E-Ink Segmented Switcher Sub-Tab Bar ([ 📚 Catalog (Count) | ⚙️ Sources & Filters ])
-                Surface(
+                EinkSegmentedControl(
+                    options = listOf(0, 1),
+                    selected = activeSubTab,
+                    onSelect = { activeSubTab = it },
                     modifier = Modifier.weight(1f),
-                    color = EinkPanel,
-                    shape = RoundedCornerShape(4.dp),
-                    border = BorderStroke(1.dp, EinkInk),
-                ) {
-                    Row(
-                        modifier = Modifier.padding(2.dp),
-                        horizontalArrangement = Arrangement.spacedBy(2.dp),
-                    ) {
-                        Surface(
-                            modifier = Modifier
-                                .weight(1f)
-                                .height(38.dp)
-                                .clickable { activeSubTab = 0 },
-                            color = if (activeSubTab == 0) EinkPaper else EinkPanel,
-                            shape = RoundedCornerShape(3.dp),
-                            border = BorderStroke(1.dp, if (activeSubTab == 0) EinkInk else EinkLine),
-                        ) {
-                            Box(
-                                modifier = Modifier.fillMaxSize(),
-                                contentAlignment = Alignment.Center,
-                            ) {
-                                Column(
-                                    modifier = Modifier.fillMaxSize(),
-                                    verticalArrangement = Arrangement.SpaceBetween,
-                                    horizontalAlignment = Alignment.CenterHorizontally,
-                                ) {
-                                    Spacer(Modifier.height(4.dp))
-                                    Text(
-                                        text = "📚 Catalog (${items.size})",
-                                        style = MaterialTheme.typography.labelLarge,
-                                        fontWeight = if (activeSubTab == 0) FontWeight.Bold else FontWeight.Medium,
-                                        color = if (activeSubTab == 0) EinkInk else EinkMuted,
-                                    )
-                                    Box(
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .height(3.dp)
-                                            .background(if (activeSubTab == 0) EinkInk else EinkPaper),
-                                    )
-                                }
-                            }
-                        }
-
-                        Surface(
-                            modifier = Modifier
-                                .weight(1f)
-                                .height(38.dp)
-                                .clickable { activeSubTab = 1 },
-                            color = if (activeSubTab == 1) EinkPaper else EinkPanel,
-                            shape = RoundedCornerShape(3.dp),
-                            border = BorderStroke(1.dp, if (activeSubTab == 1) EinkInk else EinkLine),
-                        ) {
-                            Box(
-                                modifier = Modifier.fillMaxSize(),
-                                contentAlignment = Alignment.Center,
-                            ) {
-                                Column(
-                                    modifier = Modifier.fillMaxSize(),
-                                    verticalArrangement = Arrangement.SpaceBetween,
-                                    horizontalAlignment = Alignment.CenterHorizontally,
-                                ) {
-                                    Spacer(Modifier.height(4.dp))
-                                    Text(
-                                        text = "⚙️ Sources & Filters",
-                                        style = MaterialTheme.typography.labelLarge,
-                                        fontWeight = if (activeSubTab == 1) FontWeight.Bold else FontWeight.Medium,
-                                        color = if (activeSubTab == 1) EinkInk else EinkMuted,
-                                    )
-                                    Box(
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .height(3.dp)
-                                            .background(if (activeSubTab == 1) EinkInk else EinkPaper),
-                                    )
-                                }
-                            }
-                        }
-                    }
-                }
-
-                Spacer(Modifier.width(6.dp))
+                    enabled = !busy,
+                    itemHeight = 42.dp,
+                    label = { tab -> if (tab == 0) "Catalog (${items.size})" else "Sources & Filters" },
+                )
                 Button(
                     onClick = { showDirectUrlDialog = true },
                     enabled = !busy,
@@ -359,6 +313,11 @@ fun RemoteSourcesTodoPanel(
             }
 
             if (activeSubTab == 0) {
+                EinkOperationIndicator(
+                    visible = busy,
+                    title = "Loading web novel catalog…",
+                    detail = statusText,
+                )
                 if (filteredCatalogItems.isEmpty()) {
                     Text(
                         text = if (items.isEmpty()) stringResource(R.string.web_catalog_empty) else "No novels match your language or genre filter.",
@@ -369,9 +328,10 @@ fun RemoteSourcesTodoPanel(
                 } else {
                     com.dongholab.pagetuner.ui.common.EinkAutoFitPagingContainer(
                         items = filteredCatalogItems,
-                        estimatedItemHeight = 62.dp,
-                        fallbackPageSize = 6,
+                        estimatedItemHeight = 104.dp,
+                        fallbackPageSize = 3,
                         busy = busy,
+                        modifier = Modifier.weight(1f),
                     ) { item ->
                         RemoteBookRow(
                             item = item,
@@ -386,48 +346,61 @@ fun RemoteSourcesTodoPanel(
             } else {
                 // Sub-Tab 2: ⚙️ Sources & Filters View
                 RemoteSourcesHeader()
+                EinkSegmentedControl(
+                    options = listOf(0, 1),
+                    selected = sourceManagerSection,
+                    onSelect = { sourceManagerSection = it },
+                    enabled = !busy,
+                    label = { section -> if (section == 0) "Saved sources" else "Catalog filters" },
+                )
 
-                // Saved Web Novel Catalogs Header
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Text(
-                        text = "Saved Web Novel Catalog Sources (${sourceAccounts.size})",
-                        style = MaterialTheme.typography.titleSmall,
-                        fontWeight = FontWeight.Bold,
-                        color = EinkInk,
-                    )
-                    androidx.compose.material3.IconButton(
-                        onClick = { showAddSourceDialog = true },
-                        enabled = !busy,
+                if (sourceManagerSection == 0) {
+                    // Saved Web Novel Catalogs Header
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        Icon(Icons.Filled.Add, contentDescription = "Add New Source Catalog", tint = EinkInk, modifier = Modifier.size(22.dp))
+                        Text(
+                            text = "Saved Web Novel Catalog Sources (${sourceAccounts.size})",
+                            modifier = Modifier.weight(1f),
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = EinkInk,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                        androidx.compose.material3.IconButton(
+                            onClick = { showAddSourceDialog = true },
+                            enabled = !busy,
+                        ) {
+                            Icon(Icons.Filled.Add, contentDescription = "Add New Source Catalog", tint = EinkInk, modifier = Modifier.size(22.dp))
+                        }
                     }
-                }
-                if (sourceAccounts.isNotEmpty()) {
-                    SourceAccountsRow(
-                        sourceAccounts = sourceAccounts,
-                        busy = busy,
-                        onLoadSourceAccount = onLoadSourceAccount,
-                        onDeleteSourceAccount = onDeleteSourceAccount,
-                        onOpenCatalogPage = { account -> activeCatalogUrlPage = account.endpoint },
-                    )
-                }
-                if (cachedCatalogs.isNotEmpty()) {
-                    CachedCatalogsRow(
-                        cachedCatalogs = cachedCatalogs,
-                        busy = busy,
-                        onLoadCachedCatalog = onLoadCachedCatalog,
-                    )
-                }
+                    if (cachedCatalogs.isNotEmpty()) {
+                        CachedCatalogsRow(
+                            cachedCatalogs = cachedCatalogs,
+                            busy = busy,
+                            onLoadCachedCatalog = onLoadCachedCatalog,
+                        )
+                    }
+                    if (sourceAccounts.isNotEmpty()) {
+                        SourceAccountsRow(
+                            sourceAccounts = sourceAccounts,
+                            busy = busy,
+                            modifier = Modifier.weight(1f),
+                            onLoadSourceAccount = onLoadSourceAccount,
+                            onDeleteSourceAccount = onDeleteSourceAccount,
+                            onOpenCatalogPage = { account -> activeCatalogUrlPage = account.endpoint },
+                        )
+                    }
+                } else {
 
-                // WTR-LAB OrderBy, Status & Language Filter Controls (Pure E-Ink High Contrast)
-                Column(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalArrangement = Arrangement.spacedBy(6.dp),
-                ) {
+                    // WTR-LAB OrderBy, Status & Language Filter Controls (Pure E-Ink High Contrast)
+                    Column(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalArrangement = Arrangement.spacedBy(6.dp),
+                    ) {
                     Text(
                         text = "Sort Order (orderBy):",
                         style = MaterialTheme.typography.labelSmall,
@@ -532,12 +505,10 @@ fun RemoteSourcesTodoPanel(
                             )
                         }
                     }
+                    }
                 }
             }
 
-            RemoteSourceTodos.items.take(2).forEach { item ->
-                RemoteSourceTodoRow(item)
-            }
         }
     }
 }
@@ -546,19 +517,28 @@ fun RemoteSourcesTodoPanel(
 private fun SourceAccountsRow(
     sourceAccounts: List<RemoteSourceAccount>,
     busy: Boolean,
+    modifier: Modifier = Modifier,
     onLoadSourceAccount: (RemoteSourceAccount) -> Unit,
     onDeleteSourceAccount: (RemoteSourceAccount) -> Unit,
     onOpenCatalogPage: (RemoteSourceAccount) -> Unit = {},
 ) {
-    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+    Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(6.dp)) {
         Text(
             text = stringResource(R.string.remote_source_accounts_title, sourceAccounts.size),
             style = MaterialTheme.typography.labelLarge,
             color = EinkInk,
         )
-        sourceAccounts.take(6).forEach { account ->
+        com.dongholab.pagetuner.ui.common.EinkAutoFitPagingContainer(
+            items = sourceAccounts,
+            modifier = Modifier.weight(1f),
+            estimatedItemHeight = 112.dp,
+            fallbackPageSize = 3,
+            busy = busy,
+        ) { account ->
             Surface(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(112.dp),
                 color = EinkSoft,
                 shape = RoundedCornerShape(4.dp),
                 border = BorderStroke(1.dp, EinkLine),
@@ -683,7 +663,7 @@ fun RemoteBookRow(
     Surface(
         modifier = Modifier
             .fillMaxWidth()
-            .heightIn(min = 60.dp),
+            .height(104.dp),
         color = EinkSoft,
         shape = RoundedCornerShape(3.dp),
         border = BorderStroke(1.dp, EinkLine),
@@ -703,7 +683,7 @@ fun RemoteBookRow(
                 modifier = Modifier
                     .weight(1f)
                     .clickable(enabled = !busy) { onOpenDetail() },
-                verticalArrangement = Arrangement.Center,
+                verticalArrangement = Arrangement.spacedBy(1.dp),
             ) {
                 Text(
                     text = item.title,
@@ -720,26 +700,27 @@ fun RemoteBookRow(
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
-            }
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(2.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                if (item.downloadUrl.contains("/novel/") || item.downloadUrl.contains("/book/")) {
-                    TextButton(
-                        onClick = { onOpenDetail() },
-                        enabled = !busy,
-                        contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 6.dp, vertical = 2.dp),
-                    ) {
-                        Text("Detail 📂", style = MaterialTheme.typography.labelSmall)
-                    }
-                }
-                TextButton(
-                    onClick = { onImportItem(item) },
-                    enabled = !busy,
-                    contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 6.dp, vertical = 2.dp),
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.End,
+                    verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    Text("Import 📥", style = MaterialTheme.typography.labelSmall)
+                    if (item.downloadUrl.contains("/novel/") || item.downloadUrl.contains("/book/")) {
+                        TextButton(
+                            onClick = { onOpenDetail() },
+                            enabled = !busy,
+                            contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 8.dp, vertical = 1.dp),
+                        ) {
+                            Text("Details", style = MaterialTheme.typography.labelSmall)
+                        }
+                    }
+                    TextButton(
+                        onClick = { onImportItem(item) },
+                        enabled = !busy,
+                        contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 8.dp, vertical = 1.dp),
+                    ) {
+                        Text("Import", style = MaterialTheme.typography.labelSmall)
+                    }
                 }
             }
         }
@@ -793,42 +774,6 @@ fun RemoteCoverThumbnail(
                     .fillMaxSize()
                     .padding(1.dp),
                 contentScale = ContentScale.Crop,
-            )
-        }
-    }
-}
-
-@Composable
-private fun RemoteSourceTodoRow(item: RemoteSourceTodo) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(10.dp),
-        verticalAlignment = Alignment.Top,
-    ) {
-        Surface(
-            color = EinkPanel,
-            shape = RoundedCornerShape(4.dp),
-            border = BorderStroke(1.dp, EinkLine),
-        ) {
-            Text(
-                text = stringResource(item.phaseRes),
-                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                style = MaterialTheme.typography.labelSmall,
-                color = EinkInk,
-                fontFamily = FontFamily.Monospace,
-            )
-        }
-        Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = stringResource(item.titleRes),
-                style = MaterialTheme.typography.labelLarge,
-                color = EinkInk,
-                fontWeight = FontWeight.SemiBold,
-            )
-            Text(
-                text = stringResource(item.descriptionRes),
-                style = MaterialTheme.typography.bodySmall,
-                color = EinkMuted,
             )
         }
     }

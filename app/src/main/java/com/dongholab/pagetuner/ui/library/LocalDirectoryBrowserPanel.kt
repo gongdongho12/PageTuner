@@ -7,6 +7,8 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -64,13 +66,15 @@ fun LocalDirectoryBrowserPanel(
     }
 
     Surface(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier.fillMaxSize(),
         color = EinkPanel,
         shape = RoundedCornerShape(6.dp),
         border = BorderStroke(1.dp, EinkLine),
     ) {
         Column(
-            modifier = Modifier.padding(12.dp),
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(12.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             Row(
@@ -118,14 +122,17 @@ fun LocalDirectoryBrowserPanel(
                     color = EinkMuted,
                 )
             } else {
-                com.dongholab.pagetuner.ui.common.EinkPagingContainer(
+                com.dongholab.pagetuner.ui.common.EinkAutoFitPagingContainer(
                     items = entries,
-                    pageSize = 6,
+                    modifier = Modifier.weight(1f),
+                    estimatedItemHeight = 64.dp,
+                    fallbackPageSize = 5,
                     busy = busy,
                 ) { file ->
                     Surface(
                         modifier = Modifier
                             .fillMaxWidth()
+                            .height(64.dp)
                             .clickable(enabled = !busy) {
                                 if (file.isDirectory) {
                                     currentDir = file

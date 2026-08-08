@@ -3,118 +3,174 @@ package com.dongholab.pagetuner.source
 import android.util.Log
 import com.dongholab.pagetuner.common.DiagnosticLogger
 import com.dongholab.pagetuner.document.DocumentFormat
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
+import com.dongholab.pagetuner.source.scraper.WebNovelScraperRegistry
+import com.dongholab.pagetuner.source.wtr.NovelDetailResponse
+import com.dongholab.pagetuner.source.wtr.WtrLabDomScraper
+import java.io.IOException
+import java.net.URI
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 
 class WebNovelRemoteBookSource(
     override val accountId: String,
     private val endpointUrl: String,
+    private val fetchHtml: suspend (String) -> String = WebNovelHttpClient::fetchText,
+    private val renderedChapterLoader: RenderedChapterLoader? = WebNovelPageRuntime.renderedChapterLoader,
 ) : RemoteBookSource {
-
-    private val TAG = "WebNovelRemoteBookSource"
-
-    private fun logI(msg: String) {
-        runCatching { Log.i(TAG, msg) }.onFailure { println("[$TAG] $msg") }
-    }
-
-    private fun logD(msg: String) {
-        runCatching { Log.d(TAG, msg) }.onFailure { println("[$TAG] $msg") }
-    }
-
-    private fun logW(msg: String) {
-        runCatching { Log.w(TAG, msg) }.onFailure { println("[$TAG] $msg") }
-    }
-
-    private fun logE(msg: String, tr: Throwable? = null) {
-        runCatching { Log.e(TAG, msg, tr) }.onFailure { println("[$TAG] ERROR: $msg ${tr?.message}") }
-    }
-
     override val sourceType: RemoteSourceType = RemoteSourceType.WebNovel
 
-    override suspend fun connect(): RemoteSourceConnection = withContext(Dispatchers.IO) {
-        val html = fetchHttpText(endpointUrl)
+    private val pageMutex = Mutex()
+    @Volatile
+    private var cachedEndpointHtml: String? = null
+    @Volatile
+    private var cachedItems: List<RemoteBookItem>? = null
+
+    override suspend fun connect(): RemoteSourceConnection {
+        val html = endpointHtml()
         val title = WebNovelTextExtractor.extractNovelTitle(html, fallback = "Web Novel Source")
-        logD("Connected to $endpointUrl -> Title: $title (HTML length: ${html.length})")
-        RemoteSourceConnection(
+        val itemCount = runCatching { itemsFromHtml(html).size }.getOrDefault(0)
+        logD("Connected to $endpointUrl ($itemCount items, ${html.length} HTML chars)")
+        return RemoteSourceConnection(
             sourceType = sourceType,
             accountId = accountId,
             title = title,
-            itemCount = 0,
+            itemCount = itemCount,
         )
     }
 
-    override suspend fun list(): List<RemoteBookItem> = withContext(Dispatchers.IO) {
-        logD("Fetching catalog list from endpoint: $endpointUrl")
-        val htmlContent = fetchHttpText(endpointUrl)
-        val rawLinks = WebNovelTextExtractor.parseNovelLinksFromHtml(htmlContent, endpointUrl)
-        logD("Parsed ${rawLinks.size} novel items from $endpointUrl")
-        rawLinks.mapIndexed { index, (title, fullUrl, coverUrl) ->
+    override suspend fun list(): List<RemoteBookItem> = itemsFromHtml(endpointHtml())
+
+    override suspend fun search(query: String): List<RemoteBookItem> {
+        val items = list()
+        if (query.isBlank()) return items
+        return items.filter {
+            it.title.contains(query, ignoreCase = true) ||
+                it.downloadUrl.contains(query, ignoreCase = true) ||
+                it.authors.any { author -> author.contains(query, ignoreCase = true) }
+        }
+    }
+
+    suspend fun loadNovelDetail(): NovelDetailResponse {
+        val html = endpointHtml()
+        val id = novelIdFromUrl(endpointUrl) ?: 0L
+        return WebNovelScraperRegistry.findScraper(endpointUrl)
+            .parseNovelDetail(id, html, endpointUrl)
+    }
+
+    override suspend fun download(item: RemoteBookItem): ByteArray {
+        val targetUrl = resolveChapterUrl(item.downloadUrl)
+        val chapterNumber = chapterNumberFromUrl(targetUrl) ?: 1
+        val novelId = novelIdFromUrl(targetUrl) ?: novelIdFromUrl(item.downloadUrl) ?: 0L
+        DiagnosticLogger.log("[WEB FETCH]", "Loading chapter $chapterNumber from $targetUrl")
+
+        val response = if (isWtrLabUrl(targetUrl)) {
+            val loader = renderedChapterLoader
+            if (loader != null) {
+                val rendered = loader.loadChapter(targetUrl, chapterNumber)
+                com.dongholab.pagetuner.source.wtr.ChapterContentResponse(
+                    novelId = novelId,
+                    chapterNumber = chapterNumber,
+                    titleOriginal = rendered.title.ifBlank { item.title },
+                    paragraphs = rendered.paragraphs,
+                )
+            } else {
+                throw IOException(
+                    "This WTR-LAB chapter requires the app's rendered-page loader. " +
+                        "Open it from PageTurner and try again.",
+                )
+            }
+        } else {
+            val html = fetchHtml(targetUrl)
+            WebNovelScraperRegistry.findScraper(targetUrl)
+                .parseChapterContent(novelId, chapterNumber, html)
+        }
+
+        val paragraphs = response.paragraphs
+            .map { it.trim() }
+            .filter { it.isNotBlank() }
+        val extractedText = paragraphs.joinToString("\n\n")
+        if (extractedText.length < MIN_CHAPTER_CHARS) {
+            throw IOException(
+                "The chapter page loaded, but its rendered body was not available. " +
+                    "Please retry after checking the network connection.",
+            )
+        }
+
+        val finalTitle = response.titleOriginal.ifBlank { item.title }
+        DiagnosticLogger.log(
+            "[WEB PARSE SUCCESS]",
+            "Extracted ${paragraphs.size} paragraphs (${extractedText.length} chars) from $targetUrl",
+        )
+        return buildString {
+            append("# ").append(finalTitle).append("\n\n")
+            append(extractedText)
+        }.toByteArray(Charsets.UTF_8)
+    }
+
+    override suspend fun refresh(): List<RemoteBookItem> {
+        pageMutex.withLock {
+            cachedEndpointHtml = null
+            cachedItems = null
+        }
+        return list()
+    }
+
+    private suspend fun endpointHtml(): String {
+        cachedEndpointHtml?.let { return it }
+        return pageMutex.withLock {
+            cachedEndpointHtml?.let { return@withLock it }
+            val html = fetchHtml(endpointUrl)
+            if (html.isBlank()) throw IOException("Web novel page returned no HTML: $endpointUrl")
+            cachedEndpointHtml = html
+            html
+        }
+    }
+
+    private fun itemsFromHtml(html: String): List<RemoteBookItem> {
+        cachedItems?.let { return it }
+        return parseItems(html).also { cachedItems = it }
+    }
+
+    private fun parseItems(html: String): List<RemoteBookItem> {
+        if (isWtrLabUrl(endpointUrl) && isNovelDetailUrl(endpointUrl)) {
+            val novelId = novelIdFromUrl(endpointUrl) ?: 0L
+            val response = WtrLabDomScraper.parseChapterListResponse(novelId, html, endpointUrl)
+            return response.chapters.map { chapter ->
+                createWebNovelItem(
+                    id = "chapter_${chapter.chapterNumber}",
+                    title = chapter.title,
+                    downloadUrl = resolveUrl(endpointUrl, chapter.urlPath),
+                    authors = emptyList(),
+                    language = languageFromUrl(endpointUrl),
+                )
+            }
+        }
+
+        val catalog = WebNovelScraperRegistry.findScraper(endpointUrl).parseCatalog(html, endpointUrl)
+        return catalog.novels.map { novel ->
             createWebNovelItem(
-                id = "wn_$index",
-                title = title,
-                downloadUrl = fullUrl,
-                coverUrl = coverUrl,
-                authors = listOf("WTR-Lab Author"),
-                language = "en",
+                id = "novel_${novel.novelId}",
+                title = novel.title,
+                downloadUrl = novelUrl(novel.novelId, novel.slug),
+                coverUrl = novel.coverUrl,
+                authors = emptyList(),
+                language = languageFromUrl(endpointUrl),
+                chapterCount = novel.chapterCount,
             )
         }
     }
 
-    override suspend fun search(query: String): List<RemoteBookItem> = withContext(Dispatchers.IO) {
-        val items = list()
-        if (query.isBlank()) return@withContext items
-        items.filter { it.title.contains(query, ignoreCase = true) || it.downloadUrl.contains(query, ignoreCase = true) }
-    }
-
-    override suspend fun download(item: RemoteBookItem): ByteArray = withContext(Dispatchers.IO) {
-        var targetUrl = item.downloadUrl
-        logD("Starting download request for item: '${item.title}' at URL: $targetUrl")
-
-        // If the URL is a novel overview catalog page, automatically resolve to Chapter 1
-        if (!targetUrl.contains("/chapter/") && !targetUrl.contains("/ch-") && !targetUrl.endsWith(".html")) {
-            logD("URL is novel overview page. Fetching TOC to resolve Chapter 1...")
-            val overviewHtml = fetchHttpText(targetUrl)
-            val chapters = WebNovelTextExtractor.parseNovelLinksFromHtml(overviewHtml, targetUrl)
-            val ch1 = chapters.firstOrNull { it.first.contains("Chapter", ignoreCase = true) || it.second.contains("/chapter/") }
-                ?: chapters.firstOrNull()
-            if (ch1 != null) {
-                targetUrl = ch1.second
-                logD("Resolved Chapter 1 URL: $targetUrl (Title: ${ch1.first})")
-            } else {
-                logW("Could not resolve Chapter 1 from overview page $targetUrl. Downloading overview directly.")
-            }
+    private suspend fun resolveChapterUrl(rawUrl: String): String {
+        if (chapterNumberFromUrl(rawUrl) != null) return rawUrl
+        if (isWtrLabUrl(rawUrl) && isNovelDetailUrl(rawUrl)) {
+            return "${rawUrl.substringBefore('?').trimEnd('/')}/chapter-1"
         }
 
-        val htmlContent = fetchHttpText(targetUrl)
-        DiagnosticLogger.log("[STEP 1: FETCH SUCCESS]", "Received HTML (${htmlContent.length} chars) from $targetUrl")
-
-        val chapterResponse = com.dongholab.pagetuner.source.wtr.WtrLabDomScraper.parseChapterContentResponse(
-            novelId = 65434L,
-            chapterNumber = 1,
-            html = htmlContent,
-        )
-        val finalTitle = chapterResponse.titleOriginal.ifBlank { item.title }
-        var extractedText = chapterResponse.paragraphs.joinToString("\n\n")
-
-        if (extractedText.isBlank()) {
-            DiagnosticLogger.log("[STEP 2: PARSE WARNING]", "Extracted text was BLANK for $targetUrl!")
-            extractedText = "Unable to extract novel text from $targetUrl.\n\nPage Title: $finalTitle\n\nPlease check network connection."
-        } else {
-            DiagnosticLogger.log("[STEP 2: PARSE SUCCESS]", "Extracted ${chapterResponse.paragraphs.size} paragraphs (${extractedText.length} chars) from $targetUrl (Title: '$finalTitle')")
-        }
-
-        val formattedBookText = buildString {
-            append("# ").append(finalTitle).append("\n\n")
-            append(extractedText)
-        }
-
-        val bytes = formattedBookText.toByteArray(Charsets.UTF_8)
-        logD("Generated book document byte array (${bytes.size} bytes)")
-        bytes
-    }
-
-    override suspend fun refresh(): List<RemoteBookItem> {
-        return list()
+        val html = if (rawUrl == endpointUrl) endpointHtml() else fetchHtml(rawUrl)
+        return WebNovelTextExtractor.parseNovelLinksFromHtml(html, rawUrl)
+            .firstOrNull { (_, url, _) -> chapterNumberFromUrl(url) != null }
+            ?.second
+            ?: throw IOException("No readable chapter link was found on $rawUrl")
     }
 
     private fun createWebNovelItem(
@@ -124,80 +180,57 @@ class WebNovelRemoteBookSource(
         coverUrl: String? = null,
         authors: List<String>,
         language: String,
-    ): RemoteBookItem {
-        return RemoteBookItem(
-            identity = RemoteBookIdentity(
-                sourceType = sourceType,
-                accountId = accountId,
-                remoteId = id,
-            ),
-            title = title,
-            authors = authors,
-            format = DocumentFormat.TEXT,
-            language = language,
-            contentType = "text/plain",
-            downloadUrl = downloadUrl,
-            coverUrl = coverUrl,
-        )
+        description: String? = null,
+        chapterCount: Int? = null,
+        tags: List<String> = emptyList(),
+    ): RemoteBookItem = RemoteBookItem(
+        identity = RemoteBookIdentity(
+            sourceType = sourceType,
+            accountId = accountId,
+            remoteId = id,
+        ),
+        title = title,
+        authors = authors,
+        format = DocumentFormat.TEXT,
+        language = language,
+        contentType = "text/plain",
+        downloadUrl = downloadUrl,
+        coverUrl = coverUrl,
+        description = description,
+        chapterCount = chapterCount,
+        tags = tags,
+    )
+
+    private fun novelUrl(novelId: Long, slug: String): String {
+        val uri = URI(endpointUrl)
+        val language = languageFromUrl(endpointUrl)
+        return "${uri.scheme}://${uri.authority}/$language/novel/$novelId/$slug"
     }
 
-    private fun fetchHttpText(urlString: String): String {
-        var currentUrl = urlString
-        repeat(5) { redirectCount ->
-            runCatching {
-                val url = java.net.URL(currentUrl)
-                val connection = url.openConnection() as java.net.HttpURLConnection
-                connection.requestMethod = "GET"
-                connection.instanceFollowRedirects = true
+    private fun resolveUrl(baseUrl: String, value: String): String =
+        runCatching { URI(baseUrl).resolve(value).toString() }.getOrDefault(value)
 
-                val domain = runCatching { url.host }.getOrDefault("wtr-lab.com")
-                val origin = "https://$domain"
+    private fun languageFromUrl(url: String): String =
+        Regex("https?://[^/]+/([^/?#]+)").find(url)?.groupValues?.get(1)?.takeIf { it.length <= 3 } ?: "en"
 
-                // Authentic Chrome Desktop User-Agent Spoofing & Client Hints
-                connection.setRequestProperty("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36")
-                connection.setRequestProperty("Referer", origin)
-                connection.setRequestProperty("Origin", origin)
-                connection.setRequestProperty("sec-ch-ua", "\"Chromium\";v=\"124\", \"Google Chrome\";v=\"124\", \"Not-A.Brand\";v=\"99\"")
-                connection.setRequestProperty("sec-ch-ua-mobile", "?0")
-                connection.setRequestProperty("sec-ch-ua-platform", "\"Windows\"")
-                connection.setRequestProperty("sec-fetch-dest", "document")
-                connection.setRequestProperty("sec-fetch-mode", "navigate")
-                connection.setRequestProperty("sec-fetch-site", "same-origin")
-                connection.setRequestProperty("sec-fetch-user", "?1")
-                connection.setRequestProperty("Upgrade-Insecure-Requests", "1")
-                connection.setRequestProperty("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8")
-                connection.setRequestProperty("Accept-Language", "en-US,en;q=0.9,ko;q=0.8")
+    private fun isNovelDetailUrl(url: String): Boolean =
+        Regex("/novel/\\d+/[^/?#]+").containsMatchIn(url) && chapterNumberFromUrl(url) == null
 
-                connection.connectTimeout = 12000
-                connection.readTimeout = 12000
+    private fun novelIdFromUrl(url: String): Long? =
+        Regex("/novel/(\\d+)").find(url)?.groupValues?.get(1)?.toLongOrNull()
 
-                val responseCode = connection.responseCode
-                logD("HTTP GET [$redirectCount] $currentUrl -> Response Code $responseCode")
+    private fun chapterNumberFromUrl(url: String): Int? =
+        Regex("/chapter-(\\d+)", RegexOption.IGNORE_CASE).find(url)?.groupValues?.get(1)?.toIntOrNull()
 
-                if (responseCode in 300..399) {
-                    val redirectUrl = connection.getHeaderField("Location")
-                    if (!redirectUrl.isNullOrBlank()) {
-                        logD("Redirecting to $redirectUrl")
-                        currentUrl = redirectUrl
-                        return@repeat
-                    }
-                }
-                if (responseCode in 200..299) {
-                    val inputStream = if ("gzip".equals(connection.contentEncoding, ignoreCase = true)) {
-                        java.util.zip.GZIPInputStream(connection.inputStream)
-                    } else {
-                        connection.inputStream
-                    }
-                    val text = inputStream.bufferedReader(Charsets.UTF_8).use { it.readText() }
-                    logD("Successfully read ${text.length} chars from $currentUrl")
-                    return text
-                } else {
-                    logW("HTTP GET failed with code $responseCode for $currentUrl")
-                }
-            }.onFailure { error ->
-                logE("Error fetching HTTP text from $currentUrl: ${error.message}", error)
-            }
-        }
-        return ""
+    private fun isWtrLabUrl(url: String): Boolean =
+        runCatching { URI(url).host.orEmpty().equals("wtr-lab.com", ignoreCase = true) }.getOrDefault(false)
+
+    private fun logD(message: String) {
+        runCatching { Log.d(TAG, message) }.onFailure { println("[$TAG] $message") }
+    }
+
+    private companion object {
+        const val TAG = "WebNovelRemoteSource"
+        const val MIN_CHAPTER_CHARS = 100
     }
 }

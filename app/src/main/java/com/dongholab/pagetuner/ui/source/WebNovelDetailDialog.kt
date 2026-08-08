@@ -5,11 +5,9 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -29,7 +27,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.dongholab.pagetuner.source.RemoteBookItem
-import com.dongholab.pagetuner.ui.common.EinkPagingContainer
+import com.dongholab.pagetuner.ui.common.EinkAutoFitPagingContainer
 import com.dongholab.pagetuner.ui.theme.EinkInk
 import com.dongholab.pagetuner.ui.theme.EinkLine
 import com.dongholab.pagetuner.ui.theme.EinkMuted
@@ -74,8 +72,7 @@ fun WebNovelDetailDialog(
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .heightIn(max = 480.dp)
-                    .verticalScroll(rememberScrollState()),
+                    .height(480.dp),
                 verticalArrangement = Arrangement.spacedBy(10.dp),
             ) {
                 // Novel Metadata & Details
@@ -127,10 +124,12 @@ fun WebNovelDetailDialog(
                 )
 
                 // Paginated Chapter List for E-Ink
-                EinkPagingContainer(
+                EinkAutoFitPagingContainer(
                     items = filteredChapters,
-                    pageSize = 6,
+                    estimatedItemHeight = 64.dp,
+                    fallbackPageSize = 3,
                     busy = busy,
+                    modifier = Modifier.weight(1f),
                     emptyContent = {
                         Text(
                             text = if (chapters.isEmpty()) "Loading chapter list..." else "No chapters match your filter.",
@@ -140,7 +139,9 @@ fun WebNovelDetailDialog(
                     },
                 ) { chapter ->
                     Surface(
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(64.dp),
                         color = EinkPanel,
                         shape = RoundedCornerShape(4.dp),
                         border = BorderStroke(1.dp, EinkLine),

@@ -180,6 +180,8 @@ not as source-code bases.
 
 ### Developer Docs
 
+- E-Ink UI implementation guide:
+  [docs/EINK_UI_GUIDE.md](docs/EINK_UI_GUIDE.md)
 - Product TODO:
   [docs/PRODUCT_TODO.md](docs/PRODUCT_TODO.md)
 - Architecture notes:

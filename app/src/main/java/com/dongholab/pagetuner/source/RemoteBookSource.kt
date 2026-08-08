@@ -39,6 +39,9 @@ data class RemoteBookItem(
     val checksum: String? = null,
     val updatedAt: String? = null,
     val coverUrl: String? = null,
+    val description: String? = null,
+    val chapterCount: Int? = null,
+    val tags: List<String> = emptyList(),
     val translationHints: RemoteTranslationHints = RemoteTranslationHints(),
 )
 

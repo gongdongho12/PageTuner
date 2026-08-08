@@ -74,6 +74,7 @@ sealed interface WebCatalogEvent {
     data class ImportDownloaded(
         val item: RemoteBookItem,
         val bytes: ByteArray,
+        val translateAfterImport: Boolean,
     ) : WebCatalogEvent
 }
 
@@ -210,7 +211,7 @@ class WebCatalogViewModel(
         }
     }
 
-    fun importItem(item: RemoteBookItem) {
+    fun importItem(item: RemoteBookItem, translateAfterImport: Boolean = false) {
         if (_uiState.value.busy) return
         viewModelScope.launch {
             _uiState.update { state ->
@@ -227,7 +228,7 @@ class WebCatalogViewModel(
                     PageTurnerWebCatalogNetwork.fetchBytes(item.downloadUrl)
                 }
             }.onSuccess { bytes ->
-                _events.emit(WebCatalogEvent.ImportDownloaded(item, bytes))
+                _events.emit(WebCatalogEvent.ImportDownloaded(item, bytes, translateAfterImport))
                 _uiState.update { state ->
                     state.copy(
                         busy = false,

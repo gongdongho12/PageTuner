@@ -24,6 +24,7 @@ fun WebNovelScreen(
     onDeleteSourceAccount: (RemoteSourceAccount) -> Unit,
     onLoadCachedCatalog: (CachedWebCatalog) -> Unit,
     onImportItem: (RemoteBookItem) -> Unit,
+    onReadAndTranslateItem: (RemoteBookItem) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     RemoteSourcesTodoPanel(
@@ -45,5 +46,6 @@ fun WebNovelScreen(
         onDeleteSourceAccount = onDeleteSourceAccount,
         onLoadCachedCatalog = onLoadCachedCatalog,
         onImportItem = onImportItem,
+        onReadAndTranslateItem = onReadAndTranslateItem,
     )
 }

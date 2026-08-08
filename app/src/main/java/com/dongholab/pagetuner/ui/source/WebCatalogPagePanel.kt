@@ -7,12 +7,13 @@ import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -39,6 +40,7 @@ import com.dongholab.pagetuner.ui.theme.EinkInk
 import com.dongholab.pagetuner.ui.theme.EinkLine
 import com.dongholab.pagetuner.ui.theme.EinkMuted
 import com.dongholab.pagetuner.ui.theme.EinkPanel
+import com.dongholab.pagetuner.ui.common.EinkOperationIndicator
 
 @OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
 @Composable
@@ -88,13 +90,15 @@ fun WebCatalogPagePanel(
     }
 
     Surface(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier.fillMaxSize(),
         color = EinkPanel,
         shape = RoundedCornerShape(6.dp),
         border = BorderStroke(1.dp, EinkLine),
     ) {
         Column(
-            modifier = Modifier.padding(14.dp),
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(12.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             // Top Navigation Bar
@@ -104,7 +108,7 @@ fun WebCatalogPagePanel(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 TextButton(onClick = onBackToSourceManager, enabled = !busy) {
-                    Icon(Icons.Filled.ArrowBack, contentDescription = "Back", tint = EinkInk, modifier = Modifier.size(18.dp))
+                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = EinkInk, modifier = Modifier.size(18.dp))
                     Spacer(Modifier.width(6.dp))
                     Text("◄ Back to Sources Manager", style = MaterialTheme.typography.labelLarge, color = EinkInk, fontWeight = FontWeight.Bold)
                 }
@@ -140,8 +144,6 @@ fun WebCatalogPagePanel(
                 singleLine = true,
             )
 
-            var selectedPageSize by remember { mutableStateOf(3) }
-
             // Language & Genre Filter Chips
             Column(
                 modifier = Modifier.fillMaxWidth(),
@@ -153,20 +155,7 @@ fun WebCatalogPagePanel(
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Text("Language Filter:", style = MaterialTheme.typography.labelSmall, color = EinkMuted)
-                    Row(
-                        horizontalArrangement = Arrangement.spacedBy(4.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Text("Page Size:", style = MaterialTheme.typography.labelSmall, color = EinkMuted)
-                        listOf(3, 4, 5).forEach { size ->
-                            FilterChip(
-                                selected = selectedPageSize == size,
-                                onClick = { selectedPageSize = size },
-                                enabled = !busy,
-                                label = { Text("${size}/p", style = MaterialTheme.typography.labelSmall) },
-                            )
-                        }
-                    }
+                    Text("Auto-fit pages", style = MaterialTheme.typography.labelSmall, color = EinkMuted)
                 }
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     listOf("All", "en", "ko").forEach { lang ->
@@ -192,11 +181,18 @@ fun WebCatalogPagePanel(
                 }
             }
 
+            EinkOperationIndicator(
+                visible = busy,
+                title = "Loading catalog page…",
+                detail = statusText,
+            )
+
             // Catalog Items List with E-Ink Dynamic Auto-Fit Discrete Pagination
             com.dongholab.pagetuner.ui.common.EinkAutoFitPagingContainer(
                 items = filteredItems,
-                estimatedItemHeight = 62.dp,
+                estimatedItemHeight = 104.dp,
                 busy = busy,
+                modifier = Modifier.weight(1f),
                 emptyContent = {
                     Text(
                         text = if (items.isEmpty()) "Loading catalog page items..." else "No novels match your filter.",

@@ -3,10 +3,13 @@ package com.dongholab.pagetuner.ui.source
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -28,7 +31,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.dongholab.pagetuner.display.DisplayMode
 import com.dongholab.pagetuner.source.RemoteBookItem
-import com.dongholab.pagetuner.ui.common.EinkPagingContainer
+import com.dongholab.pagetuner.ui.common.EinkAutoFitPagingContainer
+import com.dongholab.pagetuner.ui.common.EinkViewportSurface
 import com.dongholab.pagetuner.ui.theme.EinkInk
 import com.dongholab.pagetuner.ui.theme.EinkLine
 import com.dongholab.pagetuner.ui.theme.EinkMuted
@@ -43,16 +47,11 @@ fun FavoritesPanel(
     onOpenNovelDetail: (RemoteBookItem) -> Unit,
     onRemoveFavorite: (RemoteBookItem) -> Unit,
 ) {
-    Surface(
-        modifier = Modifier.fillMaxWidth(),
-        color = EinkPanel,
-        shape = RoundedCornerShape(6.dp),
-        border = BorderStroke(1.dp, EinkLine),
+    EinkViewportSurface(
+        modifier = Modifier.fillMaxSize(),
+        contentPadding = PaddingValues(14.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
-        Column(
-            modifier = Modifier.padding(14.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp),
-        ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
@@ -74,13 +73,17 @@ fun FavoritesPanel(
                     color = EinkMuted,
                 )
             } else {
-                EinkPagingContainer(
+                EinkAutoFitPagingContainer(
                     items = favorites,
-                    pageSize = 5,
+                    modifier = Modifier.weight(1f),
+                    estimatedItemHeight = 116.dp,
+                    fallbackPageSize = 3,
                     busy = busy,
                 ) { item ->
                     Surface(
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(116.dp),
                         color = EinkSoft,
                         shape = RoundedCornerShape(4.dp),
                         border = BorderStroke(1.dp, EinkLine),
@@ -109,6 +112,8 @@ fun FavoritesPanel(
                                     text = "Author: ${item.authors.firstOrNull() ?: "WTR-Lab Author"} | Language: ${item.language ?: "en"}",
                                     style = MaterialTheme.typography.bodySmall,
                                     color = EinkMuted,
+                                    maxLines = 2,
+                                    overflow = TextOverflow.Ellipsis,
                                 )
                             }
                             Column(horizontalAlignment = Alignment.End) {
@@ -131,6 +136,5 @@ fun FavoritesPanel(
                     }
                 }
             }
-        }
     }
 }

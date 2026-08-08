@@ -267,10 +267,14 @@ object WebNovelTextExtractor {
                 val jsonObj = JSONObject(jsonString)
                 val props = jsonObj.optJSONObject("props")?.optJSONObject("pageProps")
                 val serie = props?.optJSONObject("serie")
-                    ?: props?.optJSONObject("novel")
-                    ?: props?.optJSONObject("data")
-                val desc = serie?.optString("description")?.takeIf { it.isNotBlank() }
+                val serieData = serie?.optJSONObject("serie_data")
+                val dataObj = serieData?.optJSONObject("data")
+
+                val desc = dataObj?.optString("description")?.takeIf { it.isNotBlank() }
+                    ?: serieData?.optString("description")?.takeIf { it.isNotBlank() }
+                    ?: serie?.optString("description")?.takeIf { it.isNotBlank() }
                     ?: serie?.optString("synopsis")
+
                 if (!desc.isNullOrBlank()) {
                     return decodeHtmlEntities(desc.replace(Regex("<[^>]+>"), "")).trim()
                 }

@@ -1,33 +1,32 @@
 package com.dongholab.pagetuner.ui.common
 
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.font.FontFamily
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.isSpecified
-import com.dongholab.pagetuner.ui.theme.EinkInk
-import com.dongholab.pagetuner.ui.theme.EinkLine
-import com.dongholab.pagetuner.ui.theme.EinkMuted
-import com.dongholab.pagetuner.ui.theme.EinkPaper
+
+internal fun calculateEinkAutoFitPageSize(
+    viewportHeightDp: Float?,
+    itemHeightDp: Float,
+    itemSpacingDp: Float,
+    fallbackPageSize: Int,
+    reservedNavigationHeightDp: Float = 60f,
+): Int {
+    if (viewportHeightDp == null || !viewportHeightDp.isFinite() || viewportHeightDp <= 0f) {
+        return fallbackPageSize.coerceIn(1, 5)
+    }
+    val availableHeight = (viewportHeightDp - reservedNavigationHeightDp).coerceAtLeast(itemHeightDp)
+    return (availableHeight / (itemHeightDp + itemSpacingDp)).toInt().coerceIn(1, 8)
+}
 
 /**
  * An E-Ink Discrete Paging Container that strictly enforces ZERO item clipping.
@@ -36,9 +35,10 @@ import com.dongholab.pagetuner.ui.theme.EinkPaper
 @Composable
 fun <T> EinkAutoFitPagingContainer(
     items: List<T>,
+    modifier: Modifier = Modifier,
     estimatedItemHeight: Dp = 54.dp,
     itemSpacing: Dp = 6.dp,
-    fallbackPageSize: Int = 6,
+    fallbackPageSize: Int = 3,
     busy: Boolean = false,
     emptyContent: @Composable () -> Unit = {},
     itemContent: @Composable (T) -> Unit,
@@ -48,20 +48,16 @@ fun <T> EinkAutoFitPagingContainer(
         return
     }
 
-    BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
-        val reservedHeaderAndPadding = 56.dp
-        val availableHeight = if (maxHeight.isSpecified && maxHeight.value > 0 && !maxHeight.value.isInfinite()) {
-            (maxHeight - reservedHeaderAndPadding).coerceAtLeast(estimatedItemHeight)
-        } else {
-            Dp.Unspecified
+    BoxWithConstraints(modifier = modifier.fillMaxWidth()) {
+        val viewportHeightDp = maxHeight.value.takeIf {
+            maxHeight.isSpecified && it > 0f && it.isFinite()
         }
-
-        val itemSlotHeight = estimatedItemHeight + itemSpacing
-        val calculatedPageSize = if (availableHeight.isSpecified) {
-            (availableHeight / itemSlotHeight).toInt().coerceIn(1, 15)
-        } else {
-            fallbackPageSize
-        }
+        val calculatedPageSize = calculateEinkAutoFitPageSize(
+            viewportHeightDp = viewportHeightDp,
+            itemHeightDp = estimatedItemHeight.value,
+            itemSpacingDp = itemSpacing.value,
+            fallbackPageSize = fallbackPageSize,
+        )
 
         var currentPageIndex by remember(items, calculatedPageSize) { mutableStateOf(0) }
         val totalPages = (items.size + calculatedPageSize - 1) / calculatedPageSize
@@ -76,52 +72,16 @@ fun <T> EinkAutoFitPagingContainer(
             verticalArrangement = Arrangement.spacedBy(itemSpacing),
         ) {
             if (totalPages > 1) {
-                Surface(
-                    modifier = Modifier.fillMaxWidth(),
-                    color = EinkPaper,
-                    shape = RoundedCornerShape(4.dp),
-                    border = BorderStroke(1.dp, EinkLine),
-                ) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 8.dp, vertical = 2.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        TextButton(
-                            onClick = { if (safePageIndex > 0) currentPageIndex = safePageIndex - 1 },
-                            enabled = safePageIndex > 0 && !busy,
-                        ) {
-                            Text(
-                                text = "◄ Prev",
-                                style = MaterialTheme.typography.labelLarge,
-                                fontWeight = FontWeight.Bold,
-                                color = if (safePageIndex > 0 && !busy) EinkInk else EinkMuted,
-                            )
-                        }
-
-                        Text(
-                            text = "$startIndex-$endIndex / ${items.size} (Page ${safePageIndex + 1}/$totalPages)",
-                            style = MaterialTheme.typography.labelMedium,
-                            fontWeight = FontWeight.SemiBold,
-                            fontFamily = FontFamily.Monospace,
-                            color = EinkInk,
-                        )
-
-                        TextButton(
-                            onClick = { if (safePageIndex < totalPages - 1) currentPageIndex = safePageIndex + 1 },
-                            enabled = safePageIndex < totalPages - 1 && !busy,
-                        ) {
-                            Text(
-                                text = "Next ►",
-                                style = MaterialTheme.typography.labelLarge,
-                                fontWeight = FontWeight.Bold,
-                                color = if (safePageIndex < totalPages - 1 && !busy) EinkInk else EinkMuted,
-                            )
-                        }
-                    }
-                }
+                EinkPageNavigation(
+                    startIndex = startIndex,
+                    endIndex = endIndex,
+                    itemCount = items.size,
+                    pageIndex = safePageIndex,
+                    pageCount = totalPages,
+                    busy = busy,
+                    onPrevious = { currentPageIndex = (safePageIndex - 1).coerceAtLeast(0) },
+                    onNext = { currentPageIndex = (safePageIndex + 1).coerceAtMost(totalPages - 1) },
+                )
             }
 
             currentPageItems.forEach { item ->
