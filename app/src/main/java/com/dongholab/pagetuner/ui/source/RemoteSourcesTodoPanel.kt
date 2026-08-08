@@ -65,6 +65,7 @@ import com.dongholab.pagetuner.ui.theme.EinkInk
 import com.dongholab.pagetuner.ui.theme.EinkLine
 import com.dongholab.pagetuner.ui.theme.EinkMuted
 import com.dongholab.pagetuner.ui.theme.EinkPanel
+import com.dongholab.pagetuner.ui.theme.EinkPaper
 import com.dongholab.pagetuner.ui.theme.EinkSoft
 
 @Composable
@@ -189,78 +190,91 @@ fun RemoteSourcesTodoPanel(
                 }
             }
 
+            // E-Ink Segmented Switcher Sub-Tab Bar ([ 📚 Catalog (Count) | ⚙️ Sources & Filters ])
             Surface(
                 modifier = Modifier.fillMaxWidth(),
                 color = EinkPanel,
                 shape = RoundedCornerShape(4.dp),
-                border = BorderStroke(1.dp, EinkLine),
+                border = BorderStroke(1.dp, EinkInk),
             ) {
                 Row(
                     modifier = Modifier.padding(2.dp),
-                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                    horizontalArrangement = Arrangement.spacedBy(2.dp),
                 ) {
                     Surface(
                         modifier = Modifier
                             .weight(1f)
-                            .defaultMinSize(minHeight = 40.dp)
+                            .height(38.dp)
                             .clickable { activeSubTab = 0 },
-                        color = if (activeSubTab == 0) EinkSoft else EinkPanel,
+                        color = if (activeSubTab == 0) EinkPaper else EinkPanel,
                         shape = RoundedCornerShape(3.dp),
                         border = BorderStroke(1.dp, if (activeSubTab == 0) EinkInk else EinkLine),
                     ) {
-                        Column(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalAlignment = Alignment.CenterHorizontally,
+                        Box(
+                            modifier = Modifier.fillMaxSize(),
+                            contentAlignment = Alignment.Center,
                         ) {
-                            Text(
-                                text = "📚 Novel Catalog (${items.size})",
-                                style = MaterialTheme.typography.labelMedium,
-                                fontWeight = if (activeSubTab == 0) FontWeight.Bold else FontWeight.Medium,
-                                color = if (activeSubTab == 0) EinkInk else EinkMuted,
-                                modifier = Modifier.padding(vertical = 8.dp),
-                            )
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .height(3.dp)
-                                    .background(if (activeSubTab == 0) EinkInk else EinkPanel),
-                            )
+                            Column(
+                                modifier = Modifier.fillMaxSize(),
+                                verticalArrangement = Arrangement.SpaceBetween,
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                            ) {
+                                Spacer(Modifier.height(4.dp))
+                                Text(
+                                    text = "📚 Novel Catalog (${items.size})",
+                                    style = MaterialTheme.typography.labelLarge,
+                                    fontWeight = if (activeSubTab == 0) FontWeight.Bold else FontWeight.Medium,
+                                    color = if (activeSubTab == 0) EinkInk else EinkMuted,
+                                )
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(3.dp)
+                                        .background(if (activeSubTab == 0) EinkInk else EinkPaper),
+                                )
+                            }
                         }
                     }
 
                     Surface(
                         modifier = Modifier
                             .weight(1f)
-                            .defaultMinSize(minHeight = 40.dp)
+                            .height(38.dp)
                             .clickable { activeSubTab = 1 },
-                        color = if (activeSubTab == 1) EinkSoft else EinkPanel,
+                        color = if (activeSubTab == 1) EinkPaper else EinkPanel,
                         shape = RoundedCornerShape(3.dp),
                         border = BorderStroke(1.dp, if (activeSubTab == 1) EinkInk else EinkLine),
                     ) {
-                        Column(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalAlignment = Alignment.CenterHorizontally,
+                        Box(
+                            modifier = Modifier.fillMaxSize(),
+                            contentAlignment = Alignment.Center,
                         ) {
-                            Text(
-                                text = "⚙️ Sources & Filters",
-                                style = MaterialTheme.typography.labelMedium,
-                                fontWeight = if (activeSubTab == 1) FontWeight.Bold else FontWeight.Medium,
-                                color = if (activeSubTab == 1) EinkInk else EinkMuted,
-                                modifier = Modifier.padding(vertical = 8.dp),
-                            )
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .height(3.dp)
-                                    .background(if (activeSubTab == 1) EinkInk else EinkPanel),
-                            )
+                            Column(
+                                modifier = Modifier.fillMaxSize(),
+                                verticalArrangement = Arrangement.SpaceBetween,
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                            ) {
+                                Spacer(Modifier.height(4.dp))
+                                Text(
+                                    text = "⚙️ Sources & Filters",
+                                    style = MaterialTheme.typography.labelLarge,
+                                    fontWeight = if (activeSubTab == 1) FontWeight.Bold else FontWeight.Medium,
+                                    color = if (activeSubTab == 1) EinkInk else EinkMuted,
+                                )
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(3.dp)
+                                        .background(if (activeSubTab == 1) EinkInk else EinkPaper),
+                                )
+                            }
                         }
                     }
                 }
             }
 
             if (activeSubTab == 0) {
-                // Sub-Tab 1: 📚 Novel Catalog View (Maximum Content Viewport Exposure!)
+                // Sub-Tab 1: 📚 Novel Catalog View (Refined Quick Launcher & Maximum Exposure!)
                 var isQuickActionsExpanded by remember { mutableStateOf(false) }
 
                 Surface(
@@ -269,10 +283,11 @@ fun RemoteSourcesTodoPanel(
                     shape = RoundedCornerShape(4.dp),
                     border = BorderStroke(1.dp, EinkLine),
                 ) {
-                    Column(modifier = Modifier.padding(6.dp)) {
+                    Column(modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)) {
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
+                                .height(32.dp)
                                 .clickable { isQuickActionsExpanded = !isQuickActionsExpanded },
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically,
@@ -281,28 +296,20 @@ fun RemoteSourcesTodoPanel(
                                 horizontalArrangement = Arrangement.spacedBy(6.dp),
                                 verticalAlignment = Alignment.CenterVertically,
                             ) {
+                                Icon(Icons.Filled.CloudDownload, contentDescription = null, tint = EinkInk, modifier = Modifier.size(16.dp))
                                 Text(
-                                    text = "⚡ Quick Actions & Direct URL",
+                                    text = "⚡ Quick Actions & Direct URL 🚀",
                                     style = MaterialTheme.typography.labelMedium,
                                     fontWeight = FontWeight.Bold,
                                     color = EinkInk,
                                 )
-                                Text(
-                                    text = "• 1 HP, 10,000 SHIELD...",
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = EinkMuted,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis,
-                                )
                             }
-                            TextButton(onClick = { isQuickActionsExpanded = !isQuickActionsExpanded }) {
-                                Text(
-                                    text = if (isQuickActionsExpanded) "Collapse ▲" else "Expand ▼",
-                                    style = MaterialTheme.typography.labelSmall,
-                                    fontWeight = FontWeight.Bold,
-                                    color = EinkInk,
-                                )
-                            }
+                            Text(
+                                text = if (isQuickActionsExpanded) "Collapse ▲" else "Expand ▼",
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = FontWeight.Bold,
+                                color = EinkInk,
+                            )
                         }
 
                         if (isQuickActionsExpanded) {
