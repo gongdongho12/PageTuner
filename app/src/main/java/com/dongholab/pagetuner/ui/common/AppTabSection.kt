@@ -73,13 +73,13 @@ fun AppTabNavigation(
                         horizontalAlignment = Alignment.CenterHorizontally,
                     ) {
                         Row(
-                            modifier = Modifier.padding(vertical = 8.dp, horizontal = 2.dp),
+                            modifier = Modifier.padding(vertical = 6.dp, horizontal = 1.dp),
                             horizontalArrangement = Arrangement.Center,
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
                             Text(
                                 text = tab.title,
-                                style = MaterialTheme.typography.labelMedium.copy(fontSize = 11.sp),
+                                style = MaterialTheme.typography.labelMedium.copy(fontSize = 10.5.sp),
                                 fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
                                 color = if (selected) EinkInk else EinkMuted,
                                 maxLines = 1,
