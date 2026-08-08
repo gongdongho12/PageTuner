@@ -1,13 +1,16 @@
 package com.dongholab.pagetuner.ui.screen
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -19,7 +22,14 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import com.dongholab.pagetuner.ui.theme.EinkInk
+import com.dongholab.pagetuner.ui.theme.EinkLine
+import com.dongholab.pagetuner.ui.theme.EinkMuted
+import com.dongholab.pagetuner.ui.theme.EinkPanel
+import com.dongholab.pagetuner.ui.theme.EinkSoft
 import com.dongholab.pagetuner.display.DisplayMode
 import com.dongholab.pagetuner.reader.PageTurnMode
 import com.dongholab.pagetuner.reader.PdfFitMode
@@ -100,33 +110,57 @@ fun SettingsScreen(
         modifier = modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        // E-Ink Sub-Tab Navigation Bar
+        // E-Ink Sub-Tab Navigation Bar with Active Tab Indicator
         Surface(
             modifier = Modifier.fillMaxWidth(),
-            color = EinkPaper,
+            color = EinkPanel,
             shape = RoundedCornerShape(4.dp),
             border = BorderStroke(1.dp, EinkLine),
         ) {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(6.dp),
-                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    .padding(4.dp),
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 SettingsCategoryTab.entries.forEach { tab ->
-                    FilterChip(
-                        selected = selectedCategory == tab,
-                        onClick = { selectedCategory = tab },
-                        enabled = !busy,
-                        label = {
-                            Text(
-                                text = tab.title,
-                                style = MaterialTheme.typography.labelSmall,
-                                fontWeight = if (selectedCategory == tab) FontWeight.Bold else FontWeight.Normal,
+                    val selected = selectedCategory == tab
+                    Surface(
+                        modifier = Modifier
+                            .weight(1f)
+                            .clickable(enabled = !busy) { selectedCategory = tab },
+                        color = if (selected) EinkSoft else EinkPanel,
+                        shape = RoundedCornerShape(3.dp),
+                        border = BorderStroke(1.dp, if (selected) EinkInk else EinkLine),
+                    ) {
+                        Column(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(vertical = 6.dp, horizontal = 2.dp),
+                                horizontalArrangement = Arrangement.Center,
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                Text(
+                                    text = tab.title,
+                                    style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp),
+                                    fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
+                                    color = if (selected) EinkInk else EinkMuted,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                )
+                            }
+                            // E-Ink Active Tab Indicator Bar (3.dp Solid Line)
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(3.dp)
+                                    .background(if (selected) EinkInk else EinkPanel),
                             )
-                        },
-                    )
+                        }
+                    }
                 }
             }
         }
