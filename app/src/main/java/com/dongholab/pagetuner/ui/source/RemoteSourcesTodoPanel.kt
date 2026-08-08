@@ -260,113 +260,156 @@ fun RemoteSourcesTodoPanel(
             }
 
             if (activeSubTab == 0) {
-                // Sub-Tab 1: 📚 Novel Catalog View (Zero Item Clipping!)
-                // Quick Resume Card (.recent-read-card)
-                Surface(
-                    modifier = Modifier.fillMaxWidth(),
-                    color = EinkSoft,
-                    shape = RoundedCornerShape(4.dp),
-                    border = BorderStroke(1.dp, EinkInk),
-                ) {
-                    Row(
-                        modifier = Modifier.padding(8.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                text = "Quick Resume (최근 읽던 작품) 🚀",
-                                style = MaterialTheme.typography.labelSmall,
-                                fontWeight = FontWeight.Bold,
-                                color = EinkMuted,
-                            )
-                            Text(
-                                text = "1 HP, 10,000 SHIELD, IS THAT HOW YOU PLAY A BERSERKER?",
-                                style = MaterialTheme.typography.labelMedium,
-                                fontWeight = FontWeight.Bold,
-                                color = EinkInk,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
-                            )
-                        }
-                        Button(
-                            onClick = {
-                                selectedNovelForDetail = com.dongholab.pagetuner.source.RemoteBookItem(
-                                    identity = com.dongholab.pagetuner.source.RemoteBookIdentity(
-                                        sourceType = com.dongholab.pagetuner.source.RemoteSourceType.WebNovel,
-                                        accountId = "quick_resume",
-                                        remoteId = "qr_65434",
-                                    ),
-                                    title = "1 HP, 10,000 SHIELD, IS THAT HOW YOU PLAY A BERSERKER?",
-                                    authors = listOf("Author Name"),
-                                    format = com.dongholab.pagetuner.document.DocumentFormat.TEXT,
-                                    language = "en",
-                                    contentType = "text/plain",
-                                    downloadUrl = "https://wtr-lab.com/en/novel/65434/1-hp-10-000-shield",
-                                    coverUrl = null,
-                                )
-                            },
-                            enabled = !busy,
-                            colors = androidx.compose.material3.ButtonDefaults.buttonColors(
-                                containerColor = EinkInk,
-                                contentColor = EinkPanel,
-                            ),
-                            shape = RoundedCornerShape(2.dp),
-                        ) {
-                            Text("Continue 🚀", style = MaterialTheme.typography.labelSmall)
-                        }
-                    }
-                }
+                // Sub-Tab 1: 📚 Novel Catalog View (Maximum Content Viewport Exposure!)
+                var isQuickActionsExpanded by remember { mutableStateOf(false) }
 
-                // Direct Web Novel URL Access Bar (Clean 2-Row Layout to Prevent Squeezing)
                 Surface(
                     modifier = Modifier.fillMaxWidth(),
                     color = EinkSoft,
                     shape = RoundedCornerShape(4.dp),
                     border = BorderStroke(1.dp, EinkLine),
                 ) {
-                    Column(
-                        modifier = Modifier.padding(8.dp),
-                        verticalArrangement = Arrangement.spacedBy(6.dp),
-                    ) {
-                        OutlinedTextField(
-                            value = catalogUrl,
-                            onValueChange = onCatalogUrlChange,
-                            modifier = Modifier.fillMaxWidth(),
-                            enabled = !busy,
-                            label = { Text("Direct Novel URL (e.g. https://wtr-lab.com/...) 🌐") },
-                            singleLine = true,
-                        )
-                        Button(
-                            onClick = {
-                                if (catalogUrl.isNotBlank()) {
-                                    onSaveSourceAccount()
-                                    onLoadCatalog()
-                                    selectedNovelForDetail = com.dongholab.pagetuner.source.RemoteBookItem(
-                                        identity = com.dongholab.pagetuner.source.RemoteBookIdentity(
-                                            sourceType = com.dongholab.pagetuner.source.RemoteSourceType.WebNovel,
-                                            accountId = "direct_url",
-                                            remoteId = "direct_1",
-                                        ),
-                                        title = catalogUrl.substringAfterLast("/").ifBlank { "Web Novel" },
-                                        authors = listOf("WTR-Lab Author"),
-                                        format = com.dongholab.pagetuner.document.DocumentFormat.TEXT,
-                                        language = "en",
-                                        contentType = "text/plain",
-                                        downloadUrl = catalogUrl,
-                                        coverUrl = null,
-                                    )
-                                }
-                            },
-                            enabled = !busy && catalogUrl.isNotBlank(),
-                            modifier = Modifier.fillMaxWidth(),
-                            colors = androidx.compose.material3.ButtonDefaults.buttonColors(
-                                containerColor = EinkInk,
-                                contentColor = EinkPanel,
-                            ),
-                            shape = RoundedCornerShape(2.dp),
+                    Column(modifier = Modifier.padding(6.dp)) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { isQuickActionsExpanded = !isQuickActionsExpanded },
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically,
                         ) {
-                            Text("Load Novel & Open Overview 🚀", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
+                            Row(
+                                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                Text(
+                                    text = "⚡ Quick Actions & Direct URL",
+                                    style = MaterialTheme.typography.labelMedium,
+                                    fontWeight = FontWeight.Bold,
+                                    color = EinkInk,
+                                )
+                                Text(
+                                    text = "• 1 HP, 10,000 SHIELD...",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = EinkMuted,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                )
+                            }
+                            TextButton(onClick = { isQuickActionsExpanded = !isQuickActionsExpanded }) {
+                                Text(
+                                    text = if (isQuickActionsExpanded) "Collapse ▲" else "Expand ▼",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    fontWeight = FontWeight.Bold,
+                                    color = EinkInk,
+                                )
+                            }
+                        }
+
+                        if (isQuickActionsExpanded) {
+                            Spacer(Modifier.height(6.dp))
+                            // Quick Resume Card (.recent-read-card)
+                            Surface(
+                                modifier = Modifier.fillMaxWidth(),
+                                color = EinkPanel,
+                                shape = RoundedCornerShape(4.dp),
+                                border = BorderStroke(1.dp, EinkInk),
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(8.dp),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically,
+                                ) {
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Text(
+                                            text = "Quick Resume (최근 읽던 작품) 🚀",
+                                            style = MaterialTheme.typography.labelSmall,
+                                            fontWeight = FontWeight.Bold,
+                                            color = EinkMuted,
+                                        )
+                                        Text(
+                                            text = "1 HP, 10,000 SHIELD, IS THAT HOW YOU PLAY A BERSERKER?",
+                                            style = MaterialTheme.typography.labelMedium,
+                                            fontWeight = FontWeight.Bold,
+                                            color = EinkInk,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis,
+                                        )
+                                    }
+                                    Button(
+                                        onClick = {
+                                            selectedNovelForDetail = com.dongholab.pagetuner.source.RemoteBookItem(
+                                                identity = com.dongholab.pagetuner.source.RemoteBookIdentity(
+                                                    sourceType = com.dongholab.pagetuner.source.RemoteSourceType.WebNovel,
+                                                    accountId = "quick_resume",
+                                                    remoteId = "qr_65434",
+                                                ),
+                                                title = "1 HP, 10,000 SHIELD, IS THAT HOW YOU PLAY A BERSERKER?",
+                                                authors = listOf("Author Name"),
+                                                format = com.dongholab.pagetuner.document.DocumentFormat.TEXT,
+                                                language = "en",
+                                                contentType = "text/plain",
+                                                downloadUrl = "https://wtr-lab.com/en/novel/65434/1-hp-10-000-shield",
+                                                coverUrl = null,
+                                            )
+                                        },
+                                        enabled = !busy,
+                                        colors = androidx.compose.material3.ButtonDefaults.buttonColors(
+                                            containerColor = EinkInk,
+                                            contentColor = EinkPanel,
+                                        ),
+                                        shape = RoundedCornerShape(2.dp),
+                                    ) {
+                                        Text("Continue 🚀", style = MaterialTheme.typography.labelSmall)
+                                    }
+                                }
+                            }
+
+                            Spacer(Modifier.height(6.dp))
+                            // Direct Web Novel URL Access Bar
+                            Column(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalArrangement = Arrangement.spacedBy(6.dp),
+                            ) {
+                                OutlinedTextField(
+                                    value = catalogUrl,
+                                    onValueChange = onCatalogUrlChange,
+                                    modifier = Modifier.fillMaxWidth(),
+                                    enabled = !busy,
+                                    label = { Text("Direct Novel URL (e.g. https://wtr-lab.com/...) 🌐") },
+                                    singleLine = true,
+                                )
+                                Button(
+                                    onClick = {
+                                        if (catalogUrl.isNotBlank()) {
+                                            onSaveSourceAccount()
+                                            onLoadCatalog()
+                                            selectedNovelForDetail = com.dongholab.pagetuner.source.RemoteBookItem(
+                                                identity = com.dongholab.pagetuner.source.RemoteBookIdentity(
+                                                    sourceType = com.dongholab.pagetuner.source.RemoteSourceType.WebNovel,
+                                                    accountId = "direct_url",
+                                                    remoteId = "direct_1",
+                                                ),
+                                                title = catalogUrl.substringAfterLast("/").ifBlank { "Web Novel" },
+                                                authors = listOf("WTR-Lab Author"),
+                                                format = com.dongholab.pagetuner.document.DocumentFormat.TEXT,
+                                                language = "en",
+                                                contentType = "text/plain",
+                                                downloadUrl = catalogUrl,
+                                                coverUrl = null,
+                                            )
+                                        }
+                                    },
+                                    enabled = !busy && catalogUrl.isNotBlank(),
+                                    modifier = Modifier.fillMaxWidth(),
+                                    colors = androidx.compose.material3.ButtonDefaults.buttonColors(
+                                        containerColor = EinkInk,
+                                        contentColor = EinkPanel,
+                                    ),
+                                    shape = RoundedCornerShape(2.dp),
+                                ) {
+                                    Text("Load Novel & Open Overview 🚀", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
+                                }
+                            }
                         }
                     }
                 }

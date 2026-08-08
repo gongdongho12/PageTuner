@@ -1,11 +1,13 @@
 package com.dongholab.pagetuner.ui.source
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -153,53 +155,60 @@ fun WebNovelDetailPagePanel(
                 }
             }
 
-            // Novel Overview Header: Cover, Title, Author, Genre, Description
+            // Novel Overview Header: Ultra-Compact Slim Header with Expandable Details
+            var isHeaderExpanded by remember { mutableStateOf(false) }
+
             Surface(
                 modifier = Modifier.fillMaxWidth(),
                 color = EinkSoft,
                 shape = RoundedCornerShape(4.dp),
                 border = BorderStroke(1.dp, EinkLine),
             ) {
-                Row(
-                    modifier = Modifier.padding(12.dp),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
-                    verticalAlignment = Alignment.Top,
-                ) {
-                    com.dongholab.pagetuner.ui.source.RemoteCoverThumbnail(
-                        coverBytes = coverBytes,
-                        displayMode = displayMode,
-                        contentDescription = novelItem.title,
-                    )
-                    Column(
-                        modifier = Modifier.weight(1f),
-                        verticalArrangement = Arrangement.spacedBy(4.dp),
+                Column(modifier = Modifier.padding(8.dp)) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { isHeaderExpanded = !isHeaderExpanded },
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        Text(
-                            text = novelItem.title,
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = EinkInk,
-                            maxLines = 2,
-                            softWrap = true,
-                            overflow = TextOverflow.Ellipsis,
+                        com.dongholab.pagetuner.ui.source.RemoteCoverThumbnail(
+                            coverBytes = coverBytes,
+                            displayMode = displayMode,
+                            contentDescription = novelItem.title,
                         )
-                        Text(
-                            text = "Author: ${novelItem.authors.joinToString().ifBlank { "WTR-Lab Author" }}",
-                            style = MaterialTheme.typography.bodySmall,
-                            fontWeight = FontWeight.SemiBold,
-                            color = EinkInk,
-                            maxLines = 1,
-                            softWrap = true,
-                            overflow = TextOverflow.Ellipsis,
-                        )
-                        Text(
-                            text = "Genre: Web Novel / Fantasy • Language: ${novelItem.language ?: "en"}",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = EinkMuted,
-                            maxLines = 1,
-                            softWrap = true,
-                            overflow = TextOverflow.Ellipsis,
-                        )
+                        Column(
+                            modifier = Modifier.weight(1f),
+                            verticalArrangement = Arrangement.Center,
+                        ) {
+                            Text(
+                                text = novelItem.title,
+                                style = MaterialTheme.typography.labelLarge,
+                                fontWeight = FontWeight.Bold,
+                                color = EinkInk,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                            )
+                            Text(
+                                text = "Author: ${novelItem.authors.joinToString().ifBlank { "WTR-Lab Author" }} • ★ 4.8 (${chapters.size} Ch.)",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = EinkMuted,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                            )
+                        }
+                        TextButton(onClick = { isHeaderExpanded = !isHeaderExpanded }) {
+                            Text(
+                                text = if (isHeaderExpanded) "Collapse ▲" else "Details ▼",
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = FontWeight.Bold,
+                                color = EinkInk,
+                            )
+                        }
+                    }
+
+                    if (isHeaderExpanded) {
+                        Spacer(Modifier.height(8.dp))
                         // 2x3 High Contrast E-Ink Metadata Grid Block (Clean 3-Column Split)
                         Surface(
                             modifier = Modifier.fillMaxWidth(),
@@ -236,7 +245,7 @@ fun WebNovelDetailPagePanel(
                         androidx.compose.foundation.layout.FlowRow(
                             horizontalArrangement = Arrangement.spacedBy(6.dp),
                             verticalArrangement = Arrangement.spacedBy(4.dp),
-                            modifier = Modifier.padding(top = 4.dp),
+                            modifier = Modifier.padding(top = 6.dp),
                         ) {
                             listOf("System 💻", "Transmigration 🌀", "Action ⚔️", "Fantasy 🪄").forEach { tag ->
                                 androidx.compose.material3.FilterChip(
