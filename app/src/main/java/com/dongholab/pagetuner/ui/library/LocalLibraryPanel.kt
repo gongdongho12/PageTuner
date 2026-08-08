@@ -3,12 +3,15 @@ package com.dongholab.pagetuner.ui.library
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -17,6 +20,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -46,6 +50,23 @@ fun LocalLibraryPanel(
     onDeleteBook: (LocalBook) -> Unit,
     onUpdateBookOrganization: (LocalBook, String, String) -> Unit,
 ) {
+    var libraryQuery by remember { mutableStateOf("") }
+    var selectedFolder by remember { mutableStateOf("") }
+    val folders = localLibraryFolders(books)
+    val visibleBooks = filterLocalLibraryBooks(
+        books = books,
+        query = libraryQuery,
+        folder = selectedFolder,
+    )
+
+    LaunchedEffect(folders, selectedFolder) {
+        if (selectedFolder.isNotBlank() &&
+            folders.none { folder -> folder.equals(selectedFolder, ignoreCase = true) }
+        ) {
+            selectedFolder = ""
+        }
+    }
+
     Surface(
         modifier = Modifier.fillMaxWidth(),
         color = EinkPanel,
@@ -70,7 +91,22 @@ fun LocalLibraryPanel(
                     color = EinkMuted,
                 )
             } else {
-                groupedBooks(books).forEach { (folder, folderBooks) ->
+                LibraryFilterControls(
+                    query = libraryQuery,
+                    folders = folders,
+                    selectedFolder = selectedFolder,
+                    busy = busy,
+                    onQueryChange = { libraryQuery = it },
+                    onFolderChange = { selectedFolder = it },
+                )
+                if (visibleBooks.isEmpty()) {
+                    Text(
+                        text = stringResource(R.string.library_filter_empty),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = EinkMuted,
+                    )
+                }
+                groupedLocalLibraryBooks(visibleBooks).forEach { (folder, folderBooks) ->
                     val folderLabel = if (folder.isBlank()) {
                         stringResource(R.string.library_folder_uncategorized)
                     } else {
@@ -85,7 +121,11 @@ fun LocalLibraryPanel(
                         color = EinkInk,
                         fontWeight = FontWeight.SemiBold,
                     )
-                    folderBooks.forEach { book ->
+                    com.dongholab.pagetuner.ui.common.EinkPagingContainer(
+                        items = folderBooks,
+                        pageSize = 5,
+                        busy = busy,
+                    ) { book ->
                         LocalBookRow(
                             book = book,
                             selected = currentBookId == book.id,
@@ -96,6 +136,63 @@ fun LocalLibraryPanel(
                         )
                     }
                 }
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun LibraryFilterControls(
+    query: String,
+    folders: List<String>,
+    selectedFolder: String,
+    busy: Boolean,
+    onQueryChange: (String) -> Unit,
+    onFolderChange: (String) -> Unit,
+) {
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+        OutlinedTextField(
+            value = query,
+            onValueChange = onQueryChange,
+            modifier = Modifier.fillMaxWidth(),
+            enabled = !busy,
+            label = { Text(stringResource(R.string.field_library_search)) },
+            singleLine = true,
+        )
+        FlowRow(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp),
+        ) {
+            FilterChip(
+                selected = selectedFolder.isBlank(),
+                onClick = { onFolderChange("") },
+                enabled = !busy,
+                label = {
+                    Text(
+                        text = stringResource(R.string.library_filter_all_folders),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                },
+            )
+            folders.forEach { folder ->
+                FilterChip(
+                    selected = selectedFolder.equals(folder, ignoreCase = true),
+                    onClick = { onFolderChange(folder) },
+                    enabled = !busy,
+                    label = {
+                        Text(
+                            text = folder,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    },
+                )
             }
         }
     }
@@ -142,7 +239,7 @@ private fun LocalBookRow(
                             style = MaterialTheme.typography.labelLarge,
                             color = EinkInk,
                             fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
-                            maxLines = 1,
+                            maxLines = 3,
                             overflow = TextOverflow.Ellipsis,
                         )
                         Text(
@@ -212,15 +309,4 @@ private fun LocalBookRow(
             }
         }
     }
-}
-
-private fun groupedBooks(books: List<LocalBook>): List<Pair<String, List<LocalBook>>> {
-    return books
-        .groupBy { book -> book.folder.trim() }
-        .toList()
-        .sortedWith(
-            compareBy<Pair<String, List<LocalBook>>> { (folder, _) ->
-                if (folder.isBlank()) "zzzzzz" else folder.lowercase()
-            }.thenBy { (_, folderBooks) -> folderBooks.firstOrNull()?.title.orEmpty().lowercase() },
-        )
 }

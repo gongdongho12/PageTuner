@@ -27,7 +27,7 @@ translation and offline-first reading.
   - done: folder grouping
   - done: per-book category tags
   - done: folder/tag editing in the library panel
-  - pending: folder/tag filtering and search
+  - done: folder/tag filtering and search
 - Done: add robust file import.
   - copy imported files into app-private storage
   - stable document id from file hash

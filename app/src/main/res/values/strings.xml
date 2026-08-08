@@ -74,6 +74,9 @@
     <string name="library_empty">Imported books will appear here for offline reading.</string>
     <string name="library_book_meta">%1$s · page %2$d/%3$d · %4$d%%</string>
     <string name="action_delete_book">Delete book</string>
+    <string name="field_library_search">Search library</string>
+    <string name="library_filter_all_folders">All folders</string>
+    <string name="library_filter_empty">No books match this filter.</string>
     <string name="library_folder_header">Folder: %1$s</string>
     <string name="library_folder_uncategorized">Uncategorized</string>
     <string name="library_folder_label">Folder</string>
@@ -231,4 +234,11 @@
     <string name="status_remote_source_account_saved">Saved remote source %1$s.</string>
     <string name="status_remote_source_account_deleted">Deleted remote source %1$s.</string>
     <string name="status_web_catalog_error">Web catalog error: %1$s</string>
+    <string name="action_add_account">Add Account</string>
+    <string name="field_account_title">Account Title</string>
+    <string name="field_account_endpoint">Endpoint / Host</string>
+    <string name="field_account_username">Username</string>
+    <string name="action_save_account">Save Account</string>
+    <string name="action_cancel">Cancel</string>
 </resources>
+

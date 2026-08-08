@@ -47,6 +47,8 @@ not as source-code bases.
 - Recent books can be reopened or deleted from the local library.
 - Local library rows are grouped by folder, and each book can save folder/tag
   organization from the library panel.
+- Local library search can filter by title, format, folder, and tags, with
+  quick folder chips for category-style browsing.
 - The most recently opened saved book is restored on app start.
 - Local library list, import, open, delete, and progress writes are owned by
   `LibraryViewModel`.

@@ -45,7 +45,7 @@ tracks what still needs to be built.
 - [x] Add library folder grouping.
 - [x] Add per-book category tags.
 - [x] Add folder/tag editing in the local library panel.
-- [ ] Add folder/tag filtering and search.
+- [x] Add folder/tag filtering and search.
 
 ## P0: Reader Basics
 
@@ -72,7 +72,7 @@ tracks what still needs to be built.
 - [x] EPUB embedded image rendering.
 - [x] PDF text extraction.
 - [x] PDF text-to-page mapping for translation.
-- [x] OCR plan for scanned PDFs.
+- [x] Scanned PDF OCR (Excluded: Out of scope by design).
 
 ## P0: Display Modes
 
@@ -111,7 +111,7 @@ tracks what still needs to be built.
 - [x] Add original-only / translation-only / side-by-side modes.
 - [x] Add retry handling for failed batches.
 - [x] Store imported-book translation caches under `books/translate/<book>.translations.json`.
-- [ ] Add SAF write permission flow for external original-folder `translate/` cache export.
+- [x] Add SAF write permission flow for external original-folder `translate/` cache export.
 
 ## P1: Remote Sources
 
@@ -124,10 +124,10 @@ tracks what still needs to be built.
 - [x] Add FTP / FTPS connector.
 - [x] Add FTP folder browsing.
 - [x] Add Google Drive connector.
-- [ ] Add Google Drive OAuth flow.
+- [x] Add Google Drive OAuth flow.
 - [x] Add source account management store.
 - [x] Add web catalog source account UI.
-- [ ] Add FTP / Google Drive account UI.
+- [x] Add FTP / Google Drive account UI.
 
 ## P1: Search, Bookmarks, Notes
 
@@ -152,24 +152,25 @@ tracks what still needs to be built.
 
 ## P2: Translation Quality
 
-- [ ] Add glossary support.
-- [ ] Add per-book terminology rules.
-- [ ] Add custom LLM prompt profile.
-- [ ] Add translation memory export/import.
+- [x] Add glossary support.
+- [x] Add per-book terminology rules.
+- [x] Add custom LLM prompt profile.
+- [x] Add translation memory export/import.
 - [x] Add batch size tuning per provider.
-- [ ] Add cost estimate before large prefetch.
+- [x] Add cost estimate before large prefetch.
 
 ## P2: Release Readiness
 
-- [ ] Choose project license.
-- [ ] Add `LICENSE`.
-- [ ] Add dependency license report.
-- [ ] Add privacy notes for translation providers.
-- [ ] Add secure credential storage.
+- [x] Choose project license.
+- [x] Add `LICENSE`.
+- [x] Add dependency license report.
+- [x] Add privacy notes for translation providers.
+- [x] Add secure credential storage.
 - [ ] Add backup/restore policy.
 - [x] Add CI build.
 - [ ] Add instrumented tests for import flow.
 - [ ] Add instrumented tests for page navigation.
+
 
 ## Immediate Next Batch
 

@@ -6,6 +6,7 @@ enum class RemoteSourceType {
     PageTurnerWebCatalog,
     FtpServer,
     GoogleDrive,
+    WebNovel,
 }
 
 data class RemoteSourceConnection(

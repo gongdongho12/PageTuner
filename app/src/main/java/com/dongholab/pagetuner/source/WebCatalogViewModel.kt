@@ -3,6 +3,7 @@ package com.dongholab.pagetuner.source
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import com.dongholab.pagetuner.common.DiagnosticLogger
 import java.net.SocketException
 import java.net.SocketTimeoutException
 import java.net.UnknownHostException
@@ -15,7 +16,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
-private const val DefaultCatalogUrl = "http://10.0.2.2:8088/catalog.json"
+private const val DefaultCatalogUrl = "https://wtr-lab.com/en"
 private const val MaxThumbnailBytes = 2 * 1024 * 1024
 
 data class WebCatalogUiState(
@@ -25,7 +26,7 @@ data class WebCatalogUiState(
     val visibleItems: List<RemoteBookItem> = emptyList(),
     val coverThumbnails: Map<String, ByteArray> = emptyMap(),
     val cachedCatalogs: List<CachedWebCatalog> = emptyList(),
-    val sourceAccounts: List<RemoteSourceAccount> = emptyList(),
+    val sourceAccounts: List<RemoteSourceAccount> = listOf(defaultWtrLabAccount()),
     val busy: Boolean = false,
     val status: WebCatalogStatus = WebCatalogStatus.Idle,
 )
@@ -120,17 +121,44 @@ class WebCatalogViewModel(
 
     fun loadSourceAccount(account: RemoteSourceAccount) {
         if (_uiState.value.busy) return
+        _uiState.update { state -> state.copy(catalogUrl = account.endpoint) }
         when (account.sourceType) {
             RemoteSourceType.PageTurnerWebCatalog -> {
-                _uiState.update { state ->
-                    state.copy(catalogUrl = account.endpoint)
-                }
                 loadCatalog(forceRefresh = false)
             }
-            else -> {
-                _uiState.update { state ->
-                    state.copy(status = WebCatalogStatus.Error("Source UI is not wired for ${account.sourceType} yet."))
+            RemoteSourceType.WebNovel -> {
+                viewModelScope.launch {
+                    _uiState.update { state -> state.copy(busy = true, status = WebCatalogStatus.Loading) }
+                    runCatching {
+                        val source = WebNovelRemoteBookSource(accountId = account.id, endpointUrl = account.endpoint)
+                        val conn = source.connect()
+                        val items = source.list()
+                        PageTurnerCatalog(
+                            version = PageTurnerWebCatalogParser.Version,
+                            id = account.id,
+                            title = conn.title,
+                            items = items,
+                        )
+                    }.onSuccess { catalog ->
+                        val visible = catalog.filterItems(_uiState.value.query)
+                        _uiState.update { state ->
+                            state.copy(
+                                busy = false,
+                                catalog = catalog,
+                                visibleItems = visible,
+                                status = WebCatalogStatus.LoadedRemote(catalog.title, catalog.items.size),
+                            )
+                        }
+                        prefetchCoverThumbnails(visible)
+                    }.onFailure { error ->
+                        _uiState.update { state ->
+                            state.copy(busy = false, status = error.toWebCatalogStatus())
+                        }
+                    }
                 }
+            }
+            else -> {
+                loadCatalog(forceRefresh = false)
             }
         }
     }
@@ -192,7 +220,12 @@ class WebCatalogViewModel(
                 )
             }
             runCatching {
-                PageTurnerWebCatalogNetwork.fetchBytes(item.downloadUrl)
+                if (item.identity.sourceType == RemoteSourceType.WebNovel) {
+                    val source = WebNovelRemoteBookSource(accountId = item.identity.accountId, endpointUrl = item.downloadUrl)
+                    source.download(item)
+                } else {
+                    PageTurnerWebCatalogNetwork.fetchBytes(item.downloadUrl)
+                }
             }.onSuccess { bytes ->
                 _events.emit(WebCatalogEvent.ImportDownloaded(item, bytes))
                 _uiState.update { state ->
@@ -227,7 +260,8 @@ class WebCatalogViewModel(
             runCatching {
                 accountStore.list()
             }.onSuccess { accounts ->
-                _uiState.update { state -> state.copy(sourceAccounts = accounts) }
+                val finalAccounts = accounts.ifEmpty { listOf(defaultWtrLabAccount()) }
+                _uiState.update { state -> state.copy(sourceAccounts = finalAccounts) }
             }
         }
     }
@@ -257,17 +291,29 @@ class WebCatalogViewModel(
             }
 
             runCatching {
-                val rawJson = PageTurnerWebCatalogNetwork.fetchString(url)
-                val catalog = PageTurnerWebCatalogParser.parse(
-                    rawJson = rawJson,
-                    catalogUrl = url,
-                )
-                cache.save(
-                    url = url,
-                    rawJson = rawJson,
-                    catalog = catalog,
-                )
-                catalog
+                if (url.contains("wtr-lab") || url.contains("novel") || !url.lowercase().endsWith(".json")) {
+                    val source = WebNovelRemoteBookSource(accountId = "web_novel", endpointUrl = url)
+                    val conn = source.connect()
+                    val items = source.list()
+                    PageTurnerCatalog(
+                        version = PageTurnerWebCatalogParser.Version,
+                        id = "web_novel",
+                        title = conn.title,
+                        items = items,
+                    )
+                } else {
+                    val rawJson = PageTurnerWebCatalogNetwork.fetchString(url)
+                    val catalog = PageTurnerWebCatalogParser.parse(
+                        rawJson = rawJson,
+                        catalogUrl = url,
+                    )
+                    cache.save(
+                        url = url,
+                        rawJson = rawJson,
+                        catalog = catalog,
+                    )
+                    catalog
+                }
             }.onSuccess { catalog ->
                 val cachedCatalogs = cache.list()
                 _uiState.update { state ->
@@ -346,15 +392,28 @@ class WebCatalogViewModel(
 
         viewModelScope.launch {
             urls.forEach { url ->
+                DiagnosticLogger.log("[COVER STEP 1: FETCH START]", "Requesting thumbnail: $url")
                 runCatching {
                     PageTurnerWebCatalogNetwork.fetchBytes(
                         url = url,
                         maxBytes = MaxThumbnailBytes,
                     )
                 }.onSuccess { bytes ->
+                    DiagnosticLogger.log("[COVER STEP 2: FETCH OK]", "Downloaded ${bytes.size} bytes from $url")
+                    // STEP 3: Verify BitmapFactory can decode
+                    val bitmap = runCatching {
+                        android.graphics.BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
+                    }.getOrNull()
+                    if (bitmap != null) {
+                        DiagnosticLogger.log("[COVER STEP 3: DECODE OK]", "Bitmap decoded ${bitmap.width}x${bitmap.height} from $url")
+                    } else {
+                        DiagnosticLogger.log("[COVER STEP 3: DECODE FAIL]", "BitmapFactory returned null for $url — bytes may not be a valid image")
+                    }
                     _uiState.update { state ->
                         state.copy(coverThumbnails = state.coverThumbnails + (url to bytes))
                     }
+                }.onFailure { error ->
+                    DiagnosticLogger.log("[COVER STEP 2: FETCH FAIL]", "$url → ${error.javaClass.simpleName}: ${error.message}")
                 }
             }
         }

@@ -96,7 +96,7 @@ class ReaderViewModel(
                 pageIndex = requestedPageIndex.coerceIn(0, loaded.document.pageCount - 1),
                 pdfSourceUri = loaded.pdfSourceUri,
                 currentBookId = localBookId,
-                controlsVisible = current.controlsVisible,
+                controlsVisible = false,
                 manualRefreshToken = current.manualRefreshToken,
                 bookmarks = bookmarks
                     .filter { bookmark -> bookmark.pageIndex in 0 until loaded.document.pageCount }

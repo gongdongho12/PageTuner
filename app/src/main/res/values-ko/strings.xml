@@ -74,6 +74,9 @@
     <string name="library_empty">가져온 책은 오프라인 읽기를 위해 여기에 표시됩니다.</string>
     <string name="library_book_meta">%1$s · %2$d/%3$d쪽 · %4$d%%</string>
     <string name="action_delete_book">책 삭제</string>
+    <string name="field_library_search">서재 검색</string>
+    <string name="library_filter_all_folders">전체 폴더</string>
+    <string name="library_filter_empty">이 필터와 일치하는 책이 없습니다.</string>
     <string name="library_folder_header">폴더: %1$s</string>
     <string name="library_folder_uncategorized">미분류</string>
     <string name="library_folder_label">폴더</string>
@@ -231,4 +234,11 @@
     <string name="status_remote_source_account_saved">원격 소스 %1$s을(를) 저장했습니다.</string>
     <string name="status_remote_source_account_deleted">원격 소스 %1$s을(를) 삭제했습니다.</string>
     <string name="status_web_catalog_error">웹 카탈로그 오류: %1$s</string>
+    <string name="action_add_account">계정 추가</string>
+    <string name="field_account_title">계정 이름</string>
+    <string name="field_account_endpoint">엔드포인트 / 호스트</string>
+    <string name="field_account_username">사용자명</string>
+    <string name="action_save_account">계정 저장</string>
+    <string name="action_cancel">취소</string>
 </resources>
+

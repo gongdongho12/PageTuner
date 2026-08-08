@@ -196,6 +196,8 @@ class TranslationViewModel : ViewModel() {
                 )
             }
 
+            com.dongholab.pagetuner.common.DiagnosticLogger.log("[STEP 3: TRANSLATION START]", "Page ${page.index + 1}/${document.pageCount}, Provider: ${settings.providerKind}, Lang: ${settings.sourceLanguage}->${settings.targetLanguage}")
+
             runCatching {
                 val result = translatePageWithRetry(
                     document = document,
@@ -209,6 +211,7 @@ class TranslationViewModel : ViewModel() {
                 val cacheStatus = repository.cacheStatus(document, settings)
                 result to cacheStatus
             }.onSuccess { (result, cacheStatus) ->
+                com.dongholab.pagetuner.common.DiagnosticLogger.log("[STEP 3: TRANSLATION SUCCESS]", "Page ${page.index + 1} Translated (${result.segments.size} segments, FromCache: ${result.completedFromCache})")
                 _uiState.update { state ->
                     state.copy(
                         translation = result,
@@ -223,6 +226,7 @@ class TranslationViewModel : ViewModel() {
                     )
                 }
             }.onFailure { error ->
+                com.dongholab.pagetuner.common.DiagnosticLogger.log("[STEP 3: TRANSLATION FAILURE]", "Page ${page.index + 1} Error: ${error.message}")
                 _uiState.update { state ->
                     state.copy(
                         busy = false,

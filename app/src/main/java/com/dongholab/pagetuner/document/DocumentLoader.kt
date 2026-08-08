@@ -49,10 +49,15 @@ fun Context.readReaderDocument(
         }
         DocumentFormat.MARKDOWN,
         DocumentFormat.TEXT -> {
-            val text = contentResolver.openInputStream(uri)
-                ?.bufferedReader(Charsets.UTF_8)
-                ?.use { it.readText() }
-                .orEmpty()
+            val text = runCatching {
+                if (uri.scheme == "file" && !uri.path.isNullOrBlank()) {
+                    java.io.File(requireNotNull(uri.path)).readText(Charsets.UTF_8)
+                } else {
+                    contentResolver.openInputStream(uri)
+                        ?.bufferedReader(Charsets.UTF_8)
+                        ?.use { it.readText() }
+                }
+            }.getOrNull().orEmpty()
 
             LoadedReaderDocument(
                 document = PlainTextDocumentParser.parse(

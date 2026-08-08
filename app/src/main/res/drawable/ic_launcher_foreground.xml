@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!-- Library Bookshelf Base Layer -->
+    <path
+        android:fillColor="#111111"
+        android:pathData="M20,20 h68 v4 h-68 z M20,84 h68 v4 h-68 z" />
+
+    <!-- Library Book Spines Row -->
+    <path
+        android:fillColor="#111111"
+        android:pathData="M24,24 h8 v60 h-8 z M36,24 h10 v60 h-10 z M50,24 h6 v60 h-6 z M60,24 h12 v60 h-12 z M76,24 h8 v60 h-8 z" />
+
+    <!-- Paper Book Cover Inset -->
+    <path
+        android:fillColor="#F4F4F0"
+        android:pathData="M37,28 h8 v52 h-8 z M61,28 h10 v52 h-10 z" />
+
+    <!-- Center Library Open Book Emblem -->
+    <path
+        android:fillColor="#111111"
+        android:pathData="M38,44 c6,-4 14,-4 16,0 c2,-4 10,-4 16,0 v26 c-6,-4 -14,-4 -16,0 c-2,-4 -10,-4 -16,0 z" />
+
+    <path
+        android:fillColor="#F4F4F0"
+        android:pathData="M40,46 c5,-3 12,-3 14,0 v22 c-5,-3 -12,-3 -14,0 z M54,46 c5,-3 12,-3 14,0 v22 c-5,-3 -12,-3 -14,0 z" />
+
+    <!-- Classic Ribbon Bookmark -->
+    <path
+        android:fillColor="#111111"
+        android:pathData="M53,42 v16 l-2,-2 l-2,2 v-16 z" />
+</vector>

@@ -1,14 +1,19 @@
 package com.dongholab.pagetuner.source
 
+import android.util.Log
 import java.io.ByteArrayOutputStream
 import java.io.IOException
 import java.io.InputStream
 import java.net.HttpURLConnection
 import java.net.URL
+import java.net.URLDecoder
+import java.util.zip.GZIPInputStream
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
 object PageTurnerWebCatalogNetwork {
+    private const val TAG = "PageTurnerCoverNetwork"
+
     suspend fun fetchString(url: String): String = withContext(Dispatchers.IO) {
         fetchBytes(url).toString(Charsets.UTF_8)
     }
@@ -17,27 +22,76 @@ object PageTurnerWebCatalogNetwork {
         url: String,
         maxBytes: Int? = null,
     ): ByteArray = withContext(Dispatchers.IO) {
-        val connection = URL(url).openConnection() as? HttpURLConnection
-            ?: throw IOException("Only HTTP(S) catalog URLs are supported.")
-        connection.connectTimeout = 12_000
-        connection.readTimeout = 20_000
-        connection.instanceFollowRedirects = true
+        var currentUrl = unwrapNextJsImageUrl(url)
+        repeat(5) { redirectCount ->
+            runCatching {
+                val connection = URL(currentUrl).openConnection() as? HttpURLConnection
+                    ?: throw IOException("Only HTTP(S) catalog URLs are supported.")
 
-        try {
-            val statusCode = connection.responseCode
-            if (statusCode !in 200..299) {
-                throw IOException("Remote source returned HTTP $statusCode.")
-            }
-            connection.inputStream.use { inputStream ->
-                if (maxBytes == null) {
-                    inputStream.readBytes()
+                connection.connectTimeout = 12_000
+                connection.readTimeout = 20_000
+                connection.instanceFollowRedirects = true
+
+                val domain = runCatching { URL(currentUrl).host }.getOrDefault("wtr-lab.com")
+                val origin = "https://$domain"
+
+                // Chrome Browser Headers for Cover Image CDN & Next.js Image Proxy Fetching
+                connection.setRequestProperty("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36")
+                connection.setRequestProperty("Referer", origin)
+                connection.setRequestProperty("Origin", origin)
+                connection.setRequestProperty("Accept", "image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8")
+                connection.setRequestProperty("sec-ch-ua", "\"Chromium\";v=\"124\", \"Google Chrome\";v=\"124\"")
+                connection.setRequestProperty("sec-fetch-dest", "image")
+                connection.setRequestProperty("sec-fetch-mode", "no-cors")
+                connection.setRequestProperty("sec-fetch-site", "same-origin")
+
+                val statusCode = connection.responseCode
+                Log.d(TAG, "Fetching image [$redirectCount] URL: $currentUrl -> HTTP $statusCode")
+
+                if (statusCode in 300..399) {
+                    val location = connection.getHeaderField("Location")
+                    if (!location.isNullOrBlank()) {
+                        currentUrl = location
+                        connection.disconnect()
+                        return@repeat
+                    }
+                }
+
+                if (statusCode !in 200..299) {
+                    connection.disconnect()
+                    throw IOException("Remote image returned HTTP $statusCode for $currentUrl")
+                }
+
+                val inputStream = if ("gzip".equals(connection.contentEncoding, ignoreCase = true)) {
+                    GZIPInputStream(connection.inputStream)
                 } else {
-                    inputStream.readBytes(maxBytes)
+                    connection.inputStream
+                }
+
+                val bytes = inputStream.use { stream ->
+                    if (maxBytes == null) stream.readBytes() else stream.readBytes(maxBytes)
+                }
+                connection.disconnect()
+                Log.d(TAG, "Successfully fetched image (${bytes.size} bytes) from $url")
+                return@withContext bytes
+            }.onFailure { error ->
+                Log.w(TAG, "Failed fetching image attempt $redirectCount from $currentUrl: ${error.message}")
+            }
+        }
+        throw IOException("Failed to fetch image bytes from $url after redirects.")
+    }
+
+    private fun unwrapNextJsImageUrl(rawUrl: String): String {
+        if (rawUrl.contains("/_next/image") && rawUrl.contains("url=")) {
+            runCatching {
+                val param = rawUrl.substringAfter("url=").substringBefore("&")
+                val decoded = URLDecoder.decode(param, "UTF-8")
+                if (decoded.startsWith("http")) {
+                    return decoded
                 }
             }
-        } finally {
-            connection.disconnect()
         }
+        return rawUrl
     }
 
     private fun InputStream.readBytes(maxBytes: Int): ByteArray {

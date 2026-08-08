@@ -124,6 +124,19 @@ object RemoteSourceAccountJson {
     }
 }
 
+fun defaultWtrLabAccount(
+    nowMillis: Long = System.currentTimeMillis(),
+): RemoteSourceAccount {
+    return RemoteSourceAccount(
+        id = "default_wtr_lab",
+        sourceType = RemoteSourceType.WebNovel,
+        title = "WTR-Lab Web Novels",
+        endpoint = "https://wtr-lab.com/en",
+        createdAtMillis = nowMillis,
+        updatedAtMillis = nowMillis,
+    )
+}
+
 fun pageTurnerWebCatalogAccount(
     catalogUrl: String,
     title: String,
@@ -140,3 +153,5 @@ fun pageTurnerWebCatalogAccount(
         updatedAtMillis = nowMillis,
     )
 }
+
+

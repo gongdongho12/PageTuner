@@ -1,6 +1,5 @@
 package com.dongholab.pagetuner
 
-import android.content.Intent
 import android.graphics.Bitmap
 import android.net.Uri
 import android.os.Bundle
@@ -27,9 +26,9 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
-import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.key
@@ -40,7 +39,6 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.dongholab.pagetuner.display.DisplayMode
 import com.dongholab.pagetuner.display.servicePalette
 import com.dongholab.pagetuner.document.DocumentFormat
 import com.dongholab.pagetuner.document.LoadedReaderDocument
@@ -54,12 +52,6 @@ import com.dongholab.pagetuner.library.toLocalBookAnnotation
 import com.dongholab.pagetuner.library.toLocalBookBookmark
 import com.dongholab.pagetuner.library.toReaderAnnotation
 import com.dongholab.pagetuner.library.toReaderBookmark
-import com.dongholab.pagetuner.reader.PageTurnMode
-import com.dongholab.pagetuner.reader.ReaderAnnotation
-import com.dongholab.pagetuner.reader.ReaderAnnotationExport
-import com.dongholab.pagetuner.reader.ReaderBookmark
-import com.dongholab.pagetuner.reader.ReaderPageMoveResult
-import com.dongholab.pagetuner.reader.ReaderSearchMoveResult
 import com.dongholab.pagetuner.reader.ReaderViewModel
 import com.dongholab.pagetuner.settings.ReaderSettings
 import com.dongholab.pagetuner.settings.ReaderSettingsStore
@@ -70,13 +62,15 @@ import com.dongholab.pagetuner.source.WebCatalogEvent
 import com.dongholab.pagetuner.source.WebCatalogViewModel
 import com.dongholab.pagetuner.translation.JsonFileTranslationCache
 import com.dongholab.pagetuner.translation.TranslationProviderFactory
-import com.dongholab.pagetuner.translation.TranslationProviderKind
 import com.dongholab.pagetuner.translation.TranslationRepository
 import com.dongholab.pagetuner.translation.TranslationSettings
 import com.dongholab.pagetuner.translation.TranslationStatus
 import com.dongholab.pagetuner.translation.TranslationViewModel
+import com.dongholab.pagetuner.ui.LanguagePreset
+import com.dongholab.pagetuner.ui.common.AppTab
+import com.dongholab.pagetuner.ui.common.AppTabNavigation
+import com.dongholab.pagetuner.ui.common.ComingSoonPanel
 import com.dongholab.pagetuner.ui.common.StatusStrip
-import com.dongholab.pagetuner.ui.library.LocalLibraryPanel
 import com.dongholab.pagetuner.ui.reader.DocumentDetailsDialog
 import com.dongholab.pagetuner.ui.reader.ReaderAnnotationPanel
 import com.dongholab.pagetuner.ui.reader.ReaderBookmarkPanel
@@ -84,17 +78,17 @@ import com.dongholab.pagetuner.ui.reader.ReaderHeader
 import com.dongholab.pagetuner.ui.reader.ReaderPager
 import com.dongholab.pagetuner.ui.reader.ReaderSearchPanel
 import com.dongholab.pagetuner.ui.reader.ReaderSurface
-import com.dongholab.pagetuner.ui.settings.DisplaySettingsPanel
-import com.dongholab.pagetuner.ui.settings.PageTurnSettingsPanel
-import com.dongholab.pagetuner.ui.settings.ReaderPreferencesPanel
-import com.dongholab.pagetuner.ui.source.RemoteSourcesTodoPanel
-import com.dongholab.pagetuner.ui.text.localizedLabel
+import com.dongholab.pagetuner.ui.screen.FavoritesScreen
+import com.dongholab.pagetuner.ui.screen.LocalScreen
+import com.dongholab.pagetuner.ui.screen.ReaderActions
+import com.dongholab.pagetuner.ui.screen.SettingsScreen
+import com.dongholab.pagetuner.ui.screen.WebNovelScreen
+import com.dongholab.pagetuner.ui.screen.buildReaderActions
 import com.dongholab.pagetuner.ui.text.localizedMessage
 import com.dongholab.pagetuner.ui.text.readableMessage
 import com.dongholab.pagetuner.ui.text.settingsProviderConfigured
 import com.dongholab.pagetuner.ui.theme.PageTurnerTheme
 import com.dongholab.pagetuner.ui.theme.paperColor
-import com.dongholab.pagetuner.ui.translation.TranslationControls
 import kotlin.math.abs
 import kotlin.math.roundToInt
 import kotlinx.coroutines.Dispatchers
@@ -113,49 +107,59 @@ class MainActivity : ComponentActivity() {
     }
 }
 
+// ─────────────────────────────────────────────
+// Cache key for PDF page rendering
+// ─────────────────────────────────────────────
 private data class PdfPageCacheKey(
     val sourceUri: String,
     val pageIndex: Int,
-    val displayMode: DisplayMode,
+    val displayMode: com.dongholab.pagetuner.display.DisplayMode,
 )
 
+// ─────────────────────────────────────────────
+// Root Composable — ViewModels + state setup only
+// ─────────────────────────────────────────────
 @Composable
 fun PageTurnerApp() {
     val context = LocalContext.current
+
+    // — Stores (singleton per context)
     val settingsStore = remember(context) { ReaderSettingsStore(context) }
     val localLibraryStore = remember(context) { LocalLibraryStore(context) }
     val remoteCatalogCache = remember(context) { RemoteCatalogCache(context) }
     val remoteSourceAccountStore = remember(context) { RemoteSourceAccountStore(context) }
-    val initialDocument = remember(context) { context.sampleDocument() }
-    val settingsViewModel: SettingsViewModel = viewModel(
-        factory = SettingsViewModel.Factory(settingsStore),
-    )
-    val readerViewModel: ReaderViewModel = viewModel(
-        factory = ReaderViewModel.Factory(initialDocument),
-    )
-    val libraryViewModel: LibraryViewModel = viewModel(
-        factory = LibraryViewModel.Factory(localLibraryStore),
-    )
+    val favoriteStore = remember(context) {
+        com.dongholab.pagetuner.source.WebNovelFavoriteStore(context.filesDir.resolve("favorites.json"))
+    }
+
+    // — ViewModels
+    val settingsViewModel: SettingsViewModel = viewModel(factory = SettingsViewModel.Factory(settingsStore))
+    val readerViewModel: ReaderViewModel = viewModel(factory = ReaderViewModel.Factory(context.sampleDocument()))
+    val libraryViewModel: LibraryViewModel = viewModel(factory = LibraryViewModel.Factory(localLibraryStore))
     val webCatalogViewModel: WebCatalogViewModel = viewModel(
-        factory = WebCatalogViewModel.Factory(
-            cache = remoteCatalogCache,
-            accountStore = remoteSourceAccountStore,
-        ),
+        factory = WebCatalogViewModel.Factory(cache = remoteCatalogCache, accountStore = remoteSourceAccountStore),
     )
     val translationViewModel: TranslationViewModel = viewModel()
+
+    // — State observation
     val readerSettings by settingsViewModel.settings.collectAsState(initial = ReaderSettings())
     val readerState by readerViewModel.uiState.collectAsState()
     val libraryState by libraryViewModel.uiState.collectAsState()
     val webCatalogState by webCatalogViewModel.uiState.collectAsState()
     val translationState by translationViewModel.uiState.collectAsState()
+
+    // — UI state
     val focusRequester = remember { FocusRequester() }
     val initialStatus = stringResource(R.string.status_ready)
-
-    var pdfPageBitmap by remember { mutableStateOf<Bitmap?>(null) }
-    var pdfPageCache by remember { mutableStateOf<Map<PdfPageCacheKey, Bitmap>>(emptyMap()) }
+    var isSplashing by remember { mutableStateOf(true) }
+    var selectedTab by remember { mutableStateOf(AppTab.Local) }
+    var favoritesList by remember { mutableStateOf(favoriteStore.listFavorites()) }
     var appStatusText by rememberSaveable(initialStatus) { mutableStateOf(initialStatus) }
     var appErrorText by rememberSaveable { mutableStateOf<String?>(null) }
+    var pdfPageBitmap by remember { mutableStateOf<Bitmap?>(null) }
+    var pdfPageCache by remember { mutableStateOf<Map<PdfPageCacheKey, Bitmap>>(emptyMap()) }
 
+    // — Derived reader state
     val localBooks = libraryState.books
     val document = readerState.document
     val pageIndex = readerState.safePageIndex
@@ -163,411 +167,100 @@ fun PageTurnerApp() {
     val pdfSourceUri = readerState.pdfSourceUri
     val currentBookId = readerState.currentBookId
     val currentBook = localBooks.firstOrNull { it.id == currentBookId }
+    val controlsVisible = readerState.controlsVisible
+    val showDocumentDetails = readerState.showDocumentDetails
+    val bookmarks = readerState.bookmarks
+    val annotations = readerState.annotations
+
+    // — Derived settings state
+    val displayMode = readerSettings.displayMode
+    val paperColor = displayMode.servicePalette().paperColor()
+    val providerKind = readerSettings.providerKind
+    val apiKey = translationState.apiKey
+    val busy = libraryState.busy || translationState.busy || webCatalogState.busy
+    val progress = translationState.progress
+
+    // — Translation derived state
     val cache = remember(context, currentBook?.relativePath) {
         JsonFileTranslationCache(context, currentBook?.relativePath)
     }
-    val controlsVisible = readerState.controlsVisible
-    val showDocumentDetails = readerState.showDocumentDetails
-    val searchQuery = readerState.searchQuery
-    val searchResultCount = readerState.searchResults.size
-    val selectedSearchResultNumber = readerState.selectedSearchResultNumber
-    val selectedSearchPreview = readerState.selectedSearchMatch?.preview
-    val bookmarkDraftLabel = readerState.bookmarkDraftLabel
-    val bookmarks = readerState.bookmarks
-    val noteDraftText = readerState.noteDraftText
-    val annotations = readerState.annotations
-    val providerKind = readerSettings.providerKind
-    val paceMode = readerSettings.paceMode
-    val pageTurnMode = readerSettings.pageTurnMode
-    val displayMode = readerSettings.displayMode
-    val paperColor = displayMode.servicePalette().paperColor()
-    val sourceLanguage = readerSettings.sourceLanguage
-    val targetLanguage = readerSettings.targetLanguage
-    val apiKey = translationState.apiKey
-    val translation = translationState.translation
-    val translationCacheStatus = translationState.cacheStatus
-    val busy = libraryState.busy || translationState.busy || webCatalogState.busy
-    val progress = translationState.progress
-    val providerHealthText = translationState.providerHealth.localizedMessage(context)
-    val translationQueueStatusText = translationState.queue.localizedMessage(context)
-    val webCatalogStatusText = webCatalogState.status.localizedMessage(context)
-    val statusText = when (val status = translationState.status) {
-        TranslationStatus.Ready -> appStatusText
-        else -> status.localizedMessage(context)
-    }
-    val tableOfContents = document.tableOfContents
-    val currentChapterIndex = tableOfContents.indexOfLast { outline ->
-        outline.pageIndex <= currentPage.index
-    }
-    val currentChapterTitle = tableOfContents.getOrNull(currentChapterIndex)?.title
-        ?: currentPage.chapterTitle
-    val canPreviousChapter = currentChapterIndex > 0
-    val canNextChapter = when {
-        tableOfContents.isEmpty() -> false
-        currentChapterIndex == -1 -> true
-        else -> currentChapterIndex < tableOfContents.lastIndex
-    }
-    val providerStatusText = when {
-        settingsProviderConfigured(
-            providerKind = providerKind,
-            apiKey = apiKey,
-            llmEndpoint = readerSettings.llmEndpoint,
-            llmModel = readerSettings.llmModel,
-        ) -> stringResource(R.string.provider_status_ready)
-        providerKind == TranslationProviderKind.GOOGLE_CLOUD ->
-            stringResource(R.string.provider_status_missing_google_key)
-        providerKind == TranslationProviderKind.GOOGLE_WEB_TRANSLATE_HTML ->
-            stringResource(R.string.provider_status_google_web_no_key_required)
-        else -> stringResource(R.string.provider_status_missing_llm_settings)
-    }
-    val translationCacheStatusText = translationCacheStatus?.let { cacheStatus ->
-        if (cacheStatus.totalSegments == 0) {
-            stringResource(R.string.translation_cache_status_empty)
-        } else {
-            stringResource(
-                R.string.translation_cache_status,
-                cacheStatus.cachedSegments,
-                cacheStatus.totalSegments,
-            )
-        }
-    } ?: stringResource(R.string.translation_cache_status_empty)
     val settings = TranslationSettings(
         providerKind = providerKind,
         apiKey = apiKey,
         llmEndpoint = readerSettings.llmEndpoint,
         llmModel = readerSettings.llmModel,
-        sourceLanguage = sourceLanguage,
-        targetLanguage = targetLanguage,
+        sourceLanguage = readerSettings.sourceLanguage,
+        targetLanguage = readerSettings.targetLanguage,
         readingWordsPerMinute = readerSettings.readingWordsPerMinute,
         batchSize = readerSettings.translationBatchSize,
-        paceMode = paceMode,
+        paceMode = readerSettings.paceMode,
     )
+    val repository = remember(settings, cache) {
+        TranslationRepository(provider = TranslationProviderFactory.create(settings), cache = cache)
+    }
+    val tableOfContents = document.tableOfContents
+    val currentChapterIndex = tableOfContents.indexOfLast { it.pageIndex <= currentPage.index }
     val canTranslateCurrentPage = settings.isProviderConfigured && currentPage.hasText
     val canRetryCurrentPageTranslation =
         translationState.status is TranslationStatus.Error && canTranslateCurrentPage
-    val repository = remember(settings, cache) {
-        TranslationRepository(
-            provider = TranslationProviderFactory.create(settings),
-            cache = cache,
-        )
+    val translationCacheStatus = translationState.cacheStatus
+    val statusText = when (val s = translationState.status) {
+        TranslationStatus.Ready -> appStatusText
+        else -> s.localizedMessage(context)
     }
-
-    fun applyLoadedDocument(
-        loaded: LoadedReaderDocument,
-        localBook: LocalBook?,
-        requestedPageIndex: Int,
-    ) {
-        readerViewModel.applyLoadedDocument(
-            loaded = loaded,
-            localBookId = localBook?.id,
-            requestedPageIndex = requestedPageIndex,
-            bookmarks = localBook?.bookmarks.orEmpty().map { it.toReaderBookmark() },
-            annotations = localBook?.annotations.orEmpty().map { it.toReaderAnnotation() },
-        )
-        pdfPageBitmap = null
-        pdfPageCache = emptyMap()
-        translationViewModel.resetForDocument()
+    val webCatalogStatusText = webCatalogState.status.localizedMessage(context)
+    val providerStatusText = when {
+        settingsProviderConfigured(providerKind, apiKey, readerSettings.llmEndpoint, readerSettings.llmModel) ->
+            stringResource(R.string.provider_status_ready)
+        providerKind == com.dongholab.pagetuner.translation.TranslationProviderKind.GOOGLE_CLOUD ->
+            stringResource(R.string.provider_status_missing_google_key)
+        providerKind == com.dongholab.pagetuner.translation.TranslationProviderKind.GOOGLE_WEB_TRANSLATE_HTML ->
+            stringResource(R.string.provider_status_google_web_no_key_required)
+        else -> stringResource(R.string.provider_status_missing_llm_settings)
     }
+    val providerHealthText = translationState.providerHealth.localizedMessage(context)
+    val translationQueueStatusText = translationState.queue.localizedMessage(context)
+    val translationCacheStatusText = translationCacheStatus?.let { cs ->
+        if (cs.totalSegments == 0) stringResource(R.string.translation_cache_status_empty)
+        else stringResource(R.string.translation_cache_status, cs.cachedSegments, cs.totalSegments)
+    } ?: stringResource(R.string.translation_cache_status_empty)
 
-    fun persistBookmarks(bookmarks: List<ReaderBookmark>) {
-        val bookId = currentBookId ?: return
-        libraryViewModel.updateBookmarks(
-            bookId = bookId,
-            bookmarks = bookmarks.map { it.toLocalBookBookmark() },
-        )
-    }
-
-    fun persistAnnotations(annotations: List<ReaderAnnotation>) {
-        val bookId = currentBookId ?: return
-        libraryViewModel.updateAnnotations(
-            bookId = bookId,
-            annotations = annotations.map { it.toLocalBookAnnotation() },
-        )
-    }
-
-    fun openLocalBook(book: LocalBook) {
-        if (busy) return
-        translationViewModel.clearStatus()
-        appStatusText = context.getString(R.string.status_opening_document)
-        libraryViewModel.openBook(book)
-    }
-
-    fun deleteLocalBook(book: LocalBook) {
-        if (busy) return
-        translationViewModel.clearStatus()
-        libraryViewModel.deleteBook(
-            book = book,
-            wasCurrentBook = currentBookId == book.id,
-        )
-    }
-
-    fun changePage(targetIndex: Int) {
-        when (readerViewModel.changePage(targetIndex)) {
-            ReaderPageMoveResult.Moved -> {
-                translationViewModel.clearPageTranslation()
-            }
-            ReaderPageMoveResult.FirstPage -> {
-                translationViewModel.clearStatus()
-                appStatusText = context.getString(R.string.status_first_page)
-            }
-            ReaderPageMoveResult.LastPage -> {
-                translationViewModel.clearStatus()
-                appStatusText = context.getString(R.string.status_last_page)
-            }
-        }
-    }
-
-    fun handleSearchMove(result: ReaderSearchMoveResult) {
-        when (result) {
-            is ReaderSearchMoveResult.Moved -> {
-                translationViewModel.clearPageTranslation()
-                translationViewModel.clearStatus()
-                appStatusText = context.getString(
-                    R.string.status_search_result,
-                    result.resultNumber,
-                    result.totalResults,
-                    result.match.pageIndex + 1,
-                )
-            }
-            ReaderSearchMoveResult.NoQuery -> {
-                translationViewModel.clearStatus()
-                appStatusText = context.getString(R.string.status_search_empty_query)
-            }
-            ReaderSearchMoveResult.NoResults -> {
-                translationViewModel.clearStatus()
-                appStatusText = context.getString(R.string.status_search_no_results)
-            }
-        }
-    }
-
-    fun updateSearchQuery(query: String) {
-        readerViewModel.updateSearchQuery(query)
-    }
-
-    fun previousSearchResult() {
-        if (busy) return
-        handleSearchMove(readerViewModel.previousSearchResult())
-    }
-
-    fun nextSearchResult() {
-        if (busy) return
-        handleSearchMove(readerViewModel.nextSearchResult())
-    }
-
-    fun clearSearch() {
-        readerViewModel.clearSearch()
-        translationViewModel.clearStatus()
-        appStatusText = context.getString(R.string.status_ready)
-    }
-
-    fun addBookmark() {
-        if (busy) return
-        val bookmark = readerViewModel.addBookmark()
-        persistBookmarks(readerViewModel.uiState.value.bookmarks)
-        translationViewModel.clearStatus()
-        appStatusText = context.getString(
-            R.string.status_added_bookmark,
-            bookmark.pageIndex + 1,
-        )
-    }
-
-    fun openBookmark(bookmark: ReaderBookmark) {
-        if (busy) return
-        val opened = readerViewModel.openBookmark(bookmark.id) ?: return
-        translationViewModel.clearPageTranslation()
-        translationViewModel.clearStatus()
-        appStatusText = context.getString(
-            R.string.status_opened_bookmark,
-            opened.pageIndex + 1,
-        )
-    }
-
-    fun removeBookmark(bookmark: ReaderBookmark) {
-        if (busy) return
-        readerViewModel.removeBookmark(bookmark.id)
-        persistBookmarks(readerViewModel.uiState.value.bookmarks)
-        translationViewModel.clearStatus()
-        appStatusText = context.getString(R.string.status_deleted_bookmark)
-    }
-
-    fun addHighlight() {
-        if (busy) return
-        val annotation = readerViewModel.addHighlight()
-        persistAnnotations(readerViewModel.uiState.value.annotations)
-        translationViewModel.clearStatus()
-        appStatusText = context.getString(
-            R.string.status_added_highlight,
-            annotation.pageIndex + 1,
-        )
-    }
-
-    fun addNote() {
-        if (busy) return
-        val annotation = readerViewModel.addNote()
-        translationViewModel.clearStatus()
-        if (annotation == null) {
-            appStatusText = context.getString(R.string.status_note_empty)
-            return
-        }
-        persistAnnotations(readerViewModel.uiState.value.annotations)
-        appStatusText = context.getString(
-            R.string.status_added_note,
-            annotation.pageIndex + 1,
-        )
-    }
-
-    fun openAnnotation(annotation: ReaderAnnotation) {
-        if (busy) return
-        val opened = readerViewModel.openAnnotation(annotation.id) ?: return
-        translationViewModel.clearPageTranslation()
-        translationViewModel.clearStatus()
-        appStatusText = context.getString(
-            R.string.status_opened_annotation,
-            opened.pageIndex + 1,
-        )
-    }
-
-    fun removeAnnotation(annotation: ReaderAnnotation) {
-        if (busy) return
-        readerViewModel.removeAnnotation(annotation.id)
-        persistAnnotations(readerViewModel.uiState.value.annotations)
-        translationViewModel.clearStatus()
-        appStatusText = context.getString(R.string.status_deleted_annotation)
-    }
-
-    fun exportAnnotations() {
-        if (busy) return
-        val exportText = ReaderAnnotationExport.buildText(
-            document = document,
-            annotations = annotations,
-        )
-        val sendIntent = Intent(Intent.ACTION_SEND).apply {
-            type = "text/plain"
-            putExtra(Intent.EXTRA_SUBJECT, document.title)
-            putExtra(Intent.EXTRA_TEXT, exportText)
-        }
-        context.startActivity(
-            Intent.createChooser(
-                sendIntent,
-                context.getString(R.string.action_export_annotations),
-            ),
-        )
-        translationViewModel.clearStatus()
-        appStatusText = context.getString(R.string.status_exported_annotations)
-    }
-
-    fun previousPage() {
-        changePage(pageIndex - 1)
-    }
-
-    fun nextPage() {
-        changePage(pageIndex + 1)
-    }
-
-    fun requestManualRefresh() {
-        readerViewModel.requestManualRefresh()
-        pdfPageBitmap = null
-        pdfPageCache = emptyMap()
-        translationViewModel.clearStatus()
-        appStatusText = context.getString(R.string.status_manual_refresh_requested)
-    }
-
-    fun previousChapter() {
-        if (!canPreviousChapter) {
-            translationViewModel.clearStatus()
-            appStatusText = context.getString(R.string.status_first_chapter)
-            return
-        }
-        changePage(tableOfContents[currentChapterIndex - 1].pageIndex)
-    }
-
-    fun nextChapter() {
-        val nextChapterIndex = when {
-            tableOfContents.isEmpty() -> null
-            currentChapterIndex == -1 -> 0
-            currentChapterIndex < tableOfContents.lastIndex -> currentChapterIndex + 1
-            else -> null
-        }
-
-        if (nextChapterIndex == null) {
-            translationViewModel.clearStatus()
-            appStatusText = context.getString(R.string.status_last_chapter)
-            return
-        }
-
-        changePage(tableOfContents[nextChapterIndex].pageIndex)
-    }
-
-    fun handleReaderKey(key: Key): Boolean {
-        if (busy) return false
-        return when (key) {
-            Key.DirectionLeft,
-            Key.PageUp -> {
-                previousPage()
-                true
-            }
-            Key.DirectionRight,
-            Key.PageDown,
-            Key.Spacebar -> {
-                nextPage()
-                true
-            }
-            else -> false
-        }
-    }
-
-    fun loadCachedCurrentPage() {
-        translationViewModel.loadCachedPage(
-            document = document,
-            page = currentPage,
-            settings = settings,
-            repository = repository,
-            showMissingStatus = true,
-        )
-    }
-
-    fun translateCurrentPage() {
-        if (busy) return
-        translationViewModel.translatePage(
-            document = document,
-            page = currentPage,
-            settings = settings,
-            repository = repository,
-        )
-    }
-
-    fun prefetchDocument() {
-        if (busy) return
-        translationViewModel.prefetchDocument(
-            document = document,
-            currentPage = currentPage,
-            startPageIndex = pageIndex,
-            settings = settings,
-            repository = repository,
-        )
-    }
-
-    fun clearTranslationCache() {
-        if (busy) return
-        translationViewModel.clearTranslationCache(
-            document = document,
-            settings = settings,
-            repository = repository,
-        )
-    }
-
-    val openDocumentLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.OpenDocument(),
-    ) { uri: Uri? ->
+    // — File picker launcher
+    val openDocumentLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri: Uri? ->
         if (uri == null) return@rememberLauncherForActivityResult
         translationViewModel.clearStatus()
         appStatusText = context.getString(R.string.status_opening_document)
         libraryViewModel.importBook(uri)
     }
 
+    // — Build ReaderActions (all user action callbacks in one object)
+    val actions = buildReaderActions(
+        context = context,
+        readerViewModel = readerViewModel,
+        libraryViewModel = libraryViewModel,
+        translationViewModel = translationViewModel,
+        document = document,
+        currentPage = currentPage,
+        pageIndex = pageIndex,
+        settings = settings,
+        repository = repository,
+        currentBookId = currentBookId,
+        tableOfContents = tableOfContents,
+        currentChapterIndex = currentChapterIndex,
+        busy = busy,
+        getAppStatusText = { appStatusText },
+        setAppStatusText = { appStatusText = it },
+        setAppErrorText = { appErrorText = it },
+        resetPdfCache = { pdfPageBitmap = null; pdfPageCache = emptyMap() },
+        openFilePicker = { openDocumentLauncher.launch(arrayOf("text/*", "text/markdown", "application/pdf", "application/epub+zip", "application/octet-stream")) },
+    )
+
+    // ─── Side effects ────────────────────────────────────────────────────
     LaunchedEffect(Unit) {
-        focusRequester.requestFocus()
+        kotlinx.coroutines.delay(1000L)
+        isSplashing = false
     }
+    LaunchedEffect(Unit) { focusRequester.requestFocus() }
 
     LaunchedEffect(libraryViewModel) {
         launch {
@@ -575,51 +268,27 @@ fun PageTurnerApp() {
                 translationViewModel.clearStatus()
                 when (event) {
                     is LibraryEvent.OpenedLocalBook -> {
-                        applyLoadedDocument(
-                            loaded = event.result.loadedDocument,
-                            localBook = event.result.book,
-                            requestedPageIndex = event.result.book.safeCurrentPageIndex,
-                        )
-                        appStatusText = context.getString(
-                            R.string.status_opened_local_book,
-                            event.result.book.title,
-                        )
+                        applyLoadedDocument(event.result.loadedDocument, event.result.book, event.result.book.safeCurrentPageIndex, readerViewModel, translationViewModel) { pdfPageBitmap = null; pdfPageCache = emptyMap() }
+                        appStatusText = context.getString(R.string.status_opened_local_book, event.result.book.title)
                     }
                     is LibraryEvent.ImportedBook -> {
-                        applyLoadedDocument(
-                            loaded = event.result.loadedDocument,
-                            localBook = event.result.book,
-                            requestedPageIndex = event.result.book.safeCurrentPageIndex,
-                        )
-                        appStatusText = if (event.result.wasDuplicateImport) {
-                            context.getString(
-                                R.string.status_duplicate_book,
-                                event.result.book.title,
-                            )
-                        } else {
-                            context.getString(
-                                R.string.status_imported_book,
-                                event.result.book.title,
-                            )
-                        }
+                        applyLoadedDocument(event.result.loadedDocument, event.result.book, event.result.book.safeCurrentPageIndex, readerViewModel, translationViewModel) { pdfPageBitmap = null; pdfPageCache = emptyMap() }
+                        selectedTab = AppTab.Local
+                        appStatusText = if (event.result.wasDuplicateImport)
+                            context.getString(R.string.status_duplicate_book, event.result.book.title)
+                        else context.getString(R.string.status_imported_book, event.result.book.title)
                     }
                     is LibraryEvent.DeletedBook -> {
                         if (event.wasCurrentBook) {
                             readerViewModel.resetDocument(context.sampleDocument())
-                            pdfPageBitmap = null
-                            pdfPageCache = emptyMap()
+                            pdfPageBitmap = null; pdfPageCache = emptyMap()
                             translationViewModel.resetForDocument()
                         }
-                        appStatusText = context.getString(
-                            R.string.status_deleted_book,
-                            event.book.title,
-                        )
+                        appStatusText = context.getString(R.string.status_deleted_book, event.book.title)
                     }
                     is LibraryEvent.Error -> {
-                        val readable = event.cause?.readableMessage(context)
-                            ?: context.readableMessage(event.detail)
-                        appStatusText = readable
-                        appErrorText = readable
+                        val msg = event.cause?.readableMessage(context) ?: context.readableMessage(event.detail)
+                        appStatusText = msg; appErrorText = msg
                     }
                 }
             }
@@ -628,17 +297,12 @@ fun PageTurnerApp() {
     }
 
     LaunchedEffect(webCatalogViewModel) {
-        launch {
-            webCatalogViewModel.events.collect { event ->
-                when (event) {
-                    is WebCatalogEvent.ImportDownloaded -> {
-                        translationViewModel.clearStatus()
-                        appStatusText = context.getString(
-                            R.string.status_web_catalog_downloaded,
-                            event.item.title,
-                        )
-                        libraryViewModel.importRemoteBook(event.item, event.bytes)
-                    }
+        webCatalogViewModel.events.collect { event ->
+            when (event) {
+                is WebCatalogEvent.ImportDownloaded -> {
+                    translationViewModel.clearStatus()
+                    appStatusText = context.getString(R.string.status_web_catalog_downloaded, event.item.title)
+                    libraryViewModel.importRemoteBook(event.item, event.bytes)
                 }
             }
         }
@@ -653,65 +317,57 @@ fun PageTurnerApp() {
         translationViewModel.refreshCacheStatus(document, settings, repository)
     }
 
+    LaunchedEffect(document.id, pageIndex, settings, repository) {
+        translationViewModel.loadCachedPage(document, currentPage, settings, repository, showMissingStatus = false)
+    }
+
     LaunchedEffect(document.id, pageIndex, pdfSourceUri, displayMode, readerState.manualRefreshToken) {
         pdfPageBitmap = null
-        val source = pdfSourceUri
-        if (document.format == DocumentFormat.PDF && source != null) {
-            val currentKey = PdfPageCacheKey(source, pageIndex, displayMode)
-            pdfPageBitmap = pdfPageCache[currentKey]
-
-            runCatching {
-                withContext(Dispatchers.IO) {
-                    val targetPages = (pageIndex - 1..pageIndex + 1)
-                        .filter { it in 0 until document.pageCount }
-
-                    targetPages.associate { targetPage ->
-                        val key = PdfPageCacheKey(source, targetPage, displayMode)
-                        key to (pdfPageCache[key] ?: PdfDocumentReader.renderPage(
-                            context = context,
-                            uri = Uri.parse(source),
-                            pageIndex = targetPage,
-                            displayMode = displayMode,
-                        ))
+        val source = pdfSourceUri ?: return@LaunchedEffect
+        if (document.format != DocumentFormat.PDF) return@LaunchedEffect
+        val currentKey = PdfPageCacheKey(source, pageIndex, displayMode)
+        pdfPageBitmap = pdfPageCache[currentKey]
+        runCatching {
+            withContext(Dispatchers.IO) {
+                (pageIndex - 1..pageIndex + 1)
+                    .filter { it in 0 until document.pageCount }
+                    .associate { tp ->
+                        val key = PdfPageCacheKey(source, tp, displayMode)
+                        key to (pdfPageCache[key] ?: PdfDocumentReader.renderPage(context, Uri.parse(source), tp, displayMode))
                     }
-                }
-            }.onSuccess { renderedPages ->
-                pdfPageCache = (pdfPageCache + renderedPages)
-                    .filterKeys { key ->
-                        key.sourceUri == source &&
-                            key.displayMode == displayMode &&
-                            abs(key.pageIndex - pageIndex) <= 1
-                    }
-                pdfPageBitmap = renderedPages[currentKey] ?: pdfPageCache[currentKey]
-            }.onFailure { error ->
-                translationViewModel.clearStatus()
-                val readable = error.readableMessage(context)
-                appStatusText = readable
-                appErrorText = readable
             }
+        }.onSuccess { rendered ->
+            pdfPageCache = (pdfPageCache + rendered).filterKeys { k ->
+                k.sourceUri == source && k.displayMode == displayMode && abs(k.pageIndex - pageIndex) <= 1
+            }
+            pdfPageBitmap = rendered[currentKey] ?: pdfPageCache[currentKey]
+        }.onFailure { error ->
+            translationViewModel.clearStatus()
+            val msg = error.readableMessage(context)
+            appStatusText = msg; appErrorText = msg
         }
     }
 
-    LaunchedEffect(document.id, pageIndex, settings, repository) {
-        translationViewModel.loadCachedPage(
-            document = document,
-            page = currentPage,
-            settings = settings,
-            repository = repository,
-            showMissingStatus = false,
-        )
-    }
-
+    // ─── UI ──────────────────────────────────────────────────────────────
     Scaffold(
         modifier = Modifier
             .fillMaxSize()
             .focusRequester(focusRequester)
             .focusable()
-            .onPreviewKeyEvent { event ->
-                event.type == KeyEventType.KeyDown && handleReaderKey(event.key)
+            .onPreviewKeyEvent { ev ->
+                if (ev.type != KeyEventType.KeyDown || busy) return@onPreviewKeyEvent false
+                when (ev.key) {
+                    Key.DirectionLeft, Key.PageUp -> { actions.previousPage(); true }
+                    Key.DirectionRight, Key.PageDown, Key.Spacebar -> { actions.nextPage(); true }
+                    else -> false
+                }
             },
         containerColor = paperColor,
     ) { innerPadding ->
+        if (isSplashing) {
+            com.dongholab.pagetuner.ui.splash.PageTurnerSplashScreen()
+            return@Scaffold
+        }
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -724,208 +380,172 @@ fun PageTurnerApp() {
                 document = document,
                 page = currentPage,
                 controlsVisible = controlsVisible,
-                onOpen = {
-                    openDocumentLauncher.launch(
-                        arrayOf(
-                            "text/*",
-                            "text/markdown",
-                            "application/pdf",
-                            "application/epub+zip",
-                            "application/octet-stream",
-                        ),
-                    )
-                },
+                onOpen = { actions.openFilePicker() },
                 onToggleControls = readerViewModel::toggleControls,
-                onManualRefresh = ::requestManualRefresh,
+                onManualRefresh = actions.requestManualRefresh,
                 onShowDetails = readerViewModel::showDocumentDetails,
             )
+
             if (controlsVisible) {
-                LocalLibraryPanel(
-                    books = localBooks,
-                    currentBookId = currentBookId,
-                    busy = busy,
-                    onOpenBook = ::openLocalBook,
-                    onDeleteBook = ::deleteLocalBook,
-                    onUpdateBookOrganization = libraryViewModel::updateOrganization,
-                )
+                AppTabNavigation(selectedTab = selectedTab, onSelectTab = { selectedTab = it })
+
+                when (selectedTab) {
+                    AppTab.Local -> LocalScreen(
+                        books = localBooks,
+                        currentBookId = currentBookId,
+                        busy = busy,
+                        onOpenBook = actions.openLocalBook,
+                        onDeleteBook = actions.deleteLocalBook,
+                        onUpdateBookOrganization = libraryViewModel::updateOrganization,
+                        onImportFile = { file -> libraryViewModel.importBook(Uri.fromFile(file)) },
+                    )
+                    AppTab.Favorites -> FavoritesScreen(
+                        favorites = favoritesList,
+                        displayMode = displayMode,
+                        busy = busy,
+                        onOpenNovelDetail = { novel ->
+                            webCatalogViewModel.updateCatalogUrl(novel.downloadUrl)
+                            selectedTab = AppTab.WebNovel
+                            webCatalogViewModel.loadCatalog()
+                        },
+                        onRemoveFavorite = { novel -> favoritesList = favoriteStore.toggleFavorite(novel) },
+                    )
+                    AppTab.WebNovel -> WebNovelScreen(
+                        state = webCatalogState,
+                        displayMode = displayMode,
+                        busy = busy,
+                        statusText = webCatalogStatusText,
+                        onCatalogUrlChange = webCatalogViewModel::updateCatalogUrl,
+                        onQueryChange = webCatalogViewModel::updateQuery,
+                        onLoadCatalog = webCatalogViewModel::loadCatalog,
+                        onRefreshCatalog = webCatalogViewModel::refreshCatalog,
+                        onSaveSourceAccount = webCatalogViewModel::saveCurrentCatalogAccount,
+                        onLoadSourceAccount = webCatalogViewModel::loadSourceAccount,
+                        onDeleteSourceAccount = webCatalogViewModel::deleteSourceAccount,
+                        onLoadCachedCatalog = webCatalogViewModel::loadCachedCatalog,
+                        onImportItem = webCatalogViewModel::importItem,
+                    )
+                    AppTab.RemoteDrive -> ComingSoonPanel(
+                        title = "Drive",
+                        description = "Google Drive / FTP 연동 기능은 준비중입니다.",
+                    )
+                    AppTab.Settings -> SettingsScreen(
+                        readerSettings = readerSettings,
+                        translationState = translationState,
+                        providerKind = providerKind,
+                        apiKey = apiKey,
+                        busy = busy,
+                        canTranslate = canTranslateCurrentPage,
+                        canRetryTranslation = canRetryCurrentPageTranslation,
+                        canClearCache = (translationCacheStatus?.cachedSegments ?: 0) > 0,
+                        providerStatusText = providerStatusText,
+                        providerHealthText = providerHealthText,
+                        translationCacheStatusText = translationCacheStatusText,
+                        translationQueueStatusText = translationQueueStatusText,
+                        onDisplayModeChange = { pdfPageBitmap = null; pdfPageCache = emptyMap(); settingsViewModel.updateDisplayMode(it) },
+                        onPageTurnModeChange = settingsViewModel::updatePageTurnMode,
+                        onPdfFitModeChange = settingsViewModel::updatePdfFitMode,
+                        onFontSizeChange = settingsViewModel::updateReaderFontSize,
+                        onLineSpacingChange = settingsViewModel::updateReaderLineSpacing,
+                        onPageMarginChange = settingsViewModel::updateReaderPageMargin,
+                        onProviderKindChange = settingsViewModel::updateProviderKind,
+                        onApiKeyChange = translationViewModel::updateApiKey,
+                        onLlmEndpointChange = settingsViewModel::updateLlmEndpoint,
+                        onLlmModelChange = settingsViewModel::updateLlmModel,
+                        onSourceLanguageChange = settingsViewModel::updateSourceLanguage,
+                        onTargetLanguageChange = settingsViewModel::updateTargetLanguage,
+                        onReadingWpmChange = { settingsViewModel.updateReadingWordsPerMinute(it.roundToInt()) },
+                        onBatchSizeChange = { settingsViewModel.updateTranslationBatchSize(it.roundToInt()) },
+                        onPaceModeChange = settingsViewModel::updatePaceMode,
+                        onTranslationDisplayModeChange = settingsViewModel::updateTranslationDisplayMode,
+                        onLanguagePreset = { preset ->
+                            settingsViewModel.updateLanguages(preset.sourceLanguage, preset.targetLanguage)
+                        },
+                        onCheckProvider = { translationViewModel.checkProviderHealth(settings) },
+                        onTranslate = actions.translateCurrentPage,
+                        onRetryTranslation = actions.translateCurrentPage,
+                        onPrefetch = actions.prefetchDocument,
+                        onPausePrefetch = translationViewModel::pausePrefetch,
+                        onResumePrefetch = translationViewModel::resumePrefetch,
+                        onCancelPrefetch = translationViewModel::cancelPrefetch,
+                        onRetryPrefetch = {
+                            translationViewModel.retryFailedPrefetch(document, currentPage, settings, repository)
+                        },
+                        onLoadCached = actions.loadCachedCurrentPage,
+                        onClearCache = actions.clearTranslationCache,
+                    )
+                }
+
+                StatusStrip(statusText = statusText, progress = progress, busy = busy)
             }
-            ReaderPager(
-                pageIndex = pageIndex,
-                pageCount = document.pageCount,
+
+            // Reader panels (search, bookmarks, annotations)
+            ReaderSearchPanel(
+                query = readerState.searchQuery,
+                resultCount = readerState.searchResults.size,
+                selectedResultNumber = readerState.selectedSearchResultNumber,
+                selectedPreview = readerState.selectedSearchMatch?.preview,
                 busy = busy,
-                currentChapterTitle = currentChapterTitle,
-                canPreviousChapter = canPreviousChapter,
-                canNextChapter = canNextChapter,
-                onPrevious = ::previousPage,
-                onNext = ::nextPage,
-                onPreviousChapter = ::previousChapter,
-                onNextChapter = ::nextChapter,
+                onQueryChange = actions.updateSearchQuery,
+                onPreviousResult = actions.previousSearchResult,
+                onNextResult = actions.nextSearchResult,
+                onClearSearch = actions.clearSearch,
             )
-            if (controlsVisible) {
-                ReaderSearchPanel(
-                    query = searchQuery,
-                    resultCount = searchResultCount,
-                    selectedResultNumber = selectedSearchResultNumber,
-                    selectedPreview = selectedSearchPreview,
-                    busy = busy,
-                    onQueryChange = ::updateSearchQuery,
-                    onPreviousResult = ::previousSearchResult,
-                    onNextResult = ::nextSearchResult,
-                    onClearSearch = ::clearSearch,
-                )
-                ReaderBookmarkPanel(
-                    bookmarks = bookmarks,
-                    currentPageIndex = pageIndex,
-                    draftLabel = bookmarkDraftLabel,
-                    busy = busy,
-                    onDraftLabelChange = readerViewModel::updateBookmarkDraftLabel,
-                    onAddBookmark = ::addBookmark,
-                    onOpenBookmark = ::openBookmark,
-                    onRemoveBookmark = ::removeBookmark,
-                )
-                ReaderAnnotationPanel(
-                    annotations = annotations,
-                    currentPageIndex = pageIndex,
-                    noteDraft = noteDraftText,
-                    busy = busy,
-                    onNoteDraftChange = readerViewModel::updateNoteDraftText,
-                    onAddHighlight = ::addHighlight,
-                    onAddNote = ::addNote,
-                    onExportAnnotations = ::exportAnnotations,
-                    onOpenAnnotation = ::openAnnotation,
-                    onRemoveAnnotation = ::removeAnnotation,
-                )
-            }
+            ReaderBookmarkPanel(
+                draftLabel = readerState.bookmarkDraftLabel,
+                bookmarks = bookmarks,
+                currentPageIndex = pageIndex,
+                busy = busy,
+                onDraftLabelChange = readerViewModel::updateBookmarkDraftLabel,
+                onAddBookmark = actions.addBookmark,
+                onOpenBookmark = actions.openBookmark,
+                onRemoveBookmark = actions.removeBookmark,
+            )
+            ReaderAnnotationPanel(
+                noteDraft = readerState.noteDraftText,
+                annotations = annotations,
+                currentPageIndex = pageIndex,
+                busy = busy,
+                onNoteDraftChange = readerViewModel::updateNoteDraftText,
+                onAddHighlight = actions.addHighlight,
+                onAddNote = actions.addNote,
+                onOpenAnnotation = actions.openAnnotation,
+                onRemoveAnnotation = actions.removeAnnotation,
+                onExportAnnotations = actions.exportAnnotations,
+            )
+
             ReaderSurface(
                 page = currentPage,
                 documentFormat = document.format,
                 pdfPageBitmap = pdfPageBitmap,
                 pdfFitMode = readerSettings.pdfFitMode,
                 displayMode = displayMode,
-                translation = translation,
+                translation = translationState.translation,
                 translationDisplayMode = readerSettings.translationDisplayMode,
-                pageTurnMode = pageTurnMode,
+                pageTurnMode = readerSettings.pageTurnMode,
                 pageTurningEnabled = !busy,
                 fontSizeSp = readerSettings.readerFontSizeSp,
                 lineSpacing = readerSettings.readerLineSpacing,
                 pageMarginDp = readerSettings.readerPageMarginDp,
-                onPreviousPage = ::previousPage,
-                onNextPage = ::nextPage,
-                modifier = Modifier.weight(1f),
+                onPreviousPage = actions.previousPage,
+                onNextPage = actions.nextPage,
             )
-            if (controlsVisible) {
-                DisplaySettingsPanel(
-                    displayMode = displayMode,
-                    busy = busy,
-                    onDisplayModeChange = {
-                        pdfPageBitmap = null
-                        pdfPageCache = emptyMap()
-                        settingsViewModel.updateDisplayMode(it)
-                    },
-                )
-                PageTurnSettingsPanel(
-                    pageTurnMode = pageTurnMode,
-                    busy = busy,
-                    onPageTurnModeChange = settingsViewModel::updatePageTurnMode,
-                )
-                ReaderPreferencesPanel(
-                    pdfFitMode = readerSettings.pdfFitMode,
-                    fontSizeSp = readerSettings.readerFontSizeSp,
-                    lineSpacing = readerSettings.readerLineSpacing,
-                    pageMarginDp = readerSettings.readerPageMarginDp,
-                    busy = busy,
-                    onPdfFitModeChange = settingsViewModel::updatePdfFitMode,
-                    onFontSizeChange = settingsViewModel::updateReaderFontSize,
-                    onLineSpacingChange = settingsViewModel::updateReaderLineSpacing,
-                    onPageMarginChange = settingsViewModel::updateReaderPageMargin,
-                )
-                TranslationControls(
-                    providerKind = providerKind,
-                    onProviderKindChange = settingsViewModel::updateProviderKind,
-                    apiKey = apiKey,
-                    onApiKeyChange = translationViewModel::updateApiKey,
-                    llmEndpoint = readerSettings.llmEndpoint,
-                    onLlmEndpointChange = settingsViewModel::updateLlmEndpoint,
-                    llmModel = readerSettings.llmModel,
-                    onLlmModelChange = settingsViewModel::updateLlmModel,
-                    sourceLanguage = sourceLanguage,
-                    onSourceLanguageChange = settingsViewModel::updateSourceLanguage,
-                    targetLanguage = targetLanguage,
-                    onTargetLanguageChange = settingsViewModel::updateTargetLanguage,
-                    readingWpm = readerSettings.readingWordsPerMinute.toFloat(),
-                    onReadingWpmChange = {
-                        settingsViewModel.updateReadingWordsPerMinute(it.roundToInt())
-                    },
-                    batchSize = readerSettings.translationBatchSize.toFloat(),
-                    onBatchSizeChange = {
-                        settingsViewModel.updateTranslationBatchSize(it.roundToInt())
-                    },
-                    paceMode = paceMode,
-                    onPaceModeChange = settingsViewModel::updatePaceMode,
-                    translationDisplayMode = readerSettings.translationDisplayMode,
-                    onTranslationDisplayModeChange = settingsViewModel::updateTranslationDisplayMode,
-                    providerStatusText = providerStatusText,
-                    providerHealthText = providerHealthText,
-                    translationCacheStatusText = translationCacheStatusText,
-                    translationQueueStatusText = translationQueueStatusText,
-                    busy = busy,
-                    canTranslate = canTranslateCurrentPage,
-                    canRetryTranslation = canRetryCurrentPageTranslation,
-                    canClearCache = (translationCacheStatus?.cachedSegments ?: 0) > 0,
-                    canPausePrefetch = translationState.queue.canPause,
-                    canResumePrefetch = translationState.queue.canResume,
-                    canCancelPrefetch = translationState.queue.canCancel,
-                    canRetryPrefetch = translationState.queue.canRetry,
-                    onLanguagePreset = { preset ->
-                        settingsViewModel.updateLanguages(
-                            sourceLanguage = preset.sourceLanguage,
-                            targetLanguage = preset.targetLanguage,
-                        )
-                    },
-                    onCheckProvider = { translationViewModel.checkProviderHealth(settings) },
-                    onTranslate = ::translateCurrentPage,
-                    onRetryTranslation = ::translateCurrentPage,
-                    onPrefetch = ::prefetchDocument,
-                    onPausePrefetch = translationViewModel::pausePrefetch,
-                    onResumePrefetch = translationViewModel::resumePrefetch,
-                    onCancelPrefetch = translationViewModel::cancelPrefetch,
-                    onRetryPrefetch = {
-                        translationViewModel.retryFailedPrefetch(
-                            document = document,
-                            currentPage = currentPage,
-                            settings = settings,
-                            repository = repository,
-                        )
-                    },
-                    onLoadCached = ::loadCachedCurrentPage,
-                    onClearCache = ::clearTranslationCache,
-                )
-                RemoteSourcesTodoPanel(
-                    catalogUrl = webCatalogState.catalogUrl,
-                    query = webCatalogState.query,
-                    items = webCatalogState.visibleItems,
-                    coverThumbnails = webCatalogState.coverThumbnails,
-                    cachedCatalogs = webCatalogState.cachedCatalogs,
-                    sourceAccounts = webCatalogState.sourceAccounts,
-                    displayMode = displayMode,
-                    busy = busy,
-                    statusText = webCatalogStatusText,
-                    onCatalogUrlChange = webCatalogViewModel::updateCatalogUrl,
-                    onQueryChange = webCatalogViewModel::updateQuery,
-                    onLoadCatalog = webCatalogViewModel::loadCatalog,
-                    onRefreshCatalog = webCatalogViewModel::refreshCatalog,
-                    onSaveSourceAccount = webCatalogViewModel::saveCurrentCatalogAccount,
-                    onLoadSourceAccount = webCatalogViewModel::loadSourceAccount,
-                    onDeleteSourceAccount = webCatalogViewModel::deleteSourceAccount,
-                    onLoadCachedCatalog = webCatalogViewModel::loadCachedCatalog,
-                    onImportItem = webCatalogViewModel::importItem,
-                )
-                StatusStrip(
-                    statusText = statusText,
-                    progress = progress,
-                    busy = busy,
-                )
-            }
+            ReaderPager(
+                pageIndex = pageIndex,
+                pageCount = document.pageCount,
+                currentChapterTitle = tableOfContents.getOrNull(currentChapterIndex)?.title,
+                canPreviousChapter = currentChapterIndex > 0,
+                canNextChapter = when {
+                    tableOfContents.isEmpty() -> false
+                    currentChapterIndex == -1 -> true
+                    else -> currentChapterIndex < tableOfContents.lastIndex
+                },
+                busy = busy,
+                onPrevious = actions.previousPage,
+                onNext = actions.nextPage,
+                onPreviousChapter = actions.previousChapter,
+                onNextChapter = actions.nextChapter,
+            )
         }
     }
 
@@ -950,6 +570,28 @@ fun PageTurnerApp() {
             },
         )
     }
+}
+
+// ─────────────────────────────────────────────
+// Helper: apply a loaded document to reader state
+// ─────────────────────────────────────────────
+private fun applyLoadedDocument(
+    loaded: LoadedReaderDocument,
+    localBook: LocalBook?,
+    requestedPageIndex: Int,
+    readerViewModel: ReaderViewModel,
+    translationViewModel: TranslationViewModel,
+    resetPdfCache: () -> Unit,
+) {
+    readerViewModel.applyLoadedDocument(
+        loaded = loaded,
+        localBookId = localBook?.id,
+        requestedPageIndex = requestedPageIndex,
+        bookmarks = localBook?.bookmarks.orEmpty().map { it.toReaderBookmark() },
+        annotations = localBook?.annotations.orEmpty().map { it.toReaderAnnotation() },
+    )
+    resetPdfCache()
+    translationViewModel.resetForDocument()
 }
 
 @Preview(showBackground = true, widthDp = 420, heightDp = 900)

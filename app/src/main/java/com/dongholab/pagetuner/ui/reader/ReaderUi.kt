@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -673,7 +674,7 @@ fun ReaderSurface(
     val showTranslation = translation != null && translationDisplayMode != TranslationDisplayMode.OriginalOnly
 
     Surface(
-        modifier = modifier.fillMaxWidth(),
+        modifier = modifier.fillMaxSize(),
         color = Color.White,
         contentColor = EinkInk,
         shape = RoundedCornerShape(6.dp),
@@ -726,13 +727,9 @@ fun ReaderSurface(
                             displayMode = displayMode,
                             fontSizeSp = fontSizeSp,
                             lineSpacing = lineSpacing,
-                            modifier = Modifier.weight(
-                                if (showTranslation) {
-                                    0.55f
-                                } else {
-                                    1f
-                                },
-                            ),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .fillMaxHeight(if (showTranslation) 0.55f else 1f),
                         )
                     }
                     if (translation != null && showTranslation) {
@@ -784,11 +781,10 @@ private fun OriginalPageContent(
                     stringResource(R.string.viewer_no_text)
                 }
             },
-            modifier = Modifier.weight(if (page.images.isEmpty()) 1f else 0.7f),
+            modifier = Modifier.fillMaxWidth(),
             style = MaterialTheme.typography.bodyLarge.copy(fontSize = fontSizeSp.sp),
             color = EinkInk,
             lineHeight = (fontSizeSp * lineSpacing).sp,
-            overflow = TextOverflow.Ellipsis,
         )
         page.images.take(2).forEach { image ->
             EmbeddedPageImage(

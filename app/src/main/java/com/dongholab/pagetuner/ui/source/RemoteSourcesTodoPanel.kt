@@ -6,18 +6,25 @@ import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.ui.unit.sp
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Book
 import androidx.compose.material.icons.filled.CloudDownload
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Image as ImageIcon
@@ -29,7 +36,11 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.asImageBitmap
@@ -86,62 +97,101 @@ fun RemoteSourcesTodoPanel(
             modifier = Modifier.padding(12.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
-            RemoteSourcesHeader()
-            OutlinedTextField(
-                value = catalogUrl,
-                onValueChange = onCatalogUrlChange,
-                modifier = Modifier.fillMaxWidth(),
-                enabled = !busy,
-                singleLine = true,
-                label = { Text(stringResource(R.string.field_web_catalog_url)) },
-            )
-            OutlinedTextField(
-                value = query,
-                onValueChange = onQueryChange,
-                modifier = Modifier.fillMaxWidth(),
-                enabled = !busy,
-                singleLine = true,
-                label = { Text(stringResource(R.string.field_web_catalog_search)) },
-            )
-            FlowRow(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalArrangement = Arrangement.spacedBy(4.dp),
-            ) {
-                Button(
-                    onClick = onLoadCatalog,
-                    enabled = !busy && catalogUrl.isNotBlank(),
-                ) {
-                    Icon(Icons.Filled.CloudDownload, contentDescription = null, modifier = Modifier.size(18.dp))
-                    Spacer(Modifier.width(8.dp))
-                    Text(stringResource(R.string.action_load_catalog))
-                }
-                TextButton(
-                    onClick = onRefreshCatalog,
-                    enabled = !busy && catalogUrl.isNotBlank(),
-                ) {
-                    Icon(Icons.Filled.Refresh, contentDescription = null, modifier = Modifier.size(18.dp))
-                    Spacer(Modifier.width(8.dp))
-                    Text(stringResource(R.string.action_refresh_catalog))
-                }
-                TextButton(
-                    onClick = onSaveSourceAccount,
-                    enabled = !busy && catalogUrl.isNotBlank(),
-                ) {
-                    Text(stringResource(R.string.action_save_remote_source))
+            var showAddSourceDialog by remember { mutableStateOf(false) }
+            var activeCatalogUrlPage by remember { mutableStateOf<String?>(null) }
+            var selectedNovelForDetail by remember { mutableStateOf<RemoteBookItem?>(null) }
+            var fetchedChapters by remember { mutableStateOf<List<RemoteBookItem>>(emptyList()) }
+
+            LaunchedEffect(selectedNovelForDetail) {
+                val item = selectedNovelForDetail
+                if (item != null) {
+                    fetchedChapters = emptyList()
+                    val chapters = runCatching {
+                        kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                            com.dongholab.pagetuner.source.WebNovelRemoteBookSource(
+                                accountId = item.identity.accountId,
+                                endpointUrl = item.downloadUrl,
+                            ).list()
+                        }
+                    }.getOrDefault(emptyList())
+                    fetchedChapters = chapters
                 }
             }
-            Text(
-                text = statusText,
-                style = MaterialTheme.typography.bodySmall,
-                color = EinkInk,
-            )
+
+            val currentSelectedNovel = selectedNovelForDetail
+            if (currentSelectedNovel != null) {
+                WebNovelDetailPagePanel(
+                    novelItem = currentSelectedNovel,
+                    coverBytes = currentSelectedNovel.coverUrl?.let { coverThumbnails[it] },
+                    chapters = fetchedChapters,
+                    displayMode = displayMode,
+                    busy = busy,
+                    onBackToList = { selectedNovelForDetail = null },
+                    onReadChapter = onImportItem,
+                )
+                return@Column
+            }
+
+            if (showAddSourceDialog) {
+                AddCatalogSourceDialog(
+                    busy = busy,
+                    onDismiss = { showAddSourceDialog = false },
+                    onAddCatalog = { title, url ->
+                        onCatalogUrlChange(url)
+                        onSaveSourceAccount()
+                        onLoadCatalog()
+                        activeCatalogUrlPage = url
+                    },
+                )
+            }
+
+            val currentCatalogPage = activeCatalogUrlPage
+            if (currentCatalogPage != null) {
+                WebCatalogPagePanel(
+                    catalogUrl = currentCatalogPage,
+                    query = query,
+                    items = items,
+                    coverThumbnails = coverThumbnails,
+                    displayMode = displayMode,
+                    busy = busy,
+                    statusText = statusText,
+                    onQueryChange = onQueryChange,
+                    onRefreshCatalog = onRefreshCatalog,
+                    onOpenDetail = { item -> selectedNovelForDetail = item },
+                    onImportItem = onImportItem,
+                    onBackToSourceManager = { activeCatalogUrlPage = null },
+                )
+                return@Column
+            }
+
+            RemoteSourcesHeader()
+
+            // Add New Web Novel Source Button
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    text = "Saved Web Novel Catalog Sources (${sourceAccounts.size})",
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.Bold,
+                    color = EinkInk,
+                )
+                androidx.compose.material3.IconButton(
+                    onClick = { showAddSourceDialog = true },
+                    enabled = !busy,
+                ) {
+                    Icon(Icons.Filled.Add, contentDescription = "Add New Source Catalog", tint = EinkInk, modifier = Modifier.size(22.dp))
+                }
+            }
             if (sourceAccounts.isNotEmpty()) {
                 SourceAccountsRow(
                     sourceAccounts = sourceAccounts,
                     busy = busy,
                     onLoadSourceAccount = onLoadSourceAccount,
                     onDeleteSourceAccount = onDeleteSourceAccount,
+                    onOpenCatalogPage = { account -> activeCatalogUrlPage = account.endpoint },
                 )
             }
             if (cachedCatalogs.isNotEmpty()) {
@@ -151,19 +201,130 @@ fun RemoteSourcesTodoPanel(
                     onLoadCachedCatalog = onLoadCachedCatalog,
                 )
             }
-            if (items.isEmpty()) {
+
+            var selectedLanguageFilter by remember { mutableStateOf("All") }
+            var selectedGenreFilter by remember { mutableStateOf("All") }
+
+            val filteredCatalogItems = remember(items, selectedLanguageFilter, selectedGenreFilter) {
+                items.filter { item ->
+                    val matchLang = when (selectedLanguageFilter) {
+                        "All" -> true
+                        "en" -> (item.language ?: "en").contains("en", ignoreCase = true)
+                        "ko" -> (item.language ?: "").contains("ko", ignoreCase = true)
+                        else -> true
+                    }
+                    val matchGenre = when (selectedGenreFilter) {
+                        "All" -> true
+                        else -> item.title.contains(selectedGenreFilter, ignoreCase = true) ||
+                            item.downloadUrl.contains(selectedGenreFilter, ignoreCase = true)
+                    }
+                    matchLang && matchGenre
+                }
+            }
+
+            // Language & Genre Filter Controls Header
+            if (items.isNotEmpty()) {
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(6.dp),
+                ) {
+                    Text(
+                        text = "Language Filter:",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = EinkMuted,
+                    )
+                    FlowRow(
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        verticalArrangement = Arrangement.spacedBy(4.dp),
+                    ) {
+                        listOf("All", "en", "ko").forEach { lang ->
+                            androidx.compose.material3.FilterChip(
+                                selected = selectedLanguageFilter == lang,
+                                onClick = { selectedLanguageFilter = lang },
+                                enabled = !busy,
+                                label = {
+                                    Text(
+                                        text = when (lang) {
+                                            "All" -> "All Languages"
+                                            "en" -> "English (en)"
+                                            "ko" -> "Korean (ko)"
+                                            else -> lang
+                                        },
+                                        style = MaterialTheme.typography.labelSmall,
+                                    )
+                                },
+                            )
+                        }
+                    }
+
+                    Text(
+                        text = "Genre Filter:",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = EinkMuted,
+                    )
+                    FlowRow(
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        verticalArrangement = Arrangement.spacedBy(4.dp),
+                    ) {
+                        listOf("All", "Fantasy", "Action", "Romance", "System").forEach { genre ->
+                            androidx.compose.material3.FilterChip(
+                                selected = selectedGenreFilter == genre,
+                                onClick = { selectedGenreFilter = genre },
+                                enabled = !busy,
+                                label = { Text(genre, style = MaterialTheme.typography.labelSmall) },
+                            )
+                        }
+                    }
+                }
+            }
+
+            if (filteredCatalogItems.isEmpty()) {
                 Text(
-                    text = stringResource(R.string.web_catalog_empty),
+                    text = if (items.isEmpty()) stringResource(R.string.web_catalog_empty) else "No novels match your language or genre filter.",
                     style = MaterialTheme.typography.bodySmall,
                     color = EinkMuted,
                 )
             } else {
-                items.take(5).forEach { item ->
+                var listPageIndex by remember(filteredCatalogItems) { mutableStateOf(0) }
+                val pageSize = 5
+                val totalPages = (filteredCatalogItems.size + pageSize - 1) / pageSize
+                val currentPageItems = filteredCatalogItems.drop(listPageIndex * pageSize).take(pageSize)
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        text = "Items ${listPageIndex * pageSize + 1}-${minOf((listPageIndex + 1) * pageSize, filteredCatalogItems.size)} of ${filteredCatalogItems.size}",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = EinkMuted,
+                    )
+                    Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                        TextButton(
+                            onClick = { if (listPageIndex > 0) listPageIndex-- },
+                            enabled = listPageIndex > 0 && !busy,
+                        ) {
+                            Text("◄ Prev")
+                        }
+                        TextButton(
+                            onClick = { if (listPageIndex < totalPages - 1) listPageIndex++ },
+                            enabled = listPageIndex < totalPages - 1 && !busy,
+                        ) {
+                            Text("Next ►")
+                        }
+                    }
+                }
+
+                currentPageItems.forEach { item ->
                     RemoteBookRow(
                         item = item,
                         coverBytes = item.coverUrl?.let { coverThumbnails[it] },
                         displayMode = displayMode,
                         busy = busy,
+                        onCatalogUrlChange = onCatalogUrlChange,
+                        onLoadCatalog = onLoadCatalog,
+                        onOpenDetail = { selectedNovelForDetail = item },
                         onImportItem = onImportItem,
                     )
                 }
@@ -181,6 +342,7 @@ private fun SourceAccountsRow(
     busy: Boolean,
     onLoadSourceAccount: (RemoteSourceAccount) -> Unit,
     onDeleteSourceAccount: (RemoteSourceAccount) -> Unit,
+    onOpenCatalogPage: (RemoteSourceAccount) -> Unit = {},
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
         Text(
@@ -188,7 +350,7 @@ private fun SourceAccountsRow(
             style = MaterialTheme.typography.labelLarge,
             color = EinkInk,
         )
-        sourceAccounts.take(4).forEach { account ->
+        sourceAccounts.take(6).forEach { account ->
             Surface(
                 modifier = Modifier.fillMaxWidth(),
                 color = EinkSoft,
@@ -200,7 +362,14 @@ private fun SourceAccountsRow(
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    Column(modifier = Modifier.weight(1f)) {
+                    Column(
+                        modifier = Modifier
+                            .weight(1f)
+                            .clickable(enabled = !busy) {
+                                onLoadSourceAccount(account)
+                                onOpenCatalogPage(account)
+                            },
+                    ) {
                         Text(
                             text = account.title,
                             style = MaterialTheme.typography.labelLarge,
@@ -218,10 +387,13 @@ private fun SourceAccountsRow(
                         )
                     }
                     TextButton(
-                        onClick = { onLoadSourceAccount(account) },
+                        onClick = {
+                            onLoadSourceAccount(account)
+                            onOpenCatalogPage(account)
+                        },
                         enabled = !busy,
                     ) {
-                        Text(stringResource(R.string.action_load_remote_source))
+                        Text("Open Catalog Page 🚀")
                     }
                     TextButton(
                         onClick = { onDeleteSourceAccount(account) },
@@ -289,23 +461,28 @@ private fun CachedCatalogsRow(
 }
 
 @Composable
-private fun RemoteBookRow(
+fun RemoteBookRow(
     item: RemoteBookItem,
     coverBytes: ByteArray?,
     displayMode: DisplayMode,
     busy: Boolean,
+    onCatalogUrlChange: (String) -> Unit = {},
+    onLoadCatalog: () -> Unit = {},
+    onOpenDetail: () -> Unit = {},
     onImportItem: (RemoteBookItem) -> Unit,
 ) {
     Surface(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .heightIn(min = 60.dp),
         color = EinkSoft,
-        shape = RoundedCornerShape(4.dp),
+        shape = RoundedCornerShape(3.dp),
         border = BorderStroke(1.dp, EinkLine),
         shadowElevation = 0.dp,
     ) {
         Row(
-            modifier = Modifier.padding(start = 10.dp, top = 6.dp, end = 4.dp, bottom = 6.dp),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            modifier = Modifier.padding(horizontal = 6.dp, vertical = 4.dp),
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             RemoteCoverThumbnail(
@@ -313,84 +490,100 @@ private fun RemoteBookRow(
                 displayMode = displayMode,
                 contentDescription = item.title,
             )
-            Column(modifier = Modifier.weight(1f)) {
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .clickable(enabled = !busy) { onOpenDetail() },
+                verticalArrangement = Arrangement.Center,
+            ) {
                 Text(
                     text = item.title,
-                    style = MaterialTheme.typography.labelLarge,
+                    style = MaterialTheme.typography.labelMedium.copy(fontSize = 13.sp, lineHeight = 16.sp),
                     color = EinkInk,
-                    fontWeight = FontWeight.SemiBold,
-                    maxLines = 1,
+                    fontWeight = FontWeight.Bold,
+                    maxLines = 2,
                     overflow = TextOverflow.Ellipsis,
                 )
                 Text(
-                    text = stringResource(
-                        R.string.web_catalog_book_meta,
-                        item.format.localizedName(),
-                        item.language ?: stringResource(R.string.web_catalog_unknown_language),
-                    ),
-                    style = MaterialTheme.typography.bodySmall,
+                    text = "${item.authors.firstOrNull() ?: "WTR-Lab"} • ${item.language ?: "en"}",
+                    style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp),
                     color = EinkMuted,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
-                if (item.authors.isNotEmpty()) {
-                    Text(
-                        text = item.authors.joinToString(),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = EinkMuted,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-                }
             }
-            TextButton(
-                onClick = { onImportItem(item) },
-                enabled = !busy,
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(2.dp),
+                verticalAlignment = Alignment.CenterVertically,
             ) {
-                Icon(Icons.Filled.CloudDownload, contentDescription = null, modifier = Modifier.size(18.dp))
-                Spacer(Modifier.width(8.dp))
-                Text(stringResource(R.string.action_import_remote_book))
+                if (item.downloadUrl.contains("/novel/") || item.downloadUrl.contains("/book/")) {
+                    TextButton(
+                        onClick = { onOpenDetail() },
+                        enabled = !busy,
+                        contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 6.dp, vertical = 2.dp),
+                    ) {
+                        Text("Detail 📂", style = MaterialTheme.typography.labelSmall)
+                    }
+                }
+                TextButton(
+                    onClick = { onImportItem(item) },
+                    enabled = !busy,
+                    contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 6.dp, vertical = 2.dp),
+                ) {
+                    Text("Import 📥", style = MaterialTheme.typography.labelSmall)
+                }
             }
         }
     }
 }
 
 @Composable
-private fun RemoteCoverThumbnail(
+fun RemoteCoverThumbnail(
     coverBytes: ByteArray?,
     displayMode: DisplayMode,
     contentDescription: String,
 ) {
     val bitmap = remember(coverBytes, displayMode) {
         coverBytes?.let { bytes ->
-            BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
-                ?.copy(Bitmap.Config.ARGB_8888, true)
-                ?.also { bitmap -> bitmap.applyDisplayMode(displayMode) }
+            runCatching {
+                BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
+                    ?.copy(Bitmap.Config.ARGB_8888, true)
+                    ?.also { bitmap ->
+                        bitmap.applyDisplayMode(displayMode)
+                    }
+            }.getOrNull()
         }
     }
 
     Surface(
-        modifier = Modifier.size(56.dp),
-        color = EinkPanel,
-        shape = RoundedCornerShape(4.dp),
+        modifier = Modifier
+            .width(34.dp)
+            .height(48.dp),
+        color = if (bitmap == null) EinkSoft else EinkPanel,
+        shape = RoundedCornerShape(2.dp),
         border = BorderStroke(1.dp, EinkLine),
         shadowElevation = 0.dp,
     ) {
         if (bitmap == null) {
-            Icon(
-                imageVector = Icons.Filled.ImageIcon,
-                contentDescription = contentDescription,
-                tint = EinkMuted,
-                modifier = Modifier.padding(14.dp),
-            )
+            Box(
+                modifier = Modifier.fillMaxSize(),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(
+                    imageVector = Icons.Filled.Book,
+                    contentDescription = contentDescription,
+                    tint = EinkInk,
+                    modifier = Modifier.size(18.dp),
+                )
+            }
         } else {
             Image(
                 bitmap = bitmap.asImageBitmap(),
                 contentDescription = contentDescription,
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(4.dp),
-                contentScale = ContentScale.Fit,
+                    .padding(1.dp),
+                contentScale = ContentScale.Crop,
             )
         }
     }
