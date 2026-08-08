@@ -54,7 +54,7 @@ class WebNovelRemoteBookSource(
                 title = title,
                 downloadUrl = fullUrl,
                 coverUrl = coverUrl,
-                authors = listOf("Unknown Author"),
+                authors = listOf("WTR-Lab Author"),
                 language = "en",
             )
         }
@@ -71,7 +71,7 @@ class WebNovelRemoteBookSource(
         logD("Starting download request for item: '${item.title}' at URL: $targetUrl")
 
         // If the URL is a novel overview catalog page, automatically resolve to Chapter 1
-        if (!targetUrl.contains("/chapter/") && !targetUrl.endsWith(".html")) {
+        if (!targetUrl.contains("/chapter/") && !targetUrl.contains("/ch-") && !targetUrl.endsWith(".html")) {
             logD("URL is novel overview page. Fetching TOC to resolve Chapter 1...")
             val overviewHtml = fetchHttpText(targetUrl)
             val chapters = WebNovelTextExtractor.parseNovelLinksFromHtml(overviewHtml, targetUrl)

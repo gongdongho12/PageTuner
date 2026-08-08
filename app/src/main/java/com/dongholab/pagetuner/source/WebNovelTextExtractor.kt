@@ -7,6 +7,13 @@ import org.json.JSONObject
 object WebNovelTextExtractor {
     private const val TAG = "WebNovelTextExtractor"
 
+    private val BlacklistKeywords = listOf(
+        "login", "sign-in", "register", "sign-up", "terms", "privacy", "policy", "faq",
+        "discord", "contact", "about", "dmca", "copyright", "disclaimer", "cookie",
+        "home", "browse", "search", "latest", "categories", "genres", "rss", "feed",
+        "facebook", "twitter", "patreon", "support us", "donate", "account", "profile"
+    )
+
     private fun logI(msg: String) {
         runCatching { Log.i(TAG, msg) }.onFailure { println("[$TAG] $msg") }
     }
@@ -62,14 +69,14 @@ object WebNovelTextExtractor {
 
         // Strategy C: Semantic HTML Container Detection
         var content = html
-        val articleMatch = Regex("(?is)<article.*?>(.*?)</article>").find(content)
+        val containerMatch = Regex("(?is)<div[^>]*id=[\"'](?:chr-content|chapter-content|chapter-container|reading-content|novel-content|entry-content|epcontent|content)[\"'][^>]*>(.*?)</div>").find(content)
+            ?: Regex("(?is)<div[^>]*class=[\"'][^\"']*(?:chr-content|chapter-content|chapter-container|reading-content|novel-content|entry-content|epcontent|text-left|p-4)[^\"']*[\"'][^>]*>(.*?)</div>").find(content)
+            ?: Regex("(?is)<article.*?>(.*?)</article>").find(content)
             ?: Regex("(?is)<main.*?>(.*?)</main>").find(content)
-            ?: Regex("(?is)<div[^>]*class=[\"'][^\"']*(?:chapter-content|reading-content|novel-content|entry-content|content)[^\"']*[\"'][^>]*>(.*?)</div>").find(content)
-            ?: Regex("(?is)<div[^>]*id=[\"'][^\"']*(?:chapter-content|reading-content|novel-content|entry-content|content)[^\"']*[\"'][^>]*>(.*?)</div>").find(content)
             ?: Regex("(?is)<body.*?>(.*?)</body>").find(content)
 
-        if (articleMatch != null) {
-            content = articleMatch.groupValues[1]
+        if (containerMatch != null) {
+            content = containerMatch.groupValues[1]
             logI("[STRATEGY C: SEMANTIC HTML] Found matching HTML container (${content.length} raw chars)")
         }
 
@@ -84,6 +91,7 @@ object WebNovelTextExtractor {
             ?: props.optJSONObject("data")
             ?: props.optJSONObject("rawChapter")
             ?: props.optJSONObject("serie")
+            ?: props.optJSONObject("novel")
 
         if (chapterData != null) {
             val text = chapterData.optString("content").takeIf { it.isNotBlank() }
@@ -181,9 +189,11 @@ object WebNovelTextExtractor {
 
                         if (!title.isNullOrBlank() && !slug.isNullOrBlank()) {
                             val fullUrl = resolveUrl(baseUrl, slug)
-                            val resolvedCover = cover?.let { resolveUrl(baseUrl, it) }
-                            if (seenUrls.add(fullUrl)) {
-                                results.add(Triple(decodeHtmlEntities(title), fullUrl, resolvedCover))
+                            if (!isBlacklistedUrlOrText(fullUrl, title)) {
+                                val resolvedCover = cover?.let { resolveUrl(baseUrl, it) }
+                                if (seenUrls.add(fullUrl)) {
+                                    results.add(Triple(decodeHtmlEntities(title), fullUrl, resolvedCover))
+                                }
                             }
                         }
                     }
@@ -192,7 +202,7 @@ object WebNovelTextExtractor {
         }
 
         if (results.isNotEmpty()) {
-            logD("Parsed ${results.size} novel links from Next.js __NEXT_DATA__ JSON")
+            logD("Parsed ${results.size} valid novel links from Next.js __NEXT_DATA__ JSON")
             return results
         }
 
@@ -216,7 +226,7 @@ object WebNovelTextExtractor {
                 }
             }
         }
-        logD("Parsed ${results.size} novel links from Standard HTML Link Scraper")
+        logD("Parsed ${results.size} valid novel links from Standard HTML Link Scraper")
         return results
     }
 
@@ -226,13 +236,26 @@ object WebNovelTextExtractor {
         }.getOrDefault(href)
     }
 
-    private fun isNovelOrChapterUrl(url: String, text: String): Boolean {
+    private fun isBlacklistedUrlOrText(url: String, text: String): Boolean {
         val lowerUrl = url.lowercase()
-        val lowerText = text.lowercase()
-        return lowerUrl.contains("/novel/") || lowerUrl.contains("/chapter/") ||
-            lowerUrl.contains("/book/") || lowerText.contains("chapter") ||
-            lowerText.contains("volume") || lowerText.contains("novel") ||
-            url.endsWith(".html")
+        val lowerText = text.lowercase().trim()
+        return BlacklistKeywords.any { kw ->
+            lowerUrl.contains("/$kw") || lowerUrl.endsWith("/$kw") || lowerText == kw
+        }
+    }
+
+    private fun isNovelOrChapterUrl(url: String, text: String): Boolean {
+        if (isBlacklistedUrlOrText(url, text)) return false
+
+        val lowerUrl = url.lowercase()
+        val lowerText = text.lowercase().trim()
+
+        val hasNovelPath = lowerUrl.contains("/novel/") || lowerUrl.contains("/series/") ||
+            lowerUrl.contains("/book/") || lowerUrl.contains("/chapter/") || lowerUrl.contains("/ch-")
+        val hasChapterText = lowerText.contains("chapter ") || lowerText.contains("ch. ") ||
+            lowerText.contains("volume ") || lowerText.contains("vol. ")
+
+        return hasNovelPath || hasChapterText
     }
 
     private fun decodeHtmlEntities(text: String): String {
