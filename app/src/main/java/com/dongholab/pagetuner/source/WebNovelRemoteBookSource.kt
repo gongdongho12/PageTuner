@@ -88,14 +88,19 @@ class WebNovelRemoteBookSource(
         val htmlContent = fetchHttpText(targetUrl)
         DiagnosticLogger.log("[STEP 1: FETCH SUCCESS]", "Received HTML (${htmlContent.length} chars) from $targetUrl")
 
-        var extractedText = WebNovelTextExtractor.extractNovelText(htmlContent)
-        val finalTitle = WebNovelTextExtractor.extractNovelTitle(htmlContent, fallback = item.title)
+        val chapterResponse = com.dongholab.pagetuner.source.wtr.WtrLabDomScraper.parseChapterContentResponse(
+            novelId = 65434L,
+            chapterNumber = 1,
+            html = htmlContent,
+        )
+        val finalTitle = chapterResponse.titleOriginal.ifBlank { item.title }
+        var extractedText = chapterResponse.paragraphs.joinToString("\n\n")
 
         if (extractedText.isBlank()) {
             DiagnosticLogger.log("[STEP 2: PARSE WARNING]", "Extracted text was BLANK for $targetUrl!")
             extractedText = "Unable to extract novel text from $targetUrl.\n\nPage Title: $finalTitle\n\nPlease check network connection."
         } else {
-            DiagnosticLogger.log("[STEP 2: PARSE SUCCESS]", "Extracted ${extractedText.length} chars of text from $targetUrl (Title: '$finalTitle')")
+            DiagnosticLogger.log("[STEP 2: PARSE SUCCESS]", "Extracted ${chapterResponse.paragraphs.size} paragraphs (${extractedText.length} chars) from $targetUrl (Title: '$finalTitle')")
         }
 
         val formattedBookText = buildString {
