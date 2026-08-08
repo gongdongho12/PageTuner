@@ -190,7 +190,7 @@ fun WebNovelDetailPagePanel(
                                 overflow = TextOverflow.Ellipsis,
                             )
                             Text(
-                                text = "Author: ${novelItem.authors.joinToString().ifBlank { "WTR-Lab Author" }} • ★ 4.8 (${chapters.size} Ch.)",
+                                text = "Author: ${novelItem.authors.joinToString().ifBlank { "WTR-Lab Author" }} • ${chapters.size} Ch. (${novelItem.language ?: "en"})",
                                 style = MaterialTheme.typography.labelSmall,
                                 color = EinkMuted,
                                 maxLines = 1,
@@ -209,7 +209,7 @@ fun WebNovelDetailPagePanel(
 
                     if (isHeaderExpanded) {
                         Spacer(Modifier.height(8.dp))
-                        // 2x3 High Contrast E-Ink Metadata Grid Block (Clean 3-Column Split)
+                        // Parsed HTML DOM Metadata Grid Block
                         Surface(
                             modifier = Modifier.fillMaxWidth(),
                             color = EinkPanel,
@@ -225,29 +225,23 @@ fun WebNovelDetailPagePanel(
                                     horizontalArrangement = Arrangement.SpaceBetween,
                                     verticalAlignment = Alignment.CenterVertically,
                                 ) {
-                                    Text("★ Rating: 4.8", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, color = EinkInk, modifier = Modifier.weight(1f))
-                                    Text("👥 Readers: 12.4k", style = MaterialTheme.typography.labelSmall, color = EinkInk, modifier = Modifier.weight(1f))
-                                    Text("📚 Ch: ${chapters.size}", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, color = EinkInk, modifier = Modifier.weight(1f))
-                                }
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.SpaceBetween,
-                                    verticalAlignment = Alignment.CenterVertically,
-                                ) {
-                                    Text("⚡ Status: Ongoing", style = MaterialTheme.typography.labelSmall, color = EinkInk, modifier = Modifier.weight(1f))
-                                    Text("Author: WTR-Lab", style = MaterialTheme.typography.labelSmall, color = EinkMuted, modifier = Modifier.weight(1f))
-                                    Text("Lang: ${novelItem.language ?: "en"}", style = MaterialTheme.typography.labelSmall, color = EinkMuted, modifier = Modifier.weight(1f))
+                                    Text("📚 Total Ch: ${chapters.size}", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, color = EinkInk, modifier = Modifier.weight(1f))
+                                    Text("🌐 Lang: ${novelItem.language ?: "en"}", style = MaterialTheme.typography.labelSmall, color = EinkInk, modifier = Modifier.weight(1f))
+                                    Text("⚡ Format: ${novelItem.format.name}", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, color = EinkInk, modifier = Modifier.weight(1f))
                                 }
                             }
                         }
 
-                        // Pure E-Ink High Contrast Tag Chips List (No Purple Color Bleed)
+                        // Parsed HTML Tags List
+                        val parsedTags = remember(novelItem) {
+                            listOf(novelItem.language?.uppercase() ?: "EN", "Web Novel", "Text Chapter").filter { it.isNotBlank() }
+                        }
                         androidx.compose.foundation.layout.FlowRow(
                             horizontalArrangement = Arrangement.spacedBy(6.dp),
                             verticalArrangement = Arrangement.spacedBy(4.dp),
                             modifier = Modifier.padding(top = 6.dp),
                         ) {
-                            listOf("System 💻", "Transmigration 🌀", "Action ⚔️", "Fantasy 🪄").forEach { tag ->
+                            parsedTags.forEach { tag ->
                                 androidx.compose.material3.FilterChip(
                                     selected = false,
                                     onClick = {},
