@@ -200,7 +200,7 @@ fun WebNovelDetailPagePanel(
                             softWrap = true,
                             overflow = TextOverflow.Ellipsis,
                         )
-                        // 2x3 High Contrast E-Ink Metadata Grid Block
+                        // 2x3 High Contrast E-Ink Metadata Grid Block (Clean 3-Column Split)
                         Surface(
                             modifier = Modifier.fillMaxWidth(),
                             color = EinkPanel,
@@ -209,38 +209,49 @@ fun WebNovelDetailPagePanel(
                         ) {
                             Column(
                                 modifier = Modifier.padding(8.dp),
-                                verticalArrangement = Arrangement.spacedBy(4.dp),
+                                verticalArrangement = Arrangement.spacedBy(6.dp),
                             ) {
                                 Row(
                                     modifier = Modifier.fillMaxWidth(),
                                     horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically,
                                 ) {
-                                    Text("★ Rating: 4.8", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, color = EinkInk)
-                                    Text("👥 Readers: 12.4k", style = MaterialTheme.typography.labelSmall, color = EinkInk)
-                                    Text("📚 Ch: ${chapters.size}", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, color = EinkInk)
+                                    Text("★ Rating: 4.8", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, color = EinkInk, modifier = Modifier.weight(1f))
+                                    Text("👥 Readers: 12.4k", style = MaterialTheme.typography.labelSmall, color = EinkInk, modifier = Modifier.weight(1f))
+                                    Text("📚 Ch: ${chapters.size}", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, color = EinkInk, modifier = Modifier.weight(1f))
                                 }
                                 Row(
                                     modifier = Modifier.fillMaxWidth(),
                                     horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically,
                                 ) {
-                                    Text("⚡ Status: Ongoing", style = MaterialTheme.typography.labelSmall, color = EinkInk)
-                                    Text("Author: WTR-Lab", style = MaterialTheme.typography.labelSmall, color = EinkMuted)
-                                    Text("Lang: ${novelItem.language ?: "en"}", style = MaterialTheme.typography.labelSmall, color = EinkMuted)
+                                    Text("⚡ Status: Ongoing", style = MaterialTheme.typography.labelSmall, color = EinkInk, modifier = Modifier.weight(1f))
+                                    Text("Author: WTR-Lab", style = MaterialTheme.typography.labelSmall, color = EinkMuted, modifier = Modifier.weight(1f))
+                                    Text("Lang: ${novelItem.language ?: "en"}", style = MaterialTheme.typography.labelSmall, color = EinkMuted, modifier = Modifier.weight(1f))
                                 }
                             }
                         }
 
-                        // Tag Chips List (.tags-list .tag-chip)
+                        // Pure E-Ink High Contrast Tag Chips List (No Purple Color Bleed)
                         androidx.compose.foundation.layout.FlowRow(
-                            horizontalArrangement = Arrangement.spacedBy(4.dp),
+                            horizontalArrangement = Arrangement.spacedBy(6.dp),
                             verticalArrangement = Arrangement.spacedBy(4.dp),
                             modifier = Modifier.padding(top = 4.dp),
                         ) {
                             listOf("System 💻", "Transmigration 🌀", "Action ⚔️", "Fantasy 🪄").forEach { tag ->
                                 androidx.compose.material3.FilterChip(
-                                    selected = true,
+                                    selected = false,
                                     onClick = {},
-                                    label = { Text(tag, style = MaterialTheme.typography.labelSmall) },
+                                    label = { Text(tag, style = MaterialTheme.typography.labelSmall, color = EinkInk) },
+                                    colors = androidx.compose.material3.FilterChipDefaults.filterChipColors(
+                                        containerColor = EinkSoft,
+                                        labelColor = EinkInk,
+                                    ),
+                                    border = androidx.compose.material3.FilterChipDefaults.filterChipBorder(
+                                        enabled = true,
+                                        selected = false,
+                                        borderColor = EinkLine,
+                                    ),
                                 )
                             }
                         }
@@ -248,44 +259,48 @@ fun WebNovelDetailPagePanel(
                 }
             }
 
-            // Section Header & Quick Jump / Batch Download Actions
+            // Section Header: Table of Contents
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween,
+                horizontalArrangement = Arrangement.Start,
             ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                Icon(Icons.Filled.ListAlt, contentDescription = null, tint = EinkInk, modifier = Modifier.size(20.dp))
+                Spacer(Modifier.width(6.dp))
+                Text(
+                    text = "Table of Contents (${chapters.size} Ch.)",
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.Bold,
+                    color = EinkInk,
+                )
+            }
+
+            // Horizontal Action Bar: Quick Jump & Batch Download (Prevents Vertical Squeezing)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                TextButton(
+                    onClick = { showQuickJumpDialog = true },
+                    enabled = !busy && chapters.isNotEmpty(),
+                    modifier = Modifier.weight(1f),
                 ) {
-                    Icon(Icons.Filled.ListAlt, contentDescription = null, tint = EinkInk, modifier = Modifier.size(20.dp))
-                    Text(
-                        text = "Table of Contents (${chapters.size} Ch.)",
-                        style = MaterialTheme.typography.titleSmall,
-                        fontWeight = FontWeight.Bold,
-                        color = EinkInk,
-                    )
+                    Text("Quick Jump 🚀", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, color = EinkInk)
                 }
-                Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                    TextButton(
-                        onClick = { showQuickJumpDialog = true },
-                        enabled = !busy && chapters.isNotEmpty(),
-                    ) {
-                        Text("Quick Jump 🚀", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
-                    }
-                    Button(
-                        onClick = { onBatchDownloadChapters?.invoke(chapters) },
-                        enabled = !busy && chapters.isNotEmpty(),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = EinkInk,
-                            contentColor = EinkPanel,
-                        ),
-                        shape = RoundedCornerShape(2.dp),
-                    ) {
-                        Icon(Icons.Filled.CloudDownload, contentDescription = null, modifier = Modifier.size(16.dp))
-                        Spacer(Modifier.width(4.dp))
-                        Text("Batch 📥", style = MaterialTheme.typography.labelSmall)
-                    }
+                Button(
+                    onClick = { onBatchDownloadChapters?.invoke(chapters) },
+                    enabled = !busy && chapters.isNotEmpty(),
+                    modifier = Modifier.weight(1f),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = EinkInk,
+                        contentColor = EinkPanel,
+                    ),
+                    shape = RoundedCornerShape(2.dp),
+                ) {
+                    Icon(Icons.Filled.CloudDownload, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Spacer(Modifier.width(6.dp))
+                    Text("Batch Download All 📥", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
                 }
             }
 
@@ -329,6 +344,10 @@ fun WebNovelDetailPagePanel(
                             onClick = { selectedVolumeFilter = null },
                             enabled = !busy,
                             label = { Text("All Volumes", style = MaterialTheme.typography.labelSmall) },
+                            colors = androidx.compose.material3.FilterChipDefaults.filterChipColors(
+                                containerColor = if (selectedVolumeFilter == null) EinkInk else EinkSoft,
+                                labelColor = if (selectedVolumeFilter == null) EinkPanel else EinkInk,
+                            ),
                         )
                         volumeNumbers.forEach { vol ->
                             androidx.compose.material3.FilterChip(
@@ -336,36 +355,54 @@ fun WebNovelDetailPagePanel(
                                 onClick = { selectedVolumeFilter = vol },
                                 enabled = !busy,
                                 label = { Text("Volume $vol", style = MaterialTheme.typography.labelSmall) },
+                                colors = androidx.compose.material3.FilterChipDefaults.filterChipColors(
+                                    containerColor = if (selectedVolumeFilter == vol) EinkInk else EinkSoft,
+                                    labelColor = if (selectedVolumeFilter == vol) EinkPanel else EinkInk,
+                                ),
                             )
                         }
                     }
                 }
             }
 
-            // Search / Filter Chapters Box & Page Size Controls
+            // Search Field (Full Width Row 1)
+            OutlinedTextField(
+                value = searchQuery,
+                onValueChange = { searchQuery = it },
+                modifier = Modifier.fillMaxWidth(),
+                enabled = !busy,
+                label = { Text("Filter by Chapter Number or Title...") },
+                singleLine = true,
+            )
+
+            // Page Size Controls (Row 2, Pure E-Ink High Contrast)
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                OutlinedTextField(
-                    value = searchQuery,
-                    onValueChange = { searchQuery = it },
-                    modifier = Modifier.weight(1f),
-                    enabled = !busy,
-                    label = { Text("Filter by Chapter Number or Title...") },
-                    singleLine = true,
+                Text(
+                    text = "Items Per Page:",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = EinkMuted,
                 )
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(4.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     listOf(6, 12, 24).forEach { size ->
+                        val isSelected = selectedPageSize == size
                         androidx.compose.material3.FilterChip(
-                            selected = selectedPageSize == size,
+                            selected = isSelected,
                             onClick = { selectedPageSize = size },
                             enabled = !busy,
                             label = { Text("$size/p", style = MaterialTheme.typography.labelSmall) },
+                            colors = androidx.compose.material3.FilterChipDefaults.filterChipColors(
+                                containerColor = if (isSelected) EinkInk else EinkSoft,
+                                labelColor = if (isSelected) EinkPanel else EinkInk,
+                            ),
+                            border = androidx.compose.material3.FilterChipDefaults.filterChipBorder(
+                                enabled = true,
+                                selected = isSelected,
+                                borderColor = EinkLine,
+                            ),
                         )
                     }
                 }
