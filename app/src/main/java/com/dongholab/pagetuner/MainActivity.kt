@@ -4,6 +4,7 @@ import android.graphics.Bitmap
 import android.net.Uri
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -23,6 +24,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -117,6 +119,14 @@ private data class PdfPageCacheKey(
     val displayMode: com.dongholab.pagetuner.display.DisplayMode,
 )
 
+// Navigation History Frame for E-Ink Back Button Navigation
+private sealed interface NavigationHistoryFrame {
+    data class TabFrame(val tab: AppTab) : NavigationHistoryFrame
+    data class ReaderSubPageFrame(val subPage: com.dongholab.pagetuner.ui.reader.ReaderSubPage) : NavigationHistoryFrame
+    data class PageJumpFrame(val pageIndex: Int) : NavigationHistoryFrame
+    data class ControlsVisibilityFrame(val visible: Boolean) : NavigationHistoryFrame
+}
+
 // ─────────────────────────────────────────────
 // Root Composable — ViewModels + state setup only
 // ─────────────────────────────────────────────
@@ -154,6 +164,8 @@ fun PageTurnerApp() {
     val initialStatus = stringResource(R.string.status_ready)
     var isSplashing by remember { mutableStateOf(true) }
     var selectedTab by remember { mutableStateOf(AppTab.Local) }
+    var readerSubPage by remember { mutableStateOf(com.dongholab.pagetuner.ui.reader.ReaderSubPage.READER) }
+    val navHistoryStack = remember { mutableStateListOf<NavigationHistoryFrame>() }
     var favoritesList by remember { mutableStateOf(favoriteStore.listFavorites()) }
     var appStatusText by rememberSaveable(initialStatus) { mutableStateOf(initialStatus) }
     var appErrorText by rememberSaveable { mutableStateOf<String?>(null) }
@@ -172,6 +184,27 @@ fun PageTurnerApp() {
     val showDocumentDetails = readerState.showDocumentDetails
     val bookmarks = readerState.bookmarks
     val annotations = readerState.annotations
+
+    // Back button history restoration handler
+    BackHandler(enabled = navHistoryStack.isNotEmpty()) {
+        val lastFrame = navHistoryStack.removeLastOrNull() ?: return@BackHandler
+        when (lastFrame) {
+            is NavigationHistoryFrame.TabFrame -> {
+                selectedTab = lastFrame.tab
+            }
+            is NavigationHistoryFrame.ReaderSubPageFrame -> {
+                readerSubPage = lastFrame.subPage
+            }
+            is NavigationHistoryFrame.PageJumpFrame -> {
+                readerViewModel.changePage(lastFrame.pageIndex)
+            }
+            is NavigationHistoryFrame.ControlsVisibilityFrame -> {
+                if (readerState.controlsVisible != lastFrame.visible) {
+                    readerViewModel.toggleControls()
+                }
+            }
+        }
+    }
 
     // — Derived settings state
     val displayMode = readerSettings.displayMode
@@ -382,13 +415,24 @@ fun PageTurnerApp() {
                 page = currentPage,
                 controlsVisible = controlsVisible,
                 onOpen = { actions.openFilePicker() },
-                onToggleControls = readerViewModel::toggleControls,
+                onToggleControls = {
+                    navHistoryStack.add(NavigationHistoryFrame.ControlsVisibilityFrame(controlsVisible))
+                    readerViewModel.toggleControls()
+                },
                 onManualRefresh = actions.requestManualRefresh,
                 onShowDetails = readerViewModel::showDocumentDetails,
             )
 
             if (controlsVisible) {
-                AppTabNavigation(selectedTab = selectedTab, onSelectTab = { selectedTab = it })
+                AppTabNavigation(
+                    selectedTab = selectedTab,
+                    onSelectTab = { tab ->
+                        if (tab != selectedTab) {
+                            navHistoryStack.add(NavigationHistoryFrame.TabFrame(selectedTab))
+                            selectedTab = tab
+                        }
+                    },
+                )
 
                 Column(
                     modifier = Modifier
@@ -400,7 +444,10 @@ fun PageTurnerApp() {
                             books = localBooks,
                             currentBookId = currentBookId,
                             busy = busy,
-                            onOpenBook = actions.openLocalBook,
+                            onOpenBook = { book ->
+                                navHistoryStack.add(NavigationHistoryFrame.TabFrame(selectedTab))
+                                actions.openLocalBook(book)
+                            },
                             onDeleteBook = actions.deleteLocalBook,
                             onUpdateBookOrganization = libraryViewModel::updateOrganization,
                             onImportFile = { file -> libraryViewModel.importBook(Uri.fromFile(file)) },
@@ -410,6 +457,7 @@ fun PageTurnerApp() {
                             displayMode = displayMode,
                             busy = busy,
                             onOpenNovelDetail = { novel ->
+                                navHistoryStack.add(NavigationHistoryFrame.TabFrame(selectedTab))
                                 webCatalogViewModel.updateCatalogUrl(novel.downloadUrl)
                                 selectedTab = AppTab.WebNovel
                                 webCatalogViewModel.loadCatalog()
@@ -485,13 +533,16 @@ fun PageTurnerApp() {
 
                 StatusStrip(statusText = statusText, progress = progress, busy = busy)
             } else {
-                // Reader Mode: Sub-Page Navigation
-                var readerSubPage by remember { mutableStateOf(com.dongholab.pagetuner.ui.reader.ReaderSubPage.READER) }
-
+                // Reader Mode: Sub-Page Navigation with History Tracking
                 com.dongholab.pagetuner.ui.reader.ReaderSubPageSelector(
                     selectedPage = readerSubPage,
                     busy = busy,
-                    onSelectPage = { readerSubPage = it },
+                    onSelectPage = { page ->
+                        if (page != readerSubPage) {
+                            navHistoryStack.add(NavigationHistoryFrame.ReaderSubPageFrame(readerSubPage))
+                            readerSubPage = page
+                        }
+                    },
                 )
 
                 when (readerSubPage) {
@@ -526,8 +577,14 @@ fun PageTurnerApp() {
                             busy = busy,
                             onPrevious = actions.previousPage,
                             onNext = actions.nextPage,
-                            onPreviousChapter = actions.previousChapter,
-                            onNextChapter = actions.nextChapter,
+                            onPreviousChapter = {
+                                navHistoryStack.add(NavigationHistoryFrame.PageJumpFrame(pageIndex))
+                                actions.previousChapter()
+                            },
+                            onNextChapter = {
+                                navHistoryStack.add(NavigationHistoryFrame.PageJumpFrame(pageIndex))
+                                actions.nextChapter()
+                            },
                         )
                     }
                     com.dongholab.pagetuner.ui.reader.ReaderSubPage.SEARCH -> {
@@ -539,10 +596,14 @@ fun PageTurnerApp() {
                             busy = busy,
                             onQueryChange = actions.updateSearchQuery,
                             onPreviousResult = {
+                                navHistoryStack.add(NavigationHistoryFrame.PageJumpFrame(pageIndex))
+                                navHistoryStack.add(NavigationHistoryFrame.ReaderSubPageFrame(readerSubPage))
                                 actions.previousSearchResult()
                                 readerSubPage = com.dongholab.pagetuner.ui.reader.ReaderSubPage.READER
                             },
                             onNextResult = {
+                                navHistoryStack.add(NavigationHistoryFrame.PageJumpFrame(pageIndex))
+                                navHistoryStack.add(NavigationHistoryFrame.ReaderSubPageFrame(readerSubPage))
                                 actions.nextSearchResult()
                                 readerSubPage = com.dongholab.pagetuner.ui.reader.ReaderSubPage.READER
                             },
@@ -558,6 +619,8 @@ fun PageTurnerApp() {
                             onDraftLabelChange = readerViewModel::updateBookmarkDraftLabel,
                             onAddBookmark = actions.addBookmark,
                             onOpenBookmark = { bookmark ->
+                                navHistoryStack.add(NavigationHistoryFrame.PageJumpFrame(pageIndex))
+                                navHistoryStack.add(NavigationHistoryFrame.ReaderSubPageFrame(readerSubPage))
                                 actions.openBookmark(bookmark)
                                 readerSubPage = com.dongholab.pagetuner.ui.reader.ReaderSubPage.READER
                             },
@@ -574,6 +637,8 @@ fun PageTurnerApp() {
                             onAddHighlight = actions.addHighlight,
                             onAddNote = actions.addNote,
                             onOpenAnnotation = { annotation ->
+                                navHistoryStack.add(NavigationHistoryFrame.PageJumpFrame(pageIndex))
+                                navHistoryStack.add(NavigationHistoryFrame.ReaderSubPageFrame(readerSubPage))
                                 actions.openAnnotation(annotation)
                                 readerSubPage = com.dongholab.pagetuner.ui.reader.ReaderSubPage.READER
                             },
