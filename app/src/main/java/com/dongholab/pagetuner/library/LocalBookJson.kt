@@ -23,7 +23,13 @@ object LocalBookJson {
                     .put("folder", book.folder)
                     .put("tags", book.tagsToJsonArray())
                     .put("bookmarks", book.bookmarksToJsonArray())
-                    .put("annotations", book.annotationsToJsonArray()),
+                    .put("annotations", book.annotationsToJsonArray())
+                    .put("remoteSourceType", book.remoteSourceType)
+                    .put("remoteAccountId", book.remoteAccountId)
+                    .put("remoteSeriesId", book.remoteSeriesId)
+                    .put("currentRemoteChapterId", book.currentRemoteChapterId)
+                    .put("currentChapterTitle", book.currentChapterTitle)
+                    .put("currentChapterNumber", book.currentChapterNumber),
             )
         }
         return array.toString(2)
@@ -52,6 +58,12 @@ object LocalBookJson {
                         tags = item.optTags(),
                         bookmarks = item.optBookmarks(),
                         annotations = item.optAnnotations(),
+                        remoteSourceType = item.optString("remoteSourceType").takeIf { it.isNotBlank() },
+                        remoteAccountId = item.optString("remoteAccountId").takeIf { it.isNotBlank() },
+                        remoteSeriesId = item.optString("remoteSeriesId").takeIf { it.isNotBlank() },
+                        currentRemoteChapterId = item.optString("currentRemoteChapterId").takeIf { it.isNotBlank() },
+                        currentChapterTitle = item.optString("currentChapterTitle").takeIf { it.isNotBlank() },
+                        currentChapterNumber = item.optInt("currentChapterNumber", -1).takeIf { it >= 0 },
                     ),
                 )
             }

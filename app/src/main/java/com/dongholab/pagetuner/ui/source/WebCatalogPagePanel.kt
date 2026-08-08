@@ -37,13 +37,14 @@ import com.dongholab.pagetuner.display.DisplayMode
 import com.dongholab.pagetuner.source.RemoteBookItem
 import com.dongholab.pagetuner.source.CatalogItemTranslation
 import com.dongholab.pagetuner.source.CatalogTranslationProgress
+import com.dongholab.pagetuner.source.RemoteCatalogPagingState
+import com.dongholab.pagetuner.source.WebCatalogLoading
 import com.dongholab.pagetuner.source.translationKey
-import com.dongholab.pagetuner.ui.common.EinkPagingContainer
 import com.dongholab.pagetuner.ui.theme.EinkInk
 import com.dongholab.pagetuner.ui.theme.EinkLine
 import com.dongholab.pagetuner.ui.theme.EinkMuted
 import com.dongholab.pagetuner.ui.theme.EinkPanel
-import com.dongholab.pagetuner.ui.common.EinkOperationIndicator
+import com.dongholab.pagetuner.ui.common.EinkRemoteCatalogPager
 
 @OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
 @Composable
@@ -59,11 +60,14 @@ fun WebCatalogPagePanel(
     canTranslate: Boolean,
     translatedItems: Map<String, CatalogItemTranslation>,
     catalogTranslationProgress: CatalogTranslationProgress?,
+    remotePaging: RemoteCatalogPagingState?,
+    catalogLoading: WebCatalogLoading?,
     onQueryChange: (String) -> Unit,
     onRefreshCatalog: () -> Unit,
     onOpenDetail: (RemoteBookItem) -> Unit,
     onImportItem: (RemoteBookItem) -> Unit,
     onTranslateCatalog: () -> Unit,
+    onRemotePageSelected: (Int) -> Unit,
     onBackToSourceManager: () -> Unit,
 ) {
     var selectedLanguageFilter by remember { mutableStateOf("All") }
@@ -201,14 +205,20 @@ fun WebCatalogPagePanel(
                 }
             }
 
-            EinkOperationIndicator(
-                visible = busy,
-                title = if (catalogTranslationProgress != null) "Translating catalog titles…" else "Loading catalog page…",
-                detail = catalogTranslationProgress?.let {
-                    "${it.completedItems} / ${it.totalItems} · failed ${it.failedItems} · ${it.currentTitle}"
-                } ?: statusText,
-                progress = catalogTranslationProgress?.fraction,
+            WebCatalogOperationIndicator(
+                loading = catalogLoading,
+                translationProgress = catalogTranslationProgress,
+                busy = busy,
+                statusText = statusText,
             )
+
+            remotePaging?.let { paging ->
+                EinkRemoteCatalogPager(
+                    paging = paging,
+                    busy = busy,
+                    onPageSelected = onRemotePageSelected,
+                )
+            }
 
             // Catalog Items List with E-Ink Dynamic Auto-Fit Discrete Pagination
             com.dongholab.pagetuner.ui.common.EinkAutoFitPagingContainer(

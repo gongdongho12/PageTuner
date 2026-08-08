@@ -36,6 +36,8 @@ data class HomeResponse(
 data class NovelListResponse(
     val currentPage: Int = 1,
     val hasNextPage: Boolean = false,
+    val totalPages: Int? = null,
+    val totalItems: Int? = null,
     val novels: List<NovelSummaryItem> = emptyList(),
 )
 

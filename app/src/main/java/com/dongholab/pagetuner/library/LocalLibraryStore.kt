@@ -49,11 +49,16 @@ class LocalLibraryStore(context: Context) {
         bytes: ByteArray,
     ): LocalLibraryOpenResult = withContext(Dispatchers.IO) {
         ensureDirectories()
-        importBytes(
-            title = remoteBook.title,
-            format = remoteBook.format,
-            bytes = bytes,
-        )
+        val remoteIdentity = remoteBook.remoteLibraryIdentityOrNull()
+        if (remoteIdentity == null) {
+            importBytes(
+                title = remoteBook.title,
+                format = remoteBook.format,
+                bytes = bytes,
+            )
+        } else {
+            importRemoteSeriesChapter(remoteBook, remoteIdentity, bytes)
+        }
     }
 
     suspend fun openBook(bookId: String): LocalLibraryOpenResult = withContext(Dispatchers.IO) {
@@ -159,7 +164,7 @@ class LocalLibraryStore(context: Context) {
 
         val loaded = appContext.readReaderDocument(
             uri = Uri.fromFile(storedFile),
-            preferredTitle = book.title,
+            preferredTitle = book.currentChapterTitle ?: book.title,
         )
         val updatedBook = book.copy(
             pageCount = loaded.document.pageCount.coerceAtLeast(1),
@@ -217,6 +222,79 @@ class LocalLibraryStore(context: Context) {
 
         writeBooks(books.filterNot { it.id == book.id || it.contentHash == book.contentHash } + book)
         return LocalLibraryOpenResult(book = book, loadedDocument = loaded)
+    }
+
+    private fun importRemoteSeriesChapter(
+        remoteBook: RemoteBookItem,
+        remoteIdentity: RemoteLibraryIdentity,
+        bytes: ByteArray,
+    ): LocalLibraryOpenResult {
+        val contentHash = DocumentIds.sha256(bytes)
+        val books = readBooks()
+        val existing = books.firstOrNull { it.belongsTo(remoteIdentity) }
+            ?: books.firstOrNull { it.contentHash == contentHash }
+        val sameChapter = existing?.currentRemoteChapterId == remoteBook.identity.remoteId
+        if (existing != null && sameChapter && existing.contentHash == contentHash && safeBookFile(existing).exists()) {
+            return openStoredBook(existing, wasDuplicateImport = true)
+        }
+
+        val relativePath = existing?.relativePath
+            ?: "books/${remoteIdentity.localBookId}-${sanitizeFileName(remoteBook.seriesTitle ?: remoteBook.title, remoteBook.format)}"
+        val storedFile = File(libraryDir, relativePath)
+        storedFile.parentFile?.mkdirs()
+        val temporaryFile = File(requireNotNull(storedFile.parentFile), "${storedFile.name}.tmp")
+        temporaryFile.writeBytes(bytes)
+        if (!temporaryFile.renameTo(storedFile)) {
+            storedFile.writeBytes(temporaryFile.readBytes())
+            temporaryFile.delete()
+        }
+
+        val loaded = appContext.readReaderDocument(
+            uri = Uri.fromFile(storedFile),
+            preferredTitle = remoteBook.title,
+            preferredFormat = remoteBook.format,
+        )
+        val now = System.currentTimeMillis()
+        val pageCount = loaded.document.pageCount.coerceAtLeast(1)
+        val book = LocalBook(
+            id = remoteIdentity.localBookId,
+            title = remoteBook.seriesTitle?.takeIf { it.isNotBlank() }
+                ?: existing?.title
+                ?: loaded.document.title,
+            format = loaded.document.format,
+            relativePath = relativePath,
+            contentHash = contentHash,
+            pageCount = pageCount,
+            currentPageIndex = if (sameChapter) {
+                existing.currentPageIndex.coerceIn(0, pageCount - 1)
+            } else {
+                0
+            },
+            importedAtMillis = existing?.importedAtMillis ?: now,
+            lastOpenedAtMillis = now,
+            fileSizeBytes = bytes.size.toLong(),
+            folder = existing?.folder.orEmpty(),
+            tags = existing?.tags.orEmpty(),
+            bookmarks = if (sameChapter) existing.bookmarks else emptyList(),
+            annotations = if (sameChapter) existing.annotations else emptyList(),
+            remoteSourceType = remoteIdentity.sourceType,
+            remoteAccountId = remoteIdentity.accountId,
+            remoteSeriesId = remoteIdentity.seriesId,
+            currentRemoteChapterId = remoteBook.identity.remoteId,
+            currentChapterTitle = loaded.document.title,
+            currentChapterNumber = remoteBook.chapterNumber,
+        )
+
+        writeBooks(
+            books.filterNot {
+                it.id == book.id || it.belongsTo(remoteIdentity) || it.id == existing?.id
+            } + book,
+        )
+        return LocalLibraryOpenResult(
+            book = book,
+            loadedDocument = loaded,
+            wasDuplicateImport = false,
+        )
     }
 
     private fun readBooks(): List<LocalBook> {

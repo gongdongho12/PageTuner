@@ -90,6 +90,10 @@ class GoogleWebTranslateHtmlProvider(
         "Accept" to "application/json",
         "Accept-Language" to request.acceptLanguageHeader(),
         "Content-Type" to "application/x-www-form-urlencoded; charset=UTF-8",
+        // Android's default Dalvik user agent is rejected intermittently by this
+        // browser-facing endpoint. Keep a stable mobile browser identity here so
+        // the exact same no-key provider works in both JVM tests and the app.
+        "User-Agent" to PublicUserAgent,
     )
 
     private fun buildRequestBody(request: TranslationRequest): String {
@@ -138,6 +142,9 @@ class GoogleWebTranslateHtmlProvider(
         const val DefaultEndpoint = "https://translate-pa.googleapis.com/v1/translateHtml"
         const val DefaultPublicEndpoint = "https://translate.googleapis.com/translate_a/single"
         const val ProviderName = "Google Web Translate"
+        const val PublicUserAgent =
+            "Mozilla/5.0 (Linux; Android 13; PageTurner) AppleWebKit/537.36 " +
+                "(KHTML, like Gecko) Chrome/126.0 Mobile Safari/537.36"
     }
 }
 

@@ -20,6 +20,48 @@ data class WebNovelSiteBook(
     val tags: List<String> = emptyList(),
 )
 
+/** One server-side catalog page. This is intentionally separate from E-Ink viewport paging. */
+data class WebNovelCatalogPage(
+    val url: String,
+    val currentPage: Int = 1,
+    val totalPages: Int? = null,
+    val totalItems: Int? = null,
+    val items: List<WebNovelSiteBook> = emptyList(),
+    val hasPreviousPage: Boolean = currentPage > 1,
+    val hasNextPage: Boolean = totalPages?.let { currentPage < it } ?: false,
+)
+
+/** URL helper shared by every paginated web-novel adapter. */
+object WebNovelCatalogPageUrls {
+    fun withPage(url: String, page: Int): String {
+        val safePage = page.coerceAtLeast(1)
+        val fragment = url.substringAfter('#', missingDelimiterValue = "")
+        val withoutFragment = url.substringBefore('#')
+        val base = withoutFragment.substringBefore('?')
+        val queryParts = withoutFragment.substringAfter('?', missingDelimiterValue = "")
+            .split('&')
+            .filter(String::isNotBlank)
+            .filterNot { it.substringBefore('=').equals("page", ignoreCase = true) }
+            .toMutableList()
+            .apply { add("page=$safePage") }
+        return buildString {
+            append(base)
+            append('?')
+            append(queryParts.joinToString("&"))
+            if (fragment.isNotBlank()) append('#').append(fragment)
+        }
+    }
+
+    fun currentPage(url: String): Int =
+        Regex("[?&]page=(\\d+)", RegexOption.IGNORE_CASE)
+            .find(url)
+            ?.groupValues
+            ?.get(1)
+            ?.toIntOrNull()
+            ?.coerceAtLeast(1)
+            ?: 1
+}
+
 data class WebNovelSiteDetail(
     val id: String,
     val title: String,
@@ -62,7 +104,19 @@ interface WebNovelSiteAdapter {
 
     fun siteTitle(html: String, url: String): String
 
+    /** Converts a site landing URL into its complete, pageable catalog URL when needed. */
+    fun canonicalCatalogUrl(url: String): String = url
+
+    fun catalogPageUrl(url: String, page: Int): String =
+        WebNovelCatalogPageUrls.withPage(canonicalCatalogUrl(url), page)
+
     fun parseCatalog(html: String, url: String): List<WebNovelSiteBook>
+
+    fun parseCatalogPage(html: String, url: String): WebNovelCatalogPage = WebNovelCatalogPage(
+        url = url,
+        currentPage = WebNovelCatalogPageUrls.currentPage(url),
+        items = parseCatalog(html, url),
+    )
 
     fun parseDetail(html: String, url: String): WebNovelSiteDetail
 

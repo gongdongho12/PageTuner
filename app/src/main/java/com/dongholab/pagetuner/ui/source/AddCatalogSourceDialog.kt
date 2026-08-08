@@ -35,7 +35,7 @@ fun AddCatalogSourceDialog(
     onAddCatalog: (title: String, url: String) -> Unit,
 ) {
     var title by remember { mutableStateOf("") }
-    var url by remember { mutableStateOf("https://wtr-lab.com/en") }
+    var url by remember { mutableStateOf("https://wtr-lab.com/en/novel-list") }
     var showAdvancedRules by remember { mutableStateOf(false) }
 
     var titleSelector by remember { mutableStateOf(".title, h1") }

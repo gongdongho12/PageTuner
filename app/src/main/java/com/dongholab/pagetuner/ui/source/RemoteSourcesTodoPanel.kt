@@ -4,6 +4,7 @@ package com.dongholab.pagetuner.ui.source
 
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
@@ -58,7 +59,12 @@ import com.dongholab.pagetuner.source.CachedWebCatalog
 import com.dongholab.pagetuner.source.BatchDownloadProgress
 import com.dongholab.pagetuner.source.CatalogItemTranslation
 import com.dongholab.pagetuner.source.CatalogTranslationProgress
+import com.dongholab.pagetuner.source.RemoteCatalogPagingState
+import com.dongholab.pagetuner.source.WebCatalogLoading
 import com.dongholab.pagetuner.source.RemoteBookItem
+import com.dongholab.pagetuner.source.RemoteCatalogRoute
+import com.dongholab.pagetuner.source.RemoteBookHierarchyResolver
+import com.dongholab.pagetuner.source.RoutingRemoteBookHierarchyResolver
 import com.dongholab.pagetuner.source.RemoteSourceAccount
 import com.dongholab.pagetuner.source.translationKey
 import com.dongholab.pagetuner.ui.text.localizedName
@@ -68,7 +74,7 @@ import com.dongholab.pagetuner.ui.theme.EinkMuted
 import com.dongholab.pagetuner.ui.theme.EinkPanel
 import com.dongholab.pagetuner.ui.theme.EinkPaper
 import com.dongholab.pagetuner.ui.theme.EinkSoft
-import com.dongholab.pagetuner.ui.common.EinkOperationIndicator
+import com.dongholab.pagetuner.ui.common.EinkRemoteCatalogPager
 import com.dongholab.pagetuner.ui.common.EinkSegmentedControl
 
 @Composable
@@ -86,7 +92,11 @@ fun RemoteSourcesTodoPanel(
     canTranslate: Boolean,
     translatedItems: Map<String, CatalogItemTranslation>,
     catalogTranslationProgress: CatalogTranslationProgress?,
+    remotePaging: RemoteCatalogPagingState?,
+    catalogLoading: WebCatalogLoading?,
     batchDownloadProgress: BatchDownloadProgress?,
+    route: RemoteCatalogRoute,
+    onRouteChange: (RemoteCatalogRoute) -> Unit,
     onCatalogUrlChange: (String) -> Unit,
     onQueryChange: (String) -> Unit,
     onLoadCatalog: () -> Unit,
@@ -98,7 +108,9 @@ fun RemoteSourcesTodoPanel(
     onImportItem: (RemoteBookItem) -> Unit,
     onReadAndTranslateItem: (RemoteBookItem) -> Unit,
     onTranslateCatalog: () -> Unit,
+    onRemoteCatalogPageSelected: (Int) -> Unit,
     onBatchDownloadChapters: (List<RemoteBookItem>) -> Unit,
+    hierarchyResolver: RemoteBookHierarchyResolver = RoutingRemoteBookHierarchyResolver.default,
 ) {
     Surface(
         modifier = Modifier.fillMaxSize(),
@@ -114,14 +126,20 @@ fun RemoteSourcesTodoPanel(
             verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
             var showAddSourceDialog by remember { mutableStateOf(false) }
-            var activeCatalogUrlPage by remember { mutableStateOf<String?>(null) }
-            var selectedNovelForDetail by remember { mutableStateOf<RemoteBookItem?>(null) }
             var detailedNovel by remember { mutableStateOf<RemoteBookItem?>(null) }
             var fetchedChapters by remember { mutableStateOf<List<RemoteBookItem>>(emptyList()) }
             var detailLoading by remember { mutableStateOf(false) }
             var detailLoadError by remember { mutableStateOf<String?>(null) }
 
-            LaunchedEffect(selectedNovelForDetail) {
+            val currentBookRoute = route as? RemoteCatalogRoute.Book
+            val selectedNovelForDetail = currentBookRoute?.book
+            val activeCatalogUrlPage = when (route) {
+                RemoteCatalogRoute.SourceSystems -> null
+                is RemoteCatalogRoute.Catalog -> route.catalogUrl
+                is RemoteCatalogRoute.Book -> route.catalogUrl
+            }
+
+            LaunchedEffect(selectedNovelForDetail?.identity) {
                 val item = selectedNovelForDetail
                 if (item != null) {
                     fetchedChapters = emptyList()
@@ -129,24 +147,12 @@ fun RemoteSourcesTodoPanel(
                     detailLoading = true
                     detailLoadError = null
                     runCatching {
-                        val source = com.dongholab.pagetuner.source.WebNovelRemoteBookSource(
-                            accountId = item.identity.accountId,
-                            endpointUrl = item.downloadUrl,
-                        )
-                        val detail = source.loadNovelDetail()
-                        val chapters = source.list()
-                        val catalogTranslation = translatedItems[item.translationKey()]
-                        val enrichedItem = item.copy(
-                            title = catalogTranslation?.title
-                                ?: detail.title.ifBlank { item.title },
-                            authors = listOf(detail.author).filter { it.isNotBlank() },
-                            coverUrl = detail.coverUrl ?: item.coverUrl,
-                            description = catalogTranslation?.description
-                                ?: detail.summary.takeIf { it.isNotBlank() },
-                            chapterCount = detail.totalChapters.takeIf { it > 0 },
-                            tags = detail.tags,
-                        )
-                        enrichedItem to chapters
+                        val hierarchy = hierarchyResolver.resolve(item)
+                        val translated = translatedItems[item.translationKey()]
+                        hierarchy.book.copy(
+                            title = translated?.title ?: hierarchy.book.title,
+                            description = translated?.description ?: hierarchy.book.description,
+                        ) to hierarchy.chapters
                     }.onSuccess { (enrichedItem, chapters) ->
                         detailedNovel = enrichedItem
                         fetchedChapters = chapters
@@ -162,7 +168,11 @@ fun RemoteSourcesTodoPanel(
             }
 
             val currentSelectedNovel = selectedNovelForDetail
+            BackHandler(enabled = route.parent() != null) {
+                route.parent()?.let(onRouteChange)
+            }
             if (currentSelectedNovel != null) {
+                val bookRoute = requireNotNull(currentBookRoute)
                 val displayedNovel = detailedNovel ?: currentSelectedNovel
                 WebNovelDetailPagePanel(
                     novelItem = displayedNovel,
@@ -174,9 +184,17 @@ fun RemoteSourcesTodoPanel(
                     canTranslate = canTranslate,
                     loadError = detailLoadError,
                     batchProgress = batchDownloadProgress,
-                    onBackToList = { selectedNovelForDetail = null },
-                    onReadOriginalChapter = onImportItem,
-                    onReadChapter = onReadAndTranslateItem,
+                    onBackToList = {
+                        route.parent()?.let(onRouteChange)
+                    },
+                    onReadOriginalChapter = { chapter ->
+                        onRouteChange(RemoteCatalogRoute.Book(bookRoute.catalogUrl, displayedNovel))
+                        onImportItem(chapter)
+                    },
+                    onReadChapter = { chapter ->
+                        onRouteChange(RemoteCatalogRoute.Book(bookRoute.catalogUrl, displayedNovel))
+                        onReadAndTranslateItem(chapter)
+                    },
                     onSaveChapterTxt = { chapter -> onBatchDownloadChapters(listOf(chapter)) },
                     onBatchDownloadChapters = onBatchDownloadChapters,
                 )
@@ -191,7 +209,7 @@ fun RemoteSourcesTodoPanel(
                         onCatalogUrlChange(url)
                         onSaveSourceAccount()
                         onLoadCatalog()
-                        activeCatalogUrlPage = url
+                        onRouteChange(RemoteCatalogRoute.Catalog(url))
                     },
                 )
             }
@@ -210,17 +228,26 @@ fun RemoteSourcesTodoPanel(
                     canTranslate = canTranslate,
                     translatedItems = translatedItems,
                     catalogTranslationProgress = catalogTranslationProgress,
+                    remotePaging = remotePaging,
+                    catalogLoading = catalogLoading,
                     onQueryChange = onQueryChange,
                     onRefreshCatalog = onRefreshCatalog,
-                    onOpenDetail = { item -> selectedNovelForDetail = item },
-                    onImportItem = onImportItem,
+                    onOpenDetail = { item ->
+                        onRouteChange(RemoteCatalogRoute.Book(currentCatalogPage, item))
+                    },
+                    onImportItem = { item ->
+                        onRouteChange(RemoteCatalogRoute.Book(currentCatalogPage, item))
+                        onImportItem(item)
+                    },
                     onTranslateCatalog = onTranslateCatalog,
-                    onBackToSourceManager = { activeCatalogUrlPage = null },
+                    onRemotePageSelected = onRemoteCatalogPageSelected,
+                    onBackToSourceManager = { onRouteChange(RemoteCatalogRoute.SourceSystems) },
                 )
                 return@Column
             }
 
-            var activeSubTab by remember { mutableStateOf(0) } // 0: Catalog, 1: Sources & Filters
+            // SourceSystems is the root route, so it opens the source chooser by default.
+            var activeSubTab by remember { mutableStateOf(1) } // 0: Catalog, 1: Sources & Filters
             var selectedLanguageFilter by remember { mutableStateOf("All") }
             var selectedGenreFilter by remember { mutableStateOf("All") }
             var selectedOrderByFilter by remember { mutableStateOf("addition_date") }
@@ -255,7 +282,7 @@ fun RemoteSourcesTodoPanel(
                                 if (catalogUrl.isNotBlank()) {
                                     onSaveSourceAccount()
                                     onLoadCatalog()
-                                    selectedNovelForDetail = com.dongholab.pagetuner.source.RemoteBookItem(
+                                    val directNovel = com.dongholab.pagetuner.source.RemoteBookItem(
                                         identity = com.dongholab.pagetuner.source.RemoteBookIdentity(
                                             sourceType = com.dongholab.pagetuner.source.RemoteSourceType.WebNovel,
                                             accountId = "direct_url",
@@ -269,6 +296,11 @@ fun RemoteSourcesTodoPanel(
                                         downloadUrl = catalogUrl,
                                         coverUrl = null,
                                     )
+                                    val parentCatalogUrl = sourceAccounts
+                                        .firstOrNull { it.sourceType == directNovel.identity.sourceType }
+                                        ?.endpoint
+                                        ?: catalogUrl
+                                    onRouteChange(RemoteCatalogRoute.Book(parentCatalogUrl, directNovel))
                                     showDirectUrlDialog = false
                                 }
                             },
@@ -321,7 +353,13 @@ fun RemoteSourcesTodoPanel(
                     modifier = Modifier.weight(1f),
                     enabled = !busy,
                     itemHeight = 42.dp,
-                    label = { tab -> if (tab == 0) "Catalog (${items.size})" else "Sources & Filters" },
+                    label = { tab ->
+                        if (tab == 0) {
+                            "Catalog (${remotePaging?.totalItems ?: items.size})"
+                        } else {
+                            "Sources & Filters"
+                        }
+                    },
                 )
                 Button(
                     onClick = { showDirectUrlDialog = true },
@@ -337,6 +375,13 @@ fun RemoteSourcesTodoPanel(
                 }
             }
 
+            WebCatalogOperationIndicator(
+                loading = catalogLoading,
+                translationProgress = catalogTranslationProgress,
+                busy = busy,
+                statusText = statusText,
+            )
+
             if (activeSubTab == 0) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -349,14 +394,13 @@ fun RemoteSourcesTodoPanel(
                         Text("Translate list → ${targetLanguage.uppercase()}", fontWeight = FontWeight.Bold)
                     }
                 }
-                EinkOperationIndicator(
-                    visible = busy,
-                    title = if (catalogTranslationProgress != null) "Translating catalog titles…" else "Loading web novel catalog…",
-                    detail = catalogTranslationProgress?.let {
-                        "${it.completedItems} / ${it.totalItems} · failed ${it.failedItems} · ${it.currentTitle}"
-                    } ?: statusText,
-                    progress = catalogTranslationProgress?.fraction,
-                )
+                remotePaging?.let { paging ->
+                    EinkRemoteCatalogPager(
+                        paging = paging,
+                        busy = busy,
+                        onPageSelected = onRemoteCatalogPageSelected,
+                    )
+                }
                 if (filteredCatalogItems.isEmpty()) {
                     Text(
                         text = if (items.isEmpty()) stringResource(R.string.web_catalog_empty) else "No novels match your language or genre filter.",
@@ -378,8 +422,13 @@ fun RemoteSourcesTodoPanel(
                             coverBytes = item.coverUrl?.let { coverThumbnails[it] },
                             displayMode = displayMode,
                             busy = busy,
-                            onOpenDetail = { selectedNovelForDetail = item },
-                            onImportItem = { bookItem -> onImportItem(bookItem) },
+                            onOpenDetail = {
+                                onRouteChange(RemoteCatalogRoute.Book(catalogUrl, item))
+                            },
+                            onImportItem = { bookItem ->
+                                onRouteChange(RemoteCatalogRoute.Book(catalogUrl, bookItem))
+                                onImportItem(bookItem)
+                            },
                         )
                     }
                 }
@@ -421,7 +470,10 @@ fun RemoteSourcesTodoPanel(
                         CachedCatalogsRow(
                             cachedCatalogs = cachedCatalogs,
                             busy = busy,
-                            onLoadCachedCatalog = onLoadCachedCatalog,
+                            onLoadCachedCatalog = { cached ->
+                                onLoadCachedCatalog(cached)
+                                onRouteChange(RemoteCatalogRoute.Catalog(cached.url))
+                            },
                         )
                     }
                     if (sourceAccounts.isNotEmpty()) {
@@ -431,7 +483,9 @@ fun RemoteSourcesTodoPanel(
                             modifier = Modifier.weight(1f),
                             onLoadSourceAccount = onLoadSourceAccount,
                             onDeleteSourceAccount = onDeleteSourceAccount,
-                            onOpenCatalogPage = { account -> activeCatalogUrlPage = account.endpoint },
+                            onOpenCatalogPage = { account ->
+                                onRouteChange(RemoteCatalogRoute.Catalog(account.endpoint))
+                            },
                         )
                     }
                 } else {

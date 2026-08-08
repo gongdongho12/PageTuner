@@ -46,6 +46,8 @@ import com.dongholab.pagetuner.ui.theme.EinkSoft
 import com.dongholab.pagetuner.ui.common.EinkAutoFitPagingContainer
 import com.dongholab.pagetuner.ui.common.EinkChoiceStepper
 
+private val LocalBookRowHeight = 124.dp
+
 @Composable
 fun LocalLibraryPanel(
     books: List<LocalBook>,
@@ -116,7 +118,7 @@ fun LocalLibraryPanel(
                 EinkAutoFitPagingContainer(
                     items = visibleBooks,
                     modifier = Modifier.weight(1f),
-                    estimatedItemHeight = 112.dp,
+                    estimatedItemHeight = LocalBookRowHeight,
                     fallbackPageSize = 3,
                     busy = busy,
                 ) { book ->
@@ -223,7 +225,7 @@ private fun LocalBookRow(
     Surface(
         modifier = Modifier
             .fillMaxWidth()
-            .height(112.dp),
+            .height(LocalBookRowHeight),
         color = if (selected) EinkSoft else EinkPanel,
         shape = RoundedCornerShape(4.dp),
         border = BorderStroke(1.dp, if (selected) EinkInk else EinkLine),
@@ -262,6 +264,23 @@ private fun LocalBookRow(
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
+                book.currentChapterTitle?.let { chapterTitle ->
+                    Text(
+                        text = if (book.currentChapterNumber != null) {
+                            stringResource(
+                                R.string.library_current_chapter_numbered,
+                                book.currentChapterNumber,
+                                chapterTitle,
+                            )
+                        } else {
+                            stringResource(R.string.library_current_chapter, chapterTitle)
+                        },
+                        style = MaterialTheme.typography.bodySmall,
+                        color = EinkMuted,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
                 Text(
                     text = if (book.tags.isEmpty()) {
                         stringResource(R.string.library_tags_empty)

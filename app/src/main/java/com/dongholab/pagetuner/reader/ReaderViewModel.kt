@@ -265,6 +265,10 @@ class ReaderViewModel(
         _uiState.update { state -> state.copy(controlsVisible = !state.controlsVisible) }
     }
 
+    fun showControls() {
+        _uiState.update { state -> state.copy(controlsVisible = true) }
+    }
+
     fun showDocumentDetails() {
         _uiState.update { state -> state.copy(showDocumentDetails = true) }
     }

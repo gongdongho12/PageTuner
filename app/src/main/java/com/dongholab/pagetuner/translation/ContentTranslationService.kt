@@ -6,6 +6,8 @@ import com.dongholab.pagetuner.document.DocumentIds
 import com.dongholab.pagetuner.document.ReaderDocument
 import com.dongholab.pagetuner.document.ReaderPage
 import com.dongholab.pagetuner.document.TextSegment
+import com.dongholab.pagetuner.translation.glossary.BookGlossary
+import com.dongholab.pagetuner.translation.glossary.GlossaryTranslationProvider
 
 data class TranslatableField(
     val id: String,
@@ -86,9 +88,17 @@ class DefaultContentTranslationService(
 }
 
 object ContentTranslationServiceFactory {
-    fun create(context: Context, settings: TranslationSettings): ContentTranslationService {
+    fun create(
+        context: Context,
+        settings: TranslationSettings,
+        glossary: BookGlossary? = null,
+    ): ContentTranslationService {
+        val provider = TranslationProviderFactory.create(settings)
         return DefaultContentTranslationService(
-            provider = TranslationProviderFactory.create(settings),
+            provider = glossary
+                ?.takeIf { it.activeEntries.isNotEmpty() }
+                ?.let { GlossaryTranslationProvider(provider, it) }
+                ?: provider,
             cache = JsonFileTranslationCache(context.applicationContext),
         )
     }

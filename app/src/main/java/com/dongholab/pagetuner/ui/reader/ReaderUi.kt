@@ -73,6 +73,8 @@ import com.dongholab.pagetuner.reader.PageTurnMode
 import com.dongholab.pagetuner.reader.PdfFitMode
 import com.dongholab.pagetuner.translation.TranslationDisplayMode
 import com.dongholab.pagetuner.translation.PageTranslation
+import com.dongholab.pagetuner.translation.glossary.BookGlossaryEntry
+import com.dongholab.pagetuner.translation.glossary.GlossaryTextProcessor
 import com.dongholab.pagetuner.ui.text.localizedName
 import com.dongholab.pagetuner.ui.theme.EinkInk
 import com.dongholab.pagetuner.ui.theme.EinkLine
@@ -684,6 +686,7 @@ fun ReaderSurface(
     pdfFitMode: PdfFitMode,
     displayMode: DisplayMode,
     translation: PageTranslation?,
+    glossaryEntries: List<BookGlossaryEntry> = emptyList(),
     translationDisplayMode: TranslationDisplayMode,
     pageTurnMode: PageTurnMode,
     pageTurningEnabled: Boolean,
@@ -723,6 +726,7 @@ fun ReaderSurface(
                 if (translation != null && showTranslation) {
                     TranslationPanel(
                         translation = translation,
+                        glossaryEntries = glossaryEntries,
                         fontSizeSp = fontSizeSp,
                         lineSpacing = lineSpacing,
                         modifier = Modifier
@@ -747,6 +751,7 @@ fun ReaderSurface(
                     if (showOriginal) {
                         OriginalPageContent(
                             page = page,
+                            glossaryEntries = glossaryEntries,
                             documentFormat = documentFormat,
                             displayMode = displayMode,
                             fontSizeSp = fontSizeSp,
@@ -759,6 +764,7 @@ fun ReaderSurface(
                     if (translation != null && showTranslation) {
                         TranslationPanel(
                             translation = translation,
+                            glossaryEntries = glossaryEntries,
                             fontSizeSp = fontSizeSp,
                             lineSpacing = lineSpacing,
                             modifier = Modifier
@@ -787,13 +793,14 @@ fun ReaderSurface(
 @Composable
 private fun OriginalPageContent(
     page: ReaderPage,
+    glossaryEntries: List<BookGlossaryEntry>,
     documentFormat: DocumentFormat,
     displayMode: DisplayMode,
     fontSizeSp: Int,
     lineSpacing: Float,
     modifier: Modifier = Modifier,
 ) {
-    val displayText = page.plainText.ifBlank {
+    val displayText = GlossaryTextProcessor.applyOriginalDisplayAliases(page.plainText, glossaryEntries).ifBlank {
         if (documentFormat == DocumentFormat.PDF) {
             stringResource(R.string.viewer_pdf_rendering)
         } else {
@@ -875,6 +882,7 @@ private fun EmbeddedPageImage(
 @Composable
 private fun TranslationPanel(
     translation: PageTranslation,
+    glossaryEntries: List<BookGlossaryEntry>,
     fontSizeSp: Int,
     lineSpacing: Float,
     modifier: Modifier = Modifier,
@@ -898,7 +906,10 @@ private fun TranslationPanel(
                 fontWeight = FontWeight.SemiBold,
             )
             com.dongholab.pagetuner.ui.common.EinkAutoFitText(
-                text = translation.text.ifBlank {
+                text = GlossaryTextProcessor.applyTranslatedDisplayAliases(
+                    translation.text,
+                    glossaryEntries,
+                ).ifBlank {
                     stringResource(R.string.translation_preparing)
                 },
                 requestedFontSizeSp = fontSizeSp,

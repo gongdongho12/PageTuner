@@ -93,6 +93,7 @@ class GoogleWebTranslateHtmlProviderTest {
         assertFalse(capturedHeaders.containsKey("X-Goog-Api-Key"))
         assertEquals("application/json", capturedHeaders["Accept"])
         assertEquals("application/x-www-form-urlencoded; charset=UTF-8", capturedHeaders["Content-Type"])
+        assertEquals(GoogleWebTranslateHtmlProvider.PublicUserAgent, capturedHeaders["User-Agent"])
         assertEquals("en", capturedParameters["sl"])
         assertEquals("ko", capturedParameters["tl"])
         assertEquals("Hello", capturedParameters["q"])

@@ -41,6 +41,30 @@ class WebNovelSiteAdapterRegistryTest {
     }
 
     @Test
+    fun wtrAdapterCanonicalizesLandingPageAndPreservesCatalogFiltersAcrossPages() {
+        val adapter = WtrLabSiteAdapter()
+
+        assertEquals(
+            "https://wtr-lab.com/en/novel-list",
+            adapter.canonicalCatalogUrl("https://wtr-lab.com/en"),
+        )
+        assertEquals(
+            "https://wtr-lab.com/en/novel-list?orderBy=views&status=ongoing&page=12",
+            adapter.catalogPageUrl(
+                "https://wtr-lab.com/en/novel-list?orderBy=views&page=2&status=ongoing",
+                12,
+            ),
+        )
+        assertEquals(
+            "https://wtr-lab.com/en/novel-list?search=martial%20arts&page=3#results",
+            adapter.catalogPageUrl(
+                "https://wtr-lab.com/en/novel-list?search=martial%20arts&page=1#results",
+                3,
+            ),
+        )
+    }
+
+    @Test
     fun genericAdapterPreservesDiscoveredUrlsAndChapterNumbers() {
         val adapter = GenericWebNovelSiteAdapter()
         val catalog = adapter.parseCatalog(

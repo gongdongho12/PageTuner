@@ -1,6 +1,9 @@
 package com.dongholab.pagetuner.translation
 
 import com.dongholab.pagetuner.document.TextSegment
+import com.dongholab.pagetuner.translation.glossary.BookGlossary
+import com.dongholab.pagetuner.translation.glossary.BookGlossaryEntry
+import com.dongholab.pagetuner.translation.glossary.GlossaryTranslationProvider
 import java.nio.file.Files
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
@@ -70,6 +73,24 @@ class GoogleWebTranslateLiveTest {
         } finally {
             cacheDirectory.deleteRecursively()
         }
+    }
+
+    @Test
+    fun realEndpointPreservesBookGlossarySpelling() = runTest {
+        val provider = GlossaryTranslationProvider(
+            delegate = GoogleWebTranslateHtmlProvider(apiKey = ""),
+            glossary = BookGlossary(
+                bookId = "live-book",
+                entries = listOf(BookGlossaryEntry("hero", "Qin Feng", "진풍")),
+            ),
+        )
+
+        val translated = provider.translate(
+            request("en", "ko", "Qin Feng entered the Northern Palace."),
+        ).single().translatedText
+
+        assertTrue(translated.contains("진풍"))
+        assertFalse(translated.contains("PTGLOSSARY", ignoreCase = true))
     }
 
     private fun request(source: String, target: String, vararg texts: String): TranslationRequest {

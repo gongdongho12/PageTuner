@@ -8,6 +8,8 @@ import com.dongholab.pagetuner.translation.ContentTranslationServiceFactory
 import com.dongholab.pagetuner.translation.TranslatableField
 import com.dongholab.pagetuner.translation.TranslationPaceMode
 import com.dongholab.pagetuner.translation.TranslationSettings
+import com.dongholab.pagetuner.translation.glossary.BookGlossaryStore
+import com.dongholab.pagetuner.library.remoteLibraryIdentityOrNull
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
@@ -88,8 +90,12 @@ object WebNovelBatchDownloader {
         }
 
         val targetLanguage = settings.normalizedTargetLanguage.takeIf { includeTranslation }
+        val glossary = chapters.firstOrNull()
+            ?.remoteLibraryIdentityOrNull()
+            ?.localBookId
+            ?.let { BookGlossaryStore(context.applicationContext).load(it) }
         val translator = translationService
-            ?: ContentTranslationServiceFactory.create(context.applicationContext, settings)
+            ?: ContentTranslationServiceFactory.create(context.applicationContext, settings, glossary)
         var savedItems = 0
         var failedItems = 0
 

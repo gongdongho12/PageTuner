@@ -23,10 +23,14 @@ class WebNovelRemoteBookSource(
     private val fetchHtml: suspend (String) -> String = WebNovelHttpClient::fetchText,
     private val renderedChapterLoader: RenderedChapterLoader? = WebNovelPageRuntime.renderedChapterLoader,
     adapterRegistry: WebNovelSiteAdapterRegistry = WebNovelSiteAdapterRegistry.default,
-) : RemoteBookSource {
+) : RemoteBookSource, PaginatedRemoteBookSource {
     override val sourceType: RemoteSourceType = RemoteSourceType.WebNovel
 
     private val siteAdapter: WebNovelSiteAdapter = adapterRegistry.resolve(endpointUrl)
+    private val resolvedEndpointUrl: String = when (siteAdapter.classify(endpointUrl)) {
+        WebNovelPageKind.Catalog -> siteAdapter.canonicalCatalogUrl(endpointUrl)
+        else -> endpointUrl
+    }
     private val pageMutex = Mutex()
     @Volatile
     private var cachedEndpointHtml: String? = null
@@ -36,8 +40,8 @@ class WebNovelRemoteBookSource(
     override suspend fun connect(): RemoteSourceConnection {
         val html = endpointHtml()
         val items = itemsFromHtml(html)
-        val title = siteAdapter.siteTitle(html, endpointUrl)
-        logD("Connected through ${siteAdapter.id} to $endpointUrl (${items.size} items)")
+        val title = siteAdapter.siteTitle(html, resolvedEndpointUrl)
+        logD("Connected through ${siteAdapter.id} to $resolvedEndpointUrl (${items.size} items)")
         return RemoteSourceConnection(
             sourceType = sourceType,
             accountId = accountId,
@@ -47,6 +51,30 @@ class WebNovelRemoteBookSource(
     }
 
     override suspend fun list(): List<RemoteBookItem> = itemsFromHtml(endpointHtml())
+
+    override suspend fun loadCatalogPage(
+        page: Int,
+        onStep: (RemoteCatalogLoadStep) -> Unit,
+    ): RemoteCatalogPage {
+        check(siteAdapter.classify(resolvedEndpointUrl) == WebNovelPageKind.Catalog) {
+            "The requested web-novel URL is not a catalog: $resolvedEndpointUrl"
+        }
+        val pageUrl = siteAdapter.catalogPageUrl(resolvedEndpointUrl, page)
+        onStep(RemoteCatalogLoadStep.FetchingPage)
+        val html = if (pageUrl == resolvedEndpointUrl) endpointHtml() else loadHtml(pageUrl)
+        onStep(RemoteCatalogLoadStep.ParsingDom)
+        val parsed = siteAdapter.parseCatalogPage(html, pageUrl)
+        return RemoteCatalogPage(
+            title = siteAdapter.siteTitle(html, pageUrl),
+            url = parsed.url,
+            items = parsed.items.map(::bookItem),
+            currentPage = parsed.currentPage,
+            totalPages = parsed.totalPages,
+            totalItems = parsed.totalItems,
+            hasPreviousPage = parsed.hasPreviousPage,
+            hasNextPage = parsed.hasNextPage,
+        )
+    }
 
     override suspend fun search(query: String): List<RemoteBookItem> {
         val items = list()
@@ -59,7 +87,7 @@ class WebNovelRemoteBookSource(
     }
 
     suspend fun loadNovelDetail(): WebNovelSiteDetail {
-        return siteAdapter.parseDetail(endpointHtml(), endpointUrl)
+        return siteAdapter.parseDetail(endpointHtml(), resolvedEndpointUrl)
     }
 
     override suspend fun download(item: RemoteBookItem): ByteArray {
@@ -100,7 +128,7 @@ class WebNovelRemoteBookSource(
         cachedEndpointHtml?.let { return it }
         return pageMutex.withLock {
             cachedEndpointHtml?.let { return@withLock it }
-            loadHtml(endpointUrl).also { cachedEndpointHtml = it }
+            loadHtml(resolvedEndpointUrl).also { cachedEndpointHtml = it }
         }
     }
 
@@ -112,16 +140,19 @@ class WebNovelRemoteBookSource(
 
     private fun itemsFromHtml(html: String): List<RemoteBookItem> {
         cachedItems?.let { return it }
-        val items = when (siteAdapter.classify(endpointUrl)) {
-            WebNovelPageKind.Catalog -> siteAdapter.parseCatalog(html, endpointUrl).map(::bookItem)
-            WebNovelPageKind.NovelDetail -> siteAdapter.parseChapters(html, endpointUrl).map(::chapterItem)
+        val items = when (siteAdapter.classify(resolvedEndpointUrl)) {
+            WebNovelPageKind.Catalog -> siteAdapter.parseCatalog(html, resolvedEndpointUrl).map(::bookItem)
+            WebNovelPageKind.NovelDetail -> {
+                val detail = siteAdapter.parseDetail(html, resolvedEndpointUrl)
+                siteAdapter.parseChapters(html, resolvedEndpointUrl).map { chapter -> chapterItem(chapter, detail) }
+            }
             WebNovelPageKind.Chapter -> listOf(
                 chapterItem(
                     WebNovelSiteChapter(
                         id = "chapter_direct",
                         number = 1,
-                        title = siteAdapter.siteTitle(html, endpointUrl),
-                        url = endpointUrl,
+                        title = siteAdapter.siteTitle(html, resolvedEndpointUrl),
+                        url = resolvedEndpointUrl,
                     ),
                 ),
             )
@@ -141,15 +172,23 @@ class WebNovelRemoteBookSource(
         description = book.description,
         chapterCount = book.chapterCount,
         tags = book.tags,
+        seriesId = com.dongholab.pagetuner.source.webnovel.WebNovelSeriesKeys.fromUrl(book.url),
+        seriesTitle = book.title,
     )
 
-    private fun chapterItem(chapter: WebNovelSiteChapter): RemoteBookItem = RemoteBookItem(
+    private fun chapterItem(
+        chapter: WebNovelSiteChapter,
+        detail: WebNovelSiteDetail? = null,
+    ): RemoteBookItem = RemoteBookItem(
         identity = RemoteBookIdentity(sourceType, accountId, chapter.id),
         title = chapter.title,
         format = DocumentFormat.TEXT,
         language = chapter.language,
         contentType = "text/plain",
         downloadUrl = chapter.url,
+        seriesId = com.dongholab.pagetuner.source.webnovel.WebNovelSeriesKeys.fromUrl(resolvedEndpointUrl),
+        seriesTitle = detail?.title,
+        chapterNumber = chapter.number,
     )
 
     private fun logD(message: String) {

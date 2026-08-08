@@ -25,9 +25,29 @@ class WtrLabSiteAdapter : WebNovelSiteAdapter {
         return WebNovelTextExtractor.extractNovelTitle(html, "WTR-LAB")
     }
 
+    override fun canonicalCatalogUrl(url: String): String = runCatching {
+        val uri = URI(url)
+        val language = language(url)
+        val path = uri.path.orEmpty().trimEnd('/')
+        val catalogPath = when {
+            path.endsWith("/novel-list", ignoreCase = true) -> path
+            path.isBlank() || path == "/" || path == "/$language" -> "/$language/novel-list"
+            else -> path
+        }
+        buildString {
+            append(uri.scheme).append("://").append(uri.rawAuthority).append(catalogPath)
+            uri.rawQuery?.let { append('?').append(it) }
+            uri.rawFragment?.let { append('#').append(it) }
+        }
+    }.getOrDefault(url)
+
     override fun parseCatalog(html: String, url: String): List<WebNovelSiteBook> {
+        return parseCatalogPage(html, url).items
+    }
+
+    override fun parseCatalogPage(html: String, url: String): WebNovelCatalogPage {
         val response = WtrLabDomScraper.parseNovelListResponse(html, url, currentPage(url))
-        return response.novels.map { novel ->
+        val items = response.novels.map { novel ->
             WebNovelSiteBook(
                 id = "novel_${novel.novelId}",
                 title = novel.title,
@@ -37,6 +57,15 @@ class WtrLabSiteAdapter : WebNovelSiteAdapter {
                 chapterCount = novel.chapterCount,
             )
         }
+        return WebNovelCatalogPage(
+            url = url,
+            currentPage = response.currentPage,
+            totalPages = response.totalPages,
+            totalItems = response.totalItems,
+            items = items,
+            hasPreviousPage = response.currentPage > 1,
+            hasNextPage = response.hasNextPage,
+        )
     }
 
     override fun parseDetail(html: String, url: String): WebNovelSiteDetail {

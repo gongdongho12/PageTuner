@@ -55,6 +55,23 @@ class WtrLabDomScraperTest {
         assertTrue(home.sections.single().items.single().views == "12")
     }
 
+    @Test
+    fun parsesServerPaginationWithoutTreatingOnePageAsTheWholeCatalog() {
+        val series = (1..10).joinToString(",") { index ->
+            """{"raw_id":$index,"slug":"book-$index","data":{"title":"Book $index"}}"""
+        }
+        val response = WtrLabDomScraper.parseNovelListResponse(
+            html = nextDataHtml("""{"count":"85857","series":[$series]}"""),
+            baseUrl = "https://wtr-lab.com/en/novel-list?page=2",
+            currentPage = 2,
+        )
+
+        assertEquals(10, response.novels.size)
+        assertEquals(85_857, response.totalItems)
+        assertEquals(8_586, response.totalPages)
+        assertTrue(response.hasNextPage)
+    }
+
     companion object {
         const val NOVEL_URL = "https://wtr-lab.com/en/novel/88774/god-emperor-of-devouring"
 

@@ -113,6 +113,7 @@ on a device where those rows cannot fit.
 | Viewport-sized list | `EinkAutoFitPagingContainer` | Preferred list component. Pair with exact fixed-height rows. |
 | Proven fixed-height list | `EinkPagingContainer` | Use only when the complete parent and row height are statically known. |
 | Page navigation | `EinkPageNavigation` | Internal shared previous/range/next bar. Center text has a fixed region. |
+| Remote catalog navigation | `EinkRemoteCatalogPager` | Server-side first/previous/next/last controls; keep separate from viewport paging. |
 | Two to five categories | `EinkSegmentedControl` | Equal-width, two-line labels with a solid selected marker. |
 | Many mutually exclusive choices | `EinkChoiceStepper` | Previous/current/next interaction without wrapped chips. |
 | Long-running work | `EinkOperationIndicator` | Static high-contrast progress suited to low refresh rates. |

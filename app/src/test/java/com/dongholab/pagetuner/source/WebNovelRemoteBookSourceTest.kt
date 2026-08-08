@@ -30,6 +30,9 @@ class WebNovelRemoteBookSourceTest {
         assertEquals("God Emperor of Devouring", detail.title)
         assertEquals(3, chapters.size)
         assertEquals("chapter_1", chapters.first().identity.remoteId)
+        assertEquals(1, chapters.first().chapterNumber)
+        assertEquals("God Emperor of Devouring", chapters.first().seriesTitle)
+        assertTrue(chapters.mapNotNull { it.seriesId }.distinct().size == 1)
     }
 
     @Test
@@ -52,6 +55,34 @@ class WebNovelRemoteBookSourceTest {
         assertTrue(text.startsWith("# Chapter 1 The Demon Contract"))
         assertTrue(text.contains(longParagraph))
         assertTrue(text.contains("\n\nSecond paragraph."))
+    }
+
+    @Test
+    fun pagedCatalogLoadsTheCanonicalListUrlAndReportsDomStages() = runTest {
+        val requestedUrls = mutableListOf<String>()
+        val steps = mutableListOf<RemoteCatalogLoadStep>()
+        val source = WebNovelRemoteBookSource(
+            accountId = "wtr",
+            endpointUrl = "https://wtr-lab.com/en",
+            fetchHtml = { url ->
+                requestedUrls += url
+                WtrLabDomScraperTest.catalogHtml
+            },
+            renderedChapterLoader = null,
+        )
+
+        val page = source.loadCatalogPage(2) { steps += it }
+
+        assertEquals(
+            "https://wtr-lab.com/en/novel-list?page=2",
+            requestedUrls.single(),
+        )
+        assertEquals(2, page.currentPage)
+        assertEquals(1, page.items.size)
+        assertEquals(
+            listOf(RemoteCatalogLoadStep.FetchingPage, RemoteCatalogLoadStep.ParsingDom),
+            steps,
+        )
     }
 
     @Test

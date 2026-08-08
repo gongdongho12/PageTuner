@@ -49,10 +49,20 @@ object WtrLabDomScraper {
         val home = parseHomeResponse(html, baseUrl)
         val items = home.sections.flatMap { it.items }.distinctBy { it.novelId }
         val totalItems = extractPageProps(html)?.optString("count")?.toIntOrNull()
+        val pageSize = items.size.coerceAtLeast(1)
+        val explicitLastPage = Regex("[?&]page=(\\d+)", RegexOption.IGNORE_CASE)
+            .findAll(html)
+            .mapNotNull { it.groupValues.getOrNull(1)?.toIntOrNull() }
+            .maxOrNull()
+        val totalPages = explicitLastPage ?: totalItems?.let { count ->
+            ((count + pageSize - 1) / pageSize).coerceAtLeast(1)
+        }
         val hasExplicitNextPage = Regex("(?is)<a[^>]+href=[\"'][^\"']*[?&]page=${currentPage + 1}(?:[&#\"'])").containsMatchIn(html)
         return NovelListResponse(
             currentPage = currentPage,
-            hasNextPage = hasExplicitNextPage || (totalItems != null && totalItems > currentPage * items.size),
+            hasNextPage = hasExplicitNextPage || (totalPages != null && currentPage < totalPages),
+            totalPages = totalPages,
+            totalItems = totalItems,
             novels = items,
         )
     }

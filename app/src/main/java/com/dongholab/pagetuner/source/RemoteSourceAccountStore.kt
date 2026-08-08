@@ -131,7 +131,7 @@ fun defaultWtrLabAccount(
         id = "default_wtr_lab",
         sourceType = RemoteSourceType.WebNovel,
         title = "WTR-Lab Web Novels",
-        endpoint = "https://wtr-lab.com/en",
+        endpoint = "https://wtr-lab.com/en/novel-list",
         createdAtMillis = nowMillis,
         updatedAtMillis = nowMillis,
     )
@@ -153,5 +153,4 @@ fun pageTurnerWebCatalogAccount(
         updatedAtMillis = nowMillis,
     )
 }
-
 
