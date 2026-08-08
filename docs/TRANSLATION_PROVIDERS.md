@@ -14,10 +14,12 @@ pagination, pacing, and offline cache do not depend on a single vendor.
 
 - `GOOGLE_WEB_TRANSLATE_HTML`
   - Provider: `GoogleWebTranslateHtmlProvider`
-  - Input: no API key required; an optional key can be sent as
-    `X-Goog-Api-Key` when supplied.
-  - Endpoint: `https://translate-pa.googleapis.com/v1/translateHtml`
-  - Best for HTML-segment translation using the web translate request shape.
+  - Input: no API key required. A supplied key selects the registered HTML
+    request path and is sent as `X-Goog-Api-Key`.
+  - No-key endpoint: `https://translate.googleapis.com/translate_a/single`
+  - Keyed endpoint: `https://translate-pa.googleapis.com/v1/translateHtml`
+  - The no-key path sends ordered segments individually as form-encoded POST
+    bodies; the keyed path uses the HTML batch request shape.
   - The app does not embed copied browser validation headers or
     session-specific headers in source.
 
@@ -71,3 +73,16 @@ The provider handles only:
 - remote API call
 - response parsing
 - provider-specific validation
+
+## Live verification
+
+Real network verification is opt-in so the normal unit suite remains
+deterministic:
+
+```shell
+RUN_LIVE_TRANSLATION_TESTS=1 ./gradlew :app:testDebugUnitTest \
+  --tests 'com.dongholab.pagetuner.translation.GoogleWebTranslateLiveTest'
+```
+
+The live suite covers English-to-Korean, ordered Korean-to-English segments,
+and the common named-field service with a persisted cache file.

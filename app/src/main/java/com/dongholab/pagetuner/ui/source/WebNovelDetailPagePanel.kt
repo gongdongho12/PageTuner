@@ -58,6 +58,7 @@ import com.dongholab.pagetuner.ui.theme.EinkPaper
 import com.dongholab.pagetuner.ui.theme.EinkSoft
 
 private enum class NovelDetailTab { Overview, Chapters }
+private enum class ChapterReadLanguage { Original, Translation }
 
 @Composable
 fun WebNovelDetailPagePanel(
@@ -66,11 +67,14 @@ fun WebNovelDetailPagePanel(
     chapters: List<RemoteBookItem>,
     displayMode: DisplayMode,
     busy: Boolean,
+    targetLanguage: String,
+    canTranslate: Boolean,
     loadError: String? = null,
     isFavorite: Boolean = false,
     batchProgress: BatchDownloadProgress? = null,
     onToggleFavorite: () -> Unit = {},
     onBackToList: () -> Unit,
+    onReadOriginalChapter: (RemoteBookItem) -> Unit,
     onReadChapter: (RemoteBookItem) -> Unit,
     onSaveChapterTxt: ((RemoteBookItem) -> Unit)? = null,
     onBatchDownloadChapters: ((List<RemoteBookItem>) -> Unit)? = null,
@@ -144,11 +148,15 @@ fun WebNovelDetailPagePanel(
                     else -> "Preparing chapter and translation…"
                 },
                 detail = batchProgress?.let {
-                    "${it.currentItemIndex} / ${it.totalItems} · ${it.currentTitle}"
+                    buildString {
+                        append("${it.currentItemIndex} / ${it.totalItems} · ${it.stage.name}")
+                        if (it.totalTranslationParts > 0) append(" · part ${it.translatedPart}/${it.totalTranslationParts}")
+                        append(" · saved ${it.savedItems}")
+                        if (it.failedItems > 0) append(" · failed ${it.failedItems}")
+                        it.targetLanguage?.let { language -> append(" · ${language.uppercase()}") }
+                    }
                 },
-                progress = batchProgress?.let {
-                    it.currentItemIndex.toFloat() / it.totalItems.coerceAtLeast(1)
-                },
+                progress = batchProgress?.fraction,
             )
 
             if (!loadError.isNullOrBlank()) {
@@ -179,10 +187,13 @@ fun WebNovelDetailPagePanel(
                     filteredChapters = filteredChapters,
                     searchQuery = searchQuery,
                     busy = busy,
+                    targetLanguage = targetLanguage,
+                    canTranslate = canTranslate,
                     onSearchQueryChange = { searchQuery = it },
                     onQuickJump = { showQuickJumpDialog = true },
                     onBatchDownload = { onBatchDownloadChapters?.invoke(chapters) },
                     onSaveChapterTxt = onSaveChapterTxt,
+                    onReadOriginalChapter = onReadOriginalChapter,
                     onReadChapter = onReadChapter,
                     modifier = Modifier.weight(1f),
                 )
@@ -285,13 +296,19 @@ private fun ChapterListPanel(
     filteredChapters: List<RemoteBookItem>,
     searchQuery: String,
     busy: Boolean,
+    targetLanguage: String,
+    canTranslate: Boolean,
     onSearchQueryChange: (String) -> Unit,
     onQuickJump: () -> Unit,
     onBatchDownload: () -> Unit,
     onSaveChapterTxt: ((RemoteBookItem) -> Unit)?,
+    onReadOriginalChapter: (RemoteBookItem) -> Unit,
     onReadChapter: (RemoteBookItem) -> Unit,
     modifier: Modifier,
 ) {
+    var readLanguage by remember(canTranslate) {
+        mutableStateOf(if (canTranslate) ChapterReadLanguage.Translation else ChapterReadLanguage.Original)
+    }
     Column(
         modifier = modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(8.dp),
@@ -309,14 +326,14 @@ private fun ChapterListPanel(
             }
             Button(
                 onClick = onBatchDownload,
-                enabled = !busy && chapters.isNotEmpty(),
+                enabled = !busy && canTranslate && chapters.isNotEmpty(),
                 modifier = Modifier.weight(1f),
                 colors = ButtonDefaults.buttonColors(containerColor = EinkInk, contentColor = EinkPanel),
                 shape = RoundedCornerShape(2.dp),
             ) {
                 Icon(Icons.Filled.CloudDownload, contentDescription = null, modifier = Modifier.size(16.dp))
                 Spacer(Modifier.width(4.dp))
-                Text("Save all", maxLines = 1)
+                Text("Original + ${targetLanguage.uppercase()}", maxLines = 2, style = MaterialTheme.typography.labelSmall)
             }
         }
 
@@ -327,6 +344,18 @@ private fun ChapterListPanel(
             enabled = !busy,
             label = { Text("Chapter number or title") },
             singleLine = true,
+        )
+
+        EinkSegmentedControl(
+            options = ChapterReadLanguage.entries,
+            selected = readLanguage,
+            onSelect = { readLanguage = it },
+            enabled = !busy,
+            itemHeight = 38.dp,
+            label = { language ->
+                if (language == ChapterReadLanguage.Original) "Read original"
+                else "Read ${targetLanguage.uppercase()}"
+            },
         )
 
         EinkAutoFitPagingContainer(
@@ -352,10 +381,19 @@ private fun ChapterListPanel(
             ChapterRowItem(
                 chapter = chapter,
                 chapterIndex = chapters.indexOf(chapter) + 1,
-                accountId = novelItem.identity.accountId,
                 busy = busy,
+                canTranslate = canTranslate,
                 onSaveChapterTxt = onSaveChapterTxt,
-                onReadChapter = onReadChapter,
+                readLanguageLabel = if (readLanguage == ChapterReadLanguage.Original) {
+                    "Read original"
+                } else {
+                    "Read ${targetLanguage.uppercase()}"
+                },
+                onReadChapter = if (readLanguage == ChapterReadLanguage.Original) {
+                    onReadOriginalChapter
+                } else {
+                    onReadChapter
+                },
             )
         }
     }
@@ -365,13 +403,14 @@ private fun ChapterListPanel(
 private fun ChapterRowItem(
     chapter: RemoteBookItem,
     chapterIndex: Int,
-    accountId: String,
     busy: Boolean,
+    canTranslate: Boolean,
+    readLanguageLabel: String,
     onSaveChapterTxt: ((RemoteBookItem) -> Unit)?,
     onReadChapter: (RemoteBookItem) -> Unit,
 ) {
-    val isOfflineSaved = OfflineNovelStorageStore.globalOfflineStore
-        .isChapterDownloaded(accountId, chapterIndex)
+    val offlineLanguages = OfflineNovelStorageStore.globalOfflineStore.downloadedLanguages(chapter)
+    val isOfflineSaved = offlineLanguages.isNotEmpty()
 
     Surface(
         modifier = Modifier
@@ -402,7 +441,14 @@ private fun ChapterRowItem(
                     maxLines = 3,
                     overflow = TextOverflow.Ellipsis,
                 )
-                if (isOfflineSaved) Text("Saved ✓", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
+                if (isOfflineSaved) {
+                    Text(
+                        "Saved ${offlineLanguages.joinToString("+") { it.uppercase() }} ✓",
+                        style = MaterialTheme.typography.labelSmall,
+                        fontWeight = FontWeight.Bold,
+                        maxLines = 1,
+                    )
+                }
             }
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -410,10 +456,10 @@ private fun ChapterRowItem(
             ) {
                 TextButton(
                     onClick = { onSaveChapterTxt?.invoke(chapter) },
-                    enabled = !busy && onSaveChapterTxt != null,
+                    enabled = !busy && canTranslate && onSaveChapterTxt != null,
                     modifier = Modifier.weight(0.36f),
                 ) {
-                    Text("Save text", maxLines = 1, style = MaterialTheme.typography.labelSmall)
+                    Text("Save offline", maxLines = 1, style = MaterialTheme.typography.labelSmall)
                 }
                 Button(
                     onClick = { onReadChapter(chapter) },
@@ -424,7 +470,11 @@ private fun ChapterRowItem(
                 ) {
                     Icon(Icons.Filled.PlayArrow, contentDescription = null, modifier = Modifier.size(16.dp))
                     Spacer(Modifier.width(4.dp))
-                    Text("Read & translate", maxLines = 1, style = MaterialTheme.typography.labelSmall)
+                    Text(
+                        if (isOfflineSaved) "$readLanguageLabel offline" else readLanguageLabel,
+                        maxLines = 1,
+                        style = MaterialTheme.typography.labelSmall,
+                    )
                 }
             }
         }

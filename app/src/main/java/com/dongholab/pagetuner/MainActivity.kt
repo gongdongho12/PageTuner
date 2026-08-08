@@ -65,6 +65,7 @@ import com.dongholab.pagetuner.source.RemoteSourceAccountStore
 import com.dongholab.pagetuner.source.WebCatalogEvent
 import com.dongholab.pagetuner.source.WebCatalogViewModel
 import com.dongholab.pagetuner.source.WebNovelPageRuntime
+import com.dongholab.pagetuner.source.offline.OfflineNovelStorageStore
 import com.dongholab.pagetuner.translation.JsonFileTranslationCache
 import com.dongholab.pagetuner.translation.TranslationProviderFactory
 import com.dongholab.pagetuner.translation.TranslationRepository
@@ -136,7 +137,10 @@ private sealed interface NavigationHistoryFrame {
 fun PageTurnerApp() {
     val context = LocalContext.current
     val resources = LocalResources.current
-    LaunchedEffect(context) { WebNovelPageRuntime.install(context) }
+    LaunchedEffect(context) {
+        WebNovelPageRuntime.install(context)
+        OfflineNovelStorageStore.install(context)
+    }
 
     // — Stores (singleton per context)
     val settingsStore = remember(context) { ReaderSettingsStore(context) }
@@ -507,6 +511,8 @@ fun PageTurnerApp() {
                             displayMode = displayMode,
                             busy = busy,
                             statusText = webCatalogStatusText,
+                            targetLanguage = settings.normalizedTargetLanguage,
+                            canTranslate = settings.isProviderConfigured,
                             onCatalogUrlChange = webCatalogViewModel::updateCatalogUrl,
                             onQueryChange = webCatalogViewModel::updateQuery,
                             onLoadCatalog = webCatalogViewModel::loadCatalog,
@@ -517,7 +523,22 @@ fun PageTurnerApp() {
                             onLoadCachedCatalog = webCatalogViewModel::loadCachedCatalog,
                             onImportItem = { item -> webCatalogViewModel.importItem(item) },
                             onReadAndTranslateItem = { item ->
-                                webCatalogViewModel.importItem(item, translateAfterImport = true)
+                                webCatalogViewModel.importItem(
+                                    item = item,
+                                    translateAfterImport = true,
+                                    preferredOfflineLanguage = settings.normalizedTargetLanguage,
+                                )
+                            },
+                            onTranslateCatalog = {
+                                webCatalogViewModel.translateVisibleCatalog(context, settings)
+                            },
+                            onBatchDownloadChapters = { chapters ->
+                                webCatalogViewModel.downloadChaptersForOffline(
+                                    context = context,
+                                    chapters = chapters,
+                                    settings = settings,
+                                    includeTranslation = true,
+                                )
                             },
                         )
                         AppTab.RemoteDrive -> ComingSoonPanel(

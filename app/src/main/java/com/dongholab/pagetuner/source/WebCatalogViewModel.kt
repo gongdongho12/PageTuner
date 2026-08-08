@@ -1,9 +1,14 @@
 package com.dongholab.pagetuner.source
 
+import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.dongholab.pagetuner.common.DiagnosticLogger
+import com.dongholab.pagetuner.source.offline.OfflineNovelStorageStore
+import com.dongholab.pagetuner.translation.ContentTranslationServiceFactory
+import com.dongholab.pagetuner.translation.TranslationPaceMode
+import com.dongholab.pagetuner.translation.TranslationSettings
 import java.net.SocketException
 import java.net.SocketTimeoutException
 import java.net.UnknownHostException
@@ -14,10 +19,29 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 
 private const val DefaultCatalogUrl = "https://wtr-lab.com/en"
 private const val MaxThumbnailBytes = 2 * 1024 * 1024
+
+data class CatalogTranslationProgress(
+    val completedItems: Int,
+    val totalItems: Int,
+    val currentTitle: String,
+    val failedItems: Int = 0,
+) {
+    val fraction: Float
+        get() = if (totalItems == 0) 1f else completedItems.toFloat() / totalItems
+}
+
+private data class ImportPayload(
+    val bytes: ByteArray,
+    val language: String,
+    val usedOfflinePackage: Boolean,
+    val usedOfflineTranslation: Boolean,
+)
 
 data class WebCatalogUiState(
     val catalogUrl: String = DefaultCatalogUrl,
@@ -27,6 +51,9 @@ data class WebCatalogUiState(
     val coverThumbnails: Map<String, ByteArray> = emptyMap(),
     val cachedCatalogs: List<CachedWebCatalog> = emptyList(),
     val sourceAccounts: List<RemoteSourceAccount> = listOf(defaultWtrLabAccount()),
+    val translatedItems: Map<String, CatalogItemTranslation> = emptyMap(),
+    val catalogTranslationProgress: CatalogTranslationProgress? = null,
+    val batchDownloadProgress: BatchDownloadProgress? = null,
     val busy: Boolean = false,
     val status: WebCatalogStatus = WebCatalogStatus.Idle,
 )
@@ -82,6 +109,8 @@ class WebCatalogViewModel(
     private val cache: RemoteCatalogCache,
     private val accountStore: RemoteSourceAccountStore,
 ) : ViewModel() {
+    private var offlineDownloadJob: Job? = null
+    private var catalogTranslationJob: Job? = null
     private val _uiState = MutableStateFlow(WebCatalogUiState())
     val uiState: StateFlow<WebCatalogUiState> = _uiState.asStateFlow()
 
@@ -211,7 +240,11 @@ class WebCatalogViewModel(
         }
     }
 
-    fun importItem(item: RemoteBookItem, translateAfterImport: Boolean = false) {
+    fun importItem(
+        item: RemoteBookItem,
+        translateAfterImport: Boolean = false,
+        preferredOfflineLanguage: String? = null,
+    ) {
         if (_uiState.value.busy) return
         viewModelScope.launch {
             _uiState.update { state ->
@@ -221,14 +254,42 @@ class WebCatalogViewModel(
                 )
             }
             runCatching {
-                if (item.identity.sourceType == RemoteSourceType.WebNovel) {
-                    val source = WebNovelRemoteBookSource(accountId = item.identity.accountId, endpointUrl = item.downloadUrl)
-                    source.download(item)
+                val offline = if (item.identity.sourceType == RemoteSourceType.WebNovel) {
+                    OfflineNovelStorageStore.globalOfflineStore.getOfflineChapter(item)
                 } else {
-                    PageTurnerWebCatalogNetwork.fetchBytes(item.downloadUrl)
+                    null
                 }
-            }.onSuccess { bytes ->
-                _events.emit(WebCatalogEvent.ImportDownloaded(item, bytes, translateAfterImport))
+                if (offline != null) {
+                    val (text, language) = offline.preferredText(preferredOfflineLanguage)
+                    ImportPayload(
+                        bytes = text.toByteArray(Charsets.UTF_8),
+                        language = language,
+                        usedOfflinePackage = true,
+                        usedOfflineTranslation = preferredOfflineLanguage != null &&
+                            offline.translations.containsKey(language.lowercase()),
+                    )
+                } else if (item.identity.sourceType == RemoteSourceType.WebNovel) {
+                    val source = WebNovelRemoteBookSource(accountId = item.identity.accountId, endpointUrl = item.downloadUrl)
+                    ImportPayload(source.download(item), item.language ?: "auto", false, false)
+                } else {
+                    ImportPayload(PageTurnerWebCatalogNetwork.fetchBytes(item.downloadUrl), item.language ?: "auto", false, false)
+                }
+            }.onSuccess { payload ->
+                val importedItem = if (payload.usedOfflineTranslation) {
+                    item.copy(
+                        title = "${item.title} [${payload.language.uppercase()}]",
+                        language = payload.language,
+                    )
+                } else {
+                    item
+                }
+                _events.emit(
+                    WebCatalogEvent.ImportDownloaded(
+                        importedItem,
+                        payload.bytes,
+                        translateAfterImport && !payload.usedOfflinePackage,
+                    ),
+                )
                 _uiState.update { state ->
                     state.copy(
                         busy = false,
@@ -244,6 +305,95 @@ class WebCatalogViewModel(
                 }
             }
         }
+    }
+
+    fun translateVisibleCatalog(context: Context, settings: TranslationSettings) {
+        if (_uiState.value.busy || !settings.isProviderConfigured) return
+        val items = _uiState.value.visibleItems
+        if (items.isEmpty()) return
+        catalogTranslationJob?.cancel()
+        catalogTranslationJob = viewModelScope.launch {
+            _uiState.update {
+                it.copy(
+                    busy = true,
+                    catalogTranslationProgress = CatalogTranslationProgress(0, items.size, items.first().title),
+                )
+            }
+            val translator = DefaultRemoteCatalogTranslationService(
+                ContentTranslationServiceFactory.create(context.applicationContext, settings),
+            )
+            runCatching {
+                translator.translate(
+                    items = items,
+                    settings = settings.copy(paceMode = TranslationPaceMode.OFFLINE_PREFETCH),
+                    onProgress = { progress ->
+                        val completedItems = ((progress.fraction * items.size).toInt()).coerceIn(0, items.size)
+                        _uiState.update { state ->
+                            state.copy(
+                                catalogTranslationProgress = CatalogTranslationProgress(
+                                    completedItems = completedItems,
+                                    totalItems = items.size,
+                                    currentTitle = items.getOrElse(completedItems.coerceAtMost(items.lastIndex)) { items.last() }.title,
+                                ),
+                            )
+                        }
+                    },
+                )
+            }.onSuccess { translations ->
+                _uiState.update { state ->
+                    state.copy(translatedItems = state.translatedItems + translations)
+                }
+            }.onFailure { error ->
+                if (error is CancellationException) return@onFailure
+                _uiState.update { state ->
+                    state.copy(
+                        status = error.toWebCatalogStatus(),
+                        catalogTranslationProgress = state.catalogTranslationProgress?.copy(
+                            failedItems = items.size - (state.catalogTranslationProgress?.completedItems ?: 0),
+                        ),
+                    )
+                }
+            }
+            _uiState.update { it.copy(busy = false, catalogTranslationProgress = null) }
+        }
+    }
+
+    fun cancelCatalogTranslation() {
+        catalogTranslationJob?.cancel()
+        _uiState.update { it.copy(busy = false, catalogTranslationProgress = null) }
+    }
+
+    fun downloadChaptersForOffline(
+        context: Context,
+        chapters: List<RemoteBookItem>,
+        settings: TranslationSettings,
+        includeTranslation: Boolean = true,
+    ) {
+        if (_uiState.value.busy || chapters.isEmpty()) return
+        offlineDownloadJob?.cancel()
+        offlineDownloadJob = viewModelScope.launch {
+            _uiState.update { it.copy(busy = true, batchDownloadProgress = null) }
+            runCatching {
+                WebNovelBatchDownloader.downloadChaptersInBackground(
+                    context = context.applicationContext,
+                    chapters = chapters,
+                    settings = settings,
+                    includeTranslation = includeTranslation,
+                    onProgress = { progress ->
+                        _uiState.update { state -> state.copy(batchDownloadProgress = progress) }
+                    },
+                )
+            }.onFailure { error ->
+                if (error is CancellationException) return@onFailure
+                _uiState.update { state -> state.copy(status = error.toWebCatalogStatus()) }
+            }
+            _uiState.update { it.copy(busy = false) }
+        }
+    }
+
+    fun cancelOfflineDownload() {
+        offlineDownloadJob?.cancel()
+        _uiState.update { it.copy(busy = false, batchDownloadProgress = null) }
     }
 
     fun refreshCachedCatalogs() {

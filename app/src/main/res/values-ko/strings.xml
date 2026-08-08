@@ -85,7 +85,7 @@
     <string name="library_tags_value">태그: %1$s</string>
     <string name="action_save_organization">저장</string>
     <string name="provider_google_cloud">Google Cloud</string>
-    <string name="provider_google_web_translate_html">Google Web HTML</string>
+    <string name="provider_google_web_translate_html">Google Web Translate</string>
     <string name="provider_openai_compatible_llm">LLM API</string>
     <string name="field_google_api_key">Google API 키</string>
     <string name="field_google_web_api_key">Google Web API 키(선택)</string>
@@ -112,7 +112,7 @@
     <string name="translation_display_side_by_side">함께</string>
     <string name="provider_status_ready">Provider 설정이 준비되었습니다.</string>
     <string name="provider_status_missing_google_key">Google API 키가 필요합니다.</string>
-    <string name="provider_status_google_web_no_key_required">Google Web HTML은 API 키 없이 실행할 수 있습니다.</string>
+    <string name="provider_status_google_web_no_key_required">Google Web Translate는 API 키 없이 실행할 수 있습니다.</string>
     <string name="provider_status_missing_llm_settings">LLM API 키, 엔드포인트, 모델이 필요합니다.</string>
     <string name="translation_cache_status">저장된 문단 %1$d/%2$d개.</string>
     <string name="translation_cache_status_empty">번역할 텍스트 문단이 없습니다.</string>
@@ -125,7 +125,7 @@
     <string name="provider_health_not_checked">Provider 상태를 아직 확인하지 않았습니다.</string>
     <string name="provider_health_ready">Provider 설정이 준비되어 보입니다.</string>
     <string name="provider_health_missing_google_key">Provider 확인 실패: Google API 키가 필요합니다.</string>
-    <string name="provider_health_google_web_no_key_required">Provider 확인 완료: Google Web HTML은 API 키 없이 실행할 수 있습니다.</string>
+    <string name="provider_health_google_web_no_key_required">Provider 확인 완료: Google Web Translate는 API 키 없이 실행할 수 있습니다.</string>
     <string name="provider_health_missing_llm_settings">Provider 확인 실패: LLM API 키, 엔드포인트, 모델이 필요합니다.</string>
     <string name="provider_health_missing_settings">Provider 확인 실패: 설정이 부족합니다.</string>
     <string name="provider_health_invalid_llm_endpoint">Provider 확인 실패: LLM 엔드포인트는 http(s) URL이어야 합니다.</string>
@@ -241,4 +241,3 @@
     <string name="action_save_account">계정 저장</string>
     <string name="action_cancel">취소</string>
 </resources>
-

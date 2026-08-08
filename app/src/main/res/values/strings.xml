@@ -85,7 +85,7 @@
     <string name="library_tags_value">Tags: %1$s</string>
     <string name="action_save_organization">Save</string>
     <string name="provider_google_cloud">Google Cloud</string>
-    <string name="provider_google_web_translate_html">Google Web HTML</string>
+    <string name="provider_google_web_translate_html">Google Web Translate</string>
     <string name="provider_openai_compatible_llm">LLM API</string>
     <string name="field_google_api_key">Google API key</string>
     <string name="field_google_web_api_key">Google Web API key (optional)</string>
@@ -112,7 +112,7 @@
     <string name="translation_display_side_by_side">Both</string>
     <string name="provider_status_ready">Provider configuration ready.</string>
     <string name="provider_status_missing_google_key">Google API key required.</string>
-    <string name="provider_status_google_web_no_key_required">Google Web HTML can run without an API key.</string>
+    <string name="provider_status_google_web_no_key_required">Google Web Translate can run without an API key.</string>
     <string name="provider_status_missing_llm_settings">LLM API key, endpoint, and model required.</string>
     <string name="translation_cache_status">Saved %1$d/%2$d segments.</string>
     <string name="translation_cache_status_empty">No text segments for translation.</string>
@@ -125,7 +125,7 @@
     <string name="provider_health_not_checked">Provider health has not been checked.</string>
     <string name="provider_health_ready">Provider settings look ready.</string>
     <string name="provider_health_missing_google_key">Provider check failed: Google API key required.</string>
-    <string name="provider_health_google_web_no_key_required">Provider check passed: Google Web HTML can run without an API key.</string>
+    <string name="provider_health_google_web_no_key_required">Provider check passed: Google Web Translate can run without an API key.</string>
     <string name="provider_health_missing_llm_settings">Provider check failed: LLM API key, endpoint, and model required.</string>
     <string name="provider_health_missing_settings">Provider check failed: missing settings.</string>
     <string name="provider_health_invalid_llm_endpoint">Provider check failed: LLM endpoint must be an http(s) URL.</string>
@@ -241,4 +241,3 @@
     <string name="action_save_account">Save Account</string>
     <string name="action_cancel">Cancel</string>
 </resources>
-

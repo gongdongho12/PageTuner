@@ -35,6 +35,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.dongholab.pagetuner.display.DisplayMode
 import com.dongholab.pagetuner.source.RemoteBookItem
+import com.dongholab.pagetuner.source.CatalogItemTranslation
+import com.dongholab.pagetuner.source.CatalogTranslationProgress
+import com.dongholab.pagetuner.source.translationKey
 import com.dongholab.pagetuner.ui.common.EinkPagingContainer
 import com.dongholab.pagetuner.ui.theme.EinkInk
 import com.dongholab.pagetuner.ui.theme.EinkLine
@@ -52,10 +55,15 @@ fun WebCatalogPagePanel(
     displayMode: DisplayMode,
     busy: Boolean,
     statusText: String?,
+    targetLanguage: String,
+    canTranslate: Boolean,
+    translatedItems: Map<String, CatalogItemTranslation>,
+    catalogTranslationProgress: CatalogTranslationProgress?,
     onQueryChange: (String) -> Unit,
     onRefreshCatalog: () -> Unit,
     onOpenDetail: (RemoteBookItem) -> Unit,
     onImportItem: (RemoteBookItem) -> Unit,
+    onTranslateCatalog: () -> Unit,
     onBackToSourceManager: () -> Unit,
 ) {
     var selectedLanguageFilter by remember { mutableStateOf("All") }
@@ -134,6 +142,18 @@ fun WebCatalogPagePanel(
                 color = EinkMuted,
             )
 
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.End,
+            ) {
+                TextButton(
+                    onClick = onTranslateCatalog,
+                    enabled = !busy && canTranslate && filteredItems.isNotEmpty(),
+                ) {
+                    Text("Translate list → ${targetLanguage.uppercase()}", fontWeight = FontWeight.Bold)
+                }
+            }
+
             // Search Bar
             OutlinedTextField(
                 value = query,
@@ -183,8 +203,11 @@ fun WebCatalogPagePanel(
 
             EinkOperationIndicator(
                 visible = busy,
-                title = "Loading catalog page…",
-                detail = statusText,
+                title = if (catalogTranslationProgress != null) "Translating catalog titles…" else "Loading catalog page…",
+                detail = catalogTranslationProgress?.let {
+                    "${it.completedItems} / ${it.totalItems} · failed ${it.failedItems} · ${it.currentTitle}"
+                } ?: statusText,
+                progress = catalogTranslationProgress?.fraction,
             )
 
             // Catalog Items List with E-Ink Dynamic Auto-Fit Discrete Pagination
@@ -203,6 +226,7 @@ fun WebCatalogPagePanel(
             ) { item ->
                 RemoteBookRow(
                     item = item,
+                    translation = translatedItems[item.translationKey()],
                     coverBytes = item.coverUrl?.let { coverThumbnails[it] },
                     displayMode = displayMode,
                     busy = busy,

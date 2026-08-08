@@ -63,12 +63,17 @@ class GoogleWebTranslateHtmlProviderTest {
     @Test
     fun postsTranslateHtmlPayloadWithoutApiKeyHeaderWhenKeyIsBlank() = runTest {
         var capturedHeaders = emptyMap<String, String>()
+        var capturedParameters = emptyMap<String, String>()
         val provider = GoogleWebTranslateHtmlProvider(
             apiKey = "",
-            endpoint = "https://example.com/v1/translateHtml",
-            transport = GoogleWebTranslateHtmlTransport { _, headers, _ ->
+            publicEndpoint = "https://example.com/translate_a/single",
+            transport = GoogleWebTranslateHtmlTransport { _, _, _ ->
+                error("Blank API key must not call the registered translateHtml endpoint.")
+            },
+            publicTransport = GoogleWebTranslateTextTransport { _, headers, parameters ->
                 capturedHeaders = headers
-                """[["<a i=0>안녕</a>"]]"""
+                capturedParameters = parameters
+                """[[["안녕","Hello",null,null,3]],null,"en"]"""
             },
         )
         val document = PlainTextDocumentParser.parse(
@@ -86,8 +91,12 @@ class GoogleWebTranslateHtmlProviderTest {
 
         assertEquals(listOf("안녕"), translated.map { it.translatedText })
         assertFalse(capturedHeaders.containsKey("X-Goog-Api-Key"))
-        assertEquals("*/*", capturedHeaders["Accept"])
-        assertEquals("application/json+protobuf", capturedHeaders["Content-Type"])
+        assertEquals("application/json", capturedHeaders["Accept"])
+        assertEquals("application/x-www-form-urlencoded; charset=UTF-8", capturedHeaders["Content-Type"])
+        assertEquals("en", capturedParameters["sl"])
+        assertEquals("ko", capturedParameters["tl"])
+        assertEquals("Hello", capturedParameters["q"])
+        assertTrue(provider.id.startsWith("google-web-translate-public:"))
     }
 
     @Test
@@ -124,6 +133,15 @@ class GoogleWebTranslateHtmlProviderTest {
     }
 
     @Test
+    fun publicResponseParserCombinesSentenceFragments() {
+        val parsed = GoogleWebTranslateTextResponseParser.parse(
+            """[[["안녕하세요 ","Hello ",null,null,3],["세계","world",null,null,3]],null,"en"]""",
+        ).getOrThrow()
+
+        assertEquals("안녕하세요 세계", parsed)
+    }
+
+    @Test
     fun wrapsUnexpectedResponsesAsProviderFailures() = runTest {
         val provider = GoogleWebTranslateHtmlProvider(
             apiKey = "test-key",
@@ -144,7 +162,7 @@ class GoogleWebTranslateHtmlProviderTest {
             )
             fail("Expected provider failure.")
         } catch (error: TranslationProviderException) {
-            assertEquals("Google Web HTML", error.failure.providerName)
+            assertEquals("Google Web Translate", error.failure.providerName)
             assertEquals(TranslationProviderErrorKind.ResponseFormat, error.failure.kind)
         }
     }

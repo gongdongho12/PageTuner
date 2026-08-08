@@ -15,6 +15,8 @@ fun WebNovelScreen(
     displayMode: DisplayMode,
     busy: Boolean,
     statusText: String,
+    targetLanguage: String,
+    canTranslate: Boolean,
     onCatalogUrlChange: (String) -> Unit,
     onQueryChange: (String) -> Unit,
     onLoadCatalog: () -> Unit,
@@ -25,6 +27,8 @@ fun WebNovelScreen(
     onLoadCachedCatalog: (CachedWebCatalog) -> Unit,
     onImportItem: (RemoteBookItem) -> Unit,
     onReadAndTranslateItem: (RemoteBookItem) -> Unit,
+    onTranslateCatalog: () -> Unit,
+    onBatchDownloadChapters: (List<RemoteBookItem>) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     RemoteSourcesTodoPanel(
@@ -37,6 +41,11 @@ fun WebNovelScreen(
         displayMode = displayMode,
         busy = busy,
         statusText = statusText,
+        targetLanguage = targetLanguage,
+        canTranslate = canTranslate,
+        translatedItems = state.translatedItems,
+        catalogTranslationProgress = state.catalogTranslationProgress,
+        batchDownloadProgress = state.batchDownloadProgress,
         onCatalogUrlChange = onCatalogUrlChange,
         onQueryChange = onQueryChange,
         onLoadCatalog = onLoadCatalog,
@@ -47,5 +56,7 @@ fun WebNovelScreen(
         onLoadCachedCatalog = onLoadCachedCatalog,
         onImportItem = onImportItem,
         onReadAndTranslateItem = onReadAndTranslateItem,
+        onTranslateCatalog = onTranslateCatalog,
+        onBatchDownloadChapters = onBatchDownloadChapters,
     )
 }

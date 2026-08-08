@@ -55,8 +55,12 @@ import androidx.compose.ui.unit.dp
 import com.dongholab.pagetuner.R
 import com.dongholab.pagetuner.display.applyDisplayMode
 import com.dongholab.pagetuner.source.CachedWebCatalog
+import com.dongholab.pagetuner.source.BatchDownloadProgress
+import com.dongholab.pagetuner.source.CatalogItemTranslation
+import com.dongholab.pagetuner.source.CatalogTranslationProgress
 import com.dongholab.pagetuner.source.RemoteBookItem
 import com.dongholab.pagetuner.source.RemoteSourceAccount
+import com.dongholab.pagetuner.source.translationKey
 import com.dongholab.pagetuner.ui.text.localizedName
 import com.dongholab.pagetuner.ui.theme.EinkInk
 import com.dongholab.pagetuner.ui.theme.EinkLine
@@ -78,6 +82,11 @@ fun RemoteSourcesTodoPanel(
     displayMode: DisplayMode,
     busy: Boolean,
     statusText: String,
+    targetLanguage: String,
+    canTranslate: Boolean,
+    translatedItems: Map<String, CatalogItemTranslation>,
+    catalogTranslationProgress: CatalogTranslationProgress?,
+    batchDownloadProgress: BatchDownloadProgress?,
     onCatalogUrlChange: (String) -> Unit,
     onQueryChange: (String) -> Unit,
     onLoadCatalog: () -> Unit,
@@ -88,6 +97,8 @@ fun RemoteSourcesTodoPanel(
     onLoadCachedCatalog: (CachedWebCatalog) -> Unit,
     onImportItem: (RemoteBookItem) -> Unit,
     onReadAndTranslateItem: (RemoteBookItem) -> Unit,
+    onTranslateCatalog: () -> Unit,
+    onBatchDownloadChapters: (List<RemoteBookItem>) -> Unit,
 ) {
     Surface(
         modifier = Modifier.fillMaxSize(),
@@ -124,11 +135,14 @@ fun RemoteSourcesTodoPanel(
                         )
                         val detail = source.loadNovelDetail()
                         val chapters = source.list()
+                        val catalogTranslation = translatedItems[item.translationKey()]
                         val enrichedItem = item.copy(
-                            title = detail.title.ifBlank { item.title },
+                            title = catalogTranslation?.title
+                                ?: detail.title.ifBlank { item.title },
                             authors = listOf(detail.author).filter { it.isNotBlank() },
                             coverUrl = detail.coverUrl ?: item.coverUrl,
-                            description = detail.summary.takeIf { it.isNotBlank() },
+                            description = catalogTranslation?.description
+                                ?: detail.summary.takeIf { it.isNotBlank() },
                             chapterCount = detail.totalChapters.takeIf { it > 0 },
                             tags = detail.tags,
                         )
@@ -156,9 +170,15 @@ fun RemoteSourcesTodoPanel(
                     chapters = fetchedChapters,
                     displayMode = displayMode,
                     busy = busy || detailLoading,
+                    targetLanguage = targetLanguage,
+                    canTranslate = canTranslate,
                     loadError = detailLoadError,
+                    batchProgress = batchDownloadProgress,
                     onBackToList = { selectedNovelForDetail = null },
+                    onReadOriginalChapter = onImportItem,
                     onReadChapter = onReadAndTranslateItem,
+                    onSaveChapterTxt = { chapter -> onBatchDownloadChapters(listOf(chapter)) },
+                    onBatchDownloadChapters = onBatchDownloadChapters,
                 )
                 return@Column
             }
@@ -186,10 +206,15 @@ fun RemoteSourcesTodoPanel(
                     displayMode = displayMode,
                     busy = busy,
                     statusText = statusText,
+                    targetLanguage = targetLanguage,
+                    canTranslate = canTranslate,
+                    translatedItems = translatedItems,
+                    catalogTranslationProgress = catalogTranslationProgress,
                     onQueryChange = onQueryChange,
                     onRefreshCatalog = onRefreshCatalog,
                     onOpenDetail = { item -> selectedNovelForDetail = item },
                     onImportItem = onImportItem,
+                    onTranslateCatalog = onTranslateCatalog,
                     onBackToSourceManager = { activeCatalogUrlPage = null },
                 )
                 return@Column
@@ -313,10 +338,24 @@ fun RemoteSourcesTodoPanel(
             }
 
             if (activeSubTab == 0) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.End,
+                ) {
+                    TextButton(
+                        onClick = onTranslateCatalog,
+                        enabled = !busy && canTranslate && filteredCatalogItems.isNotEmpty(),
+                    ) {
+                        Text("Translate list → ${targetLanguage.uppercase()}", fontWeight = FontWeight.Bold)
+                    }
+                }
                 EinkOperationIndicator(
                     visible = busy,
-                    title = "Loading web novel catalog…",
-                    detail = statusText,
+                    title = if (catalogTranslationProgress != null) "Translating catalog titles…" else "Loading web novel catalog…",
+                    detail = catalogTranslationProgress?.let {
+                        "${it.completedItems} / ${it.totalItems} · failed ${it.failedItems} · ${it.currentTitle}"
+                    } ?: statusText,
+                    progress = catalogTranslationProgress?.fraction,
                 )
                 if (filteredCatalogItems.isEmpty()) {
                     Text(
@@ -335,6 +374,7 @@ fun RemoteSourcesTodoPanel(
                     ) { item ->
                         RemoteBookRow(
                             item = item,
+                            translation = translatedItems[item.translationKey()],
                             coverBytes = item.coverUrl?.let { coverThumbnails[it] },
                             displayMode = displayMode,
                             busy = busy,
@@ -654,6 +694,7 @@ private fun CachedCatalogsRow(
 @Composable
 fun RemoteBookRow(
     item: RemoteBookItem,
+    translation: CatalogItemTranslation? = null,
     coverBytes: ByteArray?,
     displayMode: DisplayMode,
     busy: Boolean,
@@ -686,7 +727,7 @@ fun RemoteBookRow(
                 verticalArrangement = Arrangement.spacedBy(1.dp),
             ) {
                 Text(
-                    text = item.title,
+                    text = translation?.title ?: item.title,
                     style = MaterialTheme.typography.labelMedium.copy(fontSize = 13.sp, lineHeight = 16.sp),
                     color = EinkInk,
                     fontWeight = FontWeight.Bold,
@@ -694,7 +735,11 @@ fun RemoteBookRow(
                     overflow = TextOverflow.Ellipsis,
                 )
                 Text(
-                    text = "${item.authors.firstOrNull() ?: "WTR-Lab"} • ${item.language ?: "en"}",
+                    text = if (translation != null) {
+                        "${item.title} · ${translation.targetLanguage.uppercase()}"
+                    } else {
+                        "${item.authors.firstOrNull() ?: "WTR-Lab"} • ${item.language ?: "en"}"
+                    },
                     style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp),
                     color = EinkMuted,
                     maxLines = 1,
