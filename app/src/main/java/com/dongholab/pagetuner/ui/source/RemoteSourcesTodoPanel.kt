@@ -166,7 +166,60 @@ fun RemoteSourcesTodoPanel(
 
             RemoteSourcesHeader()
 
-            // Add New Web Novel Source Button
+            // Direct Web Novel URL Access Bar
+            Surface(
+                modifier = Modifier.fillMaxWidth(),
+                color = EinkSoft,
+                shape = RoundedCornerShape(4.dp),
+                border = BorderStroke(1.dp, EinkLine),
+            ) {
+                Row(
+                    modifier = Modifier.padding(8.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    OutlinedTextField(
+                        value = catalogUrl,
+                        onValueChange = onCatalogUrlChange,
+                        modifier = Modifier.weight(1f),
+                        enabled = !busy,
+                        label = { Text("Direct Novel URL (e.g. https://wtr-lab.com/...) 🌐") },
+                        singleLine = true,
+                    )
+                    Button(
+                        onClick = {
+                            if (catalogUrl.isNotBlank()) {
+                                onSaveSourceAccount()
+                                onLoadCatalog()
+                                selectedNovelForDetail = com.dongholab.pagetuner.source.RemoteBookItem(
+                                    identity = com.dongholab.pagetuner.source.RemoteBookIdentity(
+                                        sourceType = com.dongholab.pagetuner.source.RemoteSourceType.WebNovel,
+                                        accountId = "direct_url",
+                                        remoteId = "direct_1",
+                                    ),
+                                    title = catalogUrl.substringAfterLast("/").ifBlank { "Web Novel" },
+                                    authors = listOf("WTR-Lab Author"),
+                                    format = com.dongholab.pagetuner.document.DocumentFormat.TEXT,
+                                    language = "en",
+                                    contentType = "text/plain",
+                                    downloadUrl = catalogUrl,
+                                    coverUrl = null,
+                                )
+                            }
+                        },
+                        enabled = !busy && catalogUrl.isNotBlank(),
+                        colors = androidx.compose.material3.ButtonDefaults.buttonColors(
+                            containerColor = EinkInk,
+                            contentColor = EinkPanel,
+                        ),
+                        shape = RoundedCornerShape(2.dp),
+                    ) {
+                        Text("Load Novel 🚀", style = MaterialTheme.typography.labelSmall)
+                    }
+                }
+            }
+
+            // Saved Web Novel Catalogs Header
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
