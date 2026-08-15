@@ -15,7 +15,10 @@ data class CachedWebCatalog(
     val title: String,
     val updatedAt: String?,
     val itemCount: Int,
+    val storageFormat: String = RawCatalogStorageFormat,
 )
+
+private const val RawCatalogStorageFormat = "pageturner.raw-catalog.v1"
 
 class RemoteCatalogCache(context: Context) {
     private val cacheDir = File(context.applicationContext.filesDir, "remote_sources")
@@ -42,6 +45,40 @@ class RemoteCatalogCache(context: Context) {
             title = catalog.title,
             updatedAt = catalog.updatedAt,
             itemCount = catalog.items.size,
+        )
+        val catalogs = readCachedCatalogs()
+            .filterNot { it.url == url || it.catalogId == catalog.id } + cached
+        writeCachedCatalogs(catalogs)
+        cached
+    }
+
+    suspend fun saveStructured(
+        url: String,
+        catalog: PageTurnerCatalog,
+    ): CachedWebCatalog {
+        return saveStored(
+            url = url,
+            rawJson = RemoteCatalogSnapshotJson.encode(catalog),
+            catalog = catalog,
+            storageFormat = RemoteCatalogSnapshotJson.StorageFormat,
+        )
+    }
+
+    private suspend fun saveStored(
+        url: String,
+        rawJson: String,
+        catalog: PageTurnerCatalog,
+        storageFormat: String,
+    ): CachedWebCatalog = withContext(Dispatchers.IO) {
+        val cached = CachedWebCatalog(
+            url = url,
+            fetchedAtMillis = System.currentTimeMillis(),
+            rawJson = rawJson,
+            catalogId = catalog.id,
+            title = catalog.title,
+            updatedAt = catalog.updatedAt,
+            itemCount = catalog.items.size,
+            storageFormat = storageFormat,
         )
         val catalogs = readCachedCatalogs()
             .filterNot { it.url == url || it.catalogId == catalog.id } + cached
@@ -79,7 +116,8 @@ object RemoteCatalogCacheJson {
                     .put("catalogId", catalog.catalogId)
                     .put("title", catalog.title)
                     .put("updatedAt", catalog.updatedAt)
-                    .put("itemCount", catalog.itemCount),
+                    .put("itemCount", catalog.itemCount)
+                    .put("storageFormat", catalog.storageFormat),
             )
         }
         return JSONObject().put("catalogs", array).toString()
@@ -102,6 +140,7 @@ object RemoteCatalogCacheJson {
             title = optString("title"),
             updatedAt = optString("updatedAt").takeIf { it.isNotBlank() },
             itemCount = optInt("itemCount"),
+            storageFormat = optString("storageFormat", RawCatalogStorageFormat),
         )
     }
 }

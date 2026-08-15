@@ -18,12 +18,16 @@ class WtrLabScraperAdapter : WebNovelScraperEngine {
     }
 
     override fun parseCatalog(html: String, baseUrl: String): NovelListResponse {
-        val home = WtrLabDomScraper.parseHomeResponse(html)
-        val allItems = home.sections.flatMap { it.items }.distinctBy { it.novelId }
-        return NovelListResponse(
-            currentPage = 1,
-            hasNextPage = allItems.size >= 10,
-            novels = allItems,
+        val currentPage = Regex("[?&]page=(\\d+)")
+            .find(baseUrl)
+            ?.groupValues
+            ?.get(1)
+            ?.toIntOrNull()
+            ?: 1
+        return WtrLabDomScraper.parseNovelListResponse(
+            html = html,
+            baseUrl = baseUrl,
+            currentPage = currentPage,
         )
     }
 

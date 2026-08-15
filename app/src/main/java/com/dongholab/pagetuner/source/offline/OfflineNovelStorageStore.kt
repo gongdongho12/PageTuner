@@ -1,57 +1,284 @@
 package com.dongholab.pagetuner.source.offline
 
 import android.content.Context
-import android.content.SharedPreferences
+import com.dongholab.pagetuner.document.DocumentIds
+import com.dongholab.pagetuner.source.RemoteBookItem
+import java.io.File
+import java.io.FileOutputStream
+import java.io.IOException
 import org.json.JSONObject
 
+data class OfflineChapterTranslation(
+    val language: String,
+    val text: String,
+    val providerId: String,
+    val savedAtMillis: Long,
+)
+
+data class OfflineNovelChapter(
+    val novelId: String,
+    val chapterId: String,
+    val chapterNumber: Int,
+    val chapterTitle: String,
+    val sourceLanguage: String,
+    val originalText: String,
+    val translations: Map<String, OfflineChapterTranslation>,
+    val savedAtMillis: Long,
+) {
+    fun preferredText(targetLanguage: String?): Pair<String, String> {
+        val normalizedTarget = targetLanguage?.trim()?.lowercase().orEmpty()
+        val translation = translations[normalizedTarget]
+            ?: translations.values.firstOrNull { it.language.equals(normalizedTarget, ignoreCase = true) }
+        return if (translation != null) {
+            translation.text to translation.language
+        } else {
+            originalText to sourceLanguage
+        }
+    }
+}
+
 /**
- * Airplane Flight Mode Offline Novel Storage Store.
- * Caches chapter text & translated paragraphs 100% offline for in-flight reading.
+ * Disk-backed airplane-mode storage. Each chapter is an atomic JSON package containing the
+ * original text and any downloaded translations, so a partial translation never destroys the
+ * usable source chapter.
  */
-class OfflineNovelStorageStore(context: Context? = null) {
+class OfflineNovelStorageStore private constructor(
+    private val rootDirectory: File?,
+) {
+    constructor(context: Context? = null) : this(
+        context?.applicationContext?.filesDir?.resolve("offline_novels"),
+    )
 
-    private val prefs: SharedPreferences? = context?.getSharedPreferences("offline_novel_storage", Context.MODE_PRIVATE)
-    private val inMemoryDownloadedNovels = mutableMapOf<String, String>() // key: novelId_chapterNum, value: formattedText
+    private val lock = Any()
+    private val memory = mutableMapOf<String, OfflineNovelChapter>()
 
-    fun saveOfflineChapter(novelId: String, chapterNumber: Int, chapterTitle: String, contentText: String) {
-        val key = "${novelId}_$chapterNumber"
-        inMemoryDownloadedNovels[key] = contentText
-        prefs?.let { p ->
-            runCatching {
-                val json = JSONObject()
-                json.put("novelId", novelId)
-                json.put("chapterNumber", chapterNumber)
-                json.put("chapterTitle", chapterTitle)
-                json.put("contentText", contentText)
-                json.put("savedAt", System.currentTimeMillis())
-                p.edit().putString(key, json.toString()).apply()
-            }
+    fun saveOriginalChapter(
+        item: RemoteBookItem,
+        chapterNumber: Int,
+        contentText: String,
+    ): OfflineNovelChapter = saveOriginalChapterWithKey(
+        key = storageKey(item),
+        novelId = item.seriesId?.takeIf(String::isNotBlank) ?: item.identity.accountId,
+        chapterId = item.identity.remoteId,
+        chapterNumber = chapterNumber,
+        chapterTitle = item.title,
+        sourceLanguage = item.language ?: item.translationHints.sourceLanguage,
+        contentText = contentText,
+    )
+
+    fun saveOriginalChapter(
+        novelId: String,
+        chapterId: String,
+        chapterNumber: Int,
+        chapterTitle: String,
+        sourceLanguage: String,
+        contentText: String,
+    ): OfflineNovelChapter = saveOriginalChapterWithKey(
+        key = storageKey(novelId, chapterId),
+        novelId = novelId,
+        chapterId = chapterId,
+        chapterNumber = chapterNumber,
+        chapterTitle = chapterTitle,
+        sourceLanguage = sourceLanguage,
+        contentText = contentText,
+    )
+
+    private fun saveOriginalChapterWithKey(
+        key: String,
+        novelId: String,
+        chapterId: String,
+        chapterNumber: Int,
+        chapterTitle: String,
+        sourceLanguage: String,
+        contentText: String,
+    ): OfflineNovelChapter = synchronized(lock) {
+        require(contentText.isNotBlank()) { "Offline chapter text cannot be blank." }
+        val previous = loadLocked(key)
+        val chapter = OfflineNovelChapter(
+            novelId = novelId,
+            chapterId = chapterId,
+            chapterNumber = chapterNumber,
+            chapterTitle = chapterTitle,
+            sourceLanguage = sourceLanguage.ifBlank { "auto" },
+            originalText = contentText,
+            translations = previous?.translations.orEmpty(),
+            savedAtMillis = System.currentTimeMillis(),
+        )
+        persistLocked(key, chapter)
+        chapter
+    }
+
+    fun saveTranslation(
+        item: RemoteBookItem,
+        chapterNumber: Int,
+        targetLanguage: String,
+        translatedText: String,
+        providerId: String,
+    ): OfflineNovelChapter = synchronized(lock) {
+        val key = storageKey(item)
+        val current = requireNotNull(loadLocked(key)) {
+            "Save the original chapter before its translation."
+        }
+        val language = targetLanguage.trim().lowercase().ifBlank { "ko" }
+        val updated = current.copy(
+            chapterNumber = chapterNumber,
+            translations = current.translations + (
+                language to OfflineChapterTranslation(
+                    language = language,
+                    text = translatedText,
+                    providerId = providerId,
+                    savedAtMillis = System.currentTimeMillis(),
+                )
+            ),
+            savedAtMillis = System.currentTimeMillis(),
+        )
+        persistLocked(key, updated)
+        updated
+    }
+
+    fun getOfflineChapter(item: RemoteBookItem): OfflineNovelChapter? = synchronized(lock) {
+        loadLocked(storageKey(item))
+    }
+
+    fun isChapterDownloaded(item: RemoteBookItem): Boolean = getOfflineChapter(item) != null
+
+    fun downloadedLanguages(item: RemoteBookItem): Set<String> {
+        val chapter = getOfflineChapter(item) ?: return emptySet()
+        return buildSet {
+            add(chapter.sourceLanguage)
+            addAll(chapter.translations.keys)
         }
     }
 
-    fun getOfflineChapter(novelId: String, chapterNumber: Int): String? {
-        val key = "${novelId}_$chapterNumber"
-        inMemoryDownloadedNovels[key]?.let { return it }
-        val prefs = prefs ?: return null
-        return runCatching {
-            val jsonStr = prefs.getString(key, "") ?: return null
-            if (jsonStr.isBlank()) return null
-            val json = JSONObject(jsonStr)
-            val text = json.optString("contentText", "")
-            if (text.isNotBlank()) {
-                inMemoryDownloadedNovels[key] = text
-            }
-            text.takeIf { it.isNotBlank() }
-        }.getOrNull()
+    // Compatibility for older call sites and stored chapter numbering.
+    fun saveOfflineChapter(novelId: String, chapterNumber: Int, chapterTitle: String, contentText: String) {
+        saveOriginalChapter(
+            novelId = novelId,
+            chapterId = chapterNumber.toString(),
+            chapterNumber = chapterNumber,
+            chapterTitle = chapterTitle,
+            sourceLanguage = "auto",
+            contentText = contentText,
+        )
+    }
+
+    fun getOfflineChapter(novelId: String, chapterNumber: Int): String? = synchronized(lock) {
+        loadLocked(storageKey(novelId, chapterNumber.toString()))?.originalText
     }
 
     fun isChapterDownloaded(novelId: String, chapterNumber: Int): Boolean {
-        val key = "${novelId}_$chapterNumber"
-        if (inMemoryDownloadedNovels.containsKey(key)) return true
-        return prefs?.contains(key) == true
+        return getOfflineChapter(novelId, chapterNumber) != null
+    }
+
+    private fun storageKey(novelId: String, chapterId: String): String {
+        return DocumentIds.sha256("$novelId\n$chapterId")
+    }
+
+    private fun storageKey(item: RemoteBookItem): String {
+        val series = item.seriesId?.trim()?.takeIf(String::isNotBlank)
+            ?: return storageKey(item.identity.accountId, item.identity.remoteId)
+        return DocumentIds.sha256(
+            "${item.identity.sourceType}\n${item.identity.accountId}\n$series\n${item.identity.remoteId}",
+        )
+    }
+
+    private fun loadLocked(key: String): OfflineNovelChapter? {
+        memory[key]?.let { return it }
+        val file = rootDirectory?.resolve("$key.json") ?: return null
+        if (!file.isFile) return null
+        return runCatching { decode(file.readText(Charsets.UTF_8)) }
+            .getOrNull()
+            ?.also { memory[key] = it }
+    }
+
+    private fun persistLocked(key: String, chapter: OfflineNovelChapter) {
+        memory[key] = chapter
+        val file = rootDirectory?.resolve("$key.json") ?: return
+        file.parentFile?.mkdirs()
+        file.writeAtomically(encode(chapter).toByteArray(Charsets.UTF_8))
+    }
+
+    private fun encode(chapter: OfflineNovelChapter): String {
+        val translations = JSONObject()
+        chapter.translations.forEach { (language, translation) ->
+            translations.put(
+                language,
+                JSONObject().apply {
+                    put("language", translation.language)
+                    put("text", translation.text)
+                    put("providerId", translation.providerId)
+                    put("savedAtMillis", translation.savedAtMillis)
+                },
+            )
+        }
+        return JSONObject().apply {
+            put("version", 2)
+            put("novelId", chapter.novelId)
+            put("chapterId", chapter.chapterId)
+            put("chapterNumber", chapter.chapterNumber)
+            put("chapterTitle", chapter.chapterTitle)
+            put("sourceLanguage", chapter.sourceLanguage)
+            put("originalText", chapter.originalText)
+            put("translations", translations)
+            put("savedAtMillis", chapter.savedAtMillis)
+        }.toString()
+    }
+
+    private fun decode(raw: String): OfflineNovelChapter {
+        val json = JSONObject(raw)
+        val translationJson = json.optJSONObject("translations") ?: JSONObject()
+        val translations = buildMap {
+            translationJson.keys().forEach { language ->
+                val item = translationJson.getJSONObject(language)
+                put(
+                    language,
+                    OfflineChapterTranslation(
+                        language = item.optString("language", language),
+                        text = item.getString("text"),
+                        providerId = item.optString("providerId", "unknown"),
+                        savedAtMillis = item.optLong("savedAtMillis", 0L),
+                    ),
+                )
+            }
+        }
+        return OfflineNovelChapter(
+            novelId = json.getString("novelId"),
+            chapterId = json.getString("chapterId"),
+            chapterNumber = json.getInt("chapterNumber"),
+            chapterTitle = json.getString("chapterTitle"),
+            sourceLanguage = json.optString("sourceLanguage", "auto"),
+            originalText = json.getString("originalText"),
+            translations = translations,
+            savedAtMillis = json.optLong("savedAtMillis", 0L),
+        )
+    }
+
+    private fun File.writeAtomically(bytes: ByteArray) {
+        val temporary = File(requireNotNull(parentFile), "$name.tmp")
+        try {
+            FileOutputStream(temporary).use { output ->
+                output.write(bytes)
+                output.fd.sync()
+            }
+            if (!temporary.renameTo(this)) throw IOException("Could not save offline chapter.")
+        } finally {
+            if (temporary.exists()) temporary.delete()
+        }
     }
 
     companion object {
-        val globalOfflineStore = OfflineNovelStorageStore(null)
+        @Volatile
+        private var installedStore = OfflineNovelStorageStore(null as Context?)
+
+        val globalOfflineStore: OfflineNovelStorageStore
+            get() = installedStore
+
+        fun install(context: Context) {
+            installedStore = OfflineNovelStorageStore(context.applicationContext)
+        }
+
+        internal fun forDirectory(directory: File): OfflineNovelStorageStore {
+            return OfflineNovelStorageStore(directory)
+        }
     }
 }

@@ -1,24 +1,17 @@
 package com.dongholab.pagetuner.ui
 
+import com.dongholab.pagetuner.ui.common.calculateEinkAutoFitPageSize
+import com.dongholab.pagetuner.ui.common.coerceEinkPageIndex
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class EinkAutoFitPagingContainerTest {
 
-    private fun calculatePageSizeForViewport(
-        totalViewportHeightDp: Int,
-        reservedHeaderAndPaddingDp: Int = 60,
-        itemSlotHeightDp: Int = 64,
-    ): Int {
-        val availableHeight = (totalViewportHeightDp - reservedHeaderAndPaddingDp).coerceAtLeast(58)
-        return (availableHeight / itemSlotHeightDp).coerceIn(1, 8)
-    }
-
     @Test
     fun calculatePageSize_smallMobileScreen_fitsExactItemsWithoutClipping() {
         val smallScreenHeightDp = 400
-        val pageSize = calculatePageSizeForViewport(smallScreenHeightDp)
+        val pageSize = calculateEinkAutoFitPageSize(smallScreenHeightDp.toFloat(), 58f, 6f, 3)
 
         // 340dp available / 64dp slot = 5 items strictly fit
         assertEquals(5, pageSize)
@@ -29,7 +22,7 @@ class EinkAutoFitPagingContainerTest {
     @Test
     fun calculatePageSize_mediumMobileScreen_fitsExactItemsWithoutClipping() {
         val mediumScreenHeightDp = 600
-        val pageSize = calculatePageSizeForViewport(mediumScreenHeightDp)
+        val pageSize = calculateEinkAutoFitPageSize(mediumScreenHeightDp.toFloat(), 58f, 6f, 3)
 
         // 540dp available / 64dp slot = 8 items strictly fit
         assertEquals(8, pageSize)
@@ -40,11 +33,26 @@ class EinkAutoFitPagingContainerTest {
     @Test
     fun calculatePageSize_largeTabletScreen_fitsExactItemsWithoutClipping() {
         val largeTabletHeightDp = 900
-        val pageSize = calculatePageSizeForViewport(largeTabletHeightDp)
+        val pageSize = calculateEinkAutoFitPageSize(largeTabletHeightDp.toFloat(), 58f, 6f, 3)
 
-        // Capped at max 8 items for optimal discrete page reading
         assertEquals(8, pageSize)
         val renderedHeight = pageSize * 64 + 60
         assertTrue("Rendered height $renderedHeight dp must be <= large tablet height $largeTabletHeightDp dp", renderedHeight <= largeTabletHeightDp)
+    }
+
+    @Test
+    fun calculatePageSize_unboundedViewport_usesSafeFallbackCap() {
+        assertEquals(5, calculateEinkAutoFitPageSize(null, 58f, 6f, 24))
+    }
+
+    @Test
+    fun refreshWithEnoughItemsKeepsTheRequestedViewportPage() {
+        assertEquals(4, coerceEinkPageIndex(requestedPageIndex = 4, itemCount = 30, pageSize = 5))
+    }
+
+    @Test
+    fun shorterFilteredResultsClampToTheLastReachablePage() {
+        assertEquals(1, coerceEinkPageIndex(requestedPageIndex = 4, itemCount = 7, pageSize = 5))
+        assertEquals(0, coerceEinkPageIndex(requestedPageIndex = 4, itemCount = 0, pageSize = 5))
     }
 }

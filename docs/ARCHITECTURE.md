@@ -43,11 +43,15 @@ translation/
   -> Translation pacing
   -> Offline cache
   -> Page/document translation repository
+  -> ContentTranslationService for stable named-field translation outside the reader
   -> TranslationViewModel for translation result, progress, cache status, and prefetch queue state
 
 source/
   -> RemoteBookSource interface
   -> PageTurner Web Catalog parser/source
+  -> RemoteCatalogTranslationService for remote item title/description mapping
+  -> WebNovelRemoteBookSource orchestration
+  -> WebNovelSiteAdapter registry with dedicated and generic site implementations
   -> Remote library TODO model
 
 ui/
@@ -67,10 +71,13 @@ ui/
 - Add new document formats by returning `ReaderDocument`.
 - Keep translation vendors behind `TranslationProvider`.
 - Keep provider construction inside `TranslationProviderFactory`.
+- Translate non-reader structured content through `ContentTranslationService`.
 - Keep page-turn behavior in `reader/`.
 - Keep display-mode behavior in `display/` and renderer-specific pipelines.
 - Keep OCR behind a future provider boundary; see `docs/OCR_PLAN.md`.
 - Keep remote services behind source abstractions before adding network UI.
+- Add web novel sites through `WebNovelSiteAdapter`; keep host checks and URL
+  rules out of `WebNovelRemoteBookSource` and ViewModels.
 - Avoid placing new parsing, network, cache, or provider code in
   `MainActivity`.
 

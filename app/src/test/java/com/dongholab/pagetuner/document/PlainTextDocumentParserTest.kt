@@ -40,6 +40,7 @@ class PlainTextDocumentParserTest {
         assertTrue(document.pageCount > 1)
         assertEquals(0, document.pages.first().index)
         assertEquals(1, document.pages[1].index)
+        assertTrue(document.pages.all { page -> page.plainText.length <= 620 })
     }
 
     @Test

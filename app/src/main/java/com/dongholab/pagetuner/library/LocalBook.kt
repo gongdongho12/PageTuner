@@ -17,6 +17,12 @@ data class LocalBook(
     val tags: List<String> = emptyList(),
     val bookmarks: List<LocalBookBookmark> = emptyList(),
     val annotations: List<LocalBookAnnotation> = emptyList(),
+    val remoteSourceType: String? = null,
+    val remoteAccountId: String? = null,
+    val remoteSeriesId: String? = null,
+    val currentRemoteChapterId: String? = null,
+    val currentChapterTitle: String? = null,
+    val currentChapterNumber: Int? = null,
 ) {
     val safeCurrentPageIndex: Int
         get() = currentPageIndex.coerceIn(0, (pageCount - 1).coerceAtLeast(0))

@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -72,6 +73,8 @@ import com.dongholab.pagetuner.reader.PageTurnMode
 import com.dongholab.pagetuner.reader.PdfFitMode
 import com.dongholab.pagetuner.translation.TranslationDisplayMode
 import com.dongholab.pagetuner.translation.PageTranslation
+import com.dongholab.pagetuner.translation.glossary.BookGlossaryEntry
+import com.dongholab.pagetuner.translation.glossary.GlossaryTextProcessor
 import com.dongholab.pagetuner.ui.text.localizedName
 import com.dongholab.pagetuner.ui.theme.EinkInk
 import com.dongholab.pagetuner.ui.theme.EinkLine
@@ -356,14 +359,16 @@ fun ReaderBookmarkPanel(
     onRemoveBookmark: (ReaderBookmark) -> Unit,
 ) {
     Surface(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier.fillMaxSize(),
         color = EinkPaper,
         shape = RoundedCornerShape(6.dp),
         border = BorderStroke(1.dp, EinkLine),
         shadowElevation = 0.dp,
     ) {
         Column(
-            modifier = Modifier.padding(10.dp),
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(10.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             Text(
@@ -405,9 +410,11 @@ fun ReaderBookmarkPanel(
                     color = EinkMuted,
                 )
             } else {
-                com.dongholab.pagetuner.ui.common.EinkPagingContainer(
+                com.dongholab.pagetuner.ui.common.EinkAutoFitPagingContainer(
                     items = bookmarks,
-                    pageSize = 5,
+                    modifier = Modifier.weight(1f),
+                    estimatedItemHeight = 64.dp,
+                    fallbackPageSize = 5,
                     busy = busy,
                 ) { bookmark ->
                     ReaderBookmarkRow(
@@ -432,7 +439,9 @@ private fun ReaderBookmarkRow(
     onRemoveBookmark: (ReaderBookmark) -> Unit,
 ) {
     Surface(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(64.dp),
         color = if (selected) EinkSoft else EinkPaper,
         shape = RoundedCornerShape(4.dp),
         border = BorderStroke(1.dp, if (selected) EinkInk else EinkLine),
@@ -496,14 +505,16 @@ fun ReaderAnnotationPanel(
     onRemoveAnnotation: (ReaderAnnotation) -> Unit,
 ) {
     Surface(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier.fillMaxSize(),
         color = EinkPaper,
         shape = RoundedCornerShape(6.dp),
         border = BorderStroke(1.dp, EinkLine),
         shadowElevation = 0.dp,
     ) {
         Column(
-            modifier = Modifier.padding(10.dp),
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(10.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             Text(
@@ -562,9 +573,11 @@ fun ReaderAnnotationPanel(
                     color = EinkMuted,
                 )
             } else {
-                com.dongholab.pagetuner.ui.common.EinkPagingContainer(
+                com.dongholab.pagetuner.ui.common.EinkAutoFitPagingContainer(
                     items = annotations.reversed(),
-                    pageSize = 5,
+                    modifier = Modifier.weight(1f),
+                    estimatedItemHeight = 76.dp,
+                    fallbackPageSize = 4,
                     busy = busy,
                 ) { annotation ->
                     ReaderAnnotationRow(
@@ -589,7 +602,9 @@ private fun ReaderAnnotationRow(
     onRemoveAnnotation: (ReaderAnnotation) -> Unit,
 ) {
     Surface(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(76.dp),
         color = if (selected) EinkSoft else EinkPaper,
         shape = RoundedCornerShape(4.dp),
         border = BorderStroke(1.dp, if (selected) EinkInk else EinkLine),
@@ -671,6 +686,7 @@ fun ReaderSurface(
     pdfFitMode: PdfFitMode,
     displayMode: DisplayMode,
     translation: PageTranslation?,
+    glossaryEntries: List<BookGlossaryEntry> = emptyList(),
     translationDisplayMode: TranslationDisplayMode,
     pageTurnMode: PageTurnMode,
     pageTurningEnabled: Boolean,
@@ -710,6 +726,7 @@ fun ReaderSurface(
                 if (translation != null && showTranslation) {
                     TranslationPanel(
                         translation = translation,
+                        glossaryEntries = glossaryEntries,
                         fontSizeSp = fontSizeSp,
                         lineSpacing = lineSpacing,
                         modifier = Modifier
@@ -734,6 +751,7 @@ fun ReaderSurface(
                     if (showOriginal) {
                         OriginalPageContent(
                             page = page,
+                            glossaryEntries = glossaryEntries,
                             documentFormat = documentFormat,
                             displayMode = displayMode,
                             fontSizeSp = fontSizeSp,
@@ -746,6 +764,7 @@ fun ReaderSurface(
                     if (translation != null && showTranslation) {
                         TranslationPanel(
                             translation = translation,
+                            glossaryEntries = glossaryEntries,
                             fontSizeSp = fontSizeSp,
                             lineSpacing = lineSpacing,
                             modifier = Modifier
@@ -774,28 +793,38 @@ fun ReaderSurface(
 @Composable
 private fun OriginalPageContent(
     page: ReaderPage,
+    glossaryEntries: List<BookGlossaryEntry>,
     documentFormat: DocumentFormat,
     displayMode: DisplayMode,
     fontSizeSp: Int,
     lineSpacing: Float,
     modifier: Modifier = Modifier,
 ) {
-    Column(
+    val displayText = GlossaryTextProcessor.applyOriginalDisplayAliases(page.plainText, glossaryEntries).ifBlank {
+        if (documentFormat == DocumentFormat.PDF) {
+            stringResource(R.string.viewer_pdf_rendering)
+        } else {
+            stringResource(R.string.viewer_no_text)
+        }
+    }
+    if (page.images.isEmpty()) {
+        com.dongholab.pagetuner.ui.common.EinkAutoFitText(
+            text = displayText,
+            requestedFontSizeSp = fontSizeSp,
+            lineSpacing = lineSpacing,
+            modifier = modifier.fillMaxSize(),
+        )
+    } else Column(
         modifier = modifier,
         verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
-        Text(
-            text = page.plainText.ifBlank {
-                if (documentFormat == DocumentFormat.PDF) {
-                    stringResource(R.string.viewer_pdf_rendering)
-                } else {
-                    stringResource(R.string.viewer_no_text)
-                }
-            },
-            modifier = Modifier.fillMaxWidth(),
-            style = MaterialTheme.typography.bodyLarge.copy(fontSize = fontSizeSp.sp),
-            color = EinkInk,
-            lineHeight = (fontSizeSp * lineSpacing).sp,
+        com.dongholab.pagetuner.ui.common.EinkAutoFitText(
+            text = displayText,
+            requestedFontSizeSp = fontSizeSp,
+            lineSpacing = lineSpacing,
+            modifier = Modifier
+                .fillMaxWidth()
+                .weight(0.55f),
         )
         page.images.take(2).forEach { image ->
             EmbeddedPageImage(
@@ -853,6 +882,7 @@ private fun EmbeddedPageImage(
 @Composable
 private fun TranslationPanel(
     translation: PageTranslation,
+    glossaryEntries: List<BookGlossaryEntry>,
     fontSizeSp: Int,
     lineSpacing: Float,
     modifier: Modifier = Modifier,
@@ -864,7 +894,9 @@ private fun TranslationPanel(
         border = BorderStroke(1.dp, EinkLine),
     ) {
         Column(
-            modifier = Modifier.padding(14.dp),
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(14.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             Text(
@@ -873,14 +905,19 @@ private fun TranslationPanel(
                 color = EinkInk,
                 fontWeight = FontWeight.SemiBold,
             )
-            Text(
-                text = translation.text.ifBlank {
+            com.dongholab.pagetuner.ui.common.EinkAutoFitText(
+                text = GlossaryTextProcessor.applyTranslatedDisplayAliases(
+                    translation.text,
+                    glossaryEntries,
+                ).ifBlank {
                     stringResource(R.string.translation_preparing)
                 },
-                style = MaterialTheme.typography.bodyLarge.copy(fontSize = fontSizeSp.sp),
+                requestedFontSizeSp = fontSizeSp,
+                lineSpacing = lineSpacing,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f),
                 color = EinkInk,
-                lineHeight = (fontSizeSp * lineSpacing).sp,
-                overflow = TextOverflow.Ellipsis,
             )
         }
     }

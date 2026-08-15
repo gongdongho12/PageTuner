@@ -131,7 +131,37 @@ fun defaultWtrLabAccount(
         id = "default_wtr_lab",
         sourceType = RemoteSourceType.WebNovel,
         title = "WTR-Lab Web Novels",
-        endpoint = "https://wtr-lab.com/en",
+        endpoint = "https://wtr-lab.com/en/novel-list",
+        createdAtMillis = nowMillis,
+        updatedAtMillis = nowMillis,
+    )
+}
+
+fun defaultNovelBuddyAccount(
+    nowMillis: Long = System.currentTimeMillis(),
+): RemoteSourceAccount {
+    return RemoteSourceAccount(
+        id = "default_novelbuddy",
+        sourceType = RemoteSourceType.WebNovel,
+        title = "NovelBuddy Web Novels",
+        endpoint = "https://novelbuddy.me/search",
+        createdAtMillis = nowMillis,
+        updatedAtMillis = nowMillis,
+    )
+}
+
+fun webNovelSourceAccount(
+    endpoint: String,
+    title: String,
+    nowMillis: Long = System.currentTimeMillis(),
+): RemoteSourceAccount {
+    val normalizedUrl = endpoint.trim()
+    val safeTitle = title.trim().ifBlank { normalizedUrl }
+    return RemoteSourceAccount(
+        id = DocumentIds.sha256("${RemoteSourceType.WebNovel.name}|$normalizedUrl").take(16),
+        sourceType = RemoteSourceType.WebNovel,
+        title = safeTitle,
+        endpoint = normalizedUrl,
         createdAtMillis = nowMillis,
         updatedAtMillis = nowMillis,
     )
@@ -153,5 +183,3 @@ fun pageTurnerWebCatalogAccount(
         updatedAtMillis = nowMillis,
     )
 }
-
-

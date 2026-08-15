@@ -85,11 +85,11 @@ not as source-code bases.
 - Translation is separated behind a `TranslationProvider` interface.
 - Current provider options:
   - Google Cloud Translation API
-  - Google Web Translate HTML endpoint
+  - Google Web Translate public/keyed endpoints
   - OpenAI-compatible LLM API
-- Google Web Translate HTML provider can run without an API key; if a key is
-  entered, it is sent as an optional request header.
-- Google Web Translate HTML provider does not embed copied browser/session
+- Google Web Translate uses the public text endpoint when no key is configured
+  and the registered HTML endpoint when a key is supplied.
+- Google Web Translate does not embed copied browser/session
   headers in source.
 - LLM provider accepts:
   - API key
@@ -180,12 +180,20 @@ not as source-code bases.
 
 ### Developer Docs
 
+- E-Ink UI implementation guide:
+  [docs/EINK_UI_GUIDE.md](docs/EINK_UI_GUIDE.md)
+- Web novel offline translation:
+  [docs/WEB_NOVEL_OFFLINE_TRANSLATION.md](docs/WEB_NOVEL_OFFLINE_TRANSLATION.md)
 - Product TODO:
   [docs/PRODUCT_TODO.md](docs/PRODUCT_TODO.md)
 - Architecture notes:
   [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
 - Translation provider extension guide:
   [docs/TRANSLATION_PROVIDERS.md](docs/TRANSLATION_PROVIDERS.md)
+- Translation system architecture:
+  [docs/TRANSLATION_SYSTEM.md](docs/TRANSLATION_SYSTEM.md)
+- Web novel site adapter architecture:
+  [docs/WEB_NOVEL_ADAPTERS.md](docs/WEB_NOVEL_ADAPTERS.md)
 - Remote library and web catalog TODO:
   [docs/REMOTE_SOURCES_TODO.md](docs/REMOTE_SOURCES_TODO.md)
 - OCR plan for scanned PDFs:

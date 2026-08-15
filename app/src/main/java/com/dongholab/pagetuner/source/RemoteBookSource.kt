@@ -39,8 +39,40 @@ data class RemoteBookItem(
     val checksum: String? = null,
     val updatedAt: String? = null,
     val coverUrl: String? = null,
+    val description: String? = null,
+    val chapterCount: Int? = null,
+    val tags: List<String> = emptyList(),
     val translationHints: RemoteTranslationHints = RemoteTranslationHints(),
+    /** Stable parent-work identity shared by every chapter of one web novel. */
+    val seriesId: String? = null,
+    val seriesTitle: String? = null,
+    val chapterNumber: Int? = null,
 )
+
+enum class RemoteCatalogLoadStep {
+    FetchingPage,
+    ParsingDom,
+}
+
+/** A server-side page returned by a paginated remote source. */
+data class RemoteCatalogPage(
+    val title: String,
+    val url: String,
+    val items: List<RemoteBookItem>,
+    val currentPage: Int = 1,
+    val totalPages: Int? = null,
+    val totalItems: Int? = null,
+    val hasPreviousPage: Boolean = currentPage > 1,
+    val hasNextPage: Boolean = totalPages?.let { currentPage < it } ?: false,
+)
+
+/** Optional capability for sources whose catalogs are paged by the remote website. */
+interface PaginatedRemoteBookSource {
+    suspend fun loadCatalogPage(
+        page: Int,
+        onStep: (RemoteCatalogLoadStep) -> Unit = {},
+    ): RemoteCatalogPage
+}
 
 interface RemoteBookSource {
     val sourceType: RemoteSourceType

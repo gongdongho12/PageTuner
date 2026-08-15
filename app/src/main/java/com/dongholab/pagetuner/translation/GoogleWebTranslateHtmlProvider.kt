@@ -3,6 +3,7 @@ package com.dongholab.pagetuner.translation
 import com.dongholab.pagetuner.document.DocumentIds
 import java.io.IOException
 import java.net.HttpURLConnection
+import java.net.URLEncoder
 import java.net.URL
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -14,10 +15,17 @@ class GoogleWebTranslateHtmlProvider(
     private val apiKey: String,
     private val endpoint: String = DefaultEndpoint,
     private val transport: GoogleWebTranslateHtmlTransport = GoogleWebTranslateHtmlTransport.default(),
+    private val publicEndpoint: String = DefaultPublicEndpoint,
+    private val publicTransport: GoogleWebTranslateTextTransport = GoogleWebTranslateTextTransport.default(),
 ) : TranslationProvider {
     override val id: String = buildString {
-        append("google-web-translate-html:")
-        append(DocumentIds.sha256(endpoint).take(12))
+        if (apiKey.isBlank()) {
+            append("google-web-translate-public:")
+            append(DocumentIds.sha256(publicEndpoint).take(12))
+        } else {
+            append("google-web-translate-html:")
+            append(DocumentIds.sha256(endpoint).take(12))
+        }
     }
 
     override suspend fun translate(request: TranslationRequest): List<TranslatedSegment> {
@@ -25,15 +33,45 @@ class GoogleWebTranslateHtmlProvider(
 
         return withContext(Dispatchers.IO) {
             runCatching {
-                val response = transport.post(
-                    endpoint = endpoint,
-                    headers = buildHeaders(request),
-                    body = buildRequestBody(request),
-                )
-                parseResponse(request, response)
+                if (apiKey.isBlank()) {
+                    translateWithPublicEndpoint(request)
+                } else {
+                    val response = transport.post(
+                        endpoint = endpoint,
+                        headers = buildHeaders(request),
+                        body = buildRequestBody(request),
+                    )
+                    parseResponse(request, response)
+                }
             }.getOrElse { error ->
                 throw error.asProviderNetworkFailure(ProviderName)
             }
+        }
+    }
+
+    private suspend fun translateWithPublicEndpoint(
+        request: TranslationRequest,
+    ): List<TranslatedSegment> {
+        return request.segments.map { segment ->
+            val response = publicTransport.post(
+                endpoint = publicEndpoint,
+                headers = buildPublicHeaders(request),
+                parameters = mapOf(
+                    "client" to "gtx",
+                    "sl" to request.sourceLanguage.trim().ifBlank { "auto" },
+                    "tl" to request.targetLanguage.trim().ifBlank { "en" },
+                    "dt" to "t",
+                    "q" to segment.text,
+                ),
+            )
+            val translatedText = GoogleWebTranslateTextResponseParser.parse(response).getOrElse { error ->
+                throw providerResponseFormatException(
+                    providerName = ProviderName,
+                    detail = "Google public translation response did not contain translated text.",
+                    cause = error,
+                )
+            }
+            TranslatedSegment(segmentId = segment.id, translatedText = translatedText)
         }
     }
 
@@ -47,6 +85,16 @@ class GoogleWebTranslateHtmlProvider(
             }
         }
     }
+
+    private fun buildPublicHeaders(request: TranslationRequest): Map<String, String> = mapOf(
+        "Accept" to "application/json",
+        "Accept-Language" to request.acceptLanguageHeader(),
+        "Content-Type" to "application/x-www-form-urlencoded; charset=UTF-8",
+        // Android's default Dalvik user agent is rejected intermittently by this
+        // browser-facing endpoint. Keep a stable mobile browser identity here so
+        // the exact same no-key provider works in both JVM tests and the app.
+        "User-Agent" to PublicUserAgent,
+    )
 
     private fun buildRequestBody(request: TranslationRequest): String {
         val htmlSegments = JSONArray().apply {
@@ -92,7 +140,66 @@ class GoogleWebTranslateHtmlProvider(
 
     companion object {
         const val DefaultEndpoint = "https://translate-pa.googleapis.com/v1/translateHtml"
-        const val ProviderName = "Google Web HTML"
+        const val DefaultPublicEndpoint = "https://translate.googleapis.com/translate_a/single"
+        const val ProviderName = "Google Web Translate"
+        const val PublicUserAgent =
+            "Mozilla/5.0 (Linux; Android 13; PageTurner) AppleWebKit/537.36 " +
+                "(KHTML, like Gecko) Chrome/126.0 Mobile Safari/537.36"
+    }
+}
+
+fun interface GoogleWebTranslateTextTransport {
+    suspend fun post(
+        endpoint: String,
+        headers: Map<String, String>,
+        parameters: Map<String, String>,
+    ): String
+
+    companion object {
+        fun default(): GoogleWebTranslateTextTransport = GoogleWebTranslateTextTransport { endpoint, headers, parameters ->
+            val body = parameters.entries.joinToString("&") { (name, value) ->
+                "${name.urlEncode()}=${value.urlEncode()}"
+            }
+            val connection = (URL(endpoint).openConnection() as HttpURLConnection).apply {
+                requestMethod = "POST"
+                connectTimeout = 15_000
+                readTimeout = 30_000
+                doOutput = true
+                headers.forEach { (name, value) -> setRequestProperty(name, value) }
+            }
+            connection.outputStream.use { output ->
+                output.write(body.toByteArray(Charsets.UTF_8))
+            }
+            val responseCode = connection.responseCode
+            val stream = if (responseCode in 200..299) connection.inputStream else connection.errorStream
+            val response = stream?.bufferedReader(Charsets.UTF_8)?.use { it.readText() }.orEmpty()
+            connection.disconnect()
+            if (responseCode !in 200..299) {
+                throw providerHttpException(
+                    providerName = GoogleWebTranslateHtmlProvider.ProviderName,
+                    statusCode = responseCode,
+                    responseBody = response,
+                )
+            }
+            response
+        }
+    }
+}
+
+object GoogleWebTranslateTextResponseParser {
+    fun parse(response: String): Result<String> {
+        return runCatching {
+            val root = JSONTokener(response.withoutGoogleJsonPrefix()).nextValue() as? JSONArray
+                ?: throw IOException("Response root was not an array.")
+            val sentences = root.optJSONArray(0)
+                ?: throw IOException("Response contained no sentence list.")
+            buildString {
+                for (index in 0 until sentences.length()) {
+                    val sentence = sentences.optJSONArray(index) ?: continue
+                    append(sentence.optString(0))
+                }
+            }.trim().ifBlank { throw IOException("Translated text was blank.") }
+        }
     }
 }
 
@@ -285,5 +392,7 @@ private fun String.decodeNumericHtmlEntity(): String? {
 
     return runCatching { String(Character.toChars(codePoint)) }.getOrNull()
 }
+
+private fun String.urlEncode(): String = URLEncoder.encode(this, Charsets.UTF_8.name())
 
 private val htmlEntityRegex = Regex("""&(#x?[0-9a-fA-F]+|[a-zA-Z]+);""")

@@ -268,7 +268,14 @@ fun buildReaderActions(
             translationViewModel.loadCachedPage(document, currentPage, settings, repository, showMissingStatus = true)
         },
         translateCurrentPage = {
-            if (!busy) translationViewModel.translatePage(document, currentPage, settings, repository)
+            if (!busy) {
+                translationViewModel.startRollingPrefetch(
+                    document = document,
+                    currentPageIndex = pageIndex,
+                    settings = settings,
+                    repository = repository,
+                )
+            }
         },
         prefetchDocument = {
             if (!busy) translationViewModel.prefetchDocument(document, currentPage, pageIndex, settings, repository)

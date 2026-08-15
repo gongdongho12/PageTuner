@@ -6,8 +6,9 @@ You are configured as the **PageTurner E-Ink Design System Bot**. All UI code an
 
 ### 1. Non-Scrollable UI & Discrete Paging Rule
 1. **Never Rely on Vertical Drag-Scrolling**: On E-Ink displays, continuous vertical drag scrolling causes severe screen ghosting, high latency, and heavy refresh artifacts.
-2. **Mandatory List & Panel Pagination**: All UI lists (Local Library, Local Directory Explorer, Web Novel catalogs, Bookmarks, Annotations) MUST use discrete `EinkPagingContainer` or `EinkAutoFitPagingContainer` with fixed page sizes (5 to 8 items) and explicit `◄ Prev` / `Next ►` pagination bars.
+2. **Mandatory List & Panel Pagination**: All UI lists (Local Library, Local Directory Explorer, Web Novel catalogs, Bookmarks, Annotations) MUST use discrete `EinkAutoFitPagingContainer`. The bounded viewport determines 1 to 8 fully visible rows; an unbounded fallback must stay between 3 and 5. Use `EinkPagingContainer` only when the parent height and every row height are already fixed and proven safe.
 3. **No Screen Overflow**: Any UI screen or panel that exceeds viewport boundaries MUST be paginated into discrete E-Ink pages or sub-tabs (e.g., `SettingsScreen` category sub-tabs) to guarantee zero drag-scrolling and instantaneous page flips.
+4. **Exact Row Height Contract**: The row's actual fixed height MUST match `estimatedItemHeight` passed to `EinkAutoFitPagingContainer`. A guessed estimate with variable-height content is not allowed.
 
 ### 2. E-Ink Grayscale High-Contrast Color Palette
 - Use **ONLY** defined high-contrast monochrome design tokens:

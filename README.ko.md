@@ -155,6 +155,8 @@ PageTurner는 전자잉크 단말기용 Android 리더 프로토타입입니다.
 
 ### 개발 문서
 
+- E-Ink UI 구현 가이드:
+  [docs/EINK_UI_GUIDE.md](docs/EINK_UI_GUIDE.md)
 - 제품 TODO:
   [docs/PRODUCT_TODO.md](docs/PRODUCT_TODO.md)
 - 구조 메모:

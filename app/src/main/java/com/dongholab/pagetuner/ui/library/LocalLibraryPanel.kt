@@ -4,14 +4,17 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material3.FilterChip
+import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -40,6 +43,10 @@ import com.dongholab.pagetuner.ui.theme.EinkLine
 import com.dongholab.pagetuner.ui.theme.EinkMuted
 import com.dongholab.pagetuner.ui.theme.EinkPanel
 import com.dongholab.pagetuner.ui.theme.EinkSoft
+import com.dongholab.pagetuner.ui.common.EinkAutoFitPagingContainer
+import com.dongholab.pagetuner.ui.common.EinkChoiceStepper
+
+private val LocalBookRowHeight = 124.dp
 
 @Composable
 fun LocalLibraryPanel(
@@ -68,14 +75,16 @@ fun LocalLibraryPanel(
     }
 
     Surface(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier.fillMaxSize(),
         color = EinkPanel,
         shape = RoundedCornerShape(6.dp),
         border = BorderStroke(1.dp, EinkLine),
         shadowElevation = 0.dp,
     ) {
         Column(
-            modifier = Modifier.padding(12.dp),
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(12.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             Text(
@@ -106,35 +115,21 @@ fun LocalLibraryPanel(
                         color = EinkMuted,
                     )
                 }
-                groupedLocalLibraryBooks(visibleBooks).forEach { (folder, folderBooks) ->
-                    val folderLabel = if (folder.isBlank()) {
-                        stringResource(R.string.library_folder_uncategorized)
-                    } else {
-                        folder
-                    }
-                    Text(
-                        text = stringResource(
-                            R.string.library_folder_header,
-                            folderLabel,
-                        ),
-                        style = MaterialTheme.typography.labelLarge,
-                        color = EinkInk,
-                        fontWeight = FontWeight.SemiBold,
-                    )
-                    com.dongholab.pagetuner.ui.common.EinkPagingContainer(
-                        items = folderBooks,
-                        pageSize = 5,
+                EinkAutoFitPagingContainer(
+                    items = visibleBooks,
+                    modifier = Modifier.weight(1f),
+                    estimatedItemHeight = LocalBookRowHeight,
+                    fallbackPageSize = 3,
+                    busy = busy,
+                ) { book ->
+                    LocalBookRow(
+                        book = book,
+                        selected = currentBookId == book.id,
                         busy = busy,
-                    ) { book ->
-                        LocalBookRow(
-                            book = book,
-                            selected = currentBookId == book.id,
-                            busy = busy,
-                            onOpenBook = onOpenBook,
-                            onDeleteBook = onDeleteBook,
-                            onUpdateBookOrganization = onUpdateBookOrganization,
-                        )
-                    }
+                        onOpenBook = onOpenBook,
+                        onDeleteBook = onDeleteBook,
+                        onUpdateBookOrganization = onUpdateBookOrganization,
+                    )
                 }
             }
         }
@@ -163,38 +158,14 @@ private fun LibraryFilterControls(
             label = { Text(stringResource(R.string.field_library_search)) },
             singleLine = true,
         )
-        FlowRow(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(6.dp),
-            verticalArrangement = Arrangement.spacedBy(4.dp),
-        ) {
-            FilterChip(
-                selected = selectedFolder.isBlank(),
-                onClick = { onFolderChange("") },
-                enabled = !busy,
-                label = {
-                    Text(
-                        text = stringResource(R.string.library_filter_all_folders),
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-                },
-            )
-            folders.forEach { folder ->
-                FilterChip(
-                    selected = selectedFolder.equals(folder, ignoreCase = true),
-                    onClick = { onFolderChange(folder) },
-                    enabled = !busy,
-                    label = {
-                        Text(
-                            text = folder,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                        )
-                    },
-                )
-            }
-        }
+        val allFoldersLabel = stringResource(R.string.library_filter_all_folders)
+        EinkChoiceStepper(
+            options = listOf("") + folders,
+            selected = selectedFolder,
+            onSelect = onFolderChange,
+            enabled = !busy,
+            label = { folder -> folder.ifBlank { allFoldersLabel } },
+        )
     }
 }
 
@@ -207,13 +178,54 @@ private fun LocalBookRow(
     onDeleteBook: (LocalBook) -> Unit,
     onUpdateBookOrganization: (LocalBook, String, String) -> Unit,
 ) {
+    var showOrganizationDialog by remember(book.id) { mutableStateOf(false) }
     var folderDraft by remember(book.id, book.folder) { mutableStateOf(book.folder) }
     var tagsDraft by remember(book.id, book.tags) { mutableStateOf(book.tags.joinToString(", ")) }
     val parsedTags = parseLocalBookTags(tagsDraft)
     val organizationChanged = folderDraft.trim() != book.folder || parsedTags != book.tags
 
+    if (showOrganizationDialog) {
+        AlertDialog(
+            onDismissRequest = { showOrganizationDialog = false },
+            title = { Text(stringResource(R.string.action_save_organization)) },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedTextField(
+                        value = folderDraft,
+                        onValueChange = { folderDraft = it },
+                        label = { Text(stringResource(R.string.library_folder_label)) },
+                        singleLine = true,
+                    )
+                    OutlinedTextField(
+                        value = tagsDraft,
+                        onValueChange = { tagsDraft = it },
+                        label = { Text(stringResource(R.string.library_tags_label)) },
+                        singleLine = true,
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        onUpdateBookOrganization(book, folderDraft, tagsDraft)
+                        showOrganizationDialog = false
+                    },
+                    enabled = organizationChanged,
+                ) { Text(stringResource(R.string.action_save_organization)) }
+            },
+            dismissButton = {
+                TextButton(onClick = { showOrganizationDialog = false }) {
+                    Text(stringResource(R.string.action_close))
+                }
+            },
+            containerColor = EinkPanel,
+        )
+    }
+
     Surface(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(LocalBookRowHeight),
         color = if (selected) EinkSoft else EinkPanel,
         shape = RoundedCornerShape(4.dp),
         border = BorderStroke(1.dp, if (selected) EinkInk else EinkLine),
@@ -226,86 +238,68 @@ private fun LocalBookRow(
         ) {
             Column(
                 modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(4.dp),
+                verticalArrangement = Arrangement.spacedBy(2.dp),
             ) {
-                TextButton(
-                    onClick = { onOpenBook(book) },
-                    enabled = !busy,
-                    modifier = Modifier.fillMaxWidth(),
-                ) {
-                    Column(modifier = Modifier.fillMaxWidth()) {
-                        Text(
-                            text = book.title,
-                            style = MaterialTheme.typography.labelLarge,
-                            color = EinkInk,
-                            fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
-                            maxLines = 3,
-                            overflow = TextOverflow.Ellipsis,
-                        )
-                        Text(
-                            text = stringResource(
-                                R.string.library_book_meta,
-                                book.format.localizedName(),
-                                book.safeCurrentPageIndex + 1,
-                                book.pageCount,
-                                book.readingProgressPercent,
-                            ),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = EinkMuted,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                        )
-                        Text(
-                            text = if (book.tags.isEmpty()) {
-                                stringResource(R.string.library_tags_empty)
-                            } else {
-                                stringResource(R.string.library_tags_value, book.tags.joinToString(", "))
-                            },
-                            style = MaterialTheme.typography.bodySmall,
-                            color = EinkMuted,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                        )
-                    }
-                }
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    OutlinedTextField(
-                        value = folderDraft,
-                        onValueChange = { folderDraft = it },
-                        modifier = Modifier.weight(0.8f),
-                        enabled = !busy,
-                        label = { Text(stringResource(R.string.library_folder_label)) },
-                        singleLine = true,
-                    )
-                    OutlinedTextField(
-                        value = tagsDraft,
-                        onValueChange = { tagsDraft = it },
-                        modifier = Modifier.weight(1.2f),
-                        enabled = !busy,
-                        label = { Text(stringResource(R.string.library_tags_label)) },
-                        singleLine = true,
-                    )
-                    TextButton(
-                        onClick = { onUpdateBookOrganization(book, folderDraft, tagsDraft) },
-                        enabled = !busy && organizationChanged,
-                    ) {
-                        Text(stringResource(R.string.action_save_organization))
-                    }
-                }
-            }
-            IconButton(
-                onClick = { onDeleteBook(book) },
-                enabled = !busy,
-            ) {
-                Icon(
-                    imageVector = Icons.Filled.Delete,
-                    contentDescription = stringResource(R.string.action_delete_book),
-                    tint = EinkInk,
+                Text(
+                    text = book.title,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable(enabled = !busy) { onOpenBook(book) },
+                    style = MaterialTheme.typography.labelLarge,
+                    color = EinkInk,
+                    fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
                 )
+                Text(
+                    text = stringResource(
+                        R.string.library_book_meta,
+                        book.format.localizedName(),
+                        book.safeCurrentPageIndex + 1,
+                        book.pageCount,
+                        book.readingProgressPercent,
+                    ),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = EinkMuted,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                book.currentChapterTitle?.let { chapterTitle ->
+                    Text(
+                        text = if (book.currentChapterNumber != null) {
+                            stringResource(
+                                R.string.library_current_chapter_numbered,
+                                book.currentChapterNumber,
+                                chapterTitle,
+                            )
+                        } else {
+                            stringResource(R.string.library_current_chapter, chapterTitle)
+                        },
+                        style = MaterialTheme.typography.bodySmall,
+                        color = EinkMuted,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
+                Text(
+                    text = if (book.tags.isEmpty()) {
+                        stringResource(R.string.library_tags_empty)
+                    } else {
+                        stringResource(R.string.library_tags_value, book.tags.joinToString(", "))
+                    },
+                    style = MaterialTheme.typography.bodySmall,
+                    color = EinkMuted,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+            Column {
+                IconButton(onClick = { showOrganizationDialog = true }, enabled = !busy) {
+                    Icon(Icons.Filled.Edit, contentDescription = stringResource(R.string.action_save_organization), tint = EinkInk)
+                }
+                IconButton(onClick = { onDeleteBook(book) }, enabled = !busy) {
+                    Icon(Icons.Filled.Delete, contentDescription = stringResource(R.string.action_delete_book), tint = EinkInk)
+                }
             }
         }
     }
