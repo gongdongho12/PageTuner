@@ -6,6 +6,11 @@ object TranslationProviderFactory {
             TranslationProviderKind.GOOGLE_CLOUD -> GoogleCloudTranslationProvider(settings.apiKey)
             TranslationProviderKind.GOOGLE_WEB_TRANSLATE_HTML ->
                 GoogleWebTranslateHtmlProvider(settings.apiKey)
+            TranslationProviderKind.DEEPSEEK -> DeepSeekTranslationProvider(
+                apiKey = settings.apiKey,
+                endpoint = settings.normalizedLlmEndpoint,
+                model = settings.normalizedLlmModel,
+            )
             TranslationProviderKind.OPENAI_COMPATIBLE_LLM -> OpenAiCompatibleLlmTranslationProvider(
                 apiKey = settings.apiKey,
                 endpoint = settings.normalizedLlmEndpoint,

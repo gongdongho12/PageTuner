@@ -1,6 +1,7 @@
 package com.dongholab.pagetuner.ui
 
 import com.dongholab.pagetuner.ui.common.calculateEinkAutoFitPageSize
+import com.dongholab.pagetuner.ui.common.calculateEinkAutoFitPagePlan
 import com.dongholab.pagetuner.ui.common.coerceEinkPageIndex
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -54,5 +55,52 @@ class EinkAutoFitPagingContainerTest {
     fun shorterFilteredResultsClampToTheLastReachablePage() {
         assertEquals(1, coerceEinkPageIndex(requestedPageIndex = 4, itemCount = 7, pageSize = 5))
         assertEquals(0, coerceEinkPageIndex(requestedPageIndex = 4, itemCount = 0, pageSize = 5))
+    }
+
+    @Test
+    fun singleItem_doesNotWasteSpaceOnPaginationControls() {
+        val plan = calculateEinkAutoFitPagePlan(
+            viewportHeightDp = 104f,
+            itemHeightDp = 104f,
+            itemSpacingDp = 6f,
+            fallbackPageSize = 3,
+            itemCount = 1,
+        )
+
+        assertEquals(1, plan.pageSize)
+        assertEquals(false, plan.showNavigation)
+    }
+
+    @Test
+    fun crampedViewport_prioritizesOneVisibleItemOverNavigationOnlyPage() {
+        val plan = calculateEinkAutoFitPagePlan(
+            viewportHeightDp = 150f,
+            itemHeightDp = 104f,
+            itemSpacingDp = 6f,
+            fallbackPageSize = 3,
+            itemCount = 29,
+        )
+
+        assertEquals(1, plan.pageSize)
+        assertEquals(true, plan.showNavigation)
+        assertEquals(true, plan.navigationAfterItems)
+    }
+
+    @Test
+    fun normalPagedViewport_reservesNavigationAndNeverOverflows() {
+        val viewportHeight = 390f
+        val plan = calculateEinkAutoFitPagePlan(
+            viewportHeightDp = viewportHeight,
+            itemHeightDp = 104f,
+            itemSpacingDp = 6f,
+            fallbackPageSize = 3,
+            itemCount = 29,
+        )
+
+        assertEquals(3, plan.pageSize)
+        assertEquals(true, plan.showNavigation)
+        assertEquals(false, plan.navigationAfterItems)
+        val renderedHeight = 60f + plan.pageSize * (104f + 6f)
+        assertTrue(renderedHeight <= viewportHeight)
     }
 }

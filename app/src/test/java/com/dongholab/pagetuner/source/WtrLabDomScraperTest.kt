@@ -3,6 +3,7 @@ package com.dongholab.pagetuner.source
 import com.dongholab.pagetuner.source.wtr.WtrLabDomScraper
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
+import org.junit.Assert.assertThrows
 import org.junit.Test
 
 class WtrLabDomScraperTest {
@@ -110,6 +111,21 @@ class WtrLabDomScraperTest {
             response.paragraphs.last(),
             response.paragraphs.last().startsWith("Um, this is the second paragraph"),
         )
+    }
+
+    @Test
+    fun readerAuthenticationResponseIsClassifiedWithoutRenderedRetry() {
+        val error = assertThrows(
+            com.dongholab.pagetuner.source.webnovel.WebNovelAuthenticationRequiredException::class.java,
+        ) {
+            WtrLabDomScraper.parseReaderChapterResponse(
+                novelId = 90_937L,
+                chapterNumber = 18,
+                rawJson = """{"success":false,"error":"You are not logged in!","code":1401}""",
+            )
+        }
+
+        assertEquals("WTR-LAB", error.providerName)
     }
 
     companion object {

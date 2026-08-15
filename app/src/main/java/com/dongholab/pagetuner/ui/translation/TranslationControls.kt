@@ -41,8 +41,11 @@ import com.dongholab.pagetuner.R
 import com.dongholab.pagetuner.translation.TranslationDisplayMode
 import com.dongholab.pagetuner.translation.TranslationPaceMode
 import com.dongholab.pagetuner.translation.TranslationProviderKind
+import com.dongholab.pagetuner.translation.subscriptionPlan
 import com.dongholab.pagetuner.ui.LanguagePreset
+import com.dongholab.pagetuner.ui.common.EinkSegmentedControl
 import com.dongholab.pagetuner.ui.text.apiKeyLabelRes
+import com.dongholab.pagetuner.ui.text.labelRes
 import com.dongholab.pagetuner.ui.text.localizedLabel
 import com.dongholab.pagetuner.ui.theme.EinkInk
 import com.dongholab.pagetuner.ui.theme.EinkLine
@@ -54,6 +57,7 @@ fun TranslationControls(
     providerKind: TranslationProviderKind,
     onProviderKindChange: (TranslationProviderKind) -> Unit,
     apiKey: String,
+    usesLocalDeepSeekSecret: Boolean,
     onApiKeyChange: (String) -> Unit,
     llmEndpoint: String,
     onLlmEndpointChange: (String) -> Unit,
@@ -95,6 +99,9 @@ fun TranslationControls(
     onLoadCached: () -> Unit,
     onClearCache: () -> Unit,
 ) {
+    val providerLabels = TranslationProviderKind.entries.associateWith { kind ->
+        stringResource(kind.labelRes)
+    }
     Surface(
         modifier = Modifier.fillMaxWidth(),
         color = EinkPanel,
@@ -106,19 +113,25 @@ fun TranslationControls(
             modifier = Modifier.padding(12.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
-            FlowRow(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalArrangement = Arrangement.spacedBy(4.dp),
-            ) {
-                TranslationProviderKind.entries.forEach { kind ->
-                    FilterChip(
-                        selected = providerKind == kind,
-                        onClick = { onProviderKindChange(kind) },
-                        enabled = !busy,
-                        label = { Text(kind.localizedLabel()) },
-                    )
-                }
+            EinkSegmentedControl(
+                options = TranslationProviderKind.entries,
+                selected = providerKind,
+                onSelect = onProviderKindChange,
+                enabled = !busy,
+                itemHeight = 58.dp,
+                label = { kind -> providerLabels.getValue(kind) },
+            )
+            Text(
+                text = stringResource(providerKind.subscriptionPlan.labelRes),
+                style = MaterialTheme.typography.labelLarge,
+                color = EinkInk,
+            )
+            if (providerKind == TranslationProviderKind.DEEPSEEK && usesLocalDeepSeekSecret) {
+                Text(
+                    text = stringResource(R.string.deepseek_local_secret_active),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = EinkInk,
+                )
             }
             Text(
                 text = providerStatusText,
@@ -146,15 +159,17 @@ fun TranslationControls(
                 }
             }
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedTextField(
-                    value = apiKey,
-                    onValueChange = onApiKeyChange,
-                    modifier = Modifier.weight(1.6f),
-                    enabled = !busy,
-                    label = { Text(stringResource(providerKind.apiKeyLabelRes)) },
-                    singleLine = true,
-                    visualTransformation = PasswordVisualTransformation(),
-                )
+                if (!usesLocalDeepSeekSecret) {
+                    OutlinedTextField(
+                        value = apiKey,
+                        onValueChange = onApiKeyChange,
+                        modifier = Modifier.weight(1.6f),
+                        enabled = !busy,
+                        label = { Text(stringResource(providerKind.apiKeyLabelRes)) },
+                        singleLine = true,
+                        visualTransformation = PasswordVisualTransformation(),
+                    )
+                }
                 OutlinedTextField(
                     value = sourceLanguage,
                     onValueChange = onSourceLanguageChange,

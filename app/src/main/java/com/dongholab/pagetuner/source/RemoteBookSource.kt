@@ -22,6 +22,11 @@ data class RemoteBookIdentity(
     val remoteId: String,
 )
 
+enum class RemoteBookContentVariant {
+    Original,
+    Translated,
+}
+
 data class RemoteTranslationHints(
     val sourceLanguage: String = "auto",
     val targetLanguages: List<String> = emptyList(),
@@ -47,6 +52,8 @@ data class RemoteBookItem(
     val seriesId: String? = null,
     val seriesTitle: String? = null,
     val chapterNumber: Int? = null,
+    /** Indicates that the downloaded bytes already contain translated reader text. */
+    val contentVariant: RemoteBookContentVariant = RemoteBookContentVariant.Original,
 )
 
 enum class RemoteCatalogLoadStep {

@@ -55,8 +55,9 @@ class AndroidWebViewChapterLoader(
     private val appContext = context.applicationContext
 
     @SuppressLint("SetJavaScriptEnabled")
-    override suspend fun loadChapter(url: String, chapterNumber: Int): RenderedChapter =
-        withTimeout(RENDER_TIMEOUT_MS) {
+    override suspend fun loadChapter(url: String, chapterNumber: Int): RenderedChapter {
+        WebNovelRequestGate.awaitPermit(url)
+        return withTimeout(RENDER_TIMEOUT_MS) {
             suspendCancellableCoroutine { continuation ->
                 val handler = Handler(Looper.getMainLooper())
                 handler.post {
@@ -155,6 +156,7 @@ class AndroidWebViewChapterLoader(
                 }
             }
         }
+    }
 
     private fun parseJavascriptResult(rawResult: String?): RenderedChapter? {
         if (rawResult.isNullOrBlank() || rawResult == "null") return null

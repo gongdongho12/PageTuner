@@ -86,9 +86,11 @@
     <string name="action_save_organization">저장</string>
     <string name="provider_google_cloud">Google Cloud</string>
     <string name="provider_google_web_translate_html">Google Web Translate</string>
+    <string name="provider_deepseek">DeepSeek AI</string>
     <string name="provider_openai_compatible_llm">LLM API</string>
     <string name="field_google_api_key">Google API 키</string>
     <string name="field_google_web_api_key">Google Web API 키(선택)</string>
+    <string name="field_deepseek_api_key">DeepSeek API 키</string>
     <string name="field_llm_api_key">LLM API 키</string>
     <string name="field_llm_endpoint">LLM 엔드포인트</string>
     <string name="field_llm_model">모델</string>
@@ -113,7 +115,12 @@
     <string name="provider_status_ready">Provider 설정이 준비되었습니다.</string>
     <string name="provider_status_missing_google_key">Google API 키가 필요합니다.</string>
     <string name="provider_status_google_web_no_key_required">Google Web Translate는 API 키 없이 실행할 수 있습니다.</string>
+    <string name="provider_status_missing_deepseek_key">DeepSeek API 키가 없습니다. 로컬 .env에 DEEPSEEK_API_KEY를 추가하세요.</string>
     <string name="provider_status_missing_llm_settings">LLM API 키, 엔드포인트, 모델이 필요합니다.</string>
+    <string name="translation_plan_google">요금제: Google 번역</string>
+    <string name="translation_plan_deepseek">요금제: DeepSeek AI 번역</string>
+    <string name="translation_plan_custom">요금제: 사용자 API</string>
+    <string name="deepseek_local_secret_active">로컬 Debug .env 인증 정보를 사용합니다. 키는 화면에 표시하거나 앱 설정에 저장하지 않습니다.</string>
     <string name="translation_cache_status">저장된 문단 %1$d/%2$d개.</string>
     <string name="translation_cache_status_empty">번역할 텍스트 문단이 없습니다.</string>
     <string name="action_clear_translation_cache">번역 캐시 삭제</string>
@@ -126,6 +133,7 @@
     <string name="provider_health_ready">Provider 설정이 준비되어 보입니다.</string>
     <string name="provider_health_missing_google_key">Provider 확인 실패: Google API 키가 필요합니다.</string>
     <string name="provider_health_google_web_no_key_required">Provider 확인 완료: Google Web Translate는 API 키 없이 실행할 수 있습니다.</string>
+    <string name="provider_health_missing_deepseek_key">Provider 확인 실패: 로컬 .env에 DEEPSEEK_API_KEY를 추가하세요.</string>
     <string name="provider_health_missing_llm_settings">Provider 확인 실패: LLM API 키, 엔드포인트, 모델이 필요합니다.</string>
     <string name="provider_health_missing_settings">Provider 확인 실패: 설정이 부족합니다.</string>
     <string name="provider_health_invalid_llm_endpoint">Provider 확인 실패: LLM 엔드포인트는 http(s) URL이어야 합니다.</string>
@@ -246,6 +254,14 @@
     <string name="status_web_catalog_loaded_cached">저장된 카탈로그 %1$s을(를) 불러왔습니다: %2$d권.</string>
     <string name="status_web_catalog_importing">%1$s을(를) 내려받는 중입니다.</string>
     <string name="status_web_catalog_downloaded">%1$s을(를) 내려받았습니다. 로컬 서재에 저장합니다.</string>
+    <string name="status_web_catalog_offline_saved">오프라인 읽기용 챕터 %1$d개를 저장했습니다.</string>
+    <string name="status_web_catalog_offline_saved_translation_failed">원문 챕터 %1$d개를 저장했지만 번역 %2$d개는 실패했습니다.</string>
+    <string name="web_novel_offline_save_failed_title">오프라인 저장 실패</string>
+    <string name="web_novel_offline_translation_failed_title">원문 저장 완료 · 번역 실패</string>
+    <string name="web_novel_offline_save_complete_title">오프라인 저장 완료</string>
+    <string name="web_novel_loading_details_title">책 정보와 챕터 목록을 불러오는 중…</string>
+    <string name="web_novel_offline_saving_title">오프라인 읽기용 챕터를 저장하는 중…</string>
+    <string name="web_novel_preparing_chapter_title">챕터와 번역을 준비하는 중…</string>
     <string name="status_remote_source_account_saved">원격 소스 %1$s을(를) 저장했습니다.</string>
     <string name="status_remote_source_account_deleted">원격 소스 %1$s을(를) 삭제했습니다.</string>
     <string name="status_web_catalog_error">웹 카탈로그 오류: %1$s</string>
@@ -298,4 +314,12 @@
     <string name="web_catalog_genre_prefix">장르</string>
     <string name="action_search_remote_catalog">검색</string>
     <string name="action_clear_catalog_search">키워드·장르 초기화</string>
+    <string name="web_catalog_section_books">서적 목록</string>
+    <string name="web_catalog_section_search_filters">검색·필터</string>
+    <string name="web_catalog_visible_count">현재 페이지 %1$d권</string>
+    <string name="web_catalog_translate_list">목록 번역 → %1$s</string>
+    <string name="web_catalog_loading_items">카탈로그 서적을 불러오는 중…</string>
+    <string name="web_catalog_no_filter_matches">조건에 맞는 웹소설이 없습니다.</string>
+    <string name="web_catalog_language_filter">언어 필터</string>
+    <string name="web_catalog_all_languages">모든 언어</string>
 </resources>

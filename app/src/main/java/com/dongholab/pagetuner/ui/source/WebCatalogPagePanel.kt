@@ -33,6 +33,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.res.stringResource
+import com.dongholab.pagetuner.R
 import com.dongholab.pagetuner.display.DisplayMode
 import com.dongholab.pagetuner.source.RemoteBookItem
 import com.dongholab.pagetuner.source.CatalogItemTranslation
@@ -46,8 +48,14 @@ import com.dongholab.pagetuner.ui.theme.EinkLine
 import com.dongholab.pagetuner.ui.theme.EinkMuted
 import com.dongholab.pagetuner.ui.theme.EinkPanel
 import com.dongholab.pagetuner.ui.common.EinkRemoteCatalogPagerSlot
+import com.dongholab.pagetuner.ui.common.EinkSegmentedControl
 import com.dongholab.pagetuner.ui.common.EinkStablePageContent
 import com.dongholab.pagetuner.ui.common.rememberEinkPagingState
+
+private enum class CatalogPageSection {
+    Books,
+    SearchAndFilters,
+}
 
 @OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
 @Composable
@@ -79,6 +87,7 @@ fun WebCatalogPagePanel(
     onBackToSourceManager: () -> Unit,
 ) {
     var selectedLanguageFilter by rememberSaveable { mutableStateOf("All") }
+    var selectedSection by rememberSaveable { mutableStateOf(CatalogPageSection.Books) }
     val viewportPagingState = rememberEinkPagingState(
         catalogUrl,
         remotePaging?.currentPage ?: 1,
@@ -95,6 +104,8 @@ fun WebCatalogPagePanel(
             }
         }
     }
+    val booksSectionLabel = stringResource(R.string.web_catalog_section_books)
+    val searchFiltersSectionLabel = stringResource(R.string.web_catalog_section_search_filters)
 
     Surface(
         modifier = Modifier.fillMaxSize(),
@@ -135,98 +146,140 @@ fun WebCatalogPagePanel(
                 }
             }
 
-            Text(
-                text = "Catalog Page: $catalogUrl",
-                style = MaterialTheme.typography.labelSmall,
-                color = EinkMuted,
-                maxLines = 1,
-                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
-            )
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.End,
-            ) {
-                TextButton(
-                    onClick = onTranslateCatalog,
-                    enabled = !busy && canTranslate && filteredItems.isNotEmpty(),
-                ) {
-                    Text("Translate list → ${targetLanguage.uppercase()}", fontWeight = FontWeight.Bold)
-                }
-            }
-
-            WebCatalogSearchControls(
-                query = query,
-                genreOptions = catalogCapabilities.genreOptions,
-                selectedGenreKey = selectedGenreKey,
-                busy = busy,
-                onQueryChange = onQueryChange,
-                onGenreSelected = onGenreSelected,
-                onSearch = onSearch,
-                onClear = onClearSearch,
-            )
-
-            // Language filter remains local because the WTR catalog language is tied to the source URL.
-            Column(
-                modifier = Modifier.fillMaxWidth(),
-                verticalArrangement = Arrangement.spacedBy(4.dp),
-            ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Text("Language Filter:", style = MaterialTheme.typography.labelSmall, color = EinkMuted)
-                    Text("Auto-fit pages", style = MaterialTheme.typography.labelSmall, color = EinkMuted)
-                }
-                FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    listOf("All", "en", "ko").forEach { lang ->
-                        FilterChip(
-                            selected = selectedLanguageFilter == lang,
-                            onClick = { selectedLanguageFilter = lang },
-                            enabled = !busy,
-                            label = { Text(if (lang == "All") "All Languages" else lang.uppercase()) },
-                        )
+            EinkSegmentedControl(
+                options = CatalogPageSection.entries,
+                selected = selectedSection,
+                onSelect = { selectedSection = it },
+                enabled = !busy,
+                itemHeight = 42.dp,
+                label = {
+                    when (it) {
+                        CatalogPageSection.Books -> booksSectionLabel
+                        CatalogPageSection.SearchAndFilters -> searchFiltersSectionLabel
                     }
-                }
-            }
+                },
+            )
 
             EinkStablePageContent(
                 content = {
-                    Column(
-                        modifier = Modifier.fillMaxSize(),
-                        verticalArrangement = Arrangement.spacedBy(8.dp),
-                    ) {
-                        EinkRemoteCatalogPagerSlot(
-                            paging = remotePaging,
-                            busy = busy,
-                            onPageSelected = onRemotePageSelected,
-                        )
+                    when (selectedSection) {
+                        CatalogPageSection.Books -> {
+                            Column(
+                                modifier = Modifier.fillMaxSize(),
+                                verticalArrangement = Arrangement.spacedBy(8.dp),
+                            ) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically,
+                                ) {
+                                    Text(
+                                        text = stringResource(R.string.web_catalog_visible_count, filteredItems.size),
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = EinkMuted,
+                                    )
+                                    TextButton(
+                                        onClick = onTranslateCatalog,
+                                        enabled = !busy && canTranslate && filteredItems.isNotEmpty(),
+                                    ) {
+                                        Text(
+                                            stringResource(R.string.web_catalog_translate_list, targetLanguage.uppercase()),
+                                            fontWeight = FontWeight.Bold,
+                                        )
+                                    }
+                                }
+                                EinkRemoteCatalogPagerSlot(
+                                    paging = remotePaging,
+                                    busy = busy,
+                                    onPageSelected = onRemotePageSelected,
+                                )
 
-                        // Catalog Items List with E-Ink Dynamic Auto-Fit Discrete Pagination
-                        com.dongholab.pagetuner.ui.common.EinkAutoFitPagingContainer(
-                            items = filteredItems,
-                            estimatedItemHeight = 104.dp,
-                            busy = busy,
-                            state = viewportPagingState,
-                            modifier = Modifier.weight(1f),
-                            emptyContent = {
+                                com.dongholab.pagetuner.ui.common.EinkAutoFitPagingContainer(
+                                    items = filteredItems,
+                                    estimatedItemHeight = 104.dp,
+                                    busy = busy,
+                                    state = viewportPagingState,
+                                    modifier = Modifier.weight(1f),
+                                    emptyContent = {
+                                        Text(
+                                            text = if (items.isEmpty()) {
+                                                stringResource(R.string.web_catalog_loading_items)
+                                            } else {
+                                                stringResource(R.string.web_catalog_no_filter_matches)
+                                            },
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = EinkMuted,
+                                        )
+                                    },
+                                ) { item ->
+                                    RemoteBookRow(
+                                        item = item,
+                                        translation = translatedItems[item.translationKey()],
+                                        coverBytes = item.coverUrl?.let { coverThumbnails[it] },
+                                        displayMode = displayMode,
+                                        busy = busy,
+                                        onOpenDetail = { onOpenDetail(item) },
+                                        onImportItem = onImportItem,
+                                    )
+                                }
+                            }
+                        }
+
+                        CatalogPageSection.SearchAndFilters -> {
+                            Column(
+                                modifier = Modifier.fillMaxSize(),
+                                verticalArrangement = Arrangement.spacedBy(8.dp),
+                            ) {
                                 Text(
-                                    text = if (items.isEmpty()) "Loading catalog page items..." else "No novels match your filter.",
-                                    style = MaterialTheme.typography.bodySmall,
+                                    text = catalogUrl,
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = EinkMuted,
+                                    maxLines = 1,
+                                    overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                                )
+                                WebCatalogSearchControls(
+                                    query = query,
+                                    genreOptions = catalogCapabilities.genreOptions,
+                                    selectedGenreKey = selectedGenreKey,
+                                    busy = busy,
+                                    onQueryChange = onQueryChange,
+                                    onGenreSelected = onGenreSelected,
+                                    onSearch = {
+                                        onSearch()
+                                        selectedSection = CatalogPageSection.Books
+                                    },
+                                    onClear = {
+                                        onClearSearch()
+                                        selectedSection = CatalogPageSection.Books
+                                    },
+                                )
+                                Text(
+                                    stringResource(R.string.web_catalog_language_filter),
+                                    style = MaterialTheme.typography.labelSmall,
                                     color = EinkMuted,
                                 )
-                            },
-                        ) { item ->
-                            RemoteBookRow(
-                                item = item,
-                                translation = translatedItems[item.translationKey()],
-                                coverBytes = item.coverUrl?.let { coverThumbnails[it] },
-                                displayMode = displayMode,
-                                busy = busy,
-                                onOpenDetail = { onOpenDetail(item) },
-                                onImportItem = onImportItem,
-                            )
+                                FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                    listOf("All", "en", "ko").forEach { lang ->
+                                        FilterChip(
+                                            selected = selectedLanguageFilter == lang,
+                                            onClick = {
+                                                selectedLanguageFilter = lang
+                                                selectedSection = CatalogPageSection.Books
+                                            },
+                                            enabled = !busy,
+                                            label = {
+                                                Text(
+                                                    if (lang == "All") {
+                                                        stringResource(R.string.web_catalog_all_languages)
+                                                    } else {
+                                                        lang.uppercase()
+                                                    },
+                                                )
+                                            },
+                                        )
+                                    }
+                                }
+                            }
                         }
                     }
                 },

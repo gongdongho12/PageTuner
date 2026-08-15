@@ -43,13 +43,33 @@ only then creates the text data consumed by the reader and translator.
 
 ## Storage contract
 
-`OfflineNovelStorageStore` writes one JSON file per remote chapter under the
-app-private `files/offline_novels` directory. The filename is a SHA-256 digest
-of the source account and remote chapter ID, so display order changes do not
-overwrite a different chapter.
+`OfflineNovelStorageStore` writes one JSON package per remote chapter under an
+explicit provider -> book -> chapter hierarchy in the app-private
+`files/offline_novels` directory:
+
+```text
+offline_novels/
+  providers/
+    {provider-account}-{source-hash}/
+      books/
+        {stable-book-id}/
+          chapters/
+            {zero-padded-chapter-number}-{remote-chapter-id-hash}.json
+```
+
+For example, WTR-LAB chapter 7 starts with
+`providers/default_wtr_lab-…/books/…/chapters/00000007-….json`. Provider,
+account, stable series identity, chapter number, and remote chapter identity
+all participate in the path. Equal titles or chapter numbers therefore cannot
+overwrite chapters from another provider or book.
+
+Version-2 flat SHA-256 files remain readable. A later translation/save writes
+the package to the version-3 structured location, so existing offline downloads
+continue to work without an eager destructive migration.
 
 Each version-2 package contains:
 
+- source type, provider account, stable series/book ID;
 - novel ID, stable remote chapter ID, display chapter number, and title;
 - source language and original text;
 - zero or more translations keyed by normalized target language;

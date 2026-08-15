@@ -66,6 +66,89 @@ class OfflineNovelStorageStoreTest {
     }
 
     @Test
+    fun sameBookAndChapterIdentityAtDifferentProvidersDoNotOverwriteEachOther() {
+        val store = OfflineNovelStorageStore(null)
+        val wtr = item.copy(
+            identity = item.identity.copy(accountId = "default_wtr_lab"),
+            seriesId = "shared-book-id",
+            chapterNumber = 7,
+        )
+        val novelBuddy = wtr.copy(
+            identity = wtr.identity.copy(accountId = "default_novelbuddy"),
+        )
+
+        store.saveOriginalChapter(wtr, 7, "WTR chapter")
+        store.saveOriginalChapter(novelBuddy, 7, "NovelBuddy chapter")
+
+        assertEquals("WTR chapter", store.getOfflineChapter(wtr)?.originalText)
+        assertEquals("NovelBuddy chapter", store.getOfflineChapter(novelBuddy)?.originalText)
+    }
+
+    @Test
+    fun storesProviderBookAndChapterAsStructuredDirectories() {
+        val directory = Files.createTempDirectory("offline-novel-layout-test").toFile()
+        val structuredItem = item.copy(
+            identity = item.identity.copy(accountId = "default_wtr_lab"),
+            seriesId = "wtr-book-42",
+            chapterNumber = 7,
+        )
+        try {
+            OfflineNovelStorageStore.forDirectory(directory)
+                .saveOriginalChapter(structuredItem, 7, "Structured chapter")
+
+            val jsonFile = directory.walkTopDown().single { file -> file.isFile && file.extension == "json" }
+            val relativePath = jsonFile.relativeTo(directory).invariantSeparatorsPath
+            assertTrue(relativePath.startsWith("providers/default_wtr_lab-"))
+            assertTrue(relativePath.contains("/books/"))
+            assertTrue(relativePath.contains("/chapters/00000007-"))
+            assertEquals("Structured chapter", OfflineNovelStorageStore.forDirectory(directory)
+                .getOfflineChapter(structuredItem)?.originalText)
+        } finally {
+            directory.deleteRecursively()
+        }
+    }
+
+    @Test
+    fun findsStableChapterAfterRemoteDisplayNumberChanges() {
+        val directory = Files.createTempDirectory("offline-novel-renumber-test").toFile()
+        val original = item.copy(seriesId = "stable-book", chapterNumber = 7)
+        val renumbered = original.copy(chapterNumber = 8)
+        try {
+            OfflineNovelStorageStore.forDirectory(directory)
+                .saveOriginalChapter(original, 7, "Stable remote chapter")
+
+            val restored = OfflineNovelStorageStore.forDirectory(directory)
+                .getOfflineChapter(renumbered)
+
+            assertEquals("Stable remote chapter", restored?.originalText)
+        } finally {
+            directory.deleteRecursively()
+        }
+    }
+
+    @Test
+    fun readsLegacyFlatChapterPackageAfterLayoutUpgrade() {
+        val directory = Files.createTempDirectory("offline-novel-legacy-test").toFile()
+        try {
+            OfflineNovelStorageStore.forDirectory(directory).saveOriginalChapter(
+                novelId = item.identity.accountId,
+                chapterId = item.identity.remoteId,
+                chapterNumber = 7,
+                chapterTitle = item.title,
+                sourceLanguage = "en",
+                contentText = "Legacy flat chapter",
+            )
+
+            val restored = OfflineNovelStorageStore.forDirectory(directory).getOfflineChapter(item)
+
+            assertEquals("Legacy flat chapter", restored?.originalText)
+            assertTrue(directory.listFiles().orEmpty().single().isFile)
+        } finally {
+            directory.deleteRecursively()
+        }
+    }
+
+    @Test
     fun restoresOriginalAndTranslationsAfterStoreRestart() {
         val directory = Files.createTempDirectory("offline-novel-test").toFile()
         try {
@@ -79,7 +162,7 @@ class OfflineNovelStorageStoreTest {
             )
             assertEquals("Original text", restored.originalText)
             assertEquals("번역문", restored.preferredText("ko").first)
-            assertTrue(directory.listFiles().orEmpty().single().name.endsWith(".json"))
+            assertTrue(directory.walkTopDown().count { it.isFile && it.extension == "json" } == 1)
         } finally {
             directory.deleteRecursively()
         }

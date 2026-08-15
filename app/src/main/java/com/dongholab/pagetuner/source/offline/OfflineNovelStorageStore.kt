@@ -16,6 +16,9 @@ data class OfflineChapterTranslation(
 )
 
 data class OfflineNovelChapter(
+    val sourceType: String,
+    val sourceAccountId: String,
+    val seriesId: String,
     val novelId: String,
     val chapterId: String,
     val chapterNumber: Int,
@@ -56,8 +59,11 @@ class OfflineNovelStorageStore private constructor(
         item: RemoteBookItem,
         chapterNumber: Int,
         contentText: String,
-    ): OfflineNovelChapter = saveOriginalChapterWithKey(
-        key = storageKey(item),
+    ): OfflineNovelChapter = saveOriginalChapterAt(
+        location = structuredLocation(item, chapterNumber),
+        sourceType = item.identity.sourceType.name,
+        sourceAccountId = item.identity.accountId,
+        seriesId = item.seriesId?.takeIf(String::isNotBlank) ?: item.identity.accountId,
         novelId = item.seriesId?.takeIf(String::isNotBlank) ?: item.identity.accountId,
         chapterId = item.identity.remoteId,
         chapterNumber = chapterNumber,
@@ -73,8 +79,11 @@ class OfflineNovelStorageStore private constructor(
         chapterTitle: String,
         sourceLanguage: String,
         contentText: String,
-    ): OfflineNovelChapter = saveOriginalChapterWithKey(
-        key = storageKey(novelId, chapterId),
+    ): OfflineNovelChapter = saveOriginalChapterAt(
+        location = legacyLocation(storageKey(novelId, chapterId)),
+        sourceType = "legacy",
+        sourceAccountId = "",
+        seriesId = novelId,
         novelId = novelId,
         chapterId = chapterId,
         chapterNumber = chapterNumber,
@@ -83,8 +92,11 @@ class OfflineNovelStorageStore private constructor(
         contentText = contentText,
     )
 
-    private fun saveOriginalChapterWithKey(
-        key: String,
+    private fun saveOriginalChapterAt(
+        location: StorageLocation,
+        sourceType: String,
+        sourceAccountId: String,
+        seriesId: String,
         novelId: String,
         chapterId: String,
         chapterNumber: Int,
@@ -93,8 +105,11 @@ class OfflineNovelStorageStore private constructor(
         contentText: String,
     ): OfflineNovelChapter = synchronized(lock) {
         require(contentText.isNotBlank()) { "Offline chapter text cannot be blank." }
-        val previous = loadLocked(key)
+        val previous = loadLocked(location)
         val chapter = OfflineNovelChapter(
+            sourceType = sourceType,
+            sourceAccountId = sourceAccountId,
+            seriesId = seriesId,
             novelId = novelId,
             chapterId = chapterId,
             chapterNumber = chapterNumber,
@@ -104,7 +119,7 @@ class OfflineNovelStorageStore private constructor(
             translations = previous?.translations.orEmpty(),
             savedAtMillis = System.currentTimeMillis(),
         )
-        persistLocked(key, chapter)
+        persistLocked(location, chapter)
         chapter
     }
 
@@ -115,8 +130,7 @@ class OfflineNovelStorageStore private constructor(
         translatedText: String,
         providerId: String,
     ): OfflineNovelChapter = synchronized(lock) {
-        val key = storageKey(item)
-        val current = requireNotNull(loadLocked(key)) {
+        val current = requireNotNull(loadItemLocked(item)) {
             "Save the original chapter before its translation."
         }
         val language = targetLanguage.trim().lowercase().ifBlank { "ko" }
@@ -132,12 +146,12 @@ class OfflineNovelStorageStore private constructor(
             ),
             savedAtMillis = System.currentTimeMillis(),
         )
-        persistLocked(key, updated)
+        persistLocked(structuredLocation(item, chapterNumber), updated)
         updated
     }
 
     fun getOfflineChapter(item: RemoteBookItem): OfflineNovelChapter? = synchronized(lock) {
-        loadLocked(storageKey(item))
+        loadItemLocked(item)
     }
 
     fun isChapterDownloaded(item: RemoteBookItem): Boolean = getOfflineChapter(item) != null
@@ -163,7 +177,7 @@ class OfflineNovelStorageStore private constructor(
     }
 
     fun getOfflineChapter(novelId: String, chapterNumber: Int): String? = synchronized(lock) {
-        loadLocked(storageKey(novelId, chapterNumber.toString()))?.originalText
+        loadLocked(legacyLocation(storageKey(novelId, chapterNumber.toString())))?.originalText
     }
 
     fun isChapterDownloaded(novelId: String, chapterNumber: Int): Boolean {
@@ -174,7 +188,7 @@ class OfflineNovelStorageStore private constructor(
         return DocumentIds.sha256("$novelId\n$chapterId")
     }
 
-    private fun storageKey(item: RemoteBookItem): String {
+    private fun legacyStorageKey(item: RemoteBookItem): String {
         val series = item.seriesId?.trim()?.takeIf(String::isNotBlank)
             ?: return storageKey(item.identity.accountId, item.identity.remoteId)
         return DocumentIds.sha256(
@@ -182,18 +196,60 @@ class OfflineNovelStorageStore private constructor(
         )
     }
 
-    private fun loadLocked(key: String): OfflineNovelChapter? {
-        memory[key]?.let { return it }
-        val file = rootDirectory?.resolve("$key.json") ?: return null
-        if (!file.isFile) return null
-        return runCatching { decode(file.readText(Charsets.UTF_8)) }
-            .getOrNull()
-            ?.also { memory[key] = it }
+    private fun structuredLocation(item: RemoteBookItem, chapterNumber: Int): StorageLocation {
+        return StorageLocation(
+            memoryKey = legacyStorageKey(item),
+            relativePath = OfflineNovelStoragePath.relativePath(item, chapterNumber),
+            legacyRelativePath = "${legacyStorageKey(item)}.json",
+        )
     }
 
-    private fun persistLocked(key: String, chapter: OfflineNovelChapter) {
-        memory[key] = chapter
-        val file = rootDirectory?.resolve("$key.json") ?: return
+    private fun legacyLocation(key: String): StorageLocation = StorageLocation(
+        memoryKey = key,
+        relativePath = "$key.json",
+    )
+
+    private fun loadItemLocked(item: RemoteBookItem): OfflineNovelChapter? {
+        val memoryKey = legacyStorageKey(item)
+        memory[memoryKey]?.let { return it }
+        val knownNumber = item.chapterNumber
+        if (knownNumber != null) {
+            loadLocked(structuredLocation(item, knownNumber))?.let { return it }
+        }
+        // Remote sites occasionally renumber chapters. The stable remote chapter ID remains
+        // authoritative, so fall back to its suffix before checking the legacy flat layout.
+        val chapterDirectory = rootDirectory
+            ?.resolve(OfflineNovelStoragePath.chapterDirectory(item))
+        val suffix = OfflineNovelStoragePath.chapterFileSuffix(item)
+        val candidate = chapterDirectory
+            ?.listFiles { file -> file.isFile && file.name.endsWith(suffix) }
+            ?.maxByOrNull(File::lastModified)
+        loadFileLocked(memoryKey, candidate)?.let { return it }
+        return loadLocked(legacyLocation(memoryKey))
+    }
+
+    private fun loadLocked(location: StorageLocation): OfflineNovelChapter? {
+        memory[location.memoryKey]?.let { return it }
+        val file = rootDirectory?.resolve(location.relativePath)
+        loadFileLocked(location.memoryKey, file)?.let { return it }
+        val legacyFile = if (rootDirectory != null && location.legacyRelativePath != null) {
+            rootDirectory.resolve(location.legacyRelativePath)
+        } else {
+            null
+        }
+        return loadFileLocked(location.memoryKey, legacyFile)
+    }
+
+    private fun loadFileLocked(memoryKey: String, file: File?): OfflineNovelChapter? {
+        if (file?.isFile != true) return null
+        return runCatching { decode(file.readText(Charsets.UTF_8)) }
+            .getOrNull()
+            ?.also { memory[memoryKey] = it }
+    }
+
+    private fun persistLocked(location: StorageLocation, chapter: OfflineNovelChapter) {
+        memory[location.memoryKey] = chapter
+        val file = rootDirectory?.resolve(location.relativePath) ?: return
         file.parentFile?.mkdirs()
         file.writeAtomically(encode(chapter).toByteArray(Charsets.UTF_8))
     }
@@ -212,7 +268,10 @@ class OfflineNovelStorageStore private constructor(
             )
         }
         return JSONObject().apply {
-            put("version", 2)
+            put("version", 3)
+            put("sourceType", chapter.sourceType)
+            put("sourceAccountId", chapter.sourceAccountId)
+            put("seriesId", chapter.seriesId)
             put("novelId", chapter.novelId)
             put("chapterId", chapter.chapterId)
             put("chapterNumber", chapter.chapterNumber)
@@ -242,6 +301,9 @@ class OfflineNovelStorageStore private constructor(
             }
         }
         return OfflineNovelChapter(
+            sourceType = json.optString("sourceType", "legacy"),
+            sourceAccountId = json.optString("sourceAccountId", ""),
+            seriesId = json.optString("seriesId", json.getString("novelId")),
             novelId = json.getString("novelId"),
             chapterId = json.getString("chapterId"),
             chapterNumber = json.getInt("chapterNumber"),
@@ -281,4 +343,10 @@ class OfflineNovelStorageStore private constructor(
             return OfflineNovelStorageStore(directory)
         }
     }
+
+    private data class StorageLocation(
+        val memoryKey: String,
+        val relativePath: String,
+        val legacyRelativePath: String? = null,
+    )
 }

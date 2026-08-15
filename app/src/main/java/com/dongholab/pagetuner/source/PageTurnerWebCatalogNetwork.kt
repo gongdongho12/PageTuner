@@ -24,6 +24,7 @@ object PageTurnerWebCatalogNetwork {
     ): ByteArray = withContext(Dispatchers.IO) {
         var currentUrl = unwrapNextJsImageUrl(url)
         repeat(5) { redirectCount ->
+            WebNovelRequestGate.awaitPermit(currentUrl, WebNovelRequestKind.Asset)
             runCatching {
                 val connection = URL(currentUrl).openConnection() as? HttpURLConnection
                     ?: throw IOException("Only HTTP(S) catalog URLs are supported.")
@@ -47,6 +48,16 @@ object PageTurnerWebCatalogNetwork {
 
                 val statusCode = connection.responseCode
                 Log.d(TAG, "Fetching image [$redirectCount] URL: $currentUrl -> HTTP $statusCode")
+
+                if (statusCode == 429 || statusCode == HttpURLConnection.HTTP_UNAVAILABLE) {
+                    WebNovelRequestGate.recordThrottled(
+                        currentUrl,
+                        WebNovelRetryAfter.parseMillis(connection.getHeaderField("Retry-After")),
+                        WebNovelRequestKind.Asset,
+                    )
+                    connection.disconnect()
+                    throw IOException("Remote image provider throttled the request with HTTP $statusCode")
+                }
 
                 if (statusCode in 300..399) {
                     val location = connection.getHeaderField("Location")
@@ -72,6 +83,7 @@ object PageTurnerWebCatalogNetwork {
                     if (maxBytes == null) stream.readBytes() else stream.readBytes(maxBytes)
                 }
                 connection.disconnect()
+                WebNovelRequestGate.recordSuccess(currentUrl, WebNovelRequestKind.Asset)
                 Log.d(TAG, "Successfully fetched image (${bytes.size} bytes) from $url")
                 return@withContext bytes
             }.onFailure { error ->

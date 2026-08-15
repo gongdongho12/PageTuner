@@ -3,6 +3,34 @@ plugins {
     alias(libs.plugins.kotlin.compose)
 }
 
+fun readRootDotEnv(): Map<String, String> {
+    val envFile = rootProject.file(".env")
+    if (!envFile.isFile) return emptyMap()
+    return envFile.readLines()
+        .map(String::trim)
+        .filter { it.isNotBlank() && !it.startsWith('#') && '=' in it }
+        .associate { line ->
+            val key = line.substringBefore('=').trim()
+            val value = line.substringAfter('=').trim().removeSurrounding("\"").removeSurrounding("'")
+            key to value
+        }
+}
+
+fun String.asBuildConfigString(): String = buildString {
+    append('"')
+    append(this@asBuildConfigString.replace("\\", "\\\\").replace("\"", "\\\""))
+    append('"')
+}
+
+val rootDotEnv = readRootDotEnv()
+fun localSecret(name: String): String =
+    providers.environmentVariable(name).orNull ?: rootDotEnv[name].orEmpty()
+
+val deepSeekApiKey = localSecret("DEEPSEEK_API_KEY")
+val deepSeekApiUrl = localSecret("DEEPSEEK_API_URL")
+    .ifBlank { "https://api.deepseek.com/chat/completions" }
+val deepSeekModel = localSecret("DEEPSEEK_MODEL").ifBlank { "deepseek-v4-flash" }
+
 android {
     namespace = "com.dongholab.pagetuner"
     compileSdk {
@@ -22,7 +50,16 @@ android {
     }
 
     buildTypes {
+        debug {
+            buildConfigField("String", "DEEPSEEK_API_KEY", deepSeekApiKey.asBuildConfigString())
+            buildConfigField("String", "DEEPSEEK_API_URL", deepSeekApiUrl.asBuildConfigString())
+            buildConfigField("String", "DEEPSEEK_MODEL", deepSeekModel.asBuildConfigString())
+        }
         release {
+            // Production credentials must be resolved by a subscription backend, never embedded in the APK.
+            buildConfigField("String", "DEEPSEEK_API_KEY", "\"\"")
+            buildConfigField("String", "DEEPSEEK_API_URL", deepSeekApiUrl.asBuildConfigString())
+            buildConfigField("String", "DEEPSEEK_MODEL", deepSeekModel.asBuildConfigString())
             optimization {
                 enable = false
             }
@@ -34,6 +71,7 @@ android {
     }
     buildFeatures {
         compose = true
+        buildConfig = true
     }
 }
 

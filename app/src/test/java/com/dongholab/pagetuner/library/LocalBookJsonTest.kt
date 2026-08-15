@@ -43,6 +43,8 @@ class LocalBookJsonTest {
             currentRemoteChapterId = "chapter_9",
             currentChapterTitle = "Chapter 9",
             currentChapterNumber = 9,
+            contentLanguage = "ko",
+            contentIsTranslated = true,
         )
 
         val decoded = LocalBookJson.decode(LocalBookJson.encode(listOf(book)))

@@ -114,6 +114,11 @@ sealed interface WebCatalogStatus {
         val title: String,
     ) : WebCatalogStatus
 
+    data class OfflineSaved(
+        val savedItems: Int,
+        val translationFailedItems: Int,
+    ) : WebCatalogStatus
+
     data class SavedAccount(
         val title: String,
     ) : WebCatalogStatus
@@ -451,6 +456,7 @@ class WebCatalogViewModel(
                     item.copy(
                         title = "${item.title} [${payload.language.uppercase()}]",
                         language = payload.language,
+                        contentVariant = RemoteBookContentVariant.Translated,
                     )
                 } else {
                     item
@@ -555,6 +561,22 @@ class WebCatalogViewModel(
                         _uiState.update { state -> state.copy(batchDownloadProgress = progress) }
                     },
                 )
+            }.onSuccess { result ->
+                _uiState.update { state ->
+                    state.copy(
+                        status = if (result.failedItems > 0) {
+                            WebCatalogStatus.Error(
+                                result.failureMessages.firstOrNull()
+                                    ?: "${result.failedItems} chapter(s) could not be saved.",
+                            )
+                        } else {
+                            WebCatalogStatus.OfflineSaved(
+                                savedItems = result.savedItems,
+                                translationFailedItems = result.translationFailedItems,
+                            )
+                        },
+                    )
+                }
             }.onFailure { error ->
                 if (error is CancellationException) return@onFailure
                 _uiState.update { state -> state.copy(status = error.toWebCatalogStatus()) }
@@ -752,10 +774,19 @@ class WebCatalogViewModel(
                 catalogPageMemoryCache[cacheKey]
             }
             if (inMemory != null) {
+                DiagnosticLogger.log(
+                    "[WEB CATALOG CACHE HIT]",
+                    "provider=${adapter?.id ?: "unknown"} page=$page items=${inMemory.catalog.items.size}",
+                )
                 applyLoadedWebNovelCatalog(inMemory)
                 return@launch
             }
 
+            val startedAtNanos = System.nanoTime()
+            DiagnosticLogger.log(
+                "[WEB CATALOG START]",
+                "provider=${adapter?.id ?: "unknown"} page=$page forceRefresh=$forceRefresh",
+            )
             runCatching {
                 loadWebNovelCatalog(
                     url = url,
@@ -764,6 +795,10 @@ class WebCatalogViewModel(
                     onStep = ::updateCatalogLoadStep,
                 )
             }.onSuccess { loaded ->
+                DiagnosticLogger.log(
+                    "[WEB CATALOG SUCCESS]",
+                    "provider=${adapter?.id ?: "unknown"} page=${loaded.paging.currentPage}/${loaded.paging.totalPages} items=${loaded.catalog.items.size} total=${loaded.paging.totalItems} durationMs=${(System.nanoTime() - startedAtNanos) / 1_000_000L}",
+                )
                 catalogPageMemoryCache[cacheKey] = loaded
                 if (loaded.paging.currentPage == 1) {
                     cache.saveStructured(url, loaded.catalog)
@@ -771,6 +806,10 @@ class WebCatalogViewModel(
                 applyLoadedWebNovelCatalog(loaded, cachedCatalogs = cache.list())
             }.onFailure { error ->
                 if (error !is CancellationException) {
+                    DiagnosticLogger.log(
+                        "[WEB CATALOG FAILURE]",
+                        "provider=${adapter?.id ?: "unknown"} page=$page durationMs=${(System.nanoTime() - startedAtNanos) / 1_000_000L} ${error.javaClass.simpleName}: ${error.message}",
+                    )
                     _uiState.update { state ->
                         state.copy(
                             catalogLoading = null,

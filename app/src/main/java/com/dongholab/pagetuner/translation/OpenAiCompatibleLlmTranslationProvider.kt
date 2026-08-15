@@ -13,10 +13,14 @@ class OpenAiCompatibleLlmTranslationProvider(
     private val apiKey: String,
     private val endpoint: String,
     private val model: String,
-    private val transport: LlmHttpTransport = LlmHttpTransport.default(),
+    private val providerName: String = DefaultProviderName,
+    private val providerIdPrefix: String = "openai-compatible-llm",
+    private val requestOptions: LlmChatRequestOptions = LlmChatRequestOptions(),
+    private val transport: LlmHttpTransport = LlmHttpTransport.default(providerName),
 ) : TranslationProvider {
     override val id: String = buildString {
-        append("openai-compatible-llm:")
+        append(providerIdPrefix)
+        append(':')
         append(DocumentIds.sha256(endpoint).take(12))
         append(':')
         append(model)
@@ -24,13 +28,13 @@ class OpenAiCompatibleLlmTranslationProvider(
 
     override suspend fun translate(request: TranslationRequest): List<TranslatedSegment> {
         if (apiKey.isBlank()) {
-            throw providerConfigurationException(ProviderName, "LLM API key is required.")
+            throw providerConfigurationException(providerName, "LLM API key is required.")
         }
         if (endpoint.isBlank()) {
-            throw providerConfigurationException(ProviderName, "LLM endpoint is required.")
+            throw providerConfigurationException(providerName, "LLM endpoint is required.")
         }
         if (model.isBlank()) {
-            throw providerConfigurationException(ProviderName, "LLM model is required.")
+            throw providerConfigurationException(providerName, "LLM model is required.")
         }
         if (request.segments.isEmpty()) return emptyList()
 
@@ -47,7 +51,7 @@ class OpenAiCompatibleLlmTranslationProvider(
                 )
                 parseResponse(request, response)
             }.getOrElse { error ->
-                throw error.asProviderNetworkFailure(ProviderName)
+                throw error.asProviderNetworkFailure(providerName)
             }
         }
     }
@@ -59,6 +63,13 @@ class OpenAiCompatibleLlmTranslationProvider(
         return JSONObject().apply {
             put("model", model)
             put("temperature", 0)
+            put("stream", false)
+            if (requestOptions.jsonResponse) {
+                put("response_format", JSONObject().put("type", "json_object"))
+            }
+            requestOptions.thinkingEnabled?.let { enabled ->
+                put("thinking", JSONObject().put("type", if (enabled) "enabled" else "disabled"))
+            }
             put("messages", JSONArray().apply {
                 put(
                     JSONObject()
@@ -101,7 +112,7 @@ class OpenAiCompatibleLlmTranslationProvider(
                 .getString("content")
         }.getOrElse { error ->
             throw providerResponseFormatException(
-                providerName = ProviderName,
+                providerName = providerName,
                 detail = "LLM response did not contain a chat completion message.",
                 cause = error,
             )
@@ -111,14 +122,14 @@ class OpenAiCompatibleLlmTranslationProvider(
             extractJsonObject(content).getJSONArray("translations")
         }.getOrElse { error ->
             throw providerResponseFormatException(
-                providerName = ProviderName,
+                providerName = providerName,
                 detail = "LLM response did not contain translation JSON.",
                 cause = error,
             )
         }
         if (translations.length() != request.segments.size) {
             throw providerResponseFormatException(
-                providerName = ProviderName,
+                providerName = providerName,
                 detail = "LLM translation response size did not match request size.",
             )
         }
@@ -149,9 +160,14 @@ class OpenAiCompatibleLlmTranslationProvider(
     }
 
     private companion object {
-        const val ProviderName = "LLM API"
+        const val DefaultProviderName = "LLM API"
     }
 }
+
+data class LlmChatRequestOptions(
+    val jsonResponse: Boolean = false,
+    val thinkingEnabled: Boolean? = null,
+)
 
 fun interface LlmHttpTransport {
     suspend fun post(
@@ -161,36 +177,37 @@ fun interface LlmHttpTransport {
     ): String
 
     companion object {
-        fun default(): LlmHttpTransport = LlmHttpTransport { endpoint, headers, body ->
-            val connection = (URL(endpoint).openConnection() as HttpURLConnection).apply {
-                requestMethod = "POST"
-                connectTimeout = 15_000
-                readTimeout = 60_000
-                doOutput = true
-                headers.forEach { (name, value) -> setRequestProperty(name, value) }
-            }
+        fun default(providerName: String = "LLM API"): LlmHttpTransport =
+            LlmHttpTransport { endpoint, headers, body ->
+                val connection = (URL(endpoint).openConnection() as HttpURLConnection).apply {
+                    requestMethod = "POST"
+                    connectTimeout = 15_000
+                    readTimeout = 60_000
+                    doOutput = true
+                    headers.forEach { (name, value) -> setRequestProperty(name, value) }
+                }
 
-            connection.outputStream.use { output ->
-                output.write(body.toByteArray(Charsets.UTF_8))
-            }
+                connection.outputStream.use { output ->
+                    output.write(body.toByteArray(Charsets.UTF_8))
+                }
 
-            val responseCode = connection.responseCode
-            val stream = if (responseCode in 200..299) {
-                connection.inputStream
-            } else {
-                connection.errorStream
-            }
-            val response = stream?.bufferedReader(Charsets.UTF_8)?.use { it.readText() }.orEmpty()
-            connection.disconnect()
+                val responseCode = connection.responseCode
+                val stream = if (responseCode in 200..299) {
+                    connection.inputStream
+                } else {
+                    connection.errorStream
+                }
+                val response = stream?.bufferedReader(Charsets.UTF_8)?.use { it.readText() }.orEmpty()
+                connection.disconnect()
 
-            if (responseCode !in 200..299) {
-                throw providerHttpException(
-                    providerName = "LLM API",
-                    statusCode = responseCode,
-                    responseBody = response,
-                )
+                if (responseCode !in 200..299) {
+                    throw providerHttpException(
+                        providerName = providerName,
+                        statusCode = responseCode,
+                        responseBody = response,
+                    )
+                }
+                response
             }
-            response
-        }
     }
 }

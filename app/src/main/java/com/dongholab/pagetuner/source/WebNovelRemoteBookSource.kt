@@ -162,6 +162,7 @@ class WebNovelRemoteBookSource(
                         number = directChapterNumber,
                         title = siteAdapter.siteTitle(html, resolvedEndpointUrl),
                         url = resolvedEndpointUrl,
+                        language = languageFromUrl(resolvedEndpointUrl),
                     ),
                 ))
             }
@@ -206,6 +207,13 @@ class WebNovelRemoteBookSource(
             chapterNumber = chapter.number,
         )
     }
+
+    private fun languageFromUrl(url: String): String = runCatching {
+        java.net.URI(url).path.orEmpty()
+            .split('/')
+            .firstOrNull { segment -> segment.matches(Regex("[A-Za-z]{2,3}")) }
+            ?.lowercase()
+    }.getOrNull() ?: "auto"
 
     private fun logD(message: String) {
         runCatching { Log.d(TAG, message) }.onFailure { println("[$TAG] $message") }

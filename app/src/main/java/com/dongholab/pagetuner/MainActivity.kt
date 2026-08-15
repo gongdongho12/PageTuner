@@ -69,7 +69,9 @@ import com.dongholab.pagetuner.source.WebNovelPageRuntime
 import com.dongholab.pagetuner.source.offline.OfflineNovelStorageStore
 import com.dongholab.pagetuner.translation.JsonFileTranslationCache
 import com.dongholab.pagetuner.translation.TranslationProviderFactory
+import com.dongholab.pagetuner.translation.TranslationProviderKind
 import com.dongholab.pagetuner.translation.TranslationRepository
+import com.dongholab.pagetuner.translation.TranslationRuntimeSecrets
 import com.dongholab.pagetuner.translation.TranslationSettings
 import com.dongholab.pagetuner.translation.TranslationStatus
 import com.dongholab.pagetuner.translation.TranslationViewModel
@@ -201,6 +203,7 @@ fun PageTurnerApp() {
     val pdfSourceUri = readerState.pdfSourceUri
     val currentBookId = readerState.currentBookId
     val currentBook = localBooks.firstOrNull { it.id == currentBookId }
+    val currentContentAlreadyTranslated = currentBook?.contentIsTranslated == true
     val controlsVisible = readerState.controlsVisible
     val showDocumentDetails = readerState.showDocumentDetails
     val bookmarks = readerState.bookmarks
@@ -238,7 +241,21 @@ fun PageTurnerApp() {
     val displayMode = readerSettings.displayMode
     val paperColor = displayMode.servicePalette().paperColor()
     val providerKind = readerSettings.providerKind
-    val apiKey = translationState.apiKey
+    val manualApiKey = translationState.apiKey
+    val usesLocalDeepSeekSecret = providerKind == TranslationProviderKind.DEEPSEEK &&
+        TranslationRuntimeSecrets.hasLocalDeepSeekKey
+    val apiKey = when {
+        usesLocalDeepSeekSecret -> TranslationRuntimeSecrets.deepSeekApiKey
+        else -> manualApiKey
+    }
+    val activeLlmEndpoint = when (providerKind) {
+        TranslationProviderKind.DEEPSEEK -> TranslationRuntimeSecrets.deepSeekApiUrl
+        else -> readerSettings.llmEndpoint
+    }
+    val activeLlmModel = when (providerKind) {
+        TranslationProviderKind.DEEPSEEK -> TranslationRuntimeSecrets.deepSeekModel
+        else -> readerSettings.llmModel
+    }
     val busy = libraryState.busy || translationState.busy || webCatalogState.busy
     val progress = translationState.progress
 
@@ -249,8 +266,8 @@ fun PageTurnerApp() {
     val settings = TranslationSettings(
         providerKind = providerKind,
         apiKey = apiKey,
-        llmEndpoint = readerSettings.llmEndpoint,
-        llmModel = readerSettings.llmModel,
+        llmEndpoint = activeLlmEndpoint,
+        llmModel = activeLlmModel,
         sourceLanguage = readerSettings.sourceLanguage,
         targetLanguage = readerSettings.targetLanguage,
         readingWordsPerMinute = readerSettings.readingWordsPerMinute,
@@ -277,7 +294,7 @@ fun PageTurnerApp() {
     val currentReaderTranslationLoad = translationState.readerLoad.takeIf {
         it.matches(document.id, pageIndex)
     }
-    val readerTranslationLoading =
+    val readerTranslationLoading = !currentContentAlreadyTranslated &&
         com.dongholab.pagetuner.translation.shouldShowInitialReaderTranslationLoading(
             currentDocumentId = document.id,
             currentPageIndex = pageIndex,
@@ -292,12 +309,14 @@ fun PageTurnerApp() {
     }
     val webCatalogStatusText = webCatalogState.status.localizedMessage(context)
     val providerStatusText = when {
-        settingsProviderConfigured(providerKind, apiKey, readerSettings.llmEndpoint, readerSettings.llmModel) ->
+        settingsProviderConfigured(providerKind, apiKey, activeLlmEndpoint, activeLlmModel) ->
             stringResource(R.string.provider_status_ready)
         providerKind == com.dongholab.pagetuner.translation.TranslationProviderKind.GOOGLE_CLOUD ->
             stringResource(R.string.provider_status_missing_google_key)
         providerKind == com.dongholab.pagetuner.translation.TranslationProviderKind.GOOGLE_WEB_TRANSLATE_HTML ->
             stringResource(R.string.provider_status_google_web_no_key_required)
+        providerKind == TranslationProviderKind.DEEPSEEK ->
+            stringResource(R.string.provider_status_missing_deepseek_key)
         else -> stringResource(R.string.provider_status_missing_llm_settings)
     }
     val providerHealthText = translationState.providerHealth.localizedMessage(context)
@@ -442,6 +461,7 @@ fun PageTurnerApp() {
     }
 
     LaunchedEffect(document.id, pageIndex, settings, repository, pendingTranslationDocumentId) {
+        if (currentContentAlreadyTranslated) return@LaunchedEffect
         val shouldLoadCache = com.dongholab.pagetuner.translation.shouldLoadCachedReaderTranslation(
             currentDocumentId = document.id,
             pendingTranslationDocumentId = pendingTranslationDocumentId,
@@ -622,7 +642,7 @@ fun PageTurnerApp() {
                                     context = context,
                                     chapters = chapters,
                                     settings = settings,
-                                    includeTranslation = true,
+                                    includeTranslation = settings.isProviderConfigured,
                                 )
                             },
                         )
@@ -634,7 +654,8 @@ fun PageTurnerApp() {
                             readerSettings = readerSettings,
                             translationState = translationState,
                             providerKind = providerKind,
-                            apiKey = apiKey,
+                            apiKey = manualApiKey,
+                            usesLocalDeepSeekSecret = usesLocalDeepSeekSecret,
                             busy = busy,
                             canTranslate = canTranslateCurrentPage,
                             canRetryTranslation = canRetryCurrentPageTranslation,
@@ -735,7 +756,8 @@ fun PageTurnerApp() {
                     readerSubPage == com.dongholab.pagetuner.ui.reader.ReaderSubPage.READER &&
                     !readerTranslationLoading &&
                     !translationState.busy &&
-                    translationState.translation == null
+                    translationState.translation == null &&
+                    !currentContentAlreadyTranslated
                 ) {
                     com.dongholab.pagetuner.ui.translation.ReaderTranslationStatusBar(
                         targetLanguage = settings.normalizedTargetLanguage,

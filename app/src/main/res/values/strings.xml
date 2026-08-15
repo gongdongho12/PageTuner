@@ -86,9 +86,11 @@
     <string name="action_save_organization">Save</string>
     <string name="provider_google_cloud">Google Cloud</string>
     <string name="provider_google_web_translate_html">Google Web Translate</string>
+    <string name="provider_deepseek">DeepSeek AI</string>
     <string name="provider_openai_compatible_llm">LLM API</string>
     <string name="field_google_api_key">Google API key</string>
     <string name="field_google_web_api_key">Google Web API key (optional)</string>
+    <string name="field_deepseek_api_key">DeepSeek API key</string>
     <string name="field_llm_api_key">LLM API key</string>
     <string name="field_llm_endpoint">LLM endpoint</string>
     <string name="field_llm_model">Model</string>
@@ -113,7 +115,12 @@
     <string name="provider_status_ready">Provider configuration ready.</string>
     <string name="provider_status_missing_google_key">Google API key required.</string>
     <string name="provider_status_google_web_no_key_required">Google Web Translate can run without an API key.</string>
+    <string name="provider_status_missing_deepseek_key">DeepSeek API key is missing. Add DEEPSEEK_API_KEY to the local .env file.</string>
     <string name="provider_status_missing_llm_settings">LLM API key, endpoint, and model required.</string>
+    <string name="translation_plan_google">Plan: Google Translation</string>
+    <string name="translation_plan_deepseek">Plan: DeepSeek AI Translation</string>
+    <string name="translation_plan_custom">Plan: User-managed API</string>
+    <string name="deepseek_local_secret_active">Using the local Debug .env credential. The key is hidden and is not stored in app settings.</string>
     <string name="translation_cache_status">Saved %1$d/%2$d segments.</string>
     <string name="translation_cache_status_empty">No text segments for translation.</string>
     <string name="action_clear_translation_cache">Clear Translation Cache</string>
@@ -126,6 +133,7 @@
     <string name="provider_health_ready">Provider settings look ready.</string>
     <string name="provider_health_missing_google_key">Provider check failed: Google API key required.</string>
     <string name="provider_health_google_web_no_key_required">Provider check passed: Google Web Translate can run without an API key.</string>
+    <string name="provider_health_missing_deepseek_key">Provider check failed: add DEEPSEEK_API_KEY to the local .env file.</string>
     <string name="provider_health_missing_llm_settings">Provider check failed: LLM API key, endpoint, and model required.</string>
     <string name="provider_health_missing_settings">Provider check failed: missing settings.</string>
     <string name="provider_health_invalid_llm_endpoint">Provider check failed: LLM endpoint must be an http(s) URL.</string>
@@ -246,6 +254,14 @@
     <string name="status_web_catalog_loaded_cached">Loaded saved catalog %1$s: %2$d books.</string>
     <string name="status_web_catalog_importing">Downloading %1$s.</string>
     <string name="status_web_catalog_downloaded">Downloaded %1$s. Saving to local library.</string>
+    <string name="status_web_catalog_offline_saved">Saved %1$d chapter(s) for offline reading.</string>
+    <string name="status_web_catalog_offline_saved_translation_failed">Saved %1$d original chapter(s); translation failed for %2$d.</string>
+    <string name="web_novel_offline_save_failed_title">Offline save failed</string>
+    <string name="web_novel_offline_translation_failed_title">Original saved; translation failed</string>
+    <string name="web_novel_offline_save_complete_title">Offline save complete</string>
+    <string name="web_novel_loading_details_title">Loading novel details and chapter list…</string>
+    <string name="web_novel_offline_saving_title">Saving chapters for offline reading…</string>
+    <string name="web_novel_preparing_chapter_title">Preparing chapter and translation…</string>
     <string name="status_remote_source_account_saved">Saved remote source %1$s.</string>
     <string name="status_remote_source_account_deleted">Deleted remote source %1$s.</string>
     <string name="status_web_catalog_error">Web catalog error: %1$s</string>
@@ -298,4 +314,12 @@
     <string name="web_catalog_genre_prefix">Genre</string>
     <string name="action_search_remote_catalog">Search</string>
     <string name="action_clear_catalog_search">Clear keyword and genre</string>
+    <string name="web_catalog_section_books">Books</string>
+    <string name="web_catalog_section_search_filters">Search &amp; Filters</string>
+    <string name="web_catalog_visible_count">%1$d books on this page</string>
+    <string name="web_catalog_translate_list">Translate list → %1$s</string>
+    <string name="web_catalog_loading_items">Loading catalog page items…</string>
+    <string name="web_catalog_no_filter_matches">No novels match this filter.</string>
+    <string name="web_catalog_language_filter">Language filter</string>
+    <string name="web_catalog_all_languages">All languages</string>
 </resources>

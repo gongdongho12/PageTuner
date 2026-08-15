@@ -23,6 +23,13 @@ pagination, pacing, and offline cache do not depend on a single vendor.
   - The app does not embed copied browser validation headers or
     session-specific headers in source.
 
+- `DEEPSEEK`
+  - Provider: `DeepSeekTranslationProvider`
+  - Input: local Debug `.env` credential or a future production subscription proxy
+  - Uses the official Chat Completions JSON response mode with thinking disabled.
+  - Local setup, security boundary, and real API evidence are documented in
+    [DeepSeek Translation](DEEPSEEK_TRANSLATION.md).
+
 - `OPENAI_COMPATIBLE_LLM`
   - Provider: `OpenAiCompatibleLlmTranslationProvider`
   - Input: API key, chat-completions endpoint, model name
@@ -41,8 +48,8 @@ To add another provider:
    extra configuration.
 
 The cache key includes `provider.id`, so results from Google Cloud, Google Web
-HTML, LLM, and future providers stay separated even when document, page, and
-language pair match.
+HTML, DeepSeek, custom LLM, and future providers stay separated even when
+document, page, and language pair match.
 
 For imported local books, the JSON cache file is placed beside the app-private
 saved copy under `local_library/books/translate/<book-name>.translations.json`.

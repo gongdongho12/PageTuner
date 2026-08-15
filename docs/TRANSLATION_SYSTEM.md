@@ -42,14 +42,20 @@ creates `ContentTranslationService`. See
 ### `TranslationProvider`
 
 Vendor boundary. Implementations only translate `TextSegment` requests. Current
-implementations support Google Cloud, Google Web Translate, and an
-OpenAI-compatible LLM endpoint.
+implementations support Google Cloud, Google Web Translate, DeepSeek, and an
+OpenAI-compatible LLM endpoint. See
+[DeepSeek Translation](DEEPSEEK_TRANSLATION.md) for the local `.env` and
+production subscription boundary.
 
 ### `TranslationRepository`
 
 Reader-document boundary. It performs cache lookup, request batching, pacing,
 progress publication, and cache writes. The reader and whole-document prefetch
 queue use this directly because they already operate on `ReaderDocument`.
+Rolling translation and offline prefetch pass 10-page groups to
+`translatePages`. `TranslationRequestBatcher` combines segments across page
+boundaries and only splits at the 24-segment or 24,000-character safety limit,
+then restores each translated segment to its original page cache.
 
 ### Rolling reader prefetch
 
@@ -58,12 +64,14 @@ whole document immediately:
 
 1. A reader translation request queues the current page and the following nine
    pages (10 pages total).
-2. Every page has a runtime flag: `Queued`, `Translating`, `Ready`, or `Failed`.
-3. When the reader reaches page offset 5 in that window, the next non-overlapping
+2. The window is translated as one provider request when it fits the shared
+   segment and character safety limits.
+3. Every page has a runtime flag: `Queued`, `Translating`, `Ready`, or `Failed`.
+4. When the reader reaches page offset 5 in that window, the next non-overlapping
    10-page window is queued.
-4. A large page jump starts a new window at the current page rather than filling
+5. A large page jump starts a new window at the current page rather than filling
    every skipped window.
-5. The rolling worker does not set the application's blocking `busy` flag, so
+6. The rolling worker does not set the application's blocking `busy` flag, so
    page turns and reading remain available while look-ahead pages are cached.
 
 `RollingTranslationPolicy` owns window calculation and has no Android or

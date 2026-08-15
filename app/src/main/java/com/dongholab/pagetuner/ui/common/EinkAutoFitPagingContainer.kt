@@ -31,6 +31,72 @@ internal fun calculateEinkAutoFitPageSize(
     return (availableHeight / (itemHeightDp + itemSpacingDp)).toInt().coerceIn(1, 8)
 }
 
+internal data class EinkAutoFitPagePlan(
+    val pageSize: Int,
+    val showNavigation: Boolean,
+    /**
+     * A last-resort layout for a viewport that cannot contain both one complete row and the
+     * navigation bar. Showing the row first prevents the old "navigation only" blank page.
+     * Screens should still give the pager enough space for both whenever possible.
+     */
+    val navigationAfterItems: Boolean,
+)
+
+internal fun calculateEinkAutoFitPagePlan(
+    viewportHeightDp: Float?,
+    itemHeightDp: Float,
+    itemSpacingDp: Float,
+    fallbackPageSize: Int,
+    itemCount: Int,
+    reservedNavigationHeightDp: Float = 60f,
+): EinkAutoFitPagePlan {
+    if (itemCount <= 0) {
+        return EinkAutoFitPagePlan(pageSize = 1, showNavigation = false, navigationAfterItems = false)
+    }
+
+    if (viewportHeightDp == null || !viewportHeightDp.isFinite() || viewportHeightDp <= 0f) {
+        val pageSize = fallbackPageSize.coerceIn(1, 5)
+        return EinkAutoFitPagePlan(
+            pageSize = pageSize,
+            showNavigation = itemCount > pageSize,
+            navigationAfterItems = false,
+        )
+    }
+
+    val safeItemHeight = itemHeightDp.coerceAtLeast(1f)
+    val safeSpacing = itemSpacingDp.coerceAtLeast(0f)
+    val itemsWithoutNavigation =
+        ((viewportHeightDp + safeSpacing) / (safeItemHeight + safeSpacing))
+            .toInt()
+            .coerceIn(1, 8)
+
+    if (itemCount <= itemsWithoutNavigation) {
+        return EinkAutoFitPagePlan(
+            pageSize = itemsWithoutNavigation,
+            showNavigation = false,
+            navigationAfterItems = false,
+        )
+    }
+
+    val minimumPagedHeight = reservedNavigationHeightDp + safeSpacing + safeItemHeight
+    if (viewportHeightDp < minimumPagedHeight) {
+        return EinkAutoFitPagePlan(
+            pageSize = 1,
+            showNavigation = true,
+            navigationAfterItems = true,
+        )
+    }
+
+    val pageSize = ((viewportHeightDp - reservedNavigationHeightDp) / (safeItemHeight + safeSpacing))
+        .toInt()
+        .coerceIn(1, 8)
+    return EinkAutoFitPagePlan(
+        pageSize = pageSize,
+        showNavigation = true,
+        navigationAfterItems = false,
+    )
+}
+
 internal fun coerceEinkPageIndex(
     requestedPageIndex: Int,
     itemCount: Int,
@@ -91,12 +157,14 @@ fun <T> EinkAutoFitPagingContainer(
         val viewportHeightDp = maxHeight.value.takeIf {
             maxHeight.isSpecified && it > 0f && it.isFinite()
         }
-        val calculatedPageSize = calculateEinkAutoFitPageSize(
+        val pagePlan = calculateEinkAutoFitPagePlan(
             viewportHeightDp = viewportHeightDp,
             itemHeightDp = estimatedItemHeight.value,
             itemSpacingDp = itemSpacing.value,
             fallbackPageSize = fallbackPageSize,
+            itemCount = items.size,
         )
+        val calculatedPageSize = pagePlan.pageSize
 
         val totalPages = (items.size + calculatedPageSize - 1) / calculatedPageSize
         val safePageIndex = coerceEinkPageIndex(
@@ -112,25 +180,33 @@ fun <T> EinkAutoFitPagingContainer(
         val startIndex = safePageIndex * calculatedPageSize + 1
         val endIndex = minOf((safePageIndex + 1) * calculatedPageSize, items.size)
 
+        val navigation: @Composable () -> Unit = {
+            EinkPageNavigation(
+                startIndex = startIndex,
+                endIndex = endIndex,
+                itemCount = items.size,
+                pageIndex = safePageIndex,
+                pageCount = totalPages,
+                busy = busy,
+                onPrevious = { state.currentPageIndex = (safePageIndex - 1).coerceAtLeast(0) },
+                onNext = { state.currentPageIndex = (safePageIndex + 1).coerceAtMost(totalPages - 1) },
+            )
+        }
+
         Column(
             modifier = Modifier.fillMaxWidth(),
             verticalArrangement = Arrangement.spacedBy(itemSpacing),
         ) {
-            if (totalPages > 1) {
-                EinkPageNavigation(
-                    startIndex = startIndex,
-                    endIndex = endIndex,
-                    itemCount = items.size,
-                    pageIndex = safePageIndex,
-                    pageCount = totalPages,
-                    busy = busy,
-                    onPrevious = { state.currentPageIndex = (safePageIndex - 1).coerceAtLeast(0) },
-                    onNext = { state.currentPageIndex = (safePageIndex + 1).coerceAtMost(totalPages - 1) },
-                )
+            if (pagePlan.showNavigation && !pagePlan.navigationAfterItems) {
+                navigation()
             }
 
             currentPageItems.forEach { item ->
                 itemContent(item)
+            }
+
+            if (pagePlan.showNavigation && pagePlan.navigationAfterItems) {
+                navigation()
             }
         }
     }

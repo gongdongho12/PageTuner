@@ -171,6 +171,7 @@ class TranslationViewModelTest {
             assertFalse(state.rolling.running)
             assertEquals(10, provider.translatedPageIndexes.size)
             assertEquals((0 until 10).toSet(), provider.translatedPageIndexes)
+            assertEquals(1, provider.requests)
             assertEquals(10, state.rolling.readyPageCount)
             assertEquals(TranslationPageFlag.Ready, state.rolling.flagFor(0))
             assertEquals("ko:Page 1", state.translation?.text)
@@ -196,6 +197,7 @@ class TranslationViewModelTest {
 
             assertEquals(20, provider.translatedPageIndexes.size)
             assertEquals((0 until 20).toSet(), provider.translatedPageIndexes)
+            assertEquals(2, provider.requests)
             assertEquals(10, viewModel.uiState.value.rolling.windowStartIndex)
             assertEquals(20, viewModel.uiState.value.rolling.windowEndExclusive)
             assertEquals(15, viewModel.uiState.value.rolling.triggerPageIndex)
@@ -287,8 +289,10 @@ private class BlockingViewModelCache(
 private class RecordingRollingProvider : TranslationProvider {
     override val id: String = "rolling-recording"
     val translatedPageIndexes = mutableSetOf<Int>()
+    var requests: Int = 0
 
     override suspend fun translate(request: TranslationRequest): List<TranslatedSegment> {
+        requests += 1
         request.segments.forEach { segment -> translatedPageIndexes += segment.pageIndex }
         return request.segments.map { segment ->
             TranslatedSegment(segment.id, "ko:${segment.text}")

@@ -191,6 +191,24 @@ their HTTP request/response format inside their adapter. Do not start WebView
 work after a successful HTTP extraction, and never swallow coroutine
 cancellation while falling back.
 
+### Shared request pacing
+
+`WebNovelRequestRateLimiter` is the common traffic boundary below every
+provider. Catalog HTML, chapter HTTP/reader requests, WebView fallbacks, and
+cover assets use process-wide buckets, so concurrent screens and background
+downloads cannot create a burst against the same provider.
+
+- WTR-LAB document requests: minimum 2.2 seconds plus 0–650 ms jitter;
+- NovelBuddy document requests: minimum 1.8 seconds plus 0–550 ms jitter;
+- unknown providers: conservative 1.5 seconds plus 0–500 ms jitter;
+- cover assets: a separate 350 ms plus 0–250 ms bucket;
+- HTTP `429` and `503`: at most two retries with exponential backoff;
+- `Retry-After`: seconds and HTTP-date formats are honored, capped at five minutes.
+
+The default policy is automatically safe for a newly registered provider. A
+provider must not implement an independent tight download loop around the
+shared HTTP or WebView loaders.
+
 ### `WebNovelScraperEngine`
 
 This remains the lower-level HTML parsing extension point. It is useful for
@@ -231,6 +249,8 @@ at process start. Runtime/custom adapters are inserted at highest priority by
   workflow after a valid original has been produced.
 - Keep the generic adapter last; its URL classification is intentionally
   heuristic.
+- Route network work through the shared HTTP/WebView loaders so provider pacing,
+  jitter, and throttle backoff cannot be bypassed.
 
 ## Testing
 

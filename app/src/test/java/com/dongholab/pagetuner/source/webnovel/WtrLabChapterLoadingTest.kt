@@ -3,6 +3,7 @@ package com.dongholab.pagetuner.source.webnovel
 import com.dongholab.pagetuner.source.RenderedChapter
 import com.dongholab.pagetuner.source.RenderedChapterLoader
 import com.dongholab.pagetuner.source.WtrLabDomScraperTest
+import com.dongholab.pagetuner.source.WebNovelRemoteBookSource
 import java.io.IOException
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
@@ -65,6 +66,46 @@ class WtrLabChapterLoadingTest {
 
         assertEquals(1, renderedCalls)
         assertEquals("Rendered chapter 1", result.title)
+    }
+
+    @Test
+    fun automaticModeSkipsWebViewWhenProviderRequiresAuthentication() = runTest {
+        var renderedCalls = 0
+        val adapter = WtrLabSiteAdapter(
+            chapterLoadStrategy = WebNovelChapterLoadStrategy.HttpThenWebView,
+            postReaderJson = { _, _, _ ->
+                """{"success":false,"error":"You are not logged in!","code":1401}"""
+            },
+        )
+
+        val failure = runCatching {
+            adapter.loadChapter(
+                url = CHAPTER_URL,
+                fallbackTitle = "Chapter 1",
+                fetchHtml = { error("Unused") },
+                renderedChapterLoader = RenderedChapterLoader { _, _ ->
+                    renderedCalls += 1
+                    error("Authentication failures must not start WebView.")
+                },
+            )
+        }.exceptionOrNull()
+
+        assertTrue(failure is WebNovelAuthenticationRequiredException)
+        assertEquals(0, renderedCalls)
+    }
+
+    @Test
+    fun directChapterPreservesLanguageFromUrlForOfflineMetadata() = runTest {
+        val adapter = WtrLabSiteAdapter(chapterLoadStrategy = WebNovelChapterLoadStrategy.HttpOnly)
+        val source = WebNovelRemoteBookSource(
+            accountId = "direct_url",
+            endpointUrl = CHAPTER_URL,
+            fetchHtml = { WtrLabDomScraperTest.detailHtml },
+            renderedChapterLoader = null,
+            adapterRegistry = WebNovelSiteAdapterRegistry(listOf(adapter)),
+        )
+
+        assertEquals("en", source.list().single().language)
     }
 
     @Test

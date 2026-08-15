@@ -14,7 +14,8 @@ flowchart TD
     A["Open Web Novel"] --> B["Resolve WebNovelSiteAdapter by URL"]
     B --> B2["Read provider catalog capabilities"]
     B2 --> C["Load remote search/catalog page"]
-    C --> D["Parse provider DOM or embedded JSON"]
+    C --> C2["Shared per-provider rate limiter"]
+    C2 --> D["Parse provider DOM or embedded JSON"]
     D --> E["Common RemoteBookItem list"]
     E --> F["Optional catalog title and summary translation"]
     E --> G["Select book"]
@@ -24,10 +25,13 @@ flowchart TD
     I -->|"No"| I3["Fetch provider chapter-index endpoint"]
     I3 --> I2
     I2 --> J["Select or batch-download chapter"]
-    J --> K{"Chapter loading strategy"}
+    J --> J2["Wait for provider permit + jitter"]
+    J2 --> K{"Chapter loading strategy"}
     K -->|"HttpOnly or automatic"| L["Provider HTTP reader request"]
     L --> M{"Readable response?"}
     M -->|"Yes"| N["Parse body, glossary markers, and patches"]
+    M -->|"429 / 503"| M2["Retry-After or bounded backoff"]
+    M2 --> L
     M -->|"No, automatic mode"| O["Rendered WebView fallback"]
     K -->|"WebViewOnly"| O
     O --> N
@@ -112,7 +116,6 @@ series identity, without starting Android or WebView.
 | --- | --- | --- |
 | P0 | Add a shared repository with request single-flight, TTL/LRU caching, and conditional requests | Prevent duplicate crawling and stale unbounded page caches |
 | P1 | Add typed HTTP outcomes for challenge, login, locked chapter, rate limit, and schema change | Decide accurately when WebView fallback is useful |
-| P1 | Add per-host request pacing and bounded HTTP concurrency | HTTP chapters can be faster without overloading a source |
 | P1 | Persist catalog pages and chapter indexes with provider-specific freshness | Make startup and book reopening immediate |
 | P1 | Reuse or serialize the fallback WebView runtime | Avoid creating a new WebView for each fallback chapter |
 | P2 | Provide a reusable provider contract-test suite and HTML/JSON fixture versioning | Adding the next web-novel provider becomes mechanical |

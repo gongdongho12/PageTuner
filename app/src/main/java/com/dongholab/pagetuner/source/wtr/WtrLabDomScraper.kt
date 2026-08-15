@@ -5,6 +5,7 @@ import java.net.URI
 import org.json.JSONArray
 import org.json.JSONObject
 import com.dongholab.pagetuner.source.webnovel.NextJsPageData
+import com.dongholab.pagetuner.source.webnovel.WebNovelAuthenticationRequiredException
 
 /** Parses WTR-LAB's server-rendered Next.js state into stable app data models. */
 object WtrLabDomScraper {
@@ -199,6 +200,9 @@ object WtrLabDomScraper {
     ): ChapterContentResponse {
         val root = JSONObject(rawJson)
         if (!root.optBoolean("success")) {
+            if (root.optString("code") == "1401") {
+                throw WebNovelAuthenticationRequiredException("WTR-LAB")
+            }
             val reason = when {
                 root.optBoolean("requireTurnstile") -> "browser verification is required"
                 root.optString("code").isNotBlank() -> root.optString("code")

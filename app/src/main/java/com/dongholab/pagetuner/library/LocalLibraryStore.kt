@@ -235,7 +235,15 @@ class LocalLibraryStore(context: Context) {
             ?: books.firstOrNull { it.contentHash == contentHash }
         val sameChapter = existing?.currentRemoteChapterId == remoteBook.identity.remoteId
         if (existing != null && sameChapter && existing.contentHash == contentHash && safeBookFile(existing).exists()) {
-            return openStoredBook(existing, wasDuplicateImport = true)
+            val refreshed = existing.copy(
+                contentLanguage = remoteBook.language,
+                contentIsTranslated = remoteBook.contentVariant ==
+                    com.dongholab.pagetuner.source.RemoteBookContentVariant.Translated,
+            )
+            if (refreshed != existing) {
+                writeBooks(books.map { book -> if (book.id == existing.id) refreshed else book })
+            }
+            return openStoredBook(refreshed, wasDuplicateImport = true)
         }
 
         val relativePath = existing?.relativePath
@@ -257,7 +265,8 @@ class LocalLibraryStore(context: Context) {
         val now = System.currentTimeMillis()
         val pageCount = loaded.document.pageCount.coerceAtLeast(1)
         val book = LocalBook(
-            id = remoteIdentity.localBookId,
+            // Preserve the existing ID so progress, glossary, and annotations survive identity upgrades.
+            id = existing?.id ?: remoteIdentity.localBookId,
             title = remoteBook.seriesTitle?.takeIf { it.isNotBlank() }
                 ?: existing?.title
                 ?: loaded.document.title,
@@ -283,6 +292,9 @@ class LocalLibraryStore(context: Context) {
             currentRemoteChapterId = remoteBook.identity.remoteId,
             currentChapterTitle = loaded.document.title,
             currentChapterNumber = remoteBook.chapterNumber,
+            contentLanguage = remoteBook.language,
+            contentIsTranslated = remoteBook.contentVariant ==
+                com.dongholab.pagetuner.source.RemoteBookContentVariant.Translated,
         )
 
         writeBooks(

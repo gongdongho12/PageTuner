@@ -23,6 +23,8 @@ data class LocalBook(
     val currentRemoteChapterId: String? = null,
     val currentChapterTitle: String? = null,
     val currentChapterNumber: Int? = null,
+    val contentLanguage: String? = null,
+    val contentIsTranslated: Boolean = false,
 ) {
     val safeCurrentPageIndex: Int
         get() = currentPageIndex.coerceIn(0, (pageCount - 1).coerceAtLeast(0))

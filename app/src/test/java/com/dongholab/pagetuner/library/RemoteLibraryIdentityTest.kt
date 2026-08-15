@@ -30,6 +30,19 @@ class RemoteLibraryIdentityTest {
     }
 
     @Test
+    fun sameSeriesIdFromDifferentProvidersRemainsDifferentLocalBooks() {
+        val wtr = chapter("chapter_1", "series-42")
+        val novelBuddy = wtr.copy(
+            identity = wtr.identity.copy(accountId = "novelbuddy"),
+        )
+
+        assertNotEquals(
+            wtr.remoteLibraryIdentityOrNull()?.localBookId,
+            novelBuddy.remoteLibraryIdentityOrNull()?.localBookId,
+        )
+    }
+
+    @Test
     fun nonSeriesRemoteItemKeepsLegacyContentIdentityFlow() {
         assertNull(chapter("chapter_1", null).remoteLibraryIdentityOrNull())
     }

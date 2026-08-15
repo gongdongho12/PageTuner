@@ -41,9 +41,11 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.dongholab.pagetuner.R
 import com.dongholab.pagetuner.display.DisplayMode
 import com.dongholab.pagetuner.source.BatchDownloadProgress
 import com.dongholab.pagetuner.source.RemoteBookItem
@@ -189,11 +191,19 @@ fun WebNovelDetailPagePanel(
                         verticalArrangement = Arrangement.spacedBy(6.dp),
                     ) {
                         EinkOperationIndicator(
-                            visible = busy,
+                            visible = busy || batchProgress != null,
                             title = when {
-                                chapters.isEmpty() -> "Loading novel details and chapter list…"
-                                batchProgress != null -> "Saving chapters for offline reading…"
-                                else -> "Preparing chapter and translation…"
+                                batchProgress?.isCompleted == true && batchProgress.failedItems > 0 ->
+                                    stringResource(R.string.web_novel_offline_save_failed_title)
+                                batchProgress?.isCompleted == true && batchProgress.translationFailedItems > 0 ->
+                                    stringResource(R.string.web_novel_offline_translation_failed_title)
+                                batchProgress?.isCompleted == true ->
+                                    stringResource(R.string.web_novel_offline_save_complete_title)
+                                chapters.isEmpty() ->
+                                    stringResource(R.string.web_novel_loading_details_title)
+                                batchProgress != null ->
+                                    stringResource(R.string.web_novel_offline_saving_title)
+                                else -> stringResource(R.string.web_novel_preparing_chapter_title)
                             },
                             detail = batchProgress?.let {
                                 buildString {
@@ -201,7 +211,9 @@ fun WebNovelDetailPagePanel(
                                     if (it.totalTranslationParts > 0) append(" · part ${it.translatedPart}/${it.totalTranslationParts}")
                                     append(" · saved ${it.savedItems}")
                                     if (it.failedItems > 0) append(" · failed ${it.failedItems}")
+                                    if (it.translationFailedItems > 0) append(" · translation failed ${it.translationFailedItems}")
                                     it.targetLanguage?.let { language -> append(" · ${language.uppercase()}") }
+                                    it.errorMessage?.takeIf(String::isNotBlank)?.let { error -> append(" · $error") }
                                 }
                             },
                             progress = batchProgress?.fraction,
@@ -411,7 +423,6 @@ private fun ChapterListPanel(
                 chapter = chapter,
                 chapterIndex = chapter.chapterNumber ?: chapters.indexOf(chapter) + 1,
                 busy = busy,
-                canTranslate = canTranslate,
                 onSaveChapterTxt = onSaveChapterTxt,
                 readLanguageLabel = if (readLanguage == ChapterReadLanguage.Original) {
                     "Read original"
@@ -433,7 +444,6 @@ private fun ChapterRowItem(
     chapter: RemoteBookItem,
     chapterIndex: Int,
     busy: Boolean,
-    canTranslate: Boolean,
     readLanguageLabel: String,
     onSaveChapterTxt: ((RemoteBookItem) -> Unit)?,
     onReadChapter: (RemoteBookItem) -> Unit,
@@ -485,7 +495,7 @@ private fun ChapterRowItem(
             ) {
                 TextButton(
                     onClick = { onSaveChapterTxt?.invoke(chapter) },
-                    enabled = !busy && canTranslate && onSaveChapterTxt != null,
+                    enabled = !busy && onSaveChapterTxt != null,
                     modifier = Modifier.weight(0.36f),
                 ) {
                     Text("Save offline", maxLines = 1, style = MaterialTheme.typography.labelSmall)

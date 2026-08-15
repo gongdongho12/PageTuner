@@ -104,6 +104,76 @@ class TranslationRepository(
         )
     }
 
+    /**
+     * Translates multiple reader pages through shared provider requests, then restores
+     * page boundaries when writing and reading the segment cache.
+     */
+    suspend fun translatePages(
+        document: ReaderDocument,
+        pages: List<ReaderPage>,
+        settings: TranslationSettings,
+    ): List<PageTranslation> {
+        val translatablePages = pages.filter(ReaderPage::hasText)
+        if (translatablePages.isEmpty()) return emptyList()
+
+        val segments = translatablePages.flatMap(ReaderPage::segments)
+        val keysBySegmentId = segments.associate { segment ->
+            segment.id to cacheKey(document.id, segment.id, settings)
+        }
+        val cached = cache.getMany(keysBySegmentId.values.toList())
+        val completed = mutableMapOf<String, TranslatedSegment>()
+        segments.forEach { segment ->
+            cached[keysBySegmentId.getValue(segment.id).id]?.let { record ->
+                completed[segment.id] = TranslatedSegment(segment.id, record.text)
+            }
+        }
+        val initiallyCachedIds = completed.keys.toSet()
+        val missing = segments.filterNot { segment -> segment.id in completed }
+        val requestBatches = TranslationRequestBatcher.batch(
+            segments = missing,
+            maxSegments = TranslationRequestBatcher.DefaultMaxSegments,
+            maxCharacters = TranslationRequestBatcher.DefaultMaxCharacters,
+        )
+        val pacing = TranslationPacing(
+            readingWordsPerMinute = settings.readingWordsPerMinute,
+            mode = settings.paceMode,
+        )
+
+        requestBatches.forEachIndexed { batchIndex, batch ->
+            if (batchIndex > 0) {
+                delay(pacing.delayAfterBatchMillis(requestBatches[batchIndex - 1].sumOf(TextSegment::wordCount)))
+            }
+            val translated = provider.translate(
+                TranslationRequest(
+                    sourceLanguage = settings.normalizedSourceLanguage,
+                    targetLanguage = settings.normalizedTargetLanguage,
+                    segments = batch,
+                ),
+            )
+            validateBatchResponse(batch, translated)
+            cache.putAll(
+                translated.map { translatedSegment ->
+                    CachedTranslation(
+                        key = keysBySegmentId.getValue(translatedSegment.segmentId),
+                        text = translatedSegment.translatedText,
+                        updatedAtMillis = System.currentTimeMillis(),
+                    )
+                },
+            )
+            translated.forEach { segment -> completed[segment.segmentId] = segment }
+        }
+
+        return translatablePages.map { page ->
+            PageTranslation(
+                page = page,
+                sourceLanguage = settings.normalizedSourceLanguage,
+                targetLanguage = settings.normalizedTargetLanguage,
+                segments = orderedSegments(page, completed),
+                completedFromCache = page.segments.all { segment -> segment.id in initiallyCachedIds },
+            )
+        }
+    }
+
     suspend fun prefetchDocument(
         document: ReaderDocument,
         startPageIndex: Int,
@@ -111,21 +181,24 @@ class TranslationRepository(
         onProgress: suspend (PrefetchProgress) -> Unit = {},
     ) {
         val orderedPages = document.pages.drop(startPageIndex) + document.pages.take(startPageIndex)
-        orderedPages.forEachIndexed { index, page ->
+        var completedPages = 0
+        orderedPages.chunked(PrefetchPageGroupSize).forEach { pages ->
+            val firstPage = pages.first()
             onProgress(
                 PrefetchProgress(
-                    completedPages = index,
+                    completedPages = completedPages,
                     totalPages = orderedPages.size,
-                    activePageNumber = page.index + 1,
+                    activePageNumber = firstPage.index + 1,
                     stage = PrefetchStage.PREPARING,
                 ),
             )
-            translatePage(document, page, settings.copy(paceMode = TranslationPaceMode.OFFLINE_PREFETCH))
+            translatePages(document, pages, settings.copy(paceMode = TranslationPaceMode.OFFLINE_PREFETCH))
+            completedPages += pages.size
             onProgress(
                 PrefetchProgress(
-                    completedPages = index + 1,
+                    completedPages = completedPages,
                     totalPages = orderedPages.size,
-                    activePageNumber = page.index + 1,
+                    activePageNumber = pages.last().index + 1,
                     stage = PrefetchStage.SAVED,
                 ),
             )
@@ -222,7 +295,25 @@ class TranslationRepository(
         return page.segments.mapNotNull { completed[it.id] }
     }
 
+    private fun validateBatchResponse(
+        requested: List<TextSegment>,
+        translated: List<TranslatedSegment>,
+    ) {
+        val requestedIds = requested.map(TextSegment::id)
+        val translatedIds = translated.map(TranslatedSegment::segmentId)
+        require(translatedIds.size == translatedIds.distinct().size) {
+            "Translation provider returned duplicate segment IDs."
+        }
+        require(translatedIds.toSet() == requestedIds.toSet()) {
+            "Translation provider response did not match the requested segments."
+        }
+    }
+
     private fun ReaderDocument.textSegments(): List<TextSegment> {
         return pages.flatMap { page -> page.segments }.filter { segment -> segment.text.isNotBlank() }
+    }
+
+    private companion object {
+        const val PrefetchPageGroupSize = 10
     }
 }

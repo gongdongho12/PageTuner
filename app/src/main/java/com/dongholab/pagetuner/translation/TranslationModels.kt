@@ -31,6 +31,8 @@ data class TranslationSettings(
         get() = when (providerKind) {
             TranslationProviderKind.GOOGLE_CLOUD -> apiKey.isNotBlank()
             TranslationProviderKind.GOOGLE_WEB_TRANSLATE_HTML -> true
+            TranslationProviderKind.DEEPSEEK ->
+                apiKey.isNotBlank() && normalizedLlmEndpoint.isNotBlank() && normalizedLlmModel.isNotBlank()
             TranslationProviderKind.OPENAI_COMPATIBLE_LLM ->
                 apiKey.isNotBlank() && normalizedLlmEndpoint.isNotBlank() && normalizedLlmModel.isNotBlank()
         }
@@ -39,8 +41,23 @@ data class TranslationSettings(
 enum class TranslationProviderKind {
     GOOGLE_CLOUD,
     GOOGLE_WEB_TRANSLATE_HTML,
+    DEEPSEEK,
     OPENAI_COMPATIBLE_LLM,
 }
+
+enum class TranslationSubscriptionPlan {
+    GOOGLE_TRANSLATE,
+    DEEPSEEK_AI,
+    CUSTOM_API,
+}
+
+val TranslationProviderKind.subscriptionPlan: TranslationSubscriptionPlan
+    get() = when (this) {
+        TranslationProviderKind.GOOGLE_CLOUD,
+        TranslationProviderKind.GOOGLE_WEB_TRANSLATE_HTML -> TranslationSubscriptionPlan.GOOGLE_TRANSLATE
+        TranslationProviderKind.DEEPSEEK -> TranslationSubscriptionPlan.DEEPSEEK_AI
+        TranslationProviderKind.OPENAI_COMPATIBLE_LLM -> TranslationSubscriptionPlan.CUSTOM_API
+    }
 
 enum class TranslationPaceMode {
     READING,
@@ -120,6 +137,21 @@ fun TranslationSettings.checkProviderHealth(): ProviderHealthCheck {
         }
         TranslationProviderKind.GOOGLE_WEB_TRANSLATE_HTML -> {
             ProviderHealthCheck(state = ProviderHealthState.Ready, providerKind = providerKind)
+        }
+        TranslationProviderKind.DEEPSEEK -> {
+            when {
+                apiKey.isBlank() || normalizedLlmEndpoint.isBlank() || normalizedLlmModel.isBlank() ->
+                    ProviderHealthCheck(
+                        state = ProviderHealthState.MissingConfiguration,
+                        providerKind = providerKind,
+                    )
+                !normalizedLlmEndpoint.hasHttpUrlShape() ->
+                    ProviderHealthCheck(
+                        state = ProviderHealthState.InvalidConfiguration,
+                        providerKind = providerKind,
+                    )
+                else -> ProviderHealthCheck(state = ProviderHealthState.Ready, providerKind = providerKind)
+            }
         }
         TranslationProviderKind.OPENAI_COMPATIBLE_LLM -> {
             when {

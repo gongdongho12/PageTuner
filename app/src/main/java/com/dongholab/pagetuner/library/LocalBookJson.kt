@@ -29,7 +29,9 @@ object LocalBookJson {
                     .put("remoteSeriesId", book.remoteSeriesId)
                     .put("currentRemoteChapterId", book.currentRemoteChapterId)
                     .put("currentChapterTitle", book.currentChapterTitle)
-                    .put("currentChapterNumber", book.currentChapterNumber),
+                    .put("currentChapterNumber", book.currentChapterNumber)
+                    .put("contentLanguage", book.contentLanguage)
+                    .put("contentIsTranslated", book.contentIsTranslated),
             )
         }
         return array.toString(2)
@@ -64,6 +66,8 @@ object LocalBookJson {
                         currentRemoteChapterId = item.optString("currentRemoteChapterId").takeIf { it.isNotBlank() },
                         currentChapterTitle = item.optString("currentChapterTitle").takeIf { it.isNotBlank() },
                         currentChapterNumber = item.optInt("currentChapterNumber", -1).takeIf { it >= 0 },
+                        contentLanguage = item.optString("contentLanguage").takeIf { it.isNotBlank() },
+                        contentIsTranslated = item.optBoolean("contentIsTranslated", false),
                     ),
                 )
             }

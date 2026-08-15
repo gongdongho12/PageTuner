@@ -10,8 +10,9 @@ tests run without an Activity or WebView.
 ```mermaid
 flowchart LR
     A["Catalog request"] --> B["WebNovelSiteAdapterRegistry"]
-    B -->|"wtr-lab.com"| C["WtrLabSiteAdapter"]
-    B -->|"novelbuddy.me"| D["NovelBuddySiteAdapter"]
+    B --> R["Per-provider request gate"]
+    R -->|"wtr-lab.com"| C["WtrLabSiteAdapter"]
+    R -->|"novelbuddy.me"| D["NovelBuddySiteAdapter"]
     C --> E["Remote search and pagination"]
     D --> E
     E --> F["Book detail"]
@@ -33,12 +34,13 @@ flowchart LR
 | Build | Debug APK assembly | PASS |
 | NovelBuddy live | Keyword + Fantasy search, detail, full chapter index, chapter body | PASS |
 | WTR-LAB live | Finder search, detail, reader POST, offline reopen | PASS |
+| Request pacing | Provider serialization, subdomain sharing, Retry-After/backoff | PASS |
 | Formatting | `git diff --check` | PASS |
 
 The NovelBuddy live flow resolved `Shadow Slave` from an actual remote search,
 loaded its detail document, obtained the complete chapter index from the
 provider endpoint, and extracted a readable first chapter without Android or
-WebView. At test time the work exposed 3,157 chapters; the assertion deliberately
+WebView. At test time the work exposed 3,160 chapters; the assertion deliberately
 uses a lower bound so normal catalog growth does not break the build.
 
 The WTR-LAB live flow exercised its actual finder, novel detail document, and
@@ -60,10 +62,10 @@ RUN_LIVE_WEB_NOVEL_TESTS=1 ./gradlew :app:testDebugUnitTest \
 ```
 
 Live suites remain opt-in because remote availability, throttling, and DOM
-changes are outside the deterministic build boundary. One combined live run
-encountered a transient WTR-LAB socket timeout; the isolated retry passed. This
-is why provider live checks should not gate every local build until request
-pacing and retry policy are centralized in the planned repository layer.
+changes are outside the deterministic build boundary. The current combined run
+passed with centralized host pacing active: NovelBuddy completed in 6.714 s and
+WTR-LAB completed in 5.398 s. Deterministic tests separately verify minimum
+intervals, shared subdomain buckets, and `Retry-After` behavior without sleeping.
 
 ## Test boundary
 
@@ -72,6 +74,7 @@ sequenceDiagram
     participant JUnit
     participant Registry as Adapter registry
     participant Provider as WTR or NovelBuddy adapter
+    participant Gate as Request rate limiter
     participant Remote as Real website
     participant Translation as Translation service
     participant Storage as Offline storage
@@ -79,7 +82,8 @@ sequenceDiagram
     JUnit->>Registry: Resolve URL
     Registry-->>JUnit: Provider adapter
     JUnit->>Provider: Search catalog
-    Provider->>Remote: Real HTTP request
+    Provider->>Gate: Await provider permit
+    Gate->>Remote: Real HTTP request
     Remote-->>Provider: HTML or Next.js JSON
     Provider-->>JUnit: Normalized books and paging
     JUnit->>Provider: Load detail and all chapters
@@ -101,6 +105,7 @@ sequenceDiagram
 - Provider-owned catalog capabilities, keyword/genre parameters, and page URLs
 - NovelBuddy embedded JSON parsing and complete chapter-index API parsing
 - WTR reader response parsing and HTTP/WebView load-policy boundaries
+- Per-provider pacing, asset/document buckets, Retry-After and exponential backoff
 - Stable series identity across book and chapter URLs
 - Duplicate chapter-title isolation
 - Offline original/translation cache reuse

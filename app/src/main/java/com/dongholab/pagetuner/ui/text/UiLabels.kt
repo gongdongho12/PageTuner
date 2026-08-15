@@ -9,6 +9,7 @@ import com.dongholab.pagetuner.display.DisplayMode
 import com.dongholab.pagetuner.document.DocumentFormat
 import com.dongholab.pagetuner.translation.TranslationPaceMode
 import com.dongholab.pagetuner.translation.TranslationProviderKind
+import com.dongholab.pagetuner.translation.TranslationSubscriptionPlan
 
 @Composable
 fun DocumentFormat.localizedName(): String {
@@ -47,6 +48,7 @@ val TranslationProviderKind.labelRes: Int
     @StringRes get() = when (this) {
         TranslationProviderKind.GOOGLE_CLOUD -> R.string.provider_google_cloud
         TranslationProviderKind.GOOGLE_WEB_TRANSLATE_HTML -> R.string.provider_google_web_translate_html
+        TranslationProviderKind.DEEPSEEK -> R.string.provider_deepseek
         TranslationProviderKind.OPENAI_COMPATIBLE_LLM -> R.string.provider_openai_compatible_llm
     }
 
@@ -54,7 +56,15 @@ val TranslationProviderKind.apiKeyLabelRes: Int
     @StringRes get() = when (this) {
         TranslationProviderKind.GOOGLE_CLOUD -> R.string.field_google_api_key
         TranslationProviderKind.GOOGLE_WEB_TRANSLATE_HTML -> R.string.field_google_web_api_key
+        TranslationProviderKind.DEEPSEEK -> R.string.field_deepseek_api_key
         TranslationProviderKind.OPENAI_COMPATIBLE_LLM -> R.string.field_llm_api_key
+    }
+
+val TranslationSubscriptionPlan.labelRes: Int
+    @StringRes get() = when (this) {
+        TranslationSubscriptionPlan.GOOGLE_TRANSLATE -> R.string.translation_plan_google
+        TranslationSubscriptionPlan.DEEPSEEK_AI -> R.string.translation_plan_deepseek
+        TranslationSubscriptionPlan.CUSTOM_API -> R.string.translation_plan_custom
     }
 
 @Composable
