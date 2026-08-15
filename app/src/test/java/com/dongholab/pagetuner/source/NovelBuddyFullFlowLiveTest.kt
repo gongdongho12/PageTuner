@@ -51,5 +51,24 @@ class NovelBuddyFullFlowLiveTest {
         assertTrue(original.startsWith("# Chapter 1"))
         assertTrue(original.length > 5_000)
         assertTrue(original.contains("Sunny"))
+
+        println(
+            buildString {
+                appendLine("LIVE_WEB_NOVEL_EVIDENCE")
+                appendLine("provider=${plugin.manifest.id}")
+                appendLine("searchUrl=https://novelbuddy.me/search?q=shadow%20slave&genres=fantasy")
+                appendLine("catalogItems=${page.totalItems}")
+                appendLine("catalogPages=${page.totalPages}")
+                appendLine("bookTitle=${book.title}")
+                appendLine("bookUrl=${book.downloadUrl}")
+                appendLine("author=${detail.author}")
+                appendLine("status=${detail.status}")
+                appendLine("chapterCount=${detail.totalChapters}")
+                appendLine("firstChapterTitle=${chapters.first().title}")
+                appendLine("firstChapterUrl=${chapters.first().downloadUrl}")
+                appendLine("originalCharacters=${original.length}")
+                append("webView=false")
+            },
+        )
     }
 }

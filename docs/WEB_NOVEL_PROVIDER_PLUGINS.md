@@ -115,17 +115,57 @@ The opt-in `NovelBuddyFullFlowLiveTest` also constructs its registry from the
 NovelBuddy plugin. It verifies real keyword + genre search, detail parsing, the
 complete remote chapter index, and original body extraction without WebView.
 
+## Real-site evidence
+
+The following values were observed directly from NovelBuddy at
+`2026-08-15 19:02 PHT`. They are recorded as evidence, not frozen assertions;
+catalog and chapter counts may naturally increase after this run.
+
+| Observation | Actual remote value |
+| --- | --- |
+| Search request | [`q=shadow slave`, `genres=fantasy`](https://novelbuddy.me/search?q=shadow%20slave&genres=fantasy) |
+| Search catalog | 159 works, 7 remote pages |
+| Selected work | [`Shadow Slave`](https://novelbuddy.me/shadow-slave) |
+| Parsed author/status | `Guiltythree` / `ongoing` |
+| Detail chapter count | 3,157 |
+| Loaded chapter index | 3,157 entries; equal to detail count |
+| First chapter | [`Chapter 1: Nightmare Begins`](https://novelbuddy.me/shadow-slave/chapter-1-nightmare-begins) |
+| Parsed original body | 91 paragraphs, 10,560 body characters |
+| Serialized reader text | 10,591 characters including the Markdown title |
+| Render path | Direct HTTP + Next.js JSON; `WebView=false` |
+
+```mermaid
+flowchart LR
+    A["Real HTTP search<br/>159 works / 7 pages"] --> B["Shadow Slave detail<br/>Guiltythree / ongoing"]
+    B --> C["Real chapter-index API<br/>3,157 entries"]
+    C --> D["Real chapter HTML<br/>Chapter 1: Nightmare Begins"]
+    D --> E["Parser output<br/>91 paragraphs / 10,560 chars"]
+    E --> F["Common reader original<br/>10,591 chars"]
+```
+
+This is not the sample fixture flow. The live test uses the production
+`WebNovelHttpClient`, a plugin-only adapter registry, and `renderedChapterLoader = null`.
+Therefore a fixture, cached rendered page, or WebView fallback cannot satisfy
+the test. It additionally asserts the exact title and author, a catalog larger
+than one page, more than 3,000 chapters, equality between detail/index counts,
+the first chapter number and series identity, a body longer than 5,000
+characters, and the real character name `Sunny`.
+
+The test prints a `LIVE_WEB_NOVEL_EVIDENCE` block into the JUnit output with the
+actual values above, allowing subsequent opt-in runs to be compared without
+weakening assertions when the remote catalog grows.
+
 ## Verification
 
 | Check | Result |
 | --- | --- |
 | Plugin manifest/adapter validation | PASS |
 | Plugin-only registry composition | PASS |
-| New sample provider full-flow contract | PASS |
+| New sample provider full-flow contract (deterministic fixture) | PASS |
 | Default accounts derived from manifests | PASS |
 | Full debug unit suite | PASS |
 | Debug lint and APK assembly | PASS |
-| NovelBuddy real plugin flow | PASS |
+| NovelBuddy real plugin flow (production HTTP, no fixture/WebView) | PASS |
 
 ```bash
 ./gradlew :app:testDebugUnitTest :app:lintDebug :app:assembleDebug
