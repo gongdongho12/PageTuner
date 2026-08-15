@@ -1,5 +1,7 @@
 package com.dongholab.pagetuner.source
 
+import com.dongholab.pagetuner.source.webnovel.WebNovelProviderPlugins
+import com.dongholab.pagetuner.source.webnovel.WebNovelSiteAdapterRegistry
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -12,10 +14,16 @@ class NovelBuddyFullFlowLiveTest {
     fun liveSearchDetailChapterIndexAndBodyWorkWithoutWebView() = runTest {
         assumeTrue(System.getenv("RUN_LIVE_WEB_NOVEL_TESTS") == "1")
 
+        val plugin = WebNovelProviderPlugins.novelBuddy
+        val registry = WebNovelSiteAdapterRegistry.fromPlugins(
+            listOf(plugin, WebNovelProviderPlugins.genericHtml),
+        )
+
         val searchSource = WebNovelRemoteBookSource(
-            accountId = "default_novelbuddy",
+            accountId = plugin.manifest.accountId,
             endpointUrl = "https://novelbuddy.me/search?q=shadow%20slave&genres=fantasy",
             renderedChapterLoader = null,
+            adapterRegistry = registry,
         )
         val page = searchSource.loadCatalogPage(1) {}
         val book = requireNotNull(page.items.firstOrNull { it.title == "Shadow Slave" })
@@ -25,9 +33,10 @@ class NovelBuddyFullFlowLiveTest {
         assertTrue(book.tags.any { it.equals("Fantasy", ignoreCase = true) })
 
         val bookSource = WebNovelRemoteBookSource(
-            accountId = "default_novelbuddy",
+            accountId = plugin.manifest.accountId,
             endpointUrl = book.downloadUrl,
             renderedChapterLoader = null,
+            adapterRegistry = registry,
         )
         val detail = bookSource.loadNovelDetail()
         val chapters = bookSource.list()
@@ -42,5 +51,24 @@ class NovelBuddyFullFlowLiveTest {
         assertTrue(original.startsWith("# Chapter 1"))
         assertTrue(original.length > 5_000)
         assertTrue(original.contains("Sunny"))
+
+        println(
+            buildString {
+                appendLine("LIVE_WEB_NOVEL_EVIDENCE")
+                appendLine("provider=${plugin.manifest.id}")
+                appendLine("searchUrl=https://novelbuddy.me/search?q=shadow%20slave&genres=fantasy")
+                appendLine("catalogItems=${page.totalItems}")
+                appendLine("catalogPages=${page.totalPages}")
+                appendLine("bookTitle=${book.title}")
+                appendLine("bookUrl=${book.downloadUrl}")
+                appendLine("author=${detail.author}")
+                appendLine("status=${detail.status}")
+                appendLine("chapterCount=${detail.totalChapters}")
+                appendLine("firstChapterTitle=${chapters.first().title}")
+                appendLine("firstChapterUrl=${chapters.first().downloadUrl}")
+                appendLine("originalCharacters=${original.length}")
+                append("webView=false")
+            },
+        )
     }
 }
