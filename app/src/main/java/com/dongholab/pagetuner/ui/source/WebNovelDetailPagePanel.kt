@@ -37,6 +37,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -49,7 +50,10 @@ import com.dongholab.pagetuner.source.RemoteBookItem
 import com.dongholab.pagetuner.source.offline.OfflineNovelStorageStore
 import com.dongholab.pagetuner.ui.common.EinkAutoFitPagingContainer
 import com.dongholab.pagetuner.ui.common.EinkOperationIndicator
+import com.dongholab.pagetuner.ui.common.EinkPagingState
 import com.dongholab.pagetuner.ui.common.EinkSegmentedControl
+import com.dongholab.pagetuner.ui.common.EinkStablePageContent
+import com.dongholab.pagetuner.ui.common.rememberEinkPagingState
 import com.dongholab.pagetuner.ui.theme.EinkInk
 import com.dongholab.pagetuner.ui.theme.EinkLine
 import com.dongholab.pagetuner.ui.theme.EinkMuted
@@ -59,6 +63,15 @@ import com.dongholab.pagetuner.ui.theme.EinkSoft
 
 private enum class NovelDetailTab { Overview, Chapters }
 private enum class ChapterReadLanguage { Original, Translation }
+
+internal fun findChapterByNumber(
+    chapters: List<RemoteBookItem>,
+    chapterNumber: Int,
+): RemoteBookItem? {
+    if (chapterNumber <= 0) return null
+    return chapters.firstOrNull { it.chapterNumber == chapterNumber }
+        ?: chapters.getOrNull(chapterNumber - 1)
+}
 
 @Composable
 fun WebNovelDetailPagePanel(
@@ -79,16 +92,20 @@ fun WebNovelDetailPagePanel(
     onSaveChapterTxt: ((RemoteBookItem) -> Unit)? = null,
     onBatchDownloadChapters: ((List<RemoteBookItem>) -> Unit)? = null,
 ) {
-    var activeTab by remember { mutableStateOf(NovelDetailTab.Chapters) }
-    var searchQuery by remember { mutableStateOf("") }
-    var showQuickJumpDialog by remember { mutableStateOf(false) }
-    var quickJumpNumberText by remember { mutableStateOf("") }
+    var activeTab by rememberSaveable { mutableStateOf(NovelDetailTab.Chapters) }
+    var searchQuery by rememberSaveable { mutableStateOf("") }
+    var showQuickJumpDialog by rememberSaveable { mutableStateOf(false) }
+    var quickJumpNumberText by rememberSaveable { mutableStateOf("") }
+    val chapterPagingState = rememberEinkPagingState(
+        novelItem.seriesId ?: novelItem.identity.remoteId,
+        searchQuery,
+    )
 
     val filteredChapters = remember(chapters, searchQuery) {
         chapters.filterIndexed { index, item ->
             searchQuery.isBlank() ||
                 item.title.contains(searchQuery, ignoreCase = true) ||
-                (index + 1).toString() == searchQuery.trim()
+                (item.chapterNumber ?: index + 1).toString() == searchQuery.trim()
         }
     }
 
@@ -99,10 +116,7 @@ fun WebNovelDetailPagePanel(
             onDismiss = { showQuickJumpDialog = false },
             onConfirm = {
                 quickJumpNumberText.toIntOrNull()?.let { number ->
-                    chapters.firstOrNull { chapter ->
-                        chapter.title.contains("Chapter $number", ignoreCase = true) ||
-                            chapter.title.contains("Ch. $number", ignoreCase = true)
-                    }?.let(onReadChapter) ?: chapters.getOrNull(number - 1)?.let(onReadChapter)
+                    findChapterByNumber(chapters, number)?.let(onReadChapter)
                 }
                 showQuickJumpDialog = false
             },
@@ -140,64 +154,77 @@ fun WebNovelDetailPagePanel(
                 label = { tab -> if (tab == NovelDetailTab.Overview) "Overview" else "Chapters" },
             )
 
-            EinkOperationIndicator(
-                visible = busy,
-                title = when {
-                    chapters.isEmpty() -> "Loading novel details and chapter list…"
-                    batchProgress != null -> "Saving chapters for offline reading…"
-                    else -> "Preparing chapter and translation…"
-                },
-                detail = batchProgress?.let {
-                    buildString {
-                        append("${it.currentItemIndex} / ${it.totalItems} · ${it.stage.name}")
-                        if (it.totalTranslationParts > 0) append(" · part ${it.translatedPart}/${it.totalTranslationParts}")
-                        append(" · saved ${it.savedItems}")
-                        if (it.failedItems > 0) append(" · failed ${it.failedItems}")
-                        it.targetLanguage?.let { language -> append(" · ${language.uppercase()}") }
+            EinkStablePageContent(
+                content = {
+                    when (activeTab) {
+                        NovelDetailTab.Overview -> NovelOverviewPanel(
+                            novelItem = novelItem,
+                            chapterCount = chapters.size,
+                            modifier = Modifier.fillMaxSize(),
+                        )
+                        NovelDetailTab.Chapters -> ChapterListPanel(
+                            novelItem = novelItem,
+                            chapters = chapters,
+                            filteredChapters = filteredChapters,
+                            searchQuery = searchQuery,
+                            busy = busy,
+                            targetLanguage = targetLanguage,
+                            canTranslate = canTranslate,
+                            pagingState = chapterPagingState,
+                            onSearchQueryChange = { searchQuery = it },
+                            onQuickJump = { showQuickJumpDialog = true },
+                            onBatchDownload = { onBatchDownloadChapters?.invoke(chapters) },
+                            onSaveChapterTxt = onSaveChapterTxt,
+                            onReadOriginalChapter = onReadOriginalChapter,
+                            onReadChapter = onReadChapter,
+                            modifier = Modifier.fillMaxSize(),
+                        )
                     }
                 },
-                progress = batchProgress?.fraction,
+                overlay = {
+                    Column(
+                        modifier = Modifier
+                            .align(Alignment.TopCenter)
+                            .fillMaxWidth(),
+                        verticalArrangement = Arrangement.spacedBy(6.dp),
+                    ) {
+                        EinkOperationIndicator(
+                            visible = busy,
+                            title = when {
+                                chapters.isEmpty() -> "Loading novel details and chapter list…"
+                                batchProgress != null -> "Saving chapters for offline reading…"
+                                else -> "Preparing chapter and translation…"
+                            },
+                            detail = batchProgress?.let {
+                                buildString {
+                                    append("${it.currentItemIndex} / ${it.totalItems} · ${it.stage.name}")
+                                    if (it.totalTranslationParts > 0) append(" · part ${it.translatedPart}/${it.totalTranslationParts}")
+                                    append(" · saved ${it.savedItems}")
+                                    if (it.failedItems > 0) append(" · failed ${it.failedItems}")
+                                    it.targetLanguage?.let { language -> append(" · ${language.uppercase()}") }
+                                }
+                            },
+                            progress = batchProgress?.fraction,
+                        )
+
+                        if (!loadError.isNullOrBlank()) {
+                            Surface(
+                                modifier = Modifier.fillMaxWidth(),
+                                color = EinkPaper,
+                                shape = RoundedCornerShape(4.dp),
+                                border = BorderStroke(1.dp, EinkInk),
+                            ) {
+                                Text(
+                                    text = loadError,
+                                    modifier = Modifier.padding(8.dp),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = EinkInk,
+                                )
+                            }
+                        }
+                    }
+                },
             )
-
-            if (!loadError.isNullOrBlank()) {
-                Surface(
-                    modifier = Modifier.fillMaxWidth(),
-                    color = EinkPaper,
-                    shape = RoundedCornerShape(4.dp),
-                    border = BorderStroke(1.dp, EinkInk),
-                ) {
-                    Text(
-                        text = loadError,
-                        modifier = Modifier.padding(8.dp),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = EinkInk,
-                    )
-                }
-            }
-
-            when (activeTab) {
-                NovelDetailTab.Overview -> NovelOverviewPanel(
-                    novelItem = novelItem,
-                    chapterCount = chapters.size,
-                    modifier = Modifier.weight(1f),
-                )
-                NovelDetailTab.Chapters -> ChapterListPanel(
-                    novelItem = novelItem,
-                    chapters = chapters,
-                    filteredChapters = filteredChapters,
-                    searchQuery = searchQuery,
-                    busy = busy,
-                    targetLanguage = targetLanguage,
-                    canTranslate = canTranslate,
-                    onSearchQueryChange = { searchQuery = it },
-                    onQuickJump = { showQuickJumpDialog = true },
-                    onBatchDownload = { onBatchDownloadChapters?.invoke(chapters) },
-                    onSaveChapterTxt = onSaveChapterTxt,
-                    onReadOriginalChapter = onReadOriginalChapter,
-                    onReadChapter = onReadChapter,
-                    modifier = Modifier.weight(1f),
-                )
-            }
         }
     }
 }
@@ -298,6 +325,7 @@ private fun ChapterListPanel(
     busy: Boolean,
     targetLanguage: String,
     canTranslate: Boolean,
+    pagingState: EinkPagingState,
     onSearchQueryChange: (String) -> Unit,
     onQuickJump: () -> Unit,
     onBatchDownload: () -> Unit,
@@ -306,7 +334,7 @@ private fun ChapterListPanel(
     onReadChapter: (RemoteBookItem) -> Unit,
     modifier: Modifier,
 ) {
-    var readLanguage by remember(canTranslate) {
+    var readLanguage by rememberSaveable(canTranslate) {
         mutableStateOf(if (canTranslate) ChapterReadLanguage.Translation else ChapterReadLanguage.Original)
     }
     Column(
@@ -363,6 +391,7 @@ private fun ChapterListPanel(
             estimatedItemHeight = 124.dp,
             fallbackPageSize = 3,
             busy = busy,
+            state = pagingState,
             modifier = Modifier
                 .fillMaxWidth()
                 .weight(1f),
@@ -380,7 +409,7 @@ private fun ChapterListPanel(
         ) { chapter ->
             ChapterRowItem(
                 chapter = chapter,
-                chapterIndex = chapters.indexOf(chapter) + 1,
+                chapterIndex = chapter.chapterNumber ?: chapters.indexOf(chapter) + 1,
                 busy = busy,
                 canTranslate = canTranslate,
                 onSaveChapterTxt = onSaveChapterTxt,

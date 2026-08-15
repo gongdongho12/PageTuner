@@ -137,6 +137,36 @@ fun defaultWtrLabAccount(
     )
 }
 
+fun defaultNovelBuddyAccount(
+    nowMillis: Long = System.currentTimeMillis(),
+): RemoteSourceAccount {
+    return RemoteSourceAccount(
+        id = "default_novelbuddy",
+        sourceType = RemoteSourceType.WebNovel,
+        title = "NovelBuddy Web Novels",
+        endpoint = "https://novelbuddy.me/search",
+        createdAtMillis = nowMillis,
+        updatedAtMillis = nowMillis,
+    )
+}
+
+fun webNovelSourceAccount(
+    endpoint: String,
+    title: String,
+    nowMillis: Long = System.currentTimeMillis(),
+): RemoteSourceAccount {
+    val normalizedUrl = endpoint.trim()
+    val safeTitle = title.trim().ifBlank { normalizedUrl }
+    return RemoteSourceAccount(
+        id = DocumentIds.sha256("${RemoteSourceType.WebNovel.name}|$normalizedUrl").take(16),
+        sourceType = RemoteSourceType.WebNovel,
+        title = safeTitle,
+        endpoint = normalizedUrl,
+        createdAtMillis = nowMillis,
+        updatedAtMillis = nowMillis,
+    )
+}
+
 fun pageTurnerWebCatalogAccount(
     catalogUrl: String,
     title: String,
@@ -153,4 +183,3 @@ fun pageTurnerWebCatalogAccount(
         updatedAtMillis = nowMillis,
     )
 }
-

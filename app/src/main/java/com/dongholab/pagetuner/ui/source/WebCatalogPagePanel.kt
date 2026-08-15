@@ -20,7 +20,6 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -28,6 +27,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -40,17 +40,22 @@ import com.dongholab.pagetuner.source.CatalogTranslationProgress
 import com.dongholab.pagetuner.source.RemoteCatalogPagingState
 import com.dongholab.pagetuner.source.WebCatalogLoading
 import com.dongholab.pagetuner.source.translationKey
+import com.dongholab.pagetuner.source.webnovel.WebNovelCatalogCapabilities
 import com.dongholab.pagetuner.ui.theme.EinkInk
 import com.dongholab.pagetuner.ui.theme.EinkLine
 import com.dongholab.pagetuner.ui.theme.EinkMuted
 import com.dongholab.pagetuner.ui.theme.EinkPanel
-import com.dongholab.pagetuner.ui.common.EinkRemoteCatalogPager
+import com.dongholab.pagetuner.ui.common.EinkRemoteCatalogPagerSlot
+import com.dongholab.pagetuner.ui.common.EinkStablePageContent
+import com.dongholab.pagetuner.ui.common.rememberEinkPagingState
 
 @OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
 @Composable
 fun WebCatalogPagePanel(
     catalogUrl: String,
     query: String,
+    selectedGenreKey: String?,
+    catalogCapabilities: WebNovelCatalogCapabilities,
     items: List<RemoteBookItem>,
     coverThumbnails: Map<String, ByteArray>,
     displayMode: DisplayMode,
@@ -63,6 +68,9 @@ fun WebCatalogPagePanel(
     remotePaging: RemoteCatalogPagingState?,
     catalogLoading: WebCatalogLoading?,
     onQueryChange: (String) -> Unit,
+    onGenreSelected: (String?) -> Unit,
+    onSearch: () -> Unit,
+    onClearSearch: () -> Unit,
     onRefreshCatalog: () -> Unit,
     onOpenDetail: (RemoteBookItem) -> Unit,
     onImportItem: (RemoteBookItem) -> Unit,
@@ -70,34 +78,21 @@ fun WebCatalogPagePanel(
     onRemotePageSelected: (Int) -> Unit,
     onBackToSourceManager: () -> Unit,
 ) {
-    var selectedLanguageFilter by remember { mutableStateOf("All") }
-    var selectedGenreFilter by remember { mutableStateOf("All") }
+    var selectedLanguageFilter by rememberSaveable { mutableStateOf("All") }
+    val viewportPagingState = rememberEinkPagingState(
+        catalogUrl,
+        remotePaging?.currentPage ?: 1,
+        selectedLanguageFilter,
+    )
 
-    val filteredItems = remember(items, selectedLanguageFilter, selectedGenreFilter) {
+    val filteredItems = remember(items, selectedLanguageFilter) {
         items.filter { item ->
-            val matchLang = when (selectedLanguageFilter) {
+            when (selectedLanguageFilter) {
                 "All" -> true
                 "en" -> (item.language ?: "en").contains("en", ignoreCase = true)
                 "ko" -> (item.language ?: "").contains("ko", ignoreCase = true)
                 else -> true
             }
-            val matchGenre = when (selectedGenreFilter) {
-                "All" -> true
-                "Fantasy" -> listOf("fantasy", "magic", "sword", "reincarnat", "isekai", "hero", "lord", "dragon", "mage", "witch", "level").any { kw ->
-                    item.title.contains(kw, ignoreCase = true) || item.downloadUrl.contains(kw, ignoreCase = true)
-                }
-                "Action" -> listOf("action", "battle", "martial", "wuxia", "fight", "war", "kill", "master", "blade", "fist").any { kw ->
-                    item.title.contains(kw, ignoreCase = true) || item.downloadUrl.contains(kw, ignoreCase = true)
-                }
-                "Romance" -> listOf("romance", "love", "heart", "marriage", "wife", "husband", "duchess", "empress", "villainess").any { kw ->
-                    item.title.contains(kw, ignoreCase = true) || item.downloadUrl.contains(kw, ignoreCase = true)
-                }
-                "System" -> listOf("system", "stat", "status", "game", "player", "dungeon", "tower", "rank", "skill").any { kw ->
-                    item.title.contains(kw, ignoreCase = true) || item.downloadUrl.contains(kw, ignoreCase = true)
-                }
-                else -> item.title.contains(selectedGenreFilter, ignoreCase = true) || item.downloadUrl.contains(selectedGenreFilter, ignoreCase = true)
-            }
-            matchLang && matchGenre
         }
     }
 
@@ -144,6 +139,8 @@ fun WebCatalogPagePanel(
                 text = "Catalog Page: $catalogUrl",
                 style = MaterialTheme.typography.labelSmall,
                 color = EinkMuted,
+                maxLines = 1,
+                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
             )
 
             Row(
@@ -158,17 +155,18 @@ fun WebCatalogPagePanel(
                 }
             }
 
-            // Search Bar
-            OutlinedTextField(
-                value = query,
-                onValueChange = onQueryChange,
-                modifier = Modifier.fillMaxWidth(),
-                enabled = !busy,
-                label = { Text("Search catalog novels...") },
-                singleLine = true,
+            WebCatalogSearchControls(
+                query = query,
+                genreOptions = catalogCapabilities.genreOptions,
+                selectedGenreKey = selectedGenreKey,
+                busy = busy,
+                onQueryChange = onQueryChange,
+                onGenreSelected = onGenreSelected,
+                onSearch = onSearch,
+                onClear = onClearSearch,
             )
 
-            // Language & Genre Filter Chips
+            // Language filter remains local because the WTR catalog language is tied to the source URL.
             Column(
                 modifier = Modifier.fillMaxWidth(),
                 verticalArrangement = Arrangement.spacedBy(4.dp),
@@ -191,59 +189,57 @@ fun WebCatalogPagePanel(
                         )
                     }
                 }
+            }
 
-                Text("Genre Filter:", style = MaterialTheme.typography.labelSmall, color = EinkMuted)
-                FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    listOf("All", "Fantasy", "Action", "Romance", "System").forEach { genre ->
-                        FilterChip(
-                            selected = selectedGenreFilter == genre,
-                            onClick = { selectedGenreFilter = genre },
-                            enabled = !busy,
-                            label = { Text(genre) },
+            EinkStablePageContent(
+                content = {
+                    Column(
+                        modifier = Modifier.fillMaxSize(),
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        EinkRemoteCatalogPagerSlot(
+                            paging = remotePaging,
+                            busy = busy,
+                            onPageSelected = onRemotePageSelected,
                         )
+
+                        // Catalog Items List with E-Ink Dynamic Auto-Fit Discrete Pagination
+                        com.dongholab.pagetuner.ui.common.EinkAutoFitPagingContainer(
+                            items = filteredItems,
+                            estimatedItemHeight = 104.dp,
+                            busy = busy,
+                            state = viewportPagingState,
+                            modifier = Modifier.weight(1f),
+                            emptyContent = {
+                                Text(
+                                    text = if (items.isEmpty()) "Loading catalog page items..." else "No novels match your filter.",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = EinkMuted,
+                                )
+                            },
+                        ) { item ->
+                            RemoteBookRow(
+                                item = item,
+                                translation = translatedItems[item.translationKey()],
+                                coverBytes = item.coverUrl?.let { coverThumbnails[it] },
+                                displayMode = displayMode,
+                                busy = busy,
+                                onOpenDetail = { onOpenDetail(item) },
+                                onImportItem = onImportItem,
+                            )
+                        }
                     }
-                }
-            }
-
-            WebCatalogOperationIndicator(
-                loading = catalogLoading,
-                translationProgress = catalogTranslationProgress,
-                busy = busy,
-                statusText = statusText,
-            )
-
-            remotePaging?.let { paging ->
-                EinkRemoteCatalogPager(
-                    paging = paging,
-                    busy = busy,
-                    onPageSelected = onRemotePageSelected,
-                )
-            }
-
-            // Catalog Items List with E-Ink Dynamic Auto-Fit Discrete Pagination
-            com.dongholab.pagetuner.ui.common.EinkAutoFitPagingContainer(
-                items = filteredItems,
-                estimatedItemHeight = 104.dp,
-                busy = busy,
-                modifier = Modifier.weight(1f),
-                emptyContent = {
-                    Text(
-                        text = if (items.isEmpty()) "Loading catalog page items..." else "No novels match your filter.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = EinkMuted,
+                },
+                overlay = {
+                    WebCatalogOperationIndicator(
+                        loading = catalogLoading,
+                        translationProgress = catalogTranslationProgress,
+                        busy = busy,
+                        statusText = statusText,
+                        modifier = Modifier.align(Alignment.TopCenter),
                     )
                 },
-            ) { item ->
-                RemoteBookRow(
-                    item = item,
-                    translation = translatedItems[item.translationKey()],
-                    coverBytes = item.coverUrl?.let { coverThumbnails[it] },
-                    displayMode = displayMode,
-                    busy = busy,
-                    onOpenDetail = { onOpenDetail(item) },
-                    onImportItem = onImportItem,
-                )
-            }
+            )
         }
     }
 }

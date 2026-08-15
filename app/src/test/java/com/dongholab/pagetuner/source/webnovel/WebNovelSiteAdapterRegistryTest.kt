@@ -9,10 +9,11 @@ class WebNovelSiteAdapterRegistryTest {
     @Test
     fun resolvesDedicatedAdapterBeforeGenericFallback() {
         val registry = WebNovelSiteAdapterRegistry(
-            listOf(WtrLabSiteAdapter(), GenericWebNovelSiteAdapter()),
+            listOf(WtrLabSiteAdapter(), NovelBuddySiteAdapter(), GenericWebNovelSiteAdapter()),
         )
 
         assertEquals("wtr-lab", registry.resolve("https://wtr-lab.com/en").id)
+        assertEquals("novelbuddy", registry.resolve("https://novelbuddy.me/home").id)
         assertEquals("generic-semantic-html", registry.resolve("https://novels.example/books").id)
     }
 

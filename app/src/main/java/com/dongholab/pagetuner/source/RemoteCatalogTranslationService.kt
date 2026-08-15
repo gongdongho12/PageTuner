@@ -13,7 +13,8 @@ data class CatalogItemTranslation(
 )
 
 fun RemoteBookItem.translationKey(): String {
-    return "${identity.sourceType}:${identity.accountId}:${identity.remoteId}"
+    val workKey = seriesId?.trim()?.takeIf(String::isNotBlank) ?: "standalone"
+    return "${identity.sourceType}:${identity.accountId}:$workKey:${identity.remoteId}"
 }
 
 interface RemoteCatalogTranslationService {

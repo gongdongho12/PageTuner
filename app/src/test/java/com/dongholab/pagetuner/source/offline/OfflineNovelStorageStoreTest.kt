@@ -53,6 +53,19 @@ class OfflineNovelStorageStoreTest {
     }
 
     @Test
+    fun sameAccountAndChapterIdInDifferentSeriesDoNotOverwriteEachOther() {
+        val store = OfflineNovelStorageStore(null)
+        val firstBook = item.copy(seriesId = "https://example.test/novel/42")
+        val secondBook = item.copy(seriesId = "https://example.test/novel/99")
+
+        store.saveOriginalChapter(firstBook, 7, "First book chapter")
+        store.saveOriginalChapter(secondBook, 7, "Second book chapter")
+
+        assertEquals("First book chapter", store.getOfflineChapter(firstBook)?.originalText)
+        assertEquals("Second book chapter", store.getOfflineChapter(secondBook)?.originalText)
+    }
+
+    @Test
     fun restoresOriginalAndTranslationsAfterStoreRestart() {
         val directory = Files.createTempDirectory("offline-novel-test").toFile()
         try {

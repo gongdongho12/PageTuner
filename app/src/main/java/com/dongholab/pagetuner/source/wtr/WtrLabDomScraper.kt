@@ -4,6 +4,7 @@ import com.dongholab.pagetuner.source.WebNovelTextExtractor
 import java.net.URI
 import org.json.JSONArray
 import org.json.JSONObject
+import com.dongholab.pagetuner.source.webnovel.NextJsPageData
 
 /** Parses WTR-LAB's server-rendered Next.js state into stable app data models. */
 object WtrLabDomScraper {
@@ -48,16 +49,21 @@ object WtrLabDomScraper {
     ): NovelListResponse {
         val home = parseHomeResponse(html, baseUrl)
         val items = home.sections.flatMap { it.items }.distinctBy { it.novelId }
+        // WTR-LAB's finder keeps the unfiltered catalog count in pageProps. Its pagination
+        // links are filtered correctly, so do not surface that stale count as search results.
         val totalItems = extractPageProps(html)?.optString("count")?.toIntOrNull()
+            ?.takeUnless { URI(baseUrl).path.orEmpty().endsWith("/novel-finder") }
         val pageSize = items.size.coerceAtLeast(1)
-        val explicitLastPage = Regex("[?&]page=(\\d+)", RegexOption.IGNORE_CASE)
+        val explicitLastPage = Regex("(?:[?&]|&amp;)page=(\\d+)", RegexOption.IGNORE_CASE)
             .findAll(html)
             .mapNotNull { it.groupValues.getOrNull(1)?.toIntOrNull() }
             .maxOrNull()
         val totalPages = explicitLastPage ?: totalItems?.let { count ->
             ((count + pageSize - 1) / pageSize).coerceAtLeast(1)
         }
-        val hasExplicitNextPage = Regex("(?is)<a[^>]+href=[\"'][^\"']*[?&]page=${currentPage + 1}(?:[&#\"'])").containsMatchIn(html)
+        val hasExplicitNextPage = Regex(
+            "(?is)<a[^>]+href=[\"'][^\"']*(?:[?&]|&amp;)page=${currentPage + 1}(?:[&#\"'])",
+        ).containsMatchIn(html)
         return NovelListResponse(
             currentPage = currentPage,
             hasNextPage = hasExplicitNextPage || (totalPages != null && currentPage < totalPages),
@@ -184,6 +190,128 @@ object WtrLabDomScraper {
         )
     }
 
+    /** Parses the JSON returned by WTR-LAB's lightweight reader request. */
+    fun parseReaderChapterResponse(
+        novelId: Long,
+        chapterNumber: Int,
+        rawJson: String,
+        language: String = "en",
+    ): ChapterContentResponse {
+        val root = JSONObject(rawJson)
+        if (!root.optBoolean("success")) {
+            val reason = when {
+                root.optBoolean("requireTurnstile") -> "browser verification is required"
+                root.optString("code").isNotBlank() -> root.optString("code")
+                root.optString("error").isNotBlank() -> root.optString("error")
+                root.optString("message").isNotBlank() -> root.optString("message")
+                else -> "unknown reader response"
+            }
+            throw IllegalArgumentException("WTR-LAB reader request failed: $reason")
+        }
+
+        val chapter = root.optJSONObject("chapter")
+        val responseData = root.optJSONObject("data")
+        val contentData = responseData?.optJSONObject("data") ?: responseData
+        val glossary = readerGlossary(contentData)
+        val patches = readerPatches(contentData, language)
+        val paragraphs = readerBody(contentData?.opt("body"))
+            .map { applyReaderTerms(it, glossary, patches) }
+            .map(String::trim)
+            .filter(String::isNotBlank)
+
+        val resolvedNovelId = chapter?.optLong("raw_id", novelId)
+            ?.takeIf { it > 0L }
+            ?: novelId
+        val resolvedChapterNumber = chapter?.optInt("order", chapterNumber)
+            ?.takeIf { it > 0 }
+            ?: chapterNumber
+        val title = firstNonBlank(
+            contentData?.optString("title"),
+            chapter?.optString("title"),
+            chapter?.optString("name"),
+            "Chapter $resolvedChapterNumber",
+        )
+
+        return ChapterContentResponse(
+            novelId = resolvedNovelId,
+            chapterNumber = resolvedChapterNumber,
+            titleOriginal = title,
+            titleTranslated = contentData?.optString("title")?.takeIf(String::isNotBlank),
+            paragraphs = paragraphs,
+        )
+    }
+
+    private fun readerBody(rawBody: Any?): List<String> = when (rawBody) {
+        is JSONArray -> buildList {
+            for (index in 0 until rawBody.length()) {
+                readerLine(rawBody.opt(index))?.let(::add)
+            }
+        }
+        is String -> rawBody.split(Regex("\\n\\s*\\n+"))
+        else -> emptyList()
+    }
+
+    private fun readerLine(value: Any?): String? = when (value) {
+        is String -> value
+        is JSONObject -> firstNonBlank(
+            value.optString("text"),
+            value.optString("content"),
+            value.optString("value"),
+        ).takeIf(String::isNotBlank)
+        else -> null
+    }
+
+    private fun readerGlossary(contentData: JSONObject?): Map<Int, String> {
+        val terms = contentData
+            ?.optJSONObject("glossary_data")
+            ?.optJSONArray("terms")
+            ?: return emptyMap()
+        return buildMap {
+            for (index in 0 until terms.length()) {
+                val term = terms.optJSONArray(index)?.optString(0).orEmpty().trim()
+                if (term.isNotBlank()) put(index, term)
+            }
+        }
+    }
+
+    private fun readerPatches(contentData: JSONObject?, language: String): List<Pair<String, String>> {
+        val rawPatches = contentData?.optJSONArray("patch") ?: return emptyList()
+        val targetKey = language.substringBefore('-').lowercase()
+        return buildList {
+            for (index in 0 until rawPatches.length()) {
+                val patch = rawPatches.optJSONObject(index) ?: continue
+                val replacement = firstNonBlank(
+                    patch.optString(targetKey),
+                    patch.optString(language),
+                    patch.optString("en"),
+                )
+                if (replacement.isBlank()) continue
+                val keys = patch.keys()
+                while (keys.hasNext()) {
+                    val key = keys.next()
+                    val source = patch.optString(key)
+                    if (key != targetKey && source.isNotBlank() && source != replacement) {
+                        add(source to replacement)
+                    }
+                }
+            }
+        }
+    }
+
+    private fun applyReaderTerms(
+        value: String,
+        glossary: Map<Int, String>,
+        patches: List<Pair<String, String>>,
+    ): String {
+        var result = ReaderTermMarker.replace(value) { match ->
+            glossary[match.groupValues[1].toIntOrNull()] ?: match.value
+        }
+        patches.forEach { (source, replacement) ->
+            result = result.replace(source, replacement)
+        }
+        return result
+    }
+
     private fun MutableList<HomeSection>.addSection(
         pageProps: JSONObject?,
         jsonKey: String,
@@ -219,6 +347,10 @@ object WtrLabDomScraper {
             status = statusName(item.opt("status")),
             views = totalViews(item).toString(),
             rating = item.optDouble("rating", 0.0).takeUnless { it.isNaN() }?.toFloat() ?: 0f,
+            author = firstNonBlank(data?.optString("author"), item.optString("author"))
+                .takeIf { it.isNotBlank() },
+            description = firstNonBlank(data?.optString("description"), item.optString("description"))
+                .takeIf { it.isNotBlank() },
         )
     }
 
@@ -271,15 +403,7 @@ object WtrLabDomScraper {
     }
 
     private fun extractPageProps(html: String): JSONObject? {
-        val json = Regex("(?is)<script[^>]*id=[\"']__NEXT_DATA__[\"'][^>]*>(.*?)</script>")
-            .find(html)
-            ?.groupValues
-            ?.get(1)
-            ?.trim()
-            ?: return null
-        return runCatching {
-            JSONObject(json).optJSONObject("props")?.optJSONObject("pageProps")
-        }.getOrNull()
+        return NextJsPageData.pageProps(html)
     }
 
     private fun positiveLong(json: JSONObject?, key: String): Long? =
@@ -321,4 +445,6 @@ object WtrLabDomScraper {
 
     private fun firstNonBlank(vararg values: String?): String =
         values.firstOrNull { !it.isNullOrBlank() }.orEmpty()
+
+    private val ReaderTermMarker = Regex("※(\\d+)⛬")
 }

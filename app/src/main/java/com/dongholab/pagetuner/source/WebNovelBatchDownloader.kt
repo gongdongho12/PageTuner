@@ -127,7 +127,7 @@ object WebNovelBatchDownloader {
                 val alreadyTranslated = existing?.translations
                     ?.containsKey(settings.normalizedTargetLanguage.lowercase()) == true
                 if (includeTranslation && !alreadyTranslated) {
-                    val bodyFieldId = "${item.identity.accountId}:${item.identity.remoteId}:body"
+                    val bodyFieldId = "${item.translationKey()}:body"
                     val translation = translator.translate(
                         request = ContentTranslationRequest(
                             namespace = "web-novel-chapter-v1",

@@ -1,6 +1,7 @@
 package com.dongholab.pagetuner.source
 
 import android.util.Log
+import com.dongholab.pagetuner.source.webnovel.NextJsPageData
 import org.json.JSONArray
 import org.json.JSONObject
 
@@ -33,13 +34,10 @@ object WebNovelTextExtractor {
         }
 
         // Strategy A: Next.js __NEXT_DATA__ JSON Extraction
-        val nextDataMatch = Regex("(?is)<script[^>]*id=[\"']__NEXT_DATA__[\"'][^>]*>(.*?)</script>").find(html)
-        if (nextDataMatch != null) {
-            val jsonString = nextDataMatch.groupValues[1].trim()
+        val nextPageProps = NextJsPageData.pageProps(html)
+        if (nextPageProps != null) {
             runCatching {
-                val jsonObj = JSONObject(jsonString)
-                val props = jsonObj.optJSONObject("props")?.optJSONObject("pageProps")
-                val extracted = extractTextFromPageProps(props)
+                val extracted = extractTextFromPageProps(nextPageProps)
                 if (extracted.isNotBlank()) {
                     logI("[STRATEGY A: NEXT.JS JSON] Extracted ${extracted.length} chars from __NEXT_DATA__")
                     return sanitizeExtractedText(extracted)
@@ -88,6 +86,7 @@ object WebNovelTextExtractor {
     private fun extractTextFromPageProps(props: JSONObject?): String {
         if (props == null) return ""
         val chapterData = props.optJSONObject("chapter")
+            ?: props.optJSONObject("initialChapter")
             ?: props.optJSONObject("data")
             ?: props.optJSONObject("rawChapter")
             ?: props.optJSONObject("serie")
@@ -166,16 +165,13 @@ object WebNovelTextExtractor {
         val seenUrls = mutableSetOf<String>()
 
         // Strategy A: Next.js __NEXT_DATA__ JSON Parser
-        val nextDataMatch = Regex("(?is)<script[^>]*id=[\"']__NEXT_DATA__[\"'][^>]*>(.*?)</script>").find(html)
-        if (nextDataMatch != null) {
+        val pageProps = NextJsPageData.pageProps(html)
+        if (pageProps != null) {
             runCatching {
-                val jsonString = nextDataMatch.groupValues[1].trim()
-                val jsonObj = JSONObject(jsonString)
-                val pageProps = jsonObj.optJSONObject("props")?.optJSONObject("pageProps")
-                val rawSeriesList = pageProps?.optJSONArray("series")
-                    ?: pageProps?.optJSONArray("novels")
-                    ?: pageProps?.optJSONArray("chapters")
-                    ?: pageProps?.optJSONArray("data")
+                val rawSeriesList = pageProps.optJSONArray("series")
+                    ?: pageProps.optJSONArray("novels")
+                    ?: pageProps.optJSONArray("chapters")
+                    ?: pageProps.optJSONArray("data")
 
                 if (rawSeriesList != null) {
                     for (i in 0 until rawSeriesList.length()) {

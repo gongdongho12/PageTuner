@@ -56,8 +56,9 @@ class OfflineNovelStorageStore private constructor(
         item: RemoteBookItem,
         chapterNumber: Int,
         contentText: String,
-    ): OfflineNovelChapter = saveOriginalChapter(
-        novelId = item.identity.accountId,
+    ): OfflineNovelChapter = saveOriginalChapterWithKey(
+        key = storageKey(item),
+        novelId = item.seriesId?.takeIf(String::isNotBlank) ?: item.identity.accountId,
         chapterId = item.identity.remoteId,
         chapterNumber = chapterNumber,
         chapterTitle = item.title,
@@ -72,9 +73,26 @@ class OfflineNovelStorageStore private constructor(
         chapterTitle: String,
         sourceLanguage: String,
         contentText: String,
+    ): OfflineNovelChapter = saveOriginalChapterWithKey(
+        key = storageKey(novelId, chapterId),
+        novelId = novelId,
+        chapterId = chapterId,
+        chapterNumber = chapterNumber,
+        chapterTitle = chapterTitle,
+        sourceLanguage = sourceLanguage,
+        contentText = contentText,
+    )
+
+    private fun saveOriginalChapterWithKey(
+        key: String,
+        novelId: String,
+        chapterId: String,
+        chapterNumber: Int,
+        chapterTitle: String,
+        sourceLanguage: String,
+        contentText: String,
     ): OfflineNovelChapter = synchronized(lock) {
         require(contentText.isNotBlank()) { "Offline chapter text cannot be blank." }
-        val key = storageKey(novelId, chapterId)
         val previous = loadLocked(key)
         val chapter = OfflineNovelChapter(
             novelId = novelId,
@@ -97,7 +115,7 @@ class OfflineNovelStorageStore private constructor(
         translatedText: String,
         providerId: String,
     ): OfflineNovelChapter = synchronized(lock) {
-        val key = storageKey(item.identity.accountId, item.identity.remoteId)
+        val key = storageKey(item)
         val current = requireNotNull(loadLocked(key)) {
             "Save the original chapter before its translation."
         }
@@ -119,7 +137,7 @@ class OfflineNovelStorageStore private constructor(
     }
 
     fun getOfflineChapter(item: RemoteBookItem): OfflineNovelChapter? = synchronized(lock) {
-        loadLocked(storageKey(item.identity.accountId, item.identity.remoteId))
+        loadLocked(storageKey(item))
     }
 
     fun isChapterDownloaded(item: RemoteBookItem): Boolean = getOfflineChapter(item) != null
@@ -154,6 +172,14 @@ class OfflineNovelStorageStore private constructor(
 
     private fun storageKey(novelId: String, chapterId: String): String {
         return DocumentIds.sha256("$novelId\n$chapterId")
+    }
+
+    private fun storageKey(item: RemoteBookItem): String {
+        val series = item.seriesId?.trim()?.takeIf(String::isNotBlank)
+            ?: return storageKey(item.identity.accountId, item.identity.remoteId)
+        return DocumentIds.sha256(
+            "${item.identity.sourceType}\n${item.identity.accountId}\n$series\n${item.identity.remoteId}",
+        )
     }
 
     private fun loadLocked(key: String): OfflineNovelChapter? {

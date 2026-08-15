@@ -1,6 +1,7 @@
 package com.dongholab.pagetuner.ui.source
 
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import com.dongholab.pagetuner.R
 import com.dongholab.pagetuner.source.CatalogTranslationProgress
@@ -14,6 +15,7 @@ fun WebCatalogOperationIndicator(
     translationProgress: CatalogTranslationProgress?,
     busy: Boolean,
     statusText: String?,
+    modifier: Modifier = Modifier,
 ) {
     val loadingDetail = loading?.let { progress ->
         when (progress.phase) {
@@ -25,6 +27,7 @@ fun WebCatalogOperationIndicator(
     }
     EinkOperationIndicator(
         visible = loading != null || busy,
+        modifier = modifier,
         title = when {
             translationProgress != null -> stringResource(R.string.web_catalog_translating_titles)
             loading != null -> stringResource(R.string.web_catalog_loading_title)

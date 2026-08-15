@@ -242,6 +242,7 @@
     <string name="status_web_catalog_missing_url">Catalog URL is required.</string>
     <string name="status_web_catalog_loaded_remote">Loaded %1$s from network: %2$d books.</string>
     <string name="status_web_catalog_loaded_remote_page">Loaded %1$s page %2$d / %3$d: %4$d here, %5$d total.</string>
+    <string name="status_web_catalog_loaded_search_page">Loaded %1$s search page %2$d / %3$d: %4$d results here.</string>
     <string name="status_web_catalog_loaded_cached">Loaded saved catalog %1$s: %2$d books.</string>
     <string name="status_web_catalog_importing">Downloading %1$s.</string>
     <string name="status_web_catalog_downloaded">Downloaded %1$s. Saving to local library.</string>
@@ -287,8 +288,14 @@
     <string name="web_catalog_loading_parse">Extracting books from page %1$d DOM…</string>
     <string name="web_catalog_loading_apply">Applying catalog page %1$d…</string>
     <string name="web_catalog_remote_page_summary">Remote page %1$d / %2$d · %3$d here · %4$d total</string>
+    <string name="web_catalog_remote_page_summary_without_total">Remote page %1$d / %2$d · %3$d results here</string>
     <string name="action_first_page">First</string>
     <string name="action_previous_page">Prev</string>
     <string name="action_next_page">Next</string>
     <string name="action_last_page">Last</string>
+    <string name="web_catalog_search_label">Keyword search</string>
+    <string name="web_catalog_search_hint">Searches the complete WTR-Lab catalog by title or original title.</string>
+    <string name="web_catalog_genre_prefix">Genre</string>
+    <string name="action_search_remote_catalog">Search</string>
+    <string name="action_clear_catalog_search">Clear keyword and genre</string>
 </resources>

@@ -242,6 +242,7 @@
     <string name="status_web_catalog_missing_url">카탈로그 URL이 필요합니다.</string>
     <string name="status_web_catalog_loaded_remote">네트워크에서 %1$s을(를) 불러왔습니다: %2$d권.</string>
     <string name="status_web_catalog_loaded_remote_page">%1$s 원격 %2$d / %3$d페이지를 불러왔습니다: 현재 %4$d권, 전체 %5$d권.</string>
+    <string name="status_web_catalog_loaded_search_page">%1$s 검색 결과 %2$d / %3$d페이지를 불러왔습니다: 현재 %4$d권.</string>
     <string name="status_web_catalog_loaded_cached">저장된 카탈로그 %1$s을(를) 불러왔습니다: %2$d권.</string>
     <string name="status_web_catalog_importing">%1$s을(를) 내려받는 중입니다.</string>
     <string name="status_web_catalog_downloaded">%1$s을(를) 내려받았습니다. 로컬 서재에 저장합니다.</string>
@@ -287,8 +288,14 @@
     <string name="web_catalog_loading_parse">%1$d페이지 DOM에서 서적을 추출하는 중…</string>
     <string name="web_catalog_loading_apply">카탈로그 %1$d페이지를 화면에 반영하는 중…</string>
     <string name="web_catalog_remote_page_summary">원격 %1$d / %2$d페이지 · 현재 %3$d권 · 전체 %4$d권</string>
+    <string name="web_catalog_remote_page_summary_without_total">검색 결과 %1$d / %2$d페이지 · 현재 %3$d권</string>
     <string name="action_first_page">처음</string>
     <string name="action_previous_page">이전</string>
     <string name="action_next_page">다음</string>
     <string name="action_last_page">마지막</string>
+    <string name="web_catalog_search_label">키워드 검색</string>
+    <string name="web_catalog_search_hint">현재 10권이 아니라 WTR-Lab 전체에서 제목과 원제목을 검색합니다.</string>
+    <string name="web_catalog_genre_prefix">장르</string>
+    <string name="action_search_remote_catalog">검색</string>
+    <string name="action_clear_catalog_search">키워드·장르 초기화</string>
 </resources>

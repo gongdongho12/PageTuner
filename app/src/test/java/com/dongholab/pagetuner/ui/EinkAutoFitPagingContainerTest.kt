@@ -1,6 +1,7 @@
 package com.dongholab.pagetuner.ui
 
 import com.dongholab.pagetuner.ui.common.calculateEinkAutoFitPageSize
+import com.dongholab.pagetuner.ui.common.coerceEinkPageIndex
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -42,5 +43,16 @@ class EinkAutoFitPagingContainerTest {
     @Test
     fun calculatePageSize_unboundedViewport_usesSafeFallbackCap() {
         assertEquals(5, calculateEinkAutoFitPageSize(null, 58f, 6f, 24))
+    }
+
+    @Test
+    fun refreshWithEnoughItemsKeepsTheRequestedViewportPage() {
+        assertEquals(4, coerceEinkPageIndex(requestedPageIndex = 4, itemCount = 30, pageSize = 5))
+    }
+
+    @Test
+    fun shorterFilteredResultsClampToTheLastReachablePage() {
+        assertEquals(1, coerceEinkPageIndex(requestedPageIndex = 4, itemCount = 7, pageSize = 5))
+        assertEquals(0, coerceEinkPageIndex(requestedPageIndex = 4, itemCount = 0, pageSize = 5))
     }
 }

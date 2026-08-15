@@ -90,6 +90,18 @@ data class WebNovelSiteChapterContent(
     val paragraphs: List<String>,
 )
 
+data class WebNovelCatalogOption(
+    val key: String?,
+    val label: String,
+)
+
+data class WebNovelCatalogCapabilities(
+    val remoteSearch: Boolean = false,
+    val genreFilterKey: String? = null,
+    val genreOptions: List<WebNovelCatalogOption> = emptyList(),
+    val providerAdvancedControls: Boolean = false,
+)
+
 /**
  * Site-level extension point. Implementations own URL classification, URL construction,
  * rendered/static loading policy, and mapping from site DOM models to common web-novel models.
@@ -97,6 +109,10 @@ data class WebNovelSiteChapterContent(
 interface WebNovelSiteAdapter {
     val id: String
     val displayName: String
+    val chapterLoadStrategy: WebNovelChapterLoadStrategy
+        get() = WebNovelChapterLoadStrategy.HttpOnly
+    val catalogCapabilities: WebNovelCatalogCapabilities
+        get() = WebNovelCatalogCapabilities()
 
     fun supports(url: String): Boolean
 
@@ -110,6 +126,14 @@ interface WebNovelSiteAdapter {
     fun catalogPageUrl(url: String, page: Int): String =
         WebNovelCatalogPageUrls.withPage(canonicalCatalogUrl(url), page)
 
+    /** Reads provider-specific URL parameters into state that the common catalog UI can retain. */
+    fun catalogRequest(url: String): WebNovelCatalogRequest = WebNovelCatalogRequest(
+        page = WebNovelCatalogPageUrls.currentPage(url),
+    )
+
+    /** Returns null when a provider has no remote keyword-search endpoint. */
+    fun catalogSearchUrl(url: String, request: WebNovelCatalogRequest): String? = null
+
     fun parseCatalog(html: String, url: String): List<WebNovelSiteBook>
 
     fun parseCatalogPage(html: String, url: String): WebNovelCatalogPage = WebNovelCatalogPage(
@@ -121,6 +145,13 @@ interface WebNovelSiteAdapter {
     fun parseDetail(html: String, url: String): WebNovelSiteDetail
 
     fun parseChapters(html: String, url: String): List<WebNovelSiteChapter>
+
+    /** Providers may fetch a dedicated chapter index while keeping common source orchestration. */
+    suspend fun loadChapters(
+        html: String,
+        url: String,
+        fetchText: suspend (String) -> String,
+    ): List<WebNovelSiteChapter> = parseChapters(html, url)
 
     suspend fun resolveChapterUrl(
         url: String,
@@ -160,6 +191,7 @@ class WebNovelSiteAdapterRegistry(
 
         private fun defaultAdapters(): List<WebNovelSiteAdapter> = listOf(
             WtrLabSiteAdapter(),
+            NovelBuddySiteAdapter(),
             GenericWebNovelSiteAdapter(),
         )
     }

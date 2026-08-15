@@ -3,6 +3,7 @@ package com.dongholab.pagetuner.source
 import com.dongholab.pagetuner.document.DocumentFormat
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class RemoteCatalogRouteTest {
@@ -28,6 +29,18 @@ class RemoteCatalogRouteTest {
             RemoteCatalogRoute.Catalog("https://another.example/catalog"),
             RemoteCatalogRoute.Book("https://another.example/catalog", book).parent(),
         )
+    }
+
+    @Test
+    fun eachHierarchyPageHasAStableAndDistinctUiStateKey() {
+        val bookRoute = RemoteCatalogRoute.Book("https://catalog.example/books", book())
+
+        assertEquals("remote-source-systems", RemoteCatalogRoute.SourceSystems.pageStateKey())
+        assertEquals(
+            "remote-catalog:https://catalog.example/books",
+            RemoteCatalogRoute.Catalog("https://catalog.example/books").pageStateKey(),
+        )
+        assertTrue(bookRoute.pageStateKey().startsWith("remote-book:WebNovel:source:novel-1"))
     }
 
     private fun book() = RemoteBookItem(

@@ -1,14 +1,30 @@
 package com.dongholab.pagetuner.source.webnovel
 
 import com.dongholab.pagetuner.source.RenderedChapterLoader
+import com.dongholab.pagetuner.source.WebNovelHttpClient
 import com.dongholab.pagetuner.source.WebNovelTextExtractor
 import com.dongholab.pagetuner.source.wtr.WtrLabDomScraper
 import java.io.IOException
 import java.net.URI
+import org.json.JSONObject
+import com.dongholab.pagetuner.source.WtrLabCatalogQueryParams
 
-class WtrLabSiteAdapter : WebNovelSiteAdapter {
+class WtrLabSiteAdapter(
+    override val chapterLoadStrategy: WebNovelChapterLoadStrategy =
+        WebNovelChapterLoadStrategy.HttpThenWebView,
+    private val postReaderJson: suspend (String, String, String) -> String =
+        WebNovelHttpClient::postJson,
+) : WebNovelSiteAdapter {
     override val id: String = "wtr-lab"
     override val displayName: String = "WTR-LAB"
+    override val catalogCapabilities: WebNovelCatalogCapabilities = WebNovelCatalogCapabilities(
+        remoteSearch = true,
+        genreFilterKey = "genreId",
+        genreOptions = WtrLabCatalogQueryParams.GENRE_OPTIONS.map { genre ->
+            WebNovelCatalogOption(genre.id?.toString(), genre.label)
+        },
+        providerAdvancedControls = true,
+    )
 
     override fun supports(url: String): Boolean = runCatching {
         URI(url).host.orEmpty().equals("wtr-lab.com", ignoreCase = true)
@@ -41,6 +57,29 @@ class WtrLabSiteAdapter : WebNovelSiteAdapter {
         }
     }.getOrDefault(url)
 
+    override fun catalogRequest(url: String): WebNovelCatalogRequest {
+        val request = WtrLabCatalogQueryParams.fromUrl(url)
+        return WebNovelCatalogRequest(
+            query = request.query,
+            page = request.page,
+            filters = buildMap {
+                put("orderBy", request.orderBy)
+                put("order", request.order)
+                put("status", request.status)
+                request.genreId?.let { put("genreId", it.toString()) }
+            },
+        )
+    }
+
+    override fun catalogSearchUrl(url: String, request: WebNovelCatalogRequest): String {
+        val current = WtrLabCatalogQueryParams.fromUrl(url)
+        return current.copy(
+            query = request.query.trim(),
+            genreId = request.filters["genreId"]?.toIntOrNull(),
+            page = request.page.coerceAtLeast(1),
+        ).buildUrl(url)
+    }
+
     override fun parseCatalog(html: String, url: String): List<WebNovelSiteBook> {
         return parseCatalogPage(html, url).items
     }
@@ -52,8 +91,10 @@ class WtrLabSiteAdapter : WebNovelSiteAdapter {
                 id = "novel_${novel.novelId}",
                 title = novel.title,
                 url = novelUrl(url, novel.novelId, novel.slug),
+                authors = listOfNotNull(novel.author),
                 language = language(url),
                 coverUrl = novel.coverUrl,
+                description = novel.description,
                 chapterCount = novel.chapterCount,
             )
         }
@@ -87,11 +128,12 @@ class WtrLabSiteAdapter : WebNovelSiteAdapter {
 
     override fun parseChapters(html: String, url: String): List<WebNovelSiteChapter> {
         return WtrLabDomScraper.parseChapterListResponse(novelId(url), html, url).chapters.map { chapter ->
+            val chapterUrl = resolveUrl(url, chapter.urlPath)
             WebNovelSiteChapter(
-                id = "chapter_${chapter.chapterNumber}",
+                id = WebNovelChapterKeys.fromUrl(chapterUrl, chapter.chapterNumber),
                 number = chapter.chapterNumber,
                 title = chapter.title,
-                url = resolveUrl(url, chapter.urlPath),
+                url = chapterUrl,
                 language = language(url),
             )
         }
@@ -119,16 +161,53 @@ class WtrLabSiteAdapter : WebNovelSiteAdapter {
         renderedChapterLoader: RenderedChapterLoader?,
     ): WebNovelSiteChapterContent {
         val number = chapterNumber(url) ?: 1
-        val loader = renderedChapterLoader ?: throw IOException(
-            "WTR-LAB requires the app rendered-page loader.",
-        )
-        val rendered = loader.loadChapter(url, number)
-        return WebNovelSiteChapterContent(
-            number = number,
-            title = rendered.title.ifBlank { fallbackTitle },
-            paragraphs = rendered.paragraphs,
+        return WebNovelChapterLoadPolicy.load(
+            strategy = chapterLoadStrategy,
+            http = {
+                val rawNovelId = novelId(url).takeIf { it > 0L }
+                    ?: throw IOException("WTR-LAB chapter URL does not contain a novel ID: $url")
+                val requestBody = JSONObject()
+                    .put("translate", "ai")
+                    .put("language", language(url))
+                    .put("raw_id", rawNovelId)
+                    .put("chapter_no", number)
+                    .toString()
+                val response = postReaderJson(readerApiUrl(url), requestBody, url)
+                val parsed = WtrLabDomScraper.parseReaderChapterResponse(
+                    novelId = rawNovelId,
+                    chapterNumber = number,
+                    rawJson = response,
+                    language = language(url),
+                )
+                if (parsed.paragraphs.joinToString(" ").length < MIN_CONTENT_CHARS) {
+                    throw IOException("WTR-LAB reader API returned no readable chapter body.")
+                }
+                WebNovelSiteChapterContent(
+                    number = number,
+                    title = parsed.titleTranslated
+                        ?.takeIf(String::isNotBlank)
+                        ?: parsed.titleOriginal.ifBlank { fallbackTitle },
+                    paragraphs = parsed.paragraphs,
+                )
+            },
+            webView = {
+                val loader = renderedChapterLoader ?: throw IOException(
+                    "The rendered WebView chapter loader is unavailable.",
+                )
+                val rendered = loader.loadChapter(url, number)
+                WebNovelSiteChapterContent(
+                    number = number,
+                    title = rendered.title.ifBlank { fallbackTitle },
+                    paragraphs = rendered.paragraphs,
+                )
+            },
         )
     }
+
+    private fun readerApiUrl(url: String): String = runCatching {
+        val uri = URI(url)
+        "${uri.scheme}://${uri.rawAuthority}/api/reader/get"
+    }.getOrElse { throw IOException("Invalid WTR-LAB chapter URL: $url", it) }
 
     private fun novelId(url: String): Long =
         Regex("/novel/(\\d+)").find(url)?.groupValues?.get(1)?.toLongOrNull() ?: 0L
@@ -149,4 +228,8 @@ class WtrLabSiteAdapter : WebNovelSiteAdapter {
 
     private fun resolveUrl(baseUrl: String, value: String): String =
         runCatching { URI(baseUrl).resolve(value).toString() }.getOrDefault(value)
+
+    private companion object {
+        const val MIN_CONTENT_CHARS = 100
+    }
 }

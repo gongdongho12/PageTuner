@@ -82,7 +82,9 @@ class WebNovelRemoteBookSource(
         return items.filter {
             it.title.contains(query, ignoreCase = true) ||
                 it.downloadUrl.contains(query, ignoreCase = true) ||
-                it.authors.any { author -> author.contains(query, ignoreCase = true) }
+                it.authors.any { author -> author.contains(query, ignoreCase = true) } ||
+                it.description.orEmpty().contains(query, ignoreCase = true) ||
+                it.tags.any { tag -> tag.contains(query, ignoreCase = true) }
         }
     }
 
@@ -138,24 +140,31 @@ class WebNovelRemoteBookSource(
         return html
     }
 
-    private fun itemsFromHtml(html: String): List<RemoteBookItem> {
+    private suspend fun itemsFromHtml(html: String): List<RemoteBookItem> {
         cachedItems?.let { return it }
         val items = when (siteAdapter.classify(resolvedEndpointUrl)) {
             WebNovelPageKind.Catalog -> siteAdapter.parseCatalog(html, resolvedEndpointUrl).map(::bookItem)
             WebNovelPageKind.NovelDetail -> {
                 val detail = siteAdapter.parseDetail(html, resolvedEndpointUrl)
-                siteAdapter.parseChapters(html, resolvedEndpointUrl).map { chapter -> chapterItem(chapter, detail) }
+                siteAdapter.loadChapters(html, resolvedEndpointUrl, ::loadHtml)
+                    .map { chapter -> chapterItem(chapter, detail) }
             }
-            WebNovelPageKind.Chapter -> listOf(
-                chapterItem(
+            WebNovelPageKind.Chapter -> {
+                val directChapterNumber = com.dongholab.pagetuner.source.webnovel.WebNovelChapterNumbers
+                    .fromUrl(resolvedEndpointUrl)
+                    ?: 1
+                listOf(chapterItem(
                     WebNovelSiteChapter(
-                        id = "chapter_direct",
-                        number = 1,
+                        id = com.dongholab.pagetuner.source.webnovel.WebNovelChapterKeys.fromUrl(
+                            resolvedEndpointUrl,
+                            directChapterNumber,
+                        ),
+                        number = directChapterNumber,
                         title = siteAdapter.siteTitle(html, resolvedEndpointUrl),
                         url = resolvedEndpointUrl,
                     ),
-                ),
-            )
+                ))
+            }
         }
         return items.also { cachedItems = it }
     }
@@ -179,17 +188,24 @@ class WebNovelRemoteBookSource(
     private fun chapterItem(
         chapter: WebNovelSiteChapter,
         detail: WebNovelSiteDetail? = null,
-    ): RemoteBookItem = RemoteBookItem(
-        identity = RemoteBookIdentity(sourceType, accountId, chapter.id),
-        title = chapter.title,
-        format = DocumentFormat.TEXT,
-        language = chapter.language,
-        contentType = "text/plain",
-        downloadUrl = chapter.url,
-        seriesId = com.dongholab.pagetuner.source.webnovel.WebNovelSeriesKeys.fromUrl(resolvedEndpointUrl),
-        seriesTitle = detail?.title,
-        chapterNumber = chapter.number,
-    )
+    ): RemoteBookItem {
+        val seriesId = com.dongholab.pagetuner.source.webnovel.WebNovelSeriesKeys.fromUrl(chapter.url)
+        val chapterId = com.dongholab.pagetuner.source.webnovel.WebNovelChapterKeys.fromUrl(
+            chapter.url,
+            chapter.number,
+        )
+        return RemoteBookItem(
+            identity = RemoteBookIdentity(sourceType, accountId, chapterId),
+            title = chapter.title,
+            format = DocumentFormat.TEXT,
+            language = chapter.language,
+            contentType = "text/plain",
+            downloadUrl = chapter.url,
+            seriesId = seriesId,
+            seriesTitle = detail?.title,
+            chapterNumber = chapter.number,
+        )
+    }
 
     private fun logD(message: String) {
         runCatching { Log.d(TAG, message) }.onFailure { println("[$TAG] $message") }

@@ -72,11 +72,17 @@ private data class LoadedWebNovelCatalog(
 data class WebCatalogUiState(
     val catalogUrl: String = DefaultCatalogUrl,
     val query: String = "",
+    val selectedGenreKey: String? = null,
+    val catalogCapabilities: com.dongholab.pagetuner.source.webnovel.WebNovelCatalogCapabilities =
+        com.dongholab.pagetuner.source.webnovel.WtrLabSiteAdapter().catalogCapabilities,
     val catalog: PageTurnerCatalog? = null,
     val visibleItems: List<RemoteBookItem> = emptyList(),
     val coverThumbnails: Map<String, ByteArray> = emptyMap(),
     val cachedCatalogs: List<CachedWebCatalog> = emptyList(),
-    val sourceAccounts: List<RemoteSourceAccount> = listOf(defaultWtrLabAccount()),
+    val sourceAccounts: List<RemoteSourceAccount> = listOf(
+        defaultWtrLabAccount(),
+        defaultNovelBuddyAccount(),
+    ),
     val translatedItems: Map<String, CatalogItemTranslation> = emptyMap(),
     val catalogTranslationProgress: CatalogTranslationProgress? = null,
     val batchDownloadProgress: BatchDownloadProgress? = null,
@@ -157,17 +163,90 @@ class WebCatalogViewModel(
     }
 
     fun updateCatalogUrl(url: String) {
-        _uiState.update { state -> state.copy(catalogUrl = url) }
+        _uiState.update { state ->
+            val adapter = webNovelAdapter(url)
+            val request = adapter?.catalogRequest(url)
+            if (request != null && adapter.catalogSearchUrl(url, request) != null) {
+                state.copy(
+                    catalogUrl = url,
+                    query = request.query,
+                    selectedGenreKey = adapter.catalogCapabilities.genreFilterKey
+                        ?.let(request.filters::get),
+                    catalogCapabilities = adapter.catalogCapabilities,
+                )
+            } else {
+                state.copy(
+                    catalogUrl = url,
+                    catalogCapabilities = adapter?.catalogCapabilities
+                        ?: com.dongholab.pagetuner.source.webnovel.WebNovelCatalogCapabilities(),
+                )
+            }
+        }
     }
 
     fun updateQuery(query: String) {
         _uiState.update { state ->
             state.copy(
                 query = query,
-                visibleItems = state.catalog.filterItems(query),
+                visibleItems = if (state.catalogUrl.hasRemoteCatalogSearch()) {
+                    state.catalog?.items.orEmpty()
+                } else {
+                    state.catalog.filterItems(query)
+                },
             )
         }
         prefetchCoverThumbnails(_uiState.value.visibleItems)
+    }
+
+    fun updateGenreSelection(genreKey: String?) {
+        _uiState.update { state -> state.copy(selectedGenreKey = genreKey) }
+    }
+
+    fun submitSearch() {
+        val state = _uiState.value
+        if (state.busy || state.catalogLoading != null) return
+        val adapter = webNovelAdapter(state.catalogUrl)
+        val currentRequest = adapter?.catalogRequest(state.catalogUrl)
+        val request = currentRequest?.copy(
+            query = state.query.trim(),
+            page = 1,
+            filters = currentRequest.filters.toMutableMap().apply {
+                adapter.catalogCapabilities.genreFilterKey?.let { genreFilterKey ->
+                    state.selectedGenreKey?.let { put(genreFilterKey, it) } ?: remove(genreFilterKey)
+                }
+            },
+        )
+        val searchUrl = request?.let { adapter.catalogSearchUrl(state.catalogUrl, it) }
+        if (searchUrl == null) {
+            _uiState.update { current ->
+                current.copy(
+                    visibleItems = current.catalog.filterItems(current.query),
+                )
+            }
+            return
+        }
+        _uiState.update { currentState ->
+            currentState.copy(
+                catalogUrl = searchUrl,
+            )
+        }
+        catalogPreloadJob?.cancel()
+        loadWebNovelPage(
+            url = searchUrl,
+            accountId = accountIdForCatalog(searchUrl),
+            page = 1,
+            forceRefresh = false,
+        )
+    }
+
+    fun clearSearch() {
+        _uiState.update { state ->
+            state.copy(
+                query = "",
+                selectedGenreKey = null,
+            )
+        }
+        submitSearch()
     }
 
     fun loadCatalog() {
@@ -245,7 +324,7 @@ class WebCatalogViewModel(
 
     fun loadSourceAccount(account: RemoteSourceAccount) {
         if (_uiState.value.busy) return
-        _uiState.update { state -> state.copy(catalogUrl = account.endpoint) }
+        updateCatalogUrl(account.endpoint)
         when (account.sourceType) {
             RemoteSourceType.PageTurnerWebCatalog -> {
                 loadCatalog(forceRefresh = false)
@@ -295,11 +374,15 @@ class WebCatalogViewModel(
         val title = _uiState.value.catalog?.title ?: url
         viewModelScope.launch {
             runCatching {
+                val adapter = webNovelAdapter(url)
                 accountStore.upsert(
-                    pageTurnerWebCatalogAccount(
-                        catalogUrl = url,
-                        title = title,
-                    ),
+                    if (adapter != null && adapter.classify(url) ==
+                        com.dongholab.pagetuner.source.webnovel.WebNovelPageKind.Catalog
+                    ) {
+                        webNovelSourceAccount(endpoint = url, title = title)
+                    } else {
+                        pageTurnerWebCatalogAccount(catalogUrl = url, title = title)
+                    },
                 )
             }.onSuccess { accounts ->
                 _uiState.update { state ->
@@ -503,7 +586,8 @@ class WebCatalogViewModel(
             runCatching {
                 accountStore.list()
             }.onSuccess { accounts ->
-                val finalAccounts = accounts.ifEmpty { listOf(defaultWtrLabAccount()) }
+                val finalAccounts = (accounts + defaultWtrLabAccount() + defaultNovelBuddyAccount())
+                    .distinctBy(RemoteSourceAccount::id)
                 _uiState.update { state -> state.copy(sourceAccounts = finalAccounts) }
             }
         }
@@ -599,6 +683,8 @@ class WebCatalogViewModel(
         return items.filter { item ->
             item.title.lowercase().contains(normalized) ||
                 item.authors.any { author -> author.lowercase().contains(normalized) } ||
+                item.description.orEmpty().lowercase().contains(normalized) ||
+                item.tags.any { tag -> tag.lowercase().contains(normalized) } ||
                 item.language.orEmpty().lowercase().contains(normalized) ||
                 item.format.name.lowercase().contains(normalized)
         }
@@ -624,10 +710,15 @@ class WebCatalogViewModel(
             return
         }
         _uiState.update { state ->
+            val visible = if (cached.url.hasRemoteCatalogSearch()) {
+                catalog.items
+            } else {
+                catalog.filterItems(state.query)
+            }
             state.copy(
                 catalogUrl = cached.url,
                 catalog = catalog,
-                visibleItems = catalog.filterItems(state.query),
+                visibleItems = visible,
                 remotePaging = null,
                 catalogLoading = null,
                 busy = busy,
@@ -637,7 +728,7 @@ class WebCatalogViewModel(
                 ),
             )
         }
-        prefetchCoverThumbnails(catalog.filterItems(_uiState.value.query))
+        prefetchCoverThumbnails(_uiState.value.visibleItems)
     }
 
     private fun loadWebNovelPage(
@@ -716,7 +807,12 @@ class WebCatalogViewModel(
         _uiState.update { state ->
             state.copy(catalogLoading = WebCatalogLoading(WebCatalogLoadPhase.ApplyingResults, loaded.paging.currentPage))
         }
-        val visible = loaded.catalog.filterItems(_uiState.value.query)
+        val currentState = _uiState.value
+        val visible = if (currentState.catalogUrl.hasRemoteCatalogSearch()) {
+            loaded.catalog.items
+        } else {
+            loaded.catalog.filterItems(currentState.query)
+        }
         _uiState.update { state ->
             state.copy(
                 catalog = loaded.catalog,
@@ -738,9 +834,20 @@ class WebCatalogViewModel(
 
     private fun accountIdForCatalog(url: String): String {
         if (url.contains("wtr-lab.com", ignoreCase = true)) return defaultWtrLabAccount().id
+        if (url.contains("novelbuddy.me", ignoreCase = true)) return defaultNovelBuddyAccount().id
         return _uiState.value.sourceAccounts.firstOrNull { account ->
             account.endpoint.substringBefore('?').trimEnd('/') == url.substringBefore('?').trimEnd('/')
         }?.id ?: "web_novel"
+    }
+
+    private fun webNovelAdapter(url: String) = runCatching {
+        com.dongholab.pagetuner.source.webnovel.WebNovelSiteAdapterRegistry.default.resolve(url)
+    }.getOrNull()
+
+    private fun String.hasRemoteCatalogSearch(): Boolean {
+        val adapter = webNovelAdapter(this) ?: return false
+        val request = adapter.catalogRequest(this)
+        return adapter.catalogSearchUrl(this, request) != null
     }
 
     private suspend fun loadWebNovelCatalog(

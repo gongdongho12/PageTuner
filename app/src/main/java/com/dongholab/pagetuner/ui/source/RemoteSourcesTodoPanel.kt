@@ -40,10 +40,11 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -67,6 +68,7 @@ import com.dongholab.pagetuner.source.RemoteBookHierarchyResolver
 import com.dongholab.pagetuner.source.RoutingRemoteBookHierarchyResolver
 import com.dongholab.pagetuner.source.RemoteSourceAccount
 import com.dongholab.pagetuner.source.translationKey
+import com.dongholab.pagetuner.source.webnovel.WebNovelCatalogCapabilities
 import com.dongholab.pagetuner.ui.text.localizedName
 import com.dongholab.pagetuner.ui.theme.EinkInk
 import com.dongholab.pagetuner.ui.theme.EinkLine
@@ -74,13 +76,17 @@ import com.dongholab.pagetuner.ui.theme.EinkMuted
 import com.dongholab.pagetuner.ui.theme.EinkPanel
 import com.dongholab.pagetuner.ui.theme.EinkPaper
 import com.dongholab.pagetuner.ui.theme.EinkSoft
-import com.dongholab.pagetuner.ui.common.EinkRemoteCatalogPager
+import com.dongholab.pagetuner.ui.common.EinkRemoteCatalogPagerSlot
 import com.dongholab.pagetuner.ui.common.EinkSegmentedControl
+import com.dongholab.pagetuner.ui.common.EinkStablePageContent
+import com.dongholab.pagetuner.ui.common.rememberEinkPagingState
 
 @Composable
 fun RemoteSourcesTodoPanel(
     catalogUrl: String,
     query: String,
+    selectedGenreKey: String?,
+    catalogCapabilities: WebNovelCatalogCapabilities,
     items: List<RemoteBookItem>,
     coverThumbnails: Map<String, ByteArray>,
     cachedCatalogs: List<CachedWebCatalog>,
@@ -99,6 +105,9 @@ fun RemoteSourcesTodoPanel(
     onRouteChange: (RemoteCatalogRoute) -> Unit,
     onCatalogUrlChange: (String) -> Unit,
     onQueryChange: (String) -> Unit,
+    onGenreSelected: (String?) -> Unit,
+    onSearchCatalog: () -> Unit,
+    onClearCatalogSearch: () -> Unit,
     onLoadCatalog: () -> Unit,
     onRefreshCatalog: () -> Unit,
     onSaveSourceAccount: () -> Unit,
@@ -112,6 +121,8 @@ fun RemoteSourcesTodoPanel(
     onBatchDownloadChapters: (List<RemoteBookItem>) -> Unit,
     hierarchyResolver: RemoteBookHierarchyResolver = RoutingRemoteBookHierarchyResolver.default,
 ) {
+    val pageStateHolder = rememberSaveableStateHolder()
+    pageStateHolder.SaveableStateProvider(route.pageStateKey()) {
     Surface(
         modifier = Modifier.fillMaxSize(),
         color = EinkPanel,
@@ -125,77 +136,31 @@ fun RemoteSourcesTodoPanel(
                 .padding(12.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
-            var showAddSourceDialog by remember { mutableStateOf(false) }
-            var detailedNovel by remember { mutableStateOf<RemoteBookItem?>(null) }
-            var fetchedChapters by remember { mutableStateOf<List<RemoteBookItem>>(emptyList()) }
-            var detailLoading by remember { mutableStateOf(false) }
-            var detailLoadError by remember { mutableStateOf<String?>(null) }
-
+            var showAddSourceDialog by rememberSaveable { mutableStateOf(false) }
             val currentBookRoute = route as? RemoteCatalogRoute.Book
-            val selectedNovelForDetail = currentBookRoute?.book
-            val activeCatalogUrlPage = when (route) {
-                RemoteCatalogRoute.SourceSystems -> null
-                is RemoteCatalogRoute.Catalog -> route.catalogUrl
-                is RemoteCatalogRoute.Book -> route.catalogUrl
-            }
-
-            LaunchedEffect(selectedNovelForDetail?.identity) {
-                val item = selectedNovelForDetail
-                if (item != null) {
-                    fetchedChapters = emptyList()
-                    detailedNovel = item
-                    detailLoading = true
-                    detailLoadError = null
-                    runCatching {
-                        val hierarchy = hierarchyResolver.resolve(item)
-                        val translated = translatedItems[item.translationKey()]
-                        hierarchy.book.copy(
-                            title = translated?.title ?: hierarchy.book.title,
-                            description = translated?.description ?: hierarchy.book.description,
-                        ) to hierarchy.chapters
-                    }.onSuccess { (enrichedItem, chapters) ->
-                        detailedNovel = enrichedItem
-                        fetchedChapters = chapters
-                    }.onFailure { error ->
-                        detailLoadError = error.message ?: "Unable to load this novel page."
-                    }
-                    detailLoading = false
-                } else {
-                    detailedNovel = null
-                    fetchedChapters = emptyList()
-                    detailLoadError = null
-                }
-            }
-
-            val currentSelectedNovel = selectedNovelForDetail
             BackHandler(enabled = route.parent() != null) {
                 route.parent()?.let(onRouteChange)
             }
-            if (currentSelectedNovel != null) {
-                val bookRoute = requireNotNull(currentBookRoute)
-                val displayedNovel = detailedNovel ?: currentSelectedNovel
-                WebNovelDetailPagePanel(
-                    novelItem = displayedNovel,
-                    coverBytes = displayedNovel.coverUrl?.let { coverThumbnails[it] },
-                    chapters = fetchedChapters,
+            if (currentBookRoute != null) {
+                WebNovelBookRoutePage(
+                    route = currentBookRoute,
+                    coverThumbnails = coverThumbnails,
+                    translatedItems = translatedItems,
                     displayMode = displayMode,
-                    busy = busy || detailLoading,
+                    busy = busy,
                     targetLanguage = targetLanguage,
                     canTranslate = canTranslate,
-                    loadError = detailLoadError,
-                    batchProgress = batchDownloadProgress,
-                    onBackToList = {
+                    batchDownloadProgress = batchDownloadProgress,
+                    hierarchyResolver = hierarchyResolver,
+                    onBackToCatalog = {
                         route.parent()?.let(onRouteChange)
                     },
                     onReadOriginalChapter = { chapter ->
-                        onRouteChange(RemoteCatalogRoute.Book(bookRoute.catalogUrl, displayedNovel))
                         onImportItem(chapter)
                     },
                     onReadChapter = { chapter ->
-                        onRouteChange(RemoteCatalogRoute.Book(bookRoute.catalogUrl, displayedNovel))
                         onReadAndTranslateItem(chapter)
                     },
-                    onSaveChapterTxt = { chapter -> onBatchDownloadChapters(listOf(chapter)) },
                     onBatchDownloadChapters = onBatchDownloadChapters,
                 )
                 return@Column
@@ -214,11 +179,13 @@ fun RemoteSourcesTodoPanel(
                 )
             }
 
-            val currentCatalogPage = activeCatalogUrlPage
+            val currentCatalogPage = (route as? RemoteCatalogRoute.Catalog)?.catalogUrl
             if (currentCatalogPage != null) {
                 WebCatalogPagePanel(
-                    catalogUrl = currentCatalogPage,
+                    catalogUrl = catalogUrl,
                     query = query,
+                    selectedGenreKey = selectedGenreKey,
+                    catalogCapabilities = catalogCapabilities,
                     items = items,
                     coverThumbnails = coverThumbnails,
                     displayMode = displayMode,
@@ -231,6 +198,9 @@ fun RemoteSourcesTodoPanel(
                     remotePaging = remotePaging,
                     catalogLoading = catalogLoading,
                     onQueryChange = onQueryChange,
+                    onGenreSelected = onGenreSelected,
+                    onSearch = onSearchCatalog,
+                    onClearSearch = onClearCatalogSearch,
                     onRefreshCatalog = onRefreshCatalog,
                     onOpenDetail = { item ->
                         onRouteChange(RemoteCatalogRoute.Book(currentCatalogPage, item))
@@ -247,31 +217,30 @@ fun RemoteSourcesTodoPanel(
             }
 
             // SourceSystems is the root route, so it opens the source chooser by default.
-            var activeSubTab by remember { mutableStateOf(1) } // 0: Catalog, 1: Sources & Filters
-            var selectedLanguageFilter by remember { mutableStateOf("All") }
-            var selectedGenreFilter by remember { mutableStateOf("All") }
-            var selectedOrderByFilter by remember { mutableStateOf("addition_date") }
-            var selectedStatusFilter by remember { mutableStateOf("all") }
-            var sourceManagerSection by remember { mutableStateOf(0) }
+            var activeSubTab by rememberSaveable { mutableStateOf(1) } // 0: Catalog, 1: Sources & Filters
+            var selectedLanguageFilter by rememberSaveable { mutableStateOf("All") }
+            var selectedOrderByFilter by rememberSaveable { mutableStateOf("addition_date") }
+            var selectedStatusFilter by rememberSaveable { mutableStateOf("all") }
+            var sourceManagerSection by rememberSaveable { mutableStateOf(0) }
+            var catalogFilterSection by rememberSaveable { mutableStateOf(0) }
 
-            val filteredCatalogItems = remember(items, selectedLanguageFilter, selectedGenreFilter) {
+            val filteredCatalogItems = remember(items, selectedLanguageFilter) {
                 items.filter { item ->
-                    val matchLang = when (selectedLanguageFilter) {
+                    when (selectedLanguageFilter) {
                         "All" -> true
                         "en" -> (item.language ?: "en").contains("en", ignoreCase = true)
                         "ko" -> (item.language ?: "").contains("ko", ignoreCase = true)
                         else -> true
                     }
-                    val matchGenre = when (selectedGenreFilter) {
-                        "All" -> true
-                        else -> item.title.contains(selectedGenreFilter, ignoreCase = true) ||
-                            item.downloadUrl.contains(selectedGenreFilter, ignoreCase = true)
-                    }
-                    matchLang && matchGenre
                 }
             }
+            val rootCatalogPagingState = rememberEinkPagingState(
+                catalogUrl,
+                remotePaging?.currentPage ?: 1,
+                selectedLanguageFilter,
+            )
 
-            var showDirectUrlDialog by remember { mutableStateOf(false) }
+            var showDirectUrlDialog by rememberSaveable { mutableStateOf(false) }
 
             if (showDirectUrlDialog) {
                 androidx.compose.material3.AlertDialog(
@@ -355,7 +324,10 @@ fun RemoteSourcesTodoPanel(
                     itemHeight = 42.dp,
                     label = { tab ->
                         if (tab == 0) {
-                            "Catalog (${remotePaging?.totalItems ?: items.size})"
+                            val countLabel = remotePaging?.totalItems?.toString()
+                                ?: remotePaging?.totalPages?.let { "$it pages" }
+                                ?: items.size.toString()
+                            "Catalog ($countLabel)"
                         } else {
                             "Sources & Filters"
                         }
@@ -375,13 +347,6 @@ fun RemoteSourcesTodoPanel(
                 }
             }
 
-            WebCatalogOperationIndicator(
-                loading = catalogLoading,
-                translationProgress = catalogTranslationProgress,
-                busy = busy,
-                statusText = statusText,
-            )
-
             if (activeSubTab == 0) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -394,44 +359,60 @@ fun RemoteSourcesTodoPanel(
                         Text("Translate list → ${targetLanguage.uppercase()}", fontWeight = FontWeight.Bold)
                     }
                 }
-                remotePaging?.let { paging ->
-                    EinkRemoteCatalogPager(
-                        paging = paging,
-                        busy = busy,
-                        onPageSelected = onRemoteCatalogPageSelected,
-                    )
-                }
-                if (filteredCatalogItems.isEmpty()) {
-                    Text(
-                        text = if (items.isEmpty()) stringResource(R.string.web_catalog_empty) else "No novels match your language or genre filter.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = EinkMuted,
-                        modifier = Modifier.padding(top = 8.dp),
-                    )
-                } else {
-                    com.dongholab.pagetuner.ui.common.EinkAutoFitPagingContainer(
-                        items = filteredCatalogItems,
-                        estimatedItemHeight = 104.dp,
-                        fallbackPageSize = 3,
-                        busy = busy,
-                        modifier = Modifier.weight(1f),
-                    ) { item ->
-                        RemoteBookRow(
-                            item = item,
-                            translation = translatedItems[item.translationKey()],
-                            coverBytes = item.coverUrl?.let { coverThumbnails[it] },
-                            displayMode = displayMode,
+                EinkStablePageContent(
+                    content = {
+                        Column(
+                            modifier = Modifier.fillMaxSize(),
+                            verticalArrangement = Arrangement.spacedBy(8.dp),
+                        ) {
+                            EinkRemoteCatalogPagerSlot(
+                                paging = remotePaging,
+                                busy = busy,
+                                onPageSelected = onRemoteCatalogPageSelected,
+                            )
+                            com.dongholab.pagetuner.ui.common.EinkAutoFitPagingContainer(
+                                items = filteredCatalogItems,
+                                estimatedItemHeight = 104.dp,
+                                fallbackPageSize = 3,
+                                busy = busy,
+                                state = rootCatalogPagingState,
+                                modifier = Modifier.weight(1f),
+                                emptyContent = {
+                                    Text(
+                                        text = if (items.isEmpty()) stringResource(R.string.web_catalog_empty) else "No novels match your language filter.",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = EinkMuted,
+                                        modifier = Modifier.padding(top = 8.dp),
+                                    )
+                                },
+                            ) { item ->
+                                RemoteBookRow(
+                                    item = item,
+                                    translation = translatedItems[item.translationKey()],
+                                    coverBytes = item.coverUrl?.let { coverThumbnails[it] },
+                                    displayMode = displayMode,
+                                    busy = busy,
+                                    onOpenDetail = {
+                                        onRouteChange(RemoteCatalogRoute.Book(catalogUrl, item))
+                                    },
+                                    onImportItem = { bookItem ->
+                                        onRouteChange(RemoteCatalogRoute.Book(catalogUrl, bookItem))
+                                        onImportItem(bookItem)
+                                    },
+                                )
+                            }
+                        }
+                    },
+                    overlay = {
+                        WebCatalogOperationIndicator(
+                            loading = catalogLoading,
+                            translationProgress = catalogTranslationProgress,
                             busy = busy,
-                            onOpenDetail = {
-                                onRouteChange(RemoteCatalogRoute.Book(catalogUrl, item))
-                            },
-                            onImportItem = { bookItem ->
-                                onRouteChange(RemoteCatalogRoute.Book(catalogUrl, bookItem))
-                                onImportItem(bookItem)
-                            },
+                            statusText = statusText,
+                            modifier = Modifier.align(Alignment.TopCenter),
                         )
-                    }
-                }
+                    },
+                )
             } else {
                 // Sub-Tab 2: ⚙️ Sources & Filters View
                 RemoteSourcesHeader()
@@ -489,121 +470,142 @@ fun RemoteSourcesTodoPanel(
                         )
                     }
                 } else {
-
-                    // WTR-LAB OrderBy, Status & Language Filter Controls (Pure E-Ink High Contrast)
-                    Column(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalArrangement = Arrangement.spacedBy(6.dp),
-                    ) {
-                    Text(
-                        text = "Sort Order (orderBy):",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = EinkMuted,
+                    EinkSegmentedControl(
+                        options = if (catalogCapabilities.providerAdvancedControls) listOf(0, 1) else listOf(0),
+                        selected = catalogFilterSection,
+                        onSelect = { catalogFilterSection = it },
+                        enabled = !busy,
+                        label = { section -> if (section == 0) "Search" else "Sort & status" },
                     )
-                    FlowRow(
-                        horizontalArrangement = Arrangement.spacedBy(6.dp),
-                        verticalArrangement = Arrangement.spacedBy(4.dp),
-                    ) {
-                        com.dongholab.pagetuner.source.WtrLabCatalogQueryParams.ORDER_BY_OPTIONS.forEach { (key, label) ->
-                            val isSel = selectedOrderByFilter == key
-                            androidx.compose.material3.FilterChip(
-                                selected = isSel,
-                                onClick = {
-                                    selectedOrderByFilter = key
-                                    val newUrl = com.dongholab.pagetuner.source.WtrLabCatalogQueryParams(orderBy = key, status = selectedStatusFilter).buildUrl()
-                                    onCatalogUrlChange(newUrl)
-                                    onLoadCatalog()
-                                },
-                                enabled = !busy,
-                                label = { Text(label, style = MaterialTheme.typography.labelSmall) },
-                                colors = androidx.compose.material3.FilterChipDefaults.filterChipColors(
-                                    containerColor = if (isSel) EinkInk else EinkSoft,
-                                    labelColor = if (isSel) EinkPanel else EinkInk,
-                                ),
-                                border = androidx.compose.material3.FilterChipDefaults.filterChipBorder(
-                                    enabled = true,
-                                    selected = isSel,
-                                    borderColor = EinkLine,
-                                ),
+
+                    if (catalogFilterSection == 0 || !catalogCapabilities.providerAdvancedControls) {
+                        WebCatalogSearchControls(
+                            query = query,
+                            genreOptions = catalogCapabilities.genreOptions,
+                            selectedGenreKey = selectedGenreKey,
+                            busy = busy,
+                            onQueryChange = onQueryChange,
+                            onGenreSelected = onGenreSelected,
+                            onSearch = onSearchCatalog,
+                            onClear = onClearCatalogSearch,
+                        )
+                    } else {
+                        // WTR-LAB OrderBy, Status & Language Filter Controls (Pure E-Ink High Contrast)
+                        Column(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalArrangement = Arrangement.spacedBy(6.dp),
+                        ) {
+                            Text(
+                                text = "Sort Order (orderBy):",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = EinkMuted,
                             )
-                        }
-                    }
-
-                    Text(
-                        text = "Language & Status Filter:",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = EinkMuted,
-                    )
-                    FlowRow(
-                        horizontalArrangement = Arrangement.spacedBy(6.dp),
-                        verticalArrangement = Arrangement.spacedBy(4.dp),
-                    ) {
-                        listOf("All", "en", "ko").forEach { lang ->
-                            val isSel = selectedLanguageFilter == lang
-                            androidx.compose.material3.FilterChip(
-                                selected = isSel,
-                                onClick = { selectedLanguageFilter = lang },
-                                enabled = !busy,
-                                label = {
-                                    Text(
-                                        text = when (lang) {
-                                            "All" -> "All Languages"
-                                            "en" -> "English (en)"
-                                            "ko" -> "Korean (ko)"
-                                            else -> lang
+                            FlowRow(
+                                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                verticalArrangement = Arrangement.spacedBy(4.dp),
+                            ) {
+                                com.dongholab.pagetuner.source.WtrLabCatalogQueryParams.ORDER_BY_OPTIONS.forEach { (key, label) ->
+                                    val isSel = selectedOrderByFilter == key
+                                    androidx.compose.material3.FilterChip(
+                                        selected = isSel,
+                                        onClick = {
+                                            selectedOrderByFilter = key
+                                            val newUrl = com.dongholab.pagetuner.source.WtrLabCatalogQueryParams
+                                                .fromUrl(catalogUrl)
+                                                .copy(
+                                                    orderBy = key,
+                                                    status = selectedStatusFilter,
+                                                    query = query,
+                                                    genreId = selectedGenreKey?.toIntOrNull(),
+                                                    page = 1,
+                                                )
+                                                .buildUrl(catalogUrl)
+                                            onCatalogUrlChange(newUrl)
+                                            onLoadCatalog()
                                         },
-                                        style = MaterialTheme.typography.labelSmall,
+                                        enabled = !busy,
+                                        label = { Text(label, style = MaterialTheme.typography.labelSmall) },
+                                        colors = androidx.compose.material3.FilterChipDefaults.filterChipColors(
+                                            containerColor = if (isSel) EinkInk else EinkSoft,
+                                            labelColor = if (isSel) EinkPanel else EinkInk,
+                                        ),
+                                        border = androidx.compose.material3.FilterChipDefaults.filterChipBorder(
+                                            enabled = true,
+                                            selected = isSel,
+                                            borderColor = EinkLine,
+                                        ),
                                     )
-                                },
-                                colors = androidx.compose.material3.FilterChipDefaults.filterChipColors(
-                                    containerColor = if (isSel) EinkInk else EinkSoft,
-                                    labelColor = if (isSel) EinkPanel else EinkInk,
-                                ),
-                                border = androidx.compose.material3.FilterChipDefaults.filterChipBorder(
-                                    enabled = true,
-                                    selected = isSel,
-                                    borderColor = EinkLine,
-                                ),
+                                }
+                            }
+
+                            Text(
+                                text = "Language & Status Filter:",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = EinkMuted,
                             )
+                            FlowRow(
+                                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                verticalArrangement = Arrangement.spacedBy(4.dp),
+                            ) {
+                                listOf("All", "en", "ko").forEach { lang ->
+                                    val isSel = selectedLanguageFilter == lang
+                                    androidx.compose.material3.FilterChip(
+                                        selected = isSel,
+                                        onClick = { selectedLanguageFilter = lang },
+                                        enabled = !busy,
+                                        label = {
+                                            Text(
+                                                text = when (lang) {
+                                                    "All" -> "All Languages"
+                                                    "en" -> "English (en)"
+                                                    "ko" -> "Korean (ko)"
+                                                    else -> lang
+                                                },
+                                                style = MaterialTheme.typography.labelSmall,
+                                            )
+                                        },
+                                        colors = androidx.compose.material3.FilterChipDefaults.filterChipColors(
+                                            containerColor = if (isSel) EinkInk else EinkSoft,
+                                            labelColor = if (isSel) EinkPanel else EinkInk,
+                                        ),
+                                        border = androidx.compose.material3.FilterChipDefaults.filterChipBorder(
+                                            enabled = true,
+                                            selected = isSel,
+                                            borderColor = EinkLine,
+                                        ),
+                                    )
+                                }
+                                com.dongholab.pagetuner.source.WtrLabCatalogQueryParams.STATUS_OPTIONS.forEach { (key, label) ->
+                                    val isSel = selectedStatusFilter == key
+                                    androidx.compose.material3.FilterChip(
+                                        selected = isSel,
+                                        onClick = {
+                                            selectedStatusFilter = key
+                                            val newUrl = com.dongholab.pagetuner.source.WtrLabCatalogQueryParams
+                                                .fromUrl(catalogUrl)
+                                                .copy(
+                                                    orderBy = selectedOrderByFilter,
+                                                    status = key,
+                                                    query = query,
+                                                    genreId = selectedGenreKey?.toIntOrNull(),
+                                                    page = 1,
+                                                )
+                                                .buildUrl(catalogUrl)
+                                            onCatalogUrlChange(newUrl)
+                                            onLoadCatalog()
+                                        },
+                                        enabled = !busy,
+                                        label = { Text(label, style = MaterialTheme.typography.labelSmall) },
+                                    )
+                                }
+                            }
                         }
-                        com.dongholab.pagetuner.source.WtrLabCatalogQueryParams.STATUS_OPTIONS.filter { it.first != "all" }.forEach { (key, label) ->
-                            val isSel = selectedStatusFilter == key
-                            androidx.compose.material3.FilterChip(
-                                selected = isSel,
-                                onClick = {
-                                    selectedStatusFilter = key
-                                    val newUrl = com.dongholab.pagetuner.source.WtrLabCatalogQueryParams(orderBy = selectedOrderByFilter, status = key).buildUrl()
-                                    onCatalogUrlChange(newUrl)
-                                    onLoadCatalog()
-                                },
-                                enabled = !busy,
-                                label = { Text(label, style = MaterialTheme.typography.labelSmall) },
-                            )
-                        }
-                    }
-                    Text(
-                        text = "Genre Filter:",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = EinkMuted,
-                    )
-                    FlowRow(
-                        horizontalArrangement = Arrangement.spacedBy(6.dp),
-                        verticalArrangement = Arrangement.spacedBy(4.dp),
-                    ) {
-                        listOf("All", "Fantasy", "Action", "Romance", "System").forEach { genre ->
-                            androidx.compose.material3.FilterChip(
-                                selected = selectedGenreFilter == genre,
-                                onClick = { selectedGenreFilter = genre },
-                                enabled = !busy,
-                                label = { Text(genre, style = MaterialTheme.typography.labelSmall) },
-                            )
-                        }
-                    }
                     }
                 }
             }
 
         }
+    }
     }
 }
 

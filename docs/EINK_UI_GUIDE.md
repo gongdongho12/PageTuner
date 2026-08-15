@@ -384,6 +384,9 @@ The production page-size calculation is covered by
 `EinkAutoFitPagingContainerTest`; update that test when changing the reserved
 navigation height, row spacing, fallback policy, or maximum page size.
 
+Web-novel route ownership, remote-versus-viewport paging, and refresh behavior
+are documented in [Web Novel Page Architecture](WEB_NOVEL_PAGE_ARCHITECTURE.md).
+
 ## 12. Shared component file map
 
 ```text

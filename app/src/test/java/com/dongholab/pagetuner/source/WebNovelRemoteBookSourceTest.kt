@@ -1,6 +1,9 @@
 package com.dongholab.pagetuner.source
 
 import com.dongholab.pagetuner.document.DocumentFormat
+import com.dongholab.pagetuner.source.webnovel.WebNovelChapterLoadStrategy
+import com.dongholab.pagetuner.source.webnovel.WebNovelSiteAdapterRegistry
+import com.dongholab.pagetuner.source.webnovel.WtrLabSiteAdapter
 import java.io.IOException
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
@@ -29,7 +32,8 @@ class WebNovelRemoteBookSourceTest {
         assertEquals(3, connection.itemCount)
         assertEquals("God Emperor of Devouring", detail.title)
         assertEquals(3, chapters.size)
-        assertEquals("chapter_1", chapters.first().identity.remoteId)
+        assertTrue(chapters.first().identity.remoteId.startsWith("chapter_"))
+        assertTrue(chapters.map { it.identity.remoteId }.distinct().size == chapters.size)
         assertEquals(1, chapters.first().chapterNumber)
         assertEquals("God Emperor of Devouring", chapters.first().seriesTitle)
         assertTrue(chapters.mapNotNull { it.seriesId }.distinct().size == 1)
@@ -48,6 +52,7 @@ class WebNovelRemoteBookSourceTest {
                     paragraphs = listOf(longParagraph, "Second paragraph."),
                 )
             },
+            adapterRegistry = webViewOnlyWtrRegistry(),
         )
 
         val text = source.download(chapterItem()).toString(Charsets.UTF_8)
@@ -55,6 +60,21 @@ class WebNovelRemoteBookSourceTest {
         assertTrue(text.startsWith("# Chapter 1 The Demon Contract"))
         assertTrue(text.contains(longParagraph))
         assertTrue(text.contains("\n\nSecond paragraph."))
+    }
+
+    @Test
+    fun directChapterUrlKeepsItsActualChapterNumber() = runTest {
+        val source = WebNovelRemoteBookSource(
+            accountId = "wtr",
+            endpointUrl = CHAPTER_URL.replace("chapter-1", "chapter-9"),
+            fetchHtml = { WtrLabDomScraperTest.detailHtml },
+            renderedChapterLoader = null,
+        )
+
+        val chapter = source.list().single()
+
+        assertEquals(9, chapter.chapterNumber)
+        assertTrue(chapter.identity.remoteId.startsWith("chapter_"))
     }
 
     @Test
@@ -86,6 +106,20 @@ class WebNovelRemoteBookSourceTest {
     }
 
     @Test
+    fun localFallbackSearchIncludesDescriptionMetadata() = runTest {
+        val source = WebNovelRemoteBookSource(
+            accountId = "wtr",
+            endpointUrl = "https://wtr-lab.com/en",
+            fetchHtml = { WtrLabDomScraperTest.catalogHtml },
+            renderedChapterLoader = null,
+        )
+
+        val results = source.search("cultivation")
+
+        assertEquals(listOf("God Emperor of Devouring"), results.map { it.title })
+    }
+
+    @Test
     fun downloadFailsInsteadOfCreatingAPlaceholderBookWhenBodyIsMissing() = runTest {
         val source = WebNovelRemoteBookSource(
             accountId = "wtr",
@@ -94,6 +128,7 @@ class WebNovelRemoteBookSourceTest {
             renderedChapterLoader = RenderedChapterLoader { _, _ ->
                 RenderedChapter(title = "Chapter 1", paragraphs = emptyList())
             },
+            adapterRegistry = webViewOnlyWtrRegistry(),
         )
 
         val error = runCatching { source.download(chapterItem()) }.exceptionOrNull()
@@ -107,6 +142,10 @@ class WebNovelRemoteBookSourceTest {
         title = "Chapter 1",
         format = DocumentFormat.TEXT,
         downloadUrl = CHAPTER_URL,
+    )
+
+    private fun webViewOnlyWtrRegistry() = WebNovelSiteAdapterRegistry(
+        listOf(WtrLabSiteAdapter(WebNovelChapterLoadStrategy.WebViewOnly)),
     )
 
     private companion object {

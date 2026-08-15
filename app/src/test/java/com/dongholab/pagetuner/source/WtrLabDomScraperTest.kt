@@ -20,6 +20,8 @@ class WtrLabDomScraperTest {
         assertEquals(2368, novel.chapterCount)
         assertEquals("https://img.wtr-lab.com/god-emperor.webp", novel.coverUrl)
         assertEquals("completed", novel.status)
+        assertEquals("Yi Pian Hong Ye", novel.author)
+        assertEquals("A devouring cultivation story.", novel.description)
     }
 
     @Test
@@ -72,6 +74,44 @@ class WtrLabDomScraperTest {
         assertTrue(response.hasNextPage)
     }
 
+    @Test
+    fun finderUsesFilteredPageLinksInsteadOfTheStaleGlobalCount() {
+        val html = nextDataHtml(
+            """{"count":"85859","series":[{"raw_id":1,"slug":"book-1","data":{"title":"Book 1"}}]}""",
+        ).replace(
+            "</body>",
+            """<a href="/en/novel-finder?text=book&amp;page=29">29</a></body>""",
+        )
+
+        val response = WtrLabDomScraper.parseNovelListResponse(
+            html = html,
+            baseUrl = "https://wtr-lab.com/en/novel-finder?text=book&page=1",
+            currentPage = 1,
+        )
+
+        assertEquals(29, response.totalPages)
+        assertEquals(null, response.totalItems)
+        assertTrue(response.hasNextPage)
+    }
+
+    @Test
+    fun parsesReaderHttpResponseAndResolvesGlossaryMarkers() {
+        val response = WtrLabDomScraper.parseReaderChapterResponse(
+            novelId = 51_593L,
+            chapterNumber = 1,
+            rawJson = readerJson,
+            language = "en",
+        )
+
+        assertEquals("Chapter 1: A Dream or Reality?", response.titleTranslated)
+        assertEquals(2, response.paragraphs.size)
+        assertEquals("Ji Ting met Yu Wen at the Shopping Mall.", response.paragraphs.first())
+        assertTrue(
+            response.paragraphs.last(),
+            response.paragraphs.last().startsWith("Um, this is the second paragraph"),
+        )
+    }
+
     companion object {
         const val NOVEL_URL = "https://wtr-lab.com/en/novel/88774/god-emperor-of-devouring"
 
@@ -88,7 +128,9 @@ class WtrLabDomScraperTest {
                 "view_temp": 7,
                 "data": {
                   "title": "God Emperor of Devouring",
-                  "image": "https://img.wtr-lab.com/god-emperor.webp"
+                  "image": "https://img.wtr-lab.com/god-emperor.webp",
+                  "author": "Yi Pian Hong Ye",
+                  "description": "A devouring cultivation story."
                 }
               }]
             }
@@ -123,6 +165,34 @@ class WtrLabDomScraperTest {
             }
             """.trimIndent(),
         )
+
+        val readerJson = """
+            {
+              "success": true,
+              "chapter": {
+                "raw_id": 51593,
+                "order": 1,
+                "title": "Chapter 1: Dream or Reality?"
+              },
+              "data": {
+                "data": {
+                  "title": "Chapter 1: A Dream or Reality?",
+                  "body": [
+                    "※0⛬ met ※1⛬ at the ※2⛬.",
+                    "嗯, this is the second paragraph and it deliberately contains enough readable text to exercise the same minimum-content validation used by production chapter downloads."
+                  ],
+                  "glossary_data": {
+                    "terms": [
+                      ["Ji Ting", "季听"],
+                      ["Yu Wen", "喻闻"],
+                      ["Shopping Mall", "商场"]
+                    ]
+                  },
+                  "patch": [{"en": "Um", "zh": "嗯"}]
+                }
+              }
+            }
+        """.trimIndent()
 
         private fun nextDataHtml(pageProps: String): String = """
             <html><head><title>WTR-LAB</title></head><body>

@@ -62,7 +62,7 @@ class GenericWebNovelSiteAdapter : WebNovelSiteAdapter {
             .mapIndexedNotNull { index, (title, chapterUrl, _) ->
                 val number = chapterNumber(chapterUrl) ?: chapterNumber(title) ?: return@mapIndexedNotNull null
                 WebNovelSiteChapter(
-                    id = stableRemoteId(chapterUrl, index),
+                    id = WebNovelChapterKeys.fromUrl(chapterUrl, number),
                     number = number,
                     title = title,
                     url = chapterUrl,

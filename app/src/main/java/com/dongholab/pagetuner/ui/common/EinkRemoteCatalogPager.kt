@@ -3,8 +3,11 @@ package com.dongholab.pagetuner.ui.common
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -23,6 +26,32 @@ import com.dongholab.pagetuner.source.RemoteCatalogPagingState
 import com.dongholab.pagetuner.ui.theme.EinkInk
 import com.dongholab.pagetuner.ui.theme.EinkLine
 import com.dongholab.pagetuner.ui.theme.EinkPanel
+
+val EinkRemoteCatalogPagerHeight = 86.dp
+
+/** Keeps the server-pager slot stable before, during, and after a remote refresh. */
+@Composable
+fun EinkRemoteCatalogPagerSlot(
+    paging: RemoteCatalogPagingState?,
+    busy: Boolean,
+    onPageSelected: (Int) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Box(
+        modifier = modifier
+            .fillMaxWidth()
+            .height(EinkRemoteCatalogPagerHeight),
+    ) {
+        if (paging != null) {
+            EinkRemoteCatalogPager(
+                paging = paging,
+                busy = busy,
+                onPageSelected = onPageSelected,
+                modifier = Modifier.fillMaxSize(),
+            )
+        }
+    }
+}
 
 /** Server-page navigation kept separate from viewport paging inside the catalog list. */
 @Composable
@@ -44,13 +73,22 @@ fun EinkRemoteCatalogPager(
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             Text(
-                text = stringResource(
-                    R.string.web_catalog_remote_page_summary,
-                    paging.currentPage,
-                    paging.totalPages ?: paging.currentPage,
-                    paging.pageItemCount,
-                    paging.totalItems ?: paging.pageItemCount,
-                ),
+                text = if (paging.totalItems != null) {
+                    stringResource(
+                        R.string.web_catalog_remote_page_summary,
+                        paging.currentPage,
+                        paging.totalPages ?: paging.currentPage,
+                        paging.pageItemCount,
+                        paging.totalItems,
+                    )
+                } else {
+                    stringResource(
+                        R.string.web_catalog_remote_page_summary_without_total,
+                        paging.currentPage,
+                        paging.totalPages ?: paging.currentPage,
+                        paging.pageItemCount,
+                    )
+                },
                 style = MaterialTheme.typography.labelMedium,
                 fontWeight = FontWeight.Bold,
                 color = EinkInk,

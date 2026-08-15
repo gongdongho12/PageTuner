@@ -125,7 +125,15 @@ fun WebCatalogStatus.localizedMessage(context: Context): String {
         WebCatalogStatus.Loading -> context.getString(R.string.status_web_catalog_loading)
         WebCatalogStatus.MissingCatalogUrl ->
             context.getString(R.string.status_web_catalog_missing_url)
-        is WebCatalogStatus.LoadedRemote -> if (currentPage != null && totalPages != null) {
+        is WebCatalogStatus.LoadedRemote -> if (currentPage != null && totalPages != null && totalItems == null) {
+            context.getString(
+                R.string.status_web_catalog_loaded_search_page,
+                title,
+                currentPage,
+                totalPages,
+                itemCount,
+            )
+        } else if (currentPage != null && totalPages != null) {
             context.getString(
                 R.string.status_web_catalog_loaded_remote_page,
                 title,

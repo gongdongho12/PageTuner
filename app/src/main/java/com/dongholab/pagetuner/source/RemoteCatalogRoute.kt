@@ -21,4 +21,11 @@ sealed interface RemoteCatalogRoute {
         is Catalog -> SourceSystems
         is Book -> Catalog(catalogUrl)
     }
+
+    /** Stable key used to retain page-local UI state while navigating the hierarchy. */
+    fun pageStateKey(): String = when (this) {
+        SourceSystems -> "remote-source-systems"
+        is Catalog -> "remote-catalog:$catalogUrl"
+        is Book -> "remote-book:${book.identity.sourceType}:${book.identity.accountId}:${book.identity.remoteId}"
+    }
 }

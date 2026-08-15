@@ -9,10 +9,26 @@ import com.dongholab.pagetuner.translation.TranslationProviderKind
 import com.dongholab.pagetuner.translation.TranslationSettings
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class RemoteCatalogTranslationServiceTest {
+    @Test
+    fun sameChapterIdInDifferentSeriesHasDifferentTranslationKey() {
+        val base = RemoteBookItem(
+            identity = RemoteBookIdentity(RemoteSourceType.WebNovel, "site", "chapter_1"),
+            title = "Same chapter title",
+            format = DocumentFormat.TEXT,
+            downloadUrl = "https://example.test/chapter-1",
+        )
+
+        assertNotEquals(
+            base.copy(seriesId = "series-42").translationKey(),
+            base.copy(seriesId = "series-99").translationKey(),
+        )
+    }
+
     @Test
     fun mapsRemoteItemsToStableNamedFieldsAndBack() = runTest {
         val contentService = FixtureContentTranslationService()

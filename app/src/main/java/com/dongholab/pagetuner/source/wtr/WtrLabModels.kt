@@ -21,6 +21,8 @@ data class NovelSummaryItem(
     val status: String = "ongoing",
     val views: String = "0",
     val rating: Float = 0f,
+    val author: String? = null,
+    val description: String? = null,
 )
 
 data class HomeSection(
