@@ -280,6 +280,12 @@ Avoid racing an automatic translation request against a cache lookup. Hold the
 pending translation document identity until translation succeeds or fails,
 then resume normal cached-page loading.
 
+During ordinary page turns, do not publish a cache-hit status for every page.
+Keep cache lookup page-scoped and visually silent for its first 250 ms; show the
+static operation indicator only when storage is genuinely slow, or when the
+current page is queued/translating. Background work for another page must not
+change the visible page's loading panel.
+
 ## 8. Color and rendering rules
 
 Use project tokens rather than arbitrary colors:

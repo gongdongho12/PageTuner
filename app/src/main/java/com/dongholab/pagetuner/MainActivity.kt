@@ -111,6 +111,7 @@ import com.dongholab.pagetuner.ui.theme.paperColor
 import kotlin.math.abs
 import kotlin.math.roundToInt
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
@@ -125,6 +126,8 @@ class MainActivity : ComponentActivity() {
         }
     }
 }
+
+private const val ReaderCacheIndicatorDelayMillis = 250L
 
 // ─────────────────────────────────────────────
 // Cache key for PDF page rendering
@@ -202,6 +205,7 @@ fun PageTurnerApp() {
     var readerReturnTab by remember { mutableStateOf(AppTab.Local) }
     var webCatalogRoute by remember { mutableStateOf<RemoteCatalogRoute>(RemoteCatalogRoute.SourceSystems) }
     var readerFullscreen by rememberSaveable { mutableStateOf(false) }
+    var revealReaderCacheLookup by remember { mutableStateOf(false) }
 
     // — Derived reader state
     val localBooks = libraryState.books
@@ -318,13 +322,19 @@ fun PageTurnerApp() {
     val tableOfContents = document.tableOfContents
     val currentChapterIndex = tableOfContents.indexOfLast { it.pageIndex <= currentPage.index }
     val canTranslateCurrentPage = settings.isProviderConfigured && currentPage.hasText
-    val canRetryCurrentPageTranslation =
-        translationState.status is TranslationStatus.Error && canTranslateCurrentPage
     val translationCacheStatus = translationState.cacheStatus
     val currentPageTranslation = translationState.translation.forReaderPage(currentPage)
     val currentReaderTranslationLoad = translationState.readerLoad.takeIf {
         it.matches(document.id, pageIndex)
     }
+    val currentRollingPageFlag = translationState.rolling.flagFor(pageIndex)
+    val currentReaderHasError = com.dongholab.pagetuner.translation.hasCurrentReaderTranslationError(
+        currentDocumentId = document.id,
+        currentPageIndex = pageIndex,
+        status = translationState.status,
+        readerLoad = translationState.readerLoad,
+    )
+    val canRetryCurrentPageTranslation = currentReaderHasError && canTranslateCurrentPage
     val readerTranslationLoading = !currentContentAlreadyTranslated &&
         com.dongholab.pagetuner.translation.shouldShowInitialReaderTranslationLoading(
             currentDocumentId = document.id,
@@ -333,6 +343,33 @@ fun PageTurnerApp() {
             pageHasText = currentPage.hasText,
             hasTranslation = currentPageTranslation != null,
             readerLoad = translationState.readerLoad,
+        )
+    val readerCacheLookupPending = !currentContentAlreadyTranslated &&
+        currentPage.hasText &&
+        currentPageTranslation == null &&
+        pendingTranslationDocumentId != document.id &&
+        (
+            currentReaderTranslationLoad == null ||
+                currentReaderTranslationLoad.stage ==
+                com.dongholab.pagetuner.translation.ReaderTranslationLoadStage.CheckingCache
+        )
+    LaunchedEffect(document.id, pageIndex, readerCacheLookupPending) {
+        revealReaderCacheLookup = false
+        if (readerCacheLookupPending) {
+            delay(ReaderCacheIndicatorDelayMillis)
+            revealReaderCacheLookup = true
+        }
+    }
+    val readerTranslationIndicatorVisible = !currentContentAlreadyTranslated &&
+        com.dongholab.pagetuner.translation.shouldShowReaderTranslationIndicator(
+            currentDocumentId = document.id,
+            currentPageIndex = pageIndex,
+            pendingTranslationDocumentId = pendingTranslationDocumentId,
+            pageHasText = currentPage.hasText,
+            hasVisibleTranslation = currentPageTranslation != null,
+            readerLoad = translationState.readerLoad,
+            rollingPageFlag = currentRollingPageFlag,
+            revealCacheLookup = revealReaderCacheLookup,
         )
     val statusText = when (val s = translationState.status) {
         TranslationStatus.Ready -> appStatusText
@@ -495,8 +532,10 @@ fun PageTurnerApp() {
         if (currentContentAlreadyTranslated) return@LaunchedEffect
         val shouldLoadCache = com.dongholab.pagetuner.translation.shouldLoadCachedReaderTranslation(
             currentDocumentId = document.id,
+            currentPageIndex = pageIndex,
             pendingTranslationDocumentId = pendingTranslationDocumentId,
             status = translationState.status,
+            readerLoad = translationState.readerLoad,
         )
         if (!shouldLoadCache) return@LaunchedEffect
         translationViewModel.loadCachedPage(document, currentPage, settings, repository, showMissingStatus = false)
@@ -761,38 +800,51 @@ fun PageTurnerApp() {
                     )
 
                     com.dongholab.pagetuner.ui.common.EinkOperationIndicator(
-                    visible = readerTranslationLoading || translationState.busy ||
-                        translationState.rolling.flagFor(pageIndex) in setOf(
-                            com.dongholab.pagetuner.translation.TranslationPageFlag.Queued,
-                            com.dongholab.pagetuner.translation.TranslationPageFlag.Translating,
-                        ),
+                    visible = readerTranslationIndicatorVisible,
                     title = when {
-                        currentReaderTranslationLoad == null || currentReaderTranslationLoad.stage ==
-                            com.dongholab.pagetuner.translation.ReaderTranslationLoadStage.CheckingCache ->
-                            stringResource(R.string.translation_initial_loading_title)
                         currentReaderTranslationLoad?.stage ==
-                            com.dongholab.pagetuner.translation.ReaderTranslationLoadStage.Queued ->
+                            com.dongholab.pagetuner.translation.ReaderTranslationLoadStage.Queued ||
+                            currentRollingPageFlag ==
+                            com.dongholab.pagetuner.translation.TranslationPageFlag.Queued ->
                             stringResource(R.string.translation_queued_title)
-                        translationState.rolling.enabled -> stringResource(R.string.translation_rolling_title)
-                        else -> stringResource(R.string.translation_current_page_title)
+                        currentReaderTranslationLoad?.stage ==
+                            com.dongholab.pagetuner.translation.ReaderTranslationLoadStage.Translating ||
+                            currentRollingPageFlag ==
+                            com.dongholab.pagetuner.translation.TranslationPageFlag.Translating ->
+                            if (translationState.rolling.enabled) {
+                                stringResource(R.string.translation_rolling_title)
+                            } else {
+                                stringResource(R.string.translation_current_page_title)
+                            }
+                        else -> stringResource(R.string.translation_initial_loading_title)
                     },
                     detail = when {
-                        currentReaderTranslationLoad == null || currentReaderTranslationLoad.stage ==
-                            com.dongholab.pagetuner.translation.ReaderTranslationLoadStage.CheckingCache ->
-                            stringResource(R.string.translation_initial_loading_detail)
                         currentReaderTranslationLoad?.stage ==
-                            com.dongholab.pagetuner.translation.ReaderTranslationLoadStage.Queued ->
+                            com.dongholab.pagetuner.translation.ReaderTranslationLoadStage.Queued ||
+                            currentRollingPageFlag ==
+                            com.dongholab.pagetuner.translation.TranslationPageFlag.Queued ->
                             stringResource(R.string.translation_queued_detail)
-                        translationState.rolling.enabled -> stringResource(
+                        translationState.rolling.enabled && currentRollingPageFlag ==
+                            com.dongholab.pagetuner.translation.TranslationPageFlag.Translating -> stringResource(
                             R.string.translation_rolling_detail,
                             translationState.rolling.windowStartIndex + 1,
                             translationState.rolling.windowEndExclusive,
                             translationState.rolling.readyPageCount,
                             translationState.rolling.windowPageCount,
                         )
+                        currentReaderTranslationLoad?.stage ==
+                            com.dongholab.pagetuner.translation.ReaderTranslationLoadStage.CheckingCache ||
+                            currentReaderTranslationLoad == null ->
+                            stringResource(R.string.translation_initial_loading_detail)
                         else -> statusText
                     },
-                    progress = if (translationState.rolling.enabled) {
+                    progress = if (
+                        translationState.rolling.enabled &&
+                        currentRollingPageFlag in setOf(
+                            com.dongholab.pagetuner.translation.TranslationPageFlag.Queued,
+                            com.dongholab.pagetuner.translation.TranslationPageFlag.Translating,
+                        )
+                    ) {
                         translationState.rolling.fraction.takeIf { it > 0f }
                     } else {
                         translationState.progress.takeIf { it > 0f }
@@ -809,8 +861,8 @@ fun PageTurnerApp() {
                         com.dongholab.pagetuner.ui.translation.ReaderTranslationStatusBar(
                         targetLanguage = settings.normalizedTargetLanguage,
                         providerConfigured = canTranslateCurrentPage,
-                        hasError = translationState.status is TranslationStatus.Error,
-                        inProgress = translationState.rolling.flagFor(pageIndex) in setOf(
+                        hasError = currentReaderHasError,
+                        inProgress = currentRollingPageFlag in setOf(
                             com.dongholab.pagetuner.translation.TranslationPageFlag.Queued,
                             com.dongholab.pagetuner.translation.TranslationPageFlag.Translating,
                         ),

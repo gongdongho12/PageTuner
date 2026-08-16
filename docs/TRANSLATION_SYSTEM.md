@@ -110,10 +110,19 @@ queue registration and provider work. The pending document marker is cleared
 only after translated text is visible or a recoverable error is published; the
 rolling worker's non-blocking `busy=false` state must not end initial loading.
 
-The reader uses `EinkOperationIndicator` for all three loading stages. Missing
-and failed stages replace it with the persistent translate/retry action. State
-is keyed by document ID and page index so a late result cannot hide the loading
-state of a newly selected page.
+The reader uses `EinkOperationIndicator` for queued and translating stages.
+Cache lookup is deliberately delayed by 250 ms before it becomes visible: a
+normal cache hit replaces the body without spending an extra E-Ink refresh on
+a transient “loading saved translation” panel, while genuinely slow storage is
+still explained. Missing and failed stages replace the indicator with the
+persistent translate/retry action.
+
+State and request ownership are keyed by document ID, page index, and a
+monotonic page-request ID. A failure on the previous page therefore cannot
+block the new page's cache refresh, and a cancelled lookup that completes late
+cannot replace the currently visible translation. Passive page-turn cache hits
+reset their transient status to `Ready` instead of repeatedly publishing a
+global “cached segments” message.
 
 ### Saved translation display
 

@@ -97,6 +97,7 @@ class TranslationViewModel : ViewModel() {
     private var pageContentJob: Job? = null
     private var rollingPrefetchJob: Job? = null
     private var documentRevision: Long = 0L
+    private var pageContentRequestId: Long = 0L
     private val rollingPolicy = RollingTranslationPolicy()
     private val rollingPendingPageIndexes = ArrayDeque<Int>()
     private var rollingDocumentId: String? = null
@@ -118,6 +119,7 @@ class TranslationViewModel : ViewModel() {
     }
 
     fun clearPageTranslation() {
+        pageContentRequestId += 1L
         pageContentJob?.cancel()
         pageContentJob = null
         _uiState.update { state ->
@@ -133,6 +135,7 @@ class TranslationViewModel : ViewModel() {
 
     fun resetForDocument(documentId: String? = null, pageIndex: Int = 0) {
         documentRevision += 1L
+        pageContentRequestId += 1L
         pageContentJob?.cancel()
         pageContentJob = null
         prefetchJob?.cancel()
@@ -186,15 +189,26 @@ class TranslationViewModel : ViewModel() {
         showMissingStatus: Boolean,
     ) {
         val revision = documentRevision
+        val requestId = ++pageContentRequestId
         pageContentJob?.cancel()
-        updateReaderLoad(document.id, page.index, ReaderTranslationLoadStage.CheckingCache)
+        _uiState.update { state ->
+            state.copy(
+                busy = false,
+                progress = 0f,
+                readerLoad = ReaderTranslationLoadState(
+                    documentId = document.id,
+                    pageIndex = page.index,
+                    stage = ReaderTranslationLoadStage.CheckingCache,
+                ),
+            )
+        }
         pageContentJob = viewModelScope.launch {
             runCatching {
                 val cached = repository.loadCachedPage(document, page, settings)
                 val cacheStatus = repository.cacheStatus(document, settings)
                 cached to cacheStatus
             }.onSuccess { (cached, cacheStatus) ->
-                if (revision != documentRevision) return@onSuccess
+                if (revision != documentRevision || requestId != pageContentRequestId) return@onSuccess
                 _uiState.update { state ->
                     state.copy(
                         translation = cached,
@@ -202,10 +216,6 @@ class TranslationViewModel : ViewModel() {
                         progress = if (cached != null) 1f else 0f,
                         status = when {
                             cached != null && showMissingStatus -> TranslationStatus.LoadedCached
-                            cached != null -> TranslationStatus.CachedSegments(
-                                cachedSegments = page.segments.size,
-                                totalSegments = page.segments.size,
-                            )
                             showMissingStatus -> TranslationStatus.NoCached
                             else -> TranslationStatus.Ready
                         },
@@ -221,7 +231,11 @@ class TranslationViewModel : ViewModel() {
                     )
                 }
             }.onFailure { error ->
-                if (error is CancellationException || revision != documentRevision) return@onFailure
+                if (
+                    error is CancellationException ||
+                    revision != documentRevision ||
+                    requestId != pageContentRequestId
+                ) return@onFailure
                 _uiState.update { state ->
                     state.copy(
                         status = error.toTranslationErrorStatus(),
@@ -244,6 +258,7 @@ class TranslationViewModel : ViewModel() {
     ) {
         if (_uiState.value.busy) return
         val revision = documentRevision
+        val requestId = ++pageContentRequestId
         pageContentJob?.cancel()
         pageContentJob = viewModelScope.launch {
             _uiState.update { state ->
@@ -270,12 +285,14 @@ class TranslationViewModel : ViewModel() {
                     repository = repository,
                     pageNumber = page.index + 1,
                 ) { update ->
-                    updateCurrentPageProgress(page, settings, update)
+                    if (requestId == pageContentRequestId) {
+                        updateCurrentPageProgress(page, settings, update)
+                    }
                 }
                 val cacheStatus = repository.cacheStatus(document, settings)
                 result to cacheStatus
             }.onSuccess { (result, cacheStatus) ->
-                if (revision != documentRevision) return@onSuccess
+                if (revision != documentRevision || requestId != pageContentRequestId) return@onSuccess
                 com.dongholab.pagetuner.common.DiagnosticLogger.log("[STEP 3: TRANSLATION SUCCESS]", "Page ${page.index + 1} Translated (${result.segments.size} segments, FromCache: ${result.completedFromCache})")
                 _uiState.update { state ->
                     state.copy(
@@ -296,7 +313,11 @@ class TranslationViewModel : ViewModel() {
                     )
                 }
             }.onFailure { error ->
-                if (error is CancellationException || revision != documentRevision) return@onFailure
+                if (
+                    error is CancellationException ||
+                    revision != documentRevision ||
+                    requestId != pageContentRequestId
+                ) return@onFailure
                 com.dongholab.pagetuner.common.DiagnosticLogger.log("[STEP 3: TRANSLATION FAILURE]", "Page ${page.index + 1} Error: ${error.message}")
                 _uiState.update { state ->
                     state.copy(

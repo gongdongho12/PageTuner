@@ -155,6 +155,59 @@ class TranslationViewModelTest {
         }
 
     @Test
+    fun pageNavigationCancelsOldTranslationAndRefreshesTheNewPageState() =
+        runTest(mainDispatcherRule.dispatcher) {
+            val releaseProvider = CompletableDeferred<Unit>()
+            val document = rollingDocument(pageCount = 2)
+            val repository = TranslationRepository(
+                provider = ViewModelFakeProvider(beforeResponse = { releaseProvider.await() }),
+                cache = ViewModelMemoryCache(),
+            )
+            val viewModel = TranslationViewModel()
+
+            viewModel.translatePage(document, document.pages[0], webTranslationSettings(), repository)
+            assertTrue(viewModel.uiState.value.busy)
+
+            viewModel.loadCachedPage(
+                document,
+                document.pages[1],
+                webTranslationSettings(),
+                repository,
+                showMissingStatus = false,
+            )
+            advanceUntilIdle()
+
+            val state = viewModel.uiState.value
+            assertFalse(state.busy)
+            assertEquals(1, state.readerLoad.pageIndex)
+            assertEquals(ReaderTranslationLoadStage.Missing, state.readerLoad.stage)
+            assertSame(TranslationStatus.Ready, state.status)
+            releaseProvider.complete(Unit)
+        }
+
+    @Test
+    fun passiveCachedPageRefreshDoesNotPublishARepeatedCacheMessage() =
+        runTest(mainDispatcherRule.dispatcher) {
+            val document = rollingDocument(pageCount = 1)
+            val repository = TranslationRepository(ViewModelFakeProvider(), ViewModelMemoryCache())
+            val viewModel = TranslationViewModel()
+            repository.translatePage(document, document.pages[0], webTranslationSettings())
+
+            viewModel.loadCachedPage(
+                document,
+                document.pages[0],
+                webTranslationSettings(),
+                repository,
+                showMissingStatus = false,
+            )
+            advanceUntilIdle()
+
+            assertNotNull(viewModel.uiState.value.translation)
+            assertSame(TranslationStatus.Ready, viewModel.uiState.value.status)
+            assertEquals(ReaderTranslationLoadStage.Ready, viewModel.uiState.value.readerLoad.stage)
+        }
+
+    @Test
     fun rollingPrefetchTranslatesTenPagesAndKeepsReaderInteractive() =
         runTest(mainDispatcherRule.dispatcher) {
             val provider = RecordingRollingProvider()

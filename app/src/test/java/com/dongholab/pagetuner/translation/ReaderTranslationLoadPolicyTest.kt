@@ -10,8 +10,10 @@ class ReaderTranslationLoadPolicyTest {
         assertFalse(
             shouldLoadCachedReaderTranslation(
                 currentDocumentId = "chapter-9",
+                currentPageIndex = 0,
                 pendingTranslationDocumentId = "chapter-9",
                 status = TranslationStatus.Starting(TranslationPaceMode.READING),
+                readerLoad = ReaderTranslationLoadState(),
             ),
         )
     }
@@ -21,8 +23,14 @@ class ReaderTranslationLoadPolicyTest {
         assertFalse(
             shouldLoadCachedReaderTranslation(
                 currentDocumentId = "chapter-9",
+                currentPageIndex = 0,
                 pendingTranslationDocumentId = null,
                 status = TranslationStatus.Error("network unavailable"),
+                readerLoad = ReaderTranslationLoadState(
+                    "chapter-9",
+                    0,
+                    ReaderTranslationLoadStage.Failed,
+                ),
             ),
         )
     }
@@ -32,8 +40,81 @@ class ReaderTranslationLoadPolicyTest {
         assertTrue(
             shouldLoadCachedReaderTranslation(
                 currentDocumentId = "chapter-10",
+                currentPageIndex = 0,
                 pendingTranslationDocumentId = null,
                 status = TranslationStatus.Ready,
+                readerLoad = ReaderTranslationLoadState(),
+            ),
+        )
+    }
+
+    @Test
+    fun failureFromPreviousPageDoesNotBlockNewPageCacheRefresh() {
+        assertTrue(
+            shouldLoadCachedReaderTranslation(
+                currentDocumentId = "book",
+                currentPageIndex = 4,
+                pendingTranslationDocumentId = null,
+                status = TranslationStatus.Error("page 3 failed"),
+                readerLoad = ReaderTranslationLoadState(
+                    "book",
+                    3,
+                    ReaderTranslationLoadStage.Failed,
+                ),
+            ),
+        )
+    }
+
+    @Test
+    fun fastCacheLookupDoesNotCauseAnExtraEinkRefresh() {
+        val checking = ReaderTranslationLoadState(
+            "book",
+            4,
+            ReaderTranslationLoadStage.CheckingCache,
+        )
+
+        assertFalse(
+            shouldShowReaderTranslationIndicator(
+                currentDocumentId = "book",
+                currentPageIndex = 4,
+                pendingTranslationDocumentId = null,
+                pageHasText = true,
+                hasVisibleTranslation = false,
+                readerLoad = checking,
+                rollingPageFlag = null,
+                revealCacheLookup = false,
+            ),
+        )
+        assertTrue(
+            shouldShowReaderTranslationIndicator(
+                currentDocumentId = "book",
+                currentPageIndex = 4,
+                pendingTranslationDocumentId = null,
+                pageHasText = true,
+                hasVisibleTranslation = false,
+                readerLoad = checking,
+                rollingPageFlag = null,
+                revealCacheLookup = true,
+            ),
+        )
+    }
+
+    @Test
+    fun backgroundTranslationDoesNotShowOnAnAlreadyReadyPage() {
+        assertFalse(
+            shouldShowReaderTranslationIndicator(
+                currentDocumentId = "book",
+                currentPageIndex = 4,
+                pendingTranslationDocumentId = null,
+                pageHasText = true,
+                hasVisibleTranslation = true,
+                readerLoad = ReaderTranslationLoadState(
+                    "book",
+                    4,
+                    ReaderTranslationLoadStage.Ready,
+                ),
+                rollingPageFlag = TranslationPageFlag.Translating,
+                revealCacheLookup = true,
             ),
         )
     }
