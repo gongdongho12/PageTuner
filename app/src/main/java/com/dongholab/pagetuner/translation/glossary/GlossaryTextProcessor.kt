@@ -37,7 +37,7 @@ object GlossaryTextProcessor {
 
     fun restore(text: String, replacements: Map<String, String>): String {
         return replacements.entries.fold(text) { current, (token, replacement) ->
-            current.replace(token, replacement, ignoreCase = true)
+            restoreToken(current, token, replacement)
         }
     }
 
@@ -134,13 +134,24 @@ object GlossaryTextProcessor {
         val emphasized = mutableListOf<IntRange>()
         var sourceOffset = 0
         selected.forEach { match ->
+            if (match.start < sourceOffset) return@forEach
             output.append(text, sourceOffset, match.start)
             val replacementStart = output.length
             output.append(match.replacement)
             if (match.emphasize && match.replacement.isNotEmpty()) {
                 emphasized += replacementStart until output.length
             }
-            sourceOffset = match.endExclusive
+            val particle = KoreanParticleCorrector.correctFollowing(
+                text = text,
+                startIndex = match.endExclusive,
+                replacedTerm = match.replacement,
+            )
+            if (particle != null) {
+                output.append(particle.particle)
+                sourceOffset = particle.endExclusive
+            } else {
+                sourceOffset = match.endExclusive
+            }
         }
         output.append(text, sourceOffset, text.length)
         return GlossaryDisplayText(output.toString(), emphasized)
@@ -156,11 +167,36 @@ object GlossaryTextProcessor {
         return termRegex(source, caseSensitive).replace(text, replacement)
     }
 
+    private fun restoreToken(text: String, token: String, replacement: String): String {
+        val matches = Regex(Regex.escape(token), RegexOption.IGNORE_CASE).findAll(text).toList()
+        if (matches.isEmpty()) return text
+
+        val output = StringBuilder(text.length)
+        var sourceOffset = 0
+        matches.forEach { match ->
+            if (match.range.first < sourceOffset) return@forEach
+            output.append(text, sourceOffset, match.range.first)
+            output.append(replacement)
+            val endExclusive = match.range.last + 1
+            val particle = KoreanParticleCorrector.correctFollowing(text, endExclusive, replacement)
+            if (particle != null) {
+                output.append(particle.particle)
+                sourceOffset = particle.endExclusive
+            } else {
+                sourceOffset = endExclusive
+            }
+        }
+        output.append(text, sourceOffset, text.length)
+        return output.toString()
+    }
+
     private fun termRegex(source: String, caseSensitive: Boolean): Regex {
         val escaped = Regex.escape(source)
         val needsWordBoundary = source.firstOrNull()?.isLatinWordCharacter() == true &&
             source.lastOrNull()?.isLatinWordCharacter() == true
-        val pattern = if (needsWordBoundary) "(?<![\\p{L}\\p{N}_])$escaped(?![\\p{L}\\p{N}_])" else escaped
+        // A Korean particle can be attached directly to a Latin source name (for example `A-Pu은`).
+        // Keep Latin identifier boundaries strict without treating that Hangul suffix as part of the name.
+        val pattern = if (needsWordBoundary) "(?<![A-Za-z0-9_])$escaped(?![A-Za-z0-9_])" else escaped
         val options = if (caseSensitive) emptySet() else setOf(RegexOption.IGNORE_CASE)
         return Regex(pattern, options)
     }

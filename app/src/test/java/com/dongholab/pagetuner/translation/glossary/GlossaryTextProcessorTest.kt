@@ -23,6 +23,24 @@ class GlossaryTextProcessorTest {
     }
 
     @Test
+    fun restoreSelectsParticlesAfterTheFinalTranslatedName() {
+        val entries = listOf(
+            character,
+            BookGlossaryEntry("apu", "A-Pu", "아푸"),
+            BookGlossaryEntry("gil", "Gil", "길"),
+        )
+        val protected = GlossaryTextProcessor.protect(
+            "A-Pu은(는) Qin Feng는 만났고 A-Pu이(가) A-Pu을 도왔다. Qin Feng와 Gil으로 갔다.",
+            entries,
+        )
+
+        assertEquals(
+            "아푸는 진풍은 만났고 아푸가 아푸를 도왔다. 진풍과 길로 갔다.",
+            GlossaryTextProcessor.restore(protected.text, protected.replacements),
+        )
+    }
+
+    @Test
     fun longestTermWinsAndLatinTermsDoNotReplaceInsideWords() {
         val entries = listOf(
             character,
@@ -61,6 +79,28 @@ class GlossaryTextProcessorTest {
 
         assertEquals("아푸 entered the North Hall. 아푸 waved.", display.text)
         assertEquals(listOf(0..1, 27..28), display.emphasizedRanges)
+    }
+
+    @Test
+    fun displayAliasesCorrectParticlesAndKeepCharacterBoldRangesAligned() {
+        val display = GlossaryTextProcessor.applyTranslatedDisplayAliasesWithRanges(
+            text = "진풍는 아푸은(는) 왔다.",
+            entries = listOf(
+                character,
+                BookGlossaryEntry("apu", "A-Pu", "아푸", "아이", GlossaryTermKind.Character),
+            ),
+        )
+
+        assertEquals("주인공은 아이는 왔다.", display.text)
+        assertEquals(listOf(0..2, 5..6), display.emphasizedRanges)
+    }
+
+    @Test
+    fun particleCorrectionDoesNotRewriteACopulaFollowingAnAlias() {
+        assertEquals(
+            "주인공이다.",
+            GlossaryTextProcessor.applyTranslatedDisplayAliases("진풍이다.", listOf(character)),
+        )
     }
 
     @Test

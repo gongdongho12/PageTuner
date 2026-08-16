@@ -34,6 +34,24 @@ class GlossaryTranslationProviderTest {
         assertTrue(provider.id.startsWith("capture:glossary-"))
     }
 
+    @Test
+    fun providerResultCorrectsParticleAfterRestoringProtectedName() = runTest {
+        val provider = GlossaryTranslationProvider(
+            ParticleProvider(),
+            BookGlossary("book-1", listOf(BookGlossaryEntry("hero", "A-Pu", "아푸"))),
+        )
+
+        val translated = provider.translate(
+            TranslationRequest(
+                sourceLanguage = "en",
+                targetLanguage = "ko",
+                segments = listOf(TextSegment("s1", 0, 0, "A-Pu entered.")),
+            ),
+        )
+
+        assertEquals("아푸는 입장했다.", translated.single().translatedText)
+    }
+
     private class CapturingProvider : TranslationProvider {
         override val id = "capture"
         var received: List<TextSegment> = emptyList()
@@ -41,6 +59,17 @@ class GlossaryTranslationProviderTest {
         override suspend fun translate(request: TranslationRequest): List<TranslatedSegment> {
             received = request.segments
             return request.segments.map { TranslatedSegment(it.id, "번역: ${it.text}") }
+        }
+    }
+
+    private class ParticleProvider : TranslationProvider {
+        override val id = "particle"
+
+        override suspend fun translate(request: TranslationRequest): List<TranslatedSegment> {
+            return request.segments.map { segment ->
+                val protectedName = segment.text.substringBefore(' ')
+                TranslatedSegment(segment.id, "${protectedName}은(는) 입장했다.")
+            }
         }
     }
 }

@@ -41,6 +41,10 @@ accepted only when their source spelling exists in the submitted text, merged
 without overwriting manual choices, and persisted under the same book ID.
 Character aliases are exposed as annotated ranges and rendered in bold by the
 shared E-Ink auto-fit text component.
+After a protected term or display alias is restored, the shared
+`KoreanParticleCorrector` chooses the attached Korean particle from the final
+visible spelling. This converts forms such as `아푸은(는)` to `아푸는` and
+`진풍는` to `진풍은` consistently across every provider and cached reader text.
 Book dictionaries can be exported, shared as JSON text, and imported into the
 currently open work. Import is additive by normalized source term and never
 overwrites an existing reader choice.

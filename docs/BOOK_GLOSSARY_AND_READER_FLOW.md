@@ -51,14 +51,25 @@ book page
   -> source names replaced by deterministic protection tokens
   -> TranslationProvider
   -> tokens restored as translatedTerm
+  -> attached Korean particles corrected from the final spelling
   -> TranslationRepository cache
   -> optional displayTerm applied in ReaderSurface
+  -> attached particles corrected again from the display alias
   -> character alias ranges rendered with bold weight
 ```
 
 Latin names use word boundaries, so an entry for `Qin` does not alter
 `Qinling`. Longer terms are protected first to keep `Qin Feng` from being
-partially consumed by an entry for `Qin`.
+partially consumed by an entry for `Qin`. A Hangul particle directly attached
+to a Latin name is not treated as part of that Latin word.
+
+`KoreanParticleCorrector` is shared by provider restoration and reader display
+aliases. It reduces paired forms such as `은(는)`, `이(가)`, `을(를)`,
+`과(와)`, and `(으)로`, and also fixes an already selected but now incorrect
+particle. Selection uses the final Hangul syllable after replacement, including
+the ㄹ exception for `으로/로`. Correction is scoped to the particle immediately
+after a replaced glossary term, so ordinary translated prose is not rewritten.
+The particle remains outside the character's emphasized range.
 
 The common provider decorator is `GlossaryTranslationProvider`. The regular
 reader and `ContentTranslationService` can both use it. Offline web-novel batch
@@ -103,8 +114,9 @@ in [Remote Catalog Navigation](REMOTE_CATALOG_NAVIGATION.md).
 
 ## Tests
 
-- `GlossaryTextProcessorTest`: protection, longest-match behavior, word
-  boundaries, display aliases, and cache fingerprint behavior.
+- `GlossaryTextProcessorTest`: protection, longest-match behavior, Latin/Hangul
+  boundaries, Korean particle correction, display-alias bold-range alignment,
+  and cache fingerprint behavior.
 - `GlossaryTranslationProviderTest`: verifies the vendor sees protected text
   and the caller receives the fixed translated spelling.
 - `BookGlossaryStoreTest`: verifies per-book JSON persistence and isolation.
