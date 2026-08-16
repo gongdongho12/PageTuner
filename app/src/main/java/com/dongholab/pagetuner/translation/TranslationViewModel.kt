@@ -432,7 +432,7 @@ class TranslationViewModel : ViewModel() {
                     enabled = true,
                     running = rollingPendingPageIndexes.isNotEmpty() || rollingPrefetchJob?.isActive == true,
                     windowSize = rollingPolicy.windowSize,
-                    triggerOffset = rollingPolicy.triggerOffset,
+                    triggerPageCount = rollingPolicy.triggerPageCount,
                     windowStartIndex = window.startIndex,
                     windowEndExclusive = window.endExclusive,
                     nextWindowStartIndex = window.nextWindowStartIndex,

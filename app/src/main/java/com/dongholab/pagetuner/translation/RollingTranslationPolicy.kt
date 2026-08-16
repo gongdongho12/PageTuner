@@ -11,7 +11,7 @@ data class RollingTranslationState(
     val enabled: Boolean = false,
     val running: Boolean = false,
     val windowSize: Int = 10,
-    val triggerOffset: Int = 5,
+    val triggerPageCount: Int = 5,
     val windowStartIndex: Int = 0,
     val windowEndExclusive: Int = 0,
     val nextWindowStartIndex: Int = 0,
@@ -46,12 +46,12 @@ data class RollingTranslationWindow(
 
 class RollingTranslationPolicy(
     val windowSize: Int = 10,
-    val triggerOffset: Int = 5,
+    val triggerPageCount: Int = 5,
 ) {
     init {
         require(windowSize > 0) { "windowSize must be positive." }
-        require(triggerOffset in 1 until windowSize) {
-            "triggerOffset must be between 1 and windowSize - 1."
+        require(triggerPageCount in 1..windowSize) {
+            "triggerPageCount must be between 1 and windowSize."
         }
     }
 
@@ -84,7 +84,8 @@ class RollingTranslationPolicy(
             startIndex = startIndex,
             endExclusive = endExclusive,
             nextWindowStartIndex = endExclusive,
-            triggerPageIndex = (startIndex + triggerOffset).coerceAtMost(endExclusive - 1),
+            // Human page positions are 1-based: count 5 means the fifth page in this window.
+            triggerPageIndex = (startIndex + triggerPageCount - 1).coerceAtMost(endExclusive - 1),
         )
     }
 }

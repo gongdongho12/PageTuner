@@ -80,8 +80,8 @@ whole document immediately:
 2. The window is translated as one provider request when it fits the shared
    segment and character safety limits.
 3. Every page has a runtime flag: `Queued`, `Translating`, `Ready`, or `Failed`.
-4. When the reader reaches page offset 5 in that window, the next non-overlapping
-   10-page window is queued.
+4. When the reader enters the fifth visible page in that window (index 4 for a
+   window starting at index 0), the next non-overlapping 10-page window is queued.
 5. A large page jump starts a new window at the current page rather than filling
    every skipped window.
 6. The rolling worker does not set the application's blocking `busy` flag, so

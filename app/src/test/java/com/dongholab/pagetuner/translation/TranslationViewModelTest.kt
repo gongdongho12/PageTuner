@@ -241,11 +241,11 @@ class TranslationViewModelTest {
 
             viewModel.startRollingPrefetch(document, 0, settings, repository)
             advanceUntilIdle()
-            viewModel.onReaderPageChanged(document, 4, settings, repository)
+            viewModel.onReaderPageChanged(document, 3, settings, repository)
             advanceUntilIdle()
             assertEquals(10, provider.translatedPageIndexes.size)
 
-            viewModel.onReaderPageChanged(document, 5, settings, repository)
+            viewModel.onReaderPageChanged(document, 4, settings, repository)
             advanceUntilIdle()
 
             assertEquals(20, provider.translatedPageIndexes.size)
@@ -253,7 +253,7 @@ class TranslationViewModelTest {
             assertEquals(2, provider.requests)
             assertEquals(10, viewModel.uiState.value.rolling.windowStartIndex)
             assertEquals(20, viewModel.uiState.value.rolling.windowEndExclusive)
-            assertEquals(15, viewModel.uiState.value.rolling.triggerPageIndex)
+            assertEquals(14, viewModel.uiState.value.rolling.triggerPageIndex)
         }
 
     private fun webTranslationSettings() = TranslationSettings(
