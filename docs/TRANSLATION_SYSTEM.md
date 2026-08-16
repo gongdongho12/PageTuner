@@ -210,6 +210,27 @@ service or accepts `ContentTranslationService` as an injectable dependency.
 `TranslationViewModelTest` cover initial cache loading, pending ownership,
 rolling translation completion, and terminal states.
 
+`RollingTranslationWorkflowInstrumentedTest` runs the complete rolling path on
+an Android device: `TranslationViewModel -> TranslationRepository -> provider
+-> cache`. Its 25-page scenario verifies that pages 1-10 use one request, page
+4 does not queue more work, entering page 5 queues pages 11-20, and repeated
+page-change callbacks do not create duplicate requests. Each checkpoint is
+written to the `PageTurnerWorkflowTest` Logcat tag for ADB verification.
+
+Repeatable commands:
+
+```bash
+./gradlew testDebugUnitTest
+./gradlew connectedDebugAndroidTest \
+  -Pandroid.testInstrumentationRunnerArguments.class=com.dongholab.pagetuner.translation.RollingTranslationWorkflowInstrumentedTest
+RUN_LIVE_DEEPSEEK_TESTS=1 ./gradlew testDebugUnitTest \
+  --tests 'com.dongholab.pagetuner.translation.DeepSeekTranslationLiveTest.translatesTenReaderPagesInOneRealRequest'
+```
+
+The paid live test is opt-in and reads its secret from the local environment;
+it verifies 10 ordered page segments are returned in Korean from one DeepSeek
+provider request without printing the credential.
+
 ## Adding a translation provider
 
 1. Implement `TranslationProvider` with a stable `id`.
