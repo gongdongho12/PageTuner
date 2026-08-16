@@ -56,6 +56,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.dongholab.pagetuner.R
 import com.dongholab.pagetuner.display.applyDisplayMode
+import com.dongholab.pagetuner.settings.ListLayoutMode
 import com.dongholab.pagetuner.source.CachedWebCatalog
 import com.dongholab.pagetuner.source.BatchDownloadProgress
 import com.dongholab.pagetuner.source.CatalogItemTranslation
@@ -79,6 +80,7 @@ import com.dongholab.pagetuner.ui.theme.EinkSoft
 import com.dongholab.pagetuner.ui.common.EinkRemoteCatalogPagerSlot
 import com.dongholab.pagetuner.ui.common.EinkSegmentedControl
 import com.dongholab.pagetuner.ui.common.EinkStablePageContent
+import com.dongholab.pagetuner.ui.common.LocalListLayoutMode
 import com.dongholab.pagetuner.ui.common.rememberEinkPagingState
 
 @Composable
@@ -348,34 +350,18 @@ fun RemoteSourcesTodoPanel(
             }
 
             if (activeSubTab == 0) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.End,
-                ) {
-                    TextButton(
-                        onClick = onTranslateCatalog,
-                        enabled = !busy && canTranslate && filteredCatalogItems.isNotEmpty(),
-                    ) {
-                        Text("Translate list → ${targetLanguage.uppercase()}", fontWeight = FontWeight.Bold)
-                    }
-                }
                 EinkStablePageContent(
                     content = {
                         Column(
                             modifier = Modifier.fillMaxSize(),
                             verticalArrangement = Arrangement.spacedBy(8.dp),
                         ) {
-                            EinkRemoteCatalogPagerSlot(
-                                paging = remotePaging,
-                                busy = busy,
-                                onPageSelected = onRemoteCatalogPageSelected,
-                            )
-                            com.dongholab.pagetuner.ui.common.EinkAutoFitPagingContainer(
+                            com.dongholab.pagetuner.ui.common.AdaptiveCollection(
                                 items = filteredCatalogItems,
-                                estimatedItemHeight = 104.dp,
+                                estimatedPagedItemHeight = 104.dp,
                                 fallbackPageSize = 3,
                                 busy = busy,
-                                state = rootCatalogPagingState,
+                                pagingState = rootCatalogPagingState,
                                 modifier = Modifier.weight(1f),
                                 emptyContent = {
                                     Text(
@@ -470,6 +456,22 @@ fun RemoteSourcesTodoPanel(
                         )
                     }
                 } else {
+                    EinkRemoteCatalogPagerSlot(
+                        paging = remotePaging,
+                        busy = busy,
+                        onPageSelected = onRemoteCatalogPageSelected,
+                    )
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.End,
+                    ) {
+                        TextButton(
+                            onClick = onTranslateCatalog,
+                            enabled = !busy && canTranslate && filteredCatalogItems.isNotEmpty(),
+                        ) {
+                            Text("Translate list → ${targetLanguage.uppercase()}", fontWeight = FontWeight.Bold)
+                        }
+                    }
                     EinkSegmentedControl(
                         options = if (catalogCapabilities.providerAdvancedControls) listOf(0, 1) else listOf(0),
                         selected = catalogFilterSection,
@@ -624,10 +626,10 @@ private fun SourceAccountsRow(
             style = MaterialTheme.typography.labelLarge,
             color = EinkInk,
         )
-        com.dongholab.pagetuner.ui.common.EinkAutoFitPagingContainer(
+        com.dongholab.pagetuner.ui.common.AdaptiveCollection(
             items = sourceAccounts,
             modifier = Modifier.weight(1f),
-            estimatedItemHeight = 112.dp,
+            estimatedPagedItemHeight = 112.dp,
             fallbackPageSize = 3,
             busy = busy,
         ) { account ->
@@ -757,10 +759,14 @@ fun RemoteBookRow(
     onOpenDetail: () -> Unit,
     onImportItem: (RemoteBookItem) -> Unit,
 ) {
+    val scrollLayout = LocalListLayoutMode.current == ListLayoutMode.Scroll
     Surface(
         modifier = Modifier
             .fillMaxWidth()
-            .height(104.dp),
+            .then(
+                if (scrollLayout) Modifier.heightIn(min = 104.dp)
+                else Modifier.height(104.dp),
+            ),
         color = EinkSoft,
         shape = RoundedCornerShape(3.dp),
         border = BorderStroke(1.dp, EinkLine),
@@ -787,7 +793,7 @@ fun RemoteBookRow(
                     style = MaterialTheme.typography.labelMedium.copy(fontSize = 13.sp, lineHeight = 16.sp),
                     color = EinkInk,
                     fontWeight = FontWeight.Bold,
-                    maxLines = 2,
+                    maxLines = if (scrollLayout) 5 else 2,
                     overflow = TextOverflow.Ellipsis,
                 )
                 Text(

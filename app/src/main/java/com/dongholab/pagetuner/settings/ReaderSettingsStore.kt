@@ -41,6 +41,12 @@ class ReaderSettingsStore(context: Context) {
         }
     }
 
+    suspend fun updateListLayoutMode(listLayoutMode: ListLayoutMode) {
+        dataStore.edit { preferences ->
+            preferences[Keys.LIST_LAYOUT_MODE] = listLayoutMode.name
+        }
+    }
+
     suspend fun updatePageTurnMode(pageTurnMode: PageTurnMode) {
         dataStore.edit { preferences ->
             preferences[Keys.PAGE_TURN_MODE] = pageTurnMode.name
@@ -136,6 +142,7 @@ class ReaderSettingsStore(context: Context) {
         val defaults = ReaderSettings()
         return ReaderSettings(
             displayMode = enumOrDefault(Keys.DISPLAY_MODE, defaults.displayMode),
+            listLayoutMode = enumOrDefault(Keys.LIST_LAYOUT_MODE, defaults.listLayoutMode),
             pageTurnMode = enumOrDefault(Keys.PAGE_TURN_MODE, defaults.pageTurnMode),
             pdfFitMode = enumOrDefault(Keys.PDF_FIT_MODE, defaults.pdfFitMode),
             readerFontSizeSp = (
@@ -186,6 +193,7 @@ class ReaderSettingsStore(context: Context) {
 
     private object Keys {
         val DISPLAY_MODE = stringPreferencesKey("display_mode")
+        val LIST_LAYOUT_MODE = stringPreferencesKey("list_layout_mode")
         val PAGE_TURN_MODE = stringPreferencesKey("page_turn_mode")
         val PDF_FIT_MODE = stringPreferencesKey("pdf_fit_mode")
         val READER_FONT_SIZE_SP = intPreferencesKey("reader_font_size_sp")

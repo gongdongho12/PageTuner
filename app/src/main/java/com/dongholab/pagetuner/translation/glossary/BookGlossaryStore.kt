@@ -30,6 +30,16 @@ class BookGlossaryStore(private val rootDirectory: File) {
         }) { "Unable to save book glossary." }
     }
 
+    fun mergeCharacterAliases(
+        bookId: String,
+        suggestions: List<CharacterAliasSuggestion>,
+    ): BookGlossary = lock.withLock {
+        val current = load(bookId)
+        val merged = BookGlossaryMerger.mergeCharacterAliases(current, suggestions)
+        if (merged != current) save(merged)
+        merged
+    }
+
     fun delete(bookId: String) = lock.withLock {
         rootDirectory.resolve("${safeBookId(bookId)}.json").delete()
     }

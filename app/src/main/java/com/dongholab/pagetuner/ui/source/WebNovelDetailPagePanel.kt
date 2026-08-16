@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -47,10 +48,12 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.dongholab.pagetuner.R
 import com.dongholab.pagetuner.display.DisplayMode
+import com.dongholab.pagetuner.settings.ListLayoutMode
 import com.dongholab.pagetuner.source.BatchDownloadProgress
 import com.dongholab.pagetuner.source.RemoteBookItem
 import com.dongholab.pagetuner.source.offline.OfflineNovelStorageStore
-import com.dongholab.pagetuner.ui.common.EinkAutoFitPagingContainer
+import com.dongholab.pagetuner.ui.common.AdaptiveCollection
+import com.dongholab.pagetuner.ui.common.LocalListLayoutMode
 import com.dongholab.pagetuner.ui.common.EinkOperationIndicator
 import com.dongholab.pagetuner.ui.common.EinkPagingState
 import com.dongholab.pagetuner.ui.common.EinkSegmentedControl
@@ -63,8 +66,9 @@ import com.dongholab.pagetuner.ui.theme.EinkPanel
 import com.dongholab.pagetuner.ui.theme.EinkPaper
 import com.dongholab.pagetuner.ui.theme.EinkSoft
 
-private enum class NovelDetailTab { Overview, Chapters }
+private enum class NovelDetailTab { Overview, Chapters, Tools }
 private enum class ChapterReadLanguage { Original, Translation }
+private val ChapterPagedRowHeight = 100.dp
 
 internal fun findChapterByNumber(
     chapters: List<RemoteBookItem>,
@@ -95,6 +99,9 @@ fun WebNovelDetailPagePanel(
     onBatchDownloadChapters: ((List<RemoteBookItem>) -> Unit)? = null,
 ) {
     var activeTab by rememberSaveable { mutableStateOf(NovelDetailTab.Chapters) }
+    var readLanguage by rememberSaveable(canTranslate) {
+        mutableStateOf(if (canTranslate) ChapterReadLanguage.Translation else ChapterReadLanguage.Original)
+    }
     var searchQuery by rememberSaveable { mutableStateOf("") }
     var showQuickJumpDialog by rememberSaveable { mutableStateOf(false) }
     var quickJumpNumberText by rememberSaveable { mutableStateOf("") }
@@ -110,6 +117,11 @@ fun WebNovelDetailPagePanel(
                 (item.chapterNumber ?: index + 1).toString() == searchQuery.trim()
         }
     }
+    val tabLabels = mapOf(
+        NovelDetailTab.Overview to stringResource(R.string.novel_detail_tab_overview),
+        NovelDetailTab.Chapters to stringResource(R.string.chapter_section_browse),
+        NovelDetailTab.Tools to stringResource(R.string.chapter_section_find_download),
+    )
 
     if (showQuickJumpDialog) {
         QuickJumpDialog(
@@ -142,6 +154,7 @@ fun WebNovelDetailPagePanel(
                 coverBytes = coverBytes,
                 chapterCount = chapters.size,
                 displayMode = displayMode,
+                compact = activeTab != NovelDetailTab.Overview,
                 busy = busy,
                 isFavorite = isFavorite,
                 onBackToList = onBackToList,
@@ -153,7 +166,7 @@ fun WebNovelDetailPagePanel(
                 selected = activeTab,
                 onSelect = { activeTab = it },
                 enabled = !busy,
-                label = { tab -> if (tab == NovelDetailTab.Overview) "Overview" else "Chapters" },
+                label = { tab -> tabLabels.getValue(tab) },
             )
 
             EinkStablePageContent(
@@ -165,20 +178,30 @@ fun WebNovelDetailPagePanel(
                             modifier = Modifier.fillMaxSize(),
                         )
                         NovelDetailTab.Chapters -> ChapterListPanel(
-                            novelItem = novelItem,
                             chapters = chapters,
                             filteredChapters = filteredChapters,
+                            busy = busy,
+                            targetLanguage = targetLanguage,
+                            readLanguage = readLanguage,
+                            pagingState = chapterPagingState,
+                            onSaveChapterTxt = onSaveChapterTxt,
+                            onReadOriginalChapter = onReadOriginalChapter,
+                            onReadChapter = onReadChapter,
+                            modifier = Modifier.fillMaxSize(),
+                        )
+                        NovelDetailTab.Tools -> ChapterToolsPanel(
+                            chapters = chapters,
+                            filteredChapterCount = filteredChapters.size,
                             searchQuery = searchQuery,
                             busy = busy,
                             targetLanguage = targetLanguage,
                             canTranslate = canTranslate,
-                            pagingState = chapterPagingState,
+                            readLanguage = readLanguage,
+                            onReadLanguageChange = { readLanguage = it },
                             onSearchQueryChange = { searchQuery = it },
                             onQuickJump = { showQuickJumpDialog = true },
                             onBatchDownload = { onBatchDownloadChapters?.invoke(chapters) },
-                            onSaveChapterTxt = onSaveChapterTxt,
-                            onReadOriginalChapter = onReadOriginalChapter,
-                            onReadChapter = onReadChapter,
+                            onShowResults = { activeTab = NovelDetailTab.Chapters },
                             modifier = Modifier.fillMaxSize(),
                         )
                     }
@@ -247,6 +270,7 @@ private fun NovelDetailHeader(
     coverBytes: ByteArray?,
     chapterCount: Int,
     displayMode: DisplayMode,
+    compact: Boolean,
     busy: Boolean,
     isFavorite: Boolean,
     onBackToList: () -> Unit,
@@ -260,27 +284,31 @@ private fun NovelDetailHeader(
         IconButton(onClick = onBackToList) {
             Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back to catalog", tint = EinkInk)
         }
-        RemoteCoverThumbnail(
-            coverBytes = coverBytes,
-            displayMode = displayMode,
-            contentDescription = novelItem.title,
-        )
+        if (!compact) {
+            RemoteCoverThumbnail(
+                coverBytes = coverBytes,
+                displayMode = displayMode,
+                contentDescription = novelItem.title,
+            )
+        }
         Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = novelItem.title,
                 style = MaterialTheme.typography.titleSmall,
                 fontWeight = FontWeight.Bold,
                 color = EinkInk,
-                maxLines = 2,
+                maxLines = if (compact) 1 else 2,
                 overflow = TextOverflow.Ellipsis,
             )
-            Text(
-                text = "${novelItem.authors.firstOrNull() ?: "WTR-Lab"} · ${novelItem.chapterCount ?: chapterCount} Ch. · ${novelItem.language ?: "en"}",
-                style = MaterialTheme.typography.labelSmall,
-                color = EinkMuted,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis,
-            )
+            if (!compact) {
+                Text(
+                    text = "${novelItem.authors.firstOrNull() ?: "WTR-Lab"} · ${novelItem.chapterCount ?: chapterCount} Ch. · ${novelItem.language ?: "en"}",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = EinkMuted,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
         }
         IconButton(onClick = onToggleFavorite, enabled = !busy) {
             Icon(
@@ -330,80 +358,30 @@ private fun NovelOverviewPanel(novelItem: RemoteBookItem, chapterCount: Int, mod
 
 @Composable
 private fun ChapterListPanel(
-    novelItem: RemoteBookItem,
     chapters: List<RemoteBookItem>,
     filteredChapters: List<RemoteBookItem>,
-    searchQuery: String,
     busy: Boolean,
     targetLanguage: String,
-    canTranslate: Boolean,
+    readLanguage: ChapterReadLanguage,
     pagingState: EinkPagingState,
-    onSearchQueryChange: (String) -> Unit,
-    onQuickJump: () -> Unit,
-    onBatchDownload: () -> Unit,
     onSaveChapterTxt: ((RemoteBookItem) -> Unit)?,
     onReadOriginalChapter: (RemoteBookItem) -> Unit,
     onReadChapter: (RemoteBookItem) -> Unit,
     modifier: Modifier,
 ) {
-    var readLanguage by rememberSaveable(canTranslate) {
-        mutableStateOf(if (canTranslate) ChapterReadLanguage.Translation else ChapterReadLanguage.Original)
-    }
     Column(
         modifier = modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(6.dp),
-        ) {
-            TextButton(
-                onClick = onQuickJump,
-                enabled = !busy && chapters.isNotEmpty(),
-                modifier = Modifier.weight(1f),
-            ) {
-                Text("Quick jump", fontWeight = FontWeight.Bold, color = EinkInk)
-            }
-            Button(
-                onClick = onBatchDownload,
-                enabled = !busy && canTranslate && chapters.isNotEmpty(),
-                modifier = Modifier.weight(1f),
-                colors = ButtonDefaults.buttonColors(containerColor = EinkInk, contentColor = EinkPanel),
-                shape = RoundedCornerShape(2.dp),
-            ) {
-                Icon(Icons.Filled.CloudDownload, contentDescription = null, modifier = Modifier.size(16.dp))
-                Spacer(Modifier.width(4.dp))
-                Text("Original + ${targetLanguage.uppercase()}", maxLines = 2, style = MaterialTheme.typography.labelSmall)
-            }
-        }
-
-        OutlinedTextField(
-            value = searchQuery,
-            onValueChange = onSearchQueryChange,
-            modifier = Modifier.fillMaxWidth(),
-            enabled = !busy,
-            label = { Text("Chapter number or title") },
-            singleLine = true,
-        )
-
-        EinkSegmentedControl(
-            options = ChapterReadLanguage.entries,
-            selected = readLanguage,
-            onSelect = { readLanguage = it },
-            enabled = !busy,
-            itemHeight = 38.dp,
-            label = { language ->
-                if (language == ChapterReadLanguage.Original) "Read original"
-                else "Read ${targetLanguage.uppercase()}"
-            },
-        )
-
-        EinkAutoFitPagingContainer(
+        AdaptiveCollection(
             items = filteredChapters,
-            estimatedItemHeight = 124.dp,
+            estimatedPagedItemHeight = ChapterPagedRowHeight,
             fallbackPageSize = 3,
             busy = busy,
-            state = pagingState,
+            pagingState = pagingState,
+            itemKey = {
+                "${it.identity.sourceType}:${it.identity.accountId}:${it.identity.remoteId}"
+            },
             modifier = Modifier
                 .fillMaxWidth()
                 .weight(1f),
@@ -440,6 +418,75 @@ private fun ChapterListPanel(
 }
 
 @Composable
+private fun ChapterToolsPanel(
+    chapters: List<RemoteBookItem>,
+    filteredChapterCount: Int,
+    searchQuery: String,
+    busy: Boolean,
+    targetLanguage: String,
+    canTranslate: Boolean,
+    readLanguage: ChapterReadLanguage,
+    onReadLanguageChange: (ChapterReadLanguage) -> Unit,
+    onSearchQueryChange: (String) -> Unit,
+    onQuickJump: () -> Unit,
+    onBatchDownload: () -> Unit,
+    onShowResults: () -> Unit,
+    modifier: Modifier,
+) {
+    Column(
+        modifier = modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        EinkSegmentedControl(
+            options = ChapterReadLanguage.entries,
+            selected = readLanguage,
+            onSelect = onReadLanguageChange,
+            enabled = !busy,
+            itemHeight = 42.dp,
+            label = { language ->
+                if (language == ChapterReadLanguage.Original) "Read original"
+                else "Read ${targetLanguage.uppercase()}"
+            },
+        )
+        OutlinedTextField(
+            value = searchQuery,
+            onValueChange = onSearchQueryChange,
+            modifier = Modifier.fillMaxWidth(),
+            enabled = !busy,
+            label = { Text("Chapter number or title") },
+            singleLine = true,
+        )
+        TextButton(
+            onClick = onQuickJump,
+            enabled = !busy && chapters.isNotEmpty(),
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            Text("Quick jump", fontWeight = FontWeight.Bold, color = EinkInk)
+        }
+        Button(
+            onClick = onBatchDownload,
+            enabled = !busy && canTranslate && chapters.isNotEmpty(),
+            modifier = Modifier.fillMaxWidth(),
+            colors = ButtonDefaults.buttonColors(containerColor = EinkInk, contentColor = EinkPanel),
+            shape = RoundedCornerShape(2.dp),
+        ) {
+            Icon(Icons.Filled.CloudDownload, contentDescription = null, modifier = Modifier.size(16.dp))
+            Spacer(Modifier.width(4.dp))
+            Text("Original + ${targetLanguage.uppercase()}", maxLines = 2, style = MaterialTheme.typography.labelSmall)
+        }
+        Button(
+            onClick = onShowResults,
+            enabled = !busy,
+            modifier = Modifier.fillMaxWidth(),
+            colors = ButtonDefaults.buttonColors(containerColor = EinkInk, contentColor = EinkPanel),
+            shape = RoundedCornerShape(2.dp),
+        ) {
+            Text(stringResource(R.string.chapter_show_results, filteredChapterCount))
+        }
+    }
+}
+
+@Composable
 private fun ChapterRowItem(
     chapter: RemoteBookItem,
     chapterIndex: Int,
@@ -450,11 +497,15 @@ private fun ChapterRowItem(
 ) {
     val offlineLanguages = OfflineNovelStorageStore.globalOfflineStore.downloadedLanguages(chapter)
     val isOfflineSaved = offlineLanguages.isNotEmpty()
+    val scrollLayout = LocalListLayoutMode.current == ListLayoutMode.Scroll
 
     Surface(
         modifier = Modifier
             .fillMaxWidth()
-            .height(124.dp),
+            .then(
+                if (scrollLayout) Modifier.heightIn(min = 124.dp)
+                else Modifier.height(ChapterPagedRowHeight),
+            ),
         color = EinkSoft,
         shape = RoundedCornerShape(4.dp),
         border = BorderStroke(1.dp, EinkLine),
@@ -466,7 +517,7 @@ private fun ChapterRowItem(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .weight(1f),
+                    .then(if (scrollLayout) Modifier else Modifier.weight(1f)),
                 horizontalArrangement = Arrangement.spacedBy(7.dp),
                 verticalAlignment = Alignment.Top,
             ) {
@@ -477,7 +528,7 @@ private fun ChapterRowItem(
                     style = MaterialTheme.typography.bodySmall,
                     fontWeight = FontWeight.SemiBold,
                     color = EinkInk,
-                    maxLines = 3,
+                    maxLines = if (scrollLayout) 6 else 2,
                     overflow = TextOverflow.Ellipsis,
                 )
                 if (isOfflineSaved) {

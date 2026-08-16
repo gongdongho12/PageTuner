@@ -1,6 +1,7 @@
 package com.dongholab.pagetuner.translation
 
 import com.dongholab.pagetuner.document.DocumentIds
+import com.dongholab.pagetuner.translation.glossary.CharacterAliasSuggestion
 import java.io.IOException
 import java.net.HttpURLConnection
 import java.net.URL
@@ -17,13 +18,27 @@ class OpenAiCompatibleLlmTranslationProvider(
     private val providerIdPrefix: String = "openai-compatible-llm",
     private val requestOptions: LlmChatRequestOptions = LlmChatRequestOptions(),
     private val transport: LlmHttpTransport = LlmHttpTransport.default(providerName),
+    initialCharacterAliases: List<CharacterAliasSuggestion> = emptyList(),
+    private val onCharacterAliases: ((List<CharacterAliasSuggestion>) -> Unit)? = null,
 ) : TranslationProvider {
+    private val characterAliases = linkedMapOf<String, CharacterAliasSuggestion>().apply {
+        initialCharacterAliases.forEach { suggestion ->
+            val source = suggestion.sourceTerm.trim()
+            val alias = suggestion.alias.trim()
+            if (source.isNotBlank() && alias.isNotBlank()) {
+                put(source.lowercase(), CharacterAliasSuggestion(source, alias))
+            }
+        }
+    }
+    private val characterAliasEnabled = onCharacterAliases != null || characterAliases.isNotEmpty()
+
     override val id: String = buildString {
         append(providerIdPrefix)
         append(':')
         append(DocumentIds.sha256(endpoint).take(12))
         append(':')
         append(model)
+        if (characterAliasEnabled) append(":character-alias-v1")
     }
 
     override suspend fun translate(request: TranslationRequest): List<TranslatedSegment> {
@@ -60,6 +75,7 @@ class OpenAiCompatibleLlmTranslationProvider(
         val input = JSONArray().apply {
             request.segments.forEach { put(it.text) }
         }
+        val knownAliases = synchronized(characterAliases) { characterAliases.values.toList() }
         return JSONObject().apply {
             put("model", model)
             put("temperature", 0)
@@ -77,7 +93,13 @@ class OpenAiCompatibleLlmTranslationProvider(
                         .put(
                             "content",
                             "You are a translation engine. Return only JSON. " +
-                                "Preserve paragraph count and order. Do not add explanations.",
+                                "Preserve paragraph count and order. Do not add explanations." +
+                                if (characterAliasEnabled) {
+                                    " Identify named people and transliterate their names naturally and consistently. " +
+                                        "Preserve PTGLOSSARY tokens exactly. Use every supplied character alias verbatim."
+                                } else {
+                                    ""
+                                },
                         ),
                 )
                 put(
@@ -91,7 +113,22 @@ class OpenAiCompatibleLlmTranslationProvider(
                                 append(" to ")
                                 append(request.targetLanguage)
                                 append(". Return exactly this shape: ")
-                                append("{\"translations\":[\"...\"]}\n")
+                                if (characterAliasEnabled) {
+                                    append("{\"translations\":[\"...\"],")
+                                    append("\"characterAliases\":[{\"source\":\"A-Pu\",\"alias\":\"아푸\"}]}\n")
+                                    append("characterAliases must contain only people named in the input; ")
+                                    append("use their aliases in translations. Existing aliases: ")
+                                    append(JSONArray().apply {
+                                        knownAliases.forEach { suggestion ->
+                                            put(JSONObject()
+                                                .put("source", suggestion.sourceTerm)
+                                                .put("alias", suggestion.alias))
+                                        }
+                                    })
+                                    append('\n')
+                                } else {
+                                    append("{\"translations\":[\"...\"]}\n")
+                                }
                                 append(input.toString())
                             },
                         ),
@@ -118,8 +155,15 @@ class OpenAiCompatibleLlmTranslationProvider(
             )
         }
 
+        val responseJson = runCatching { extractJsonObject(content) }.getOrElse { error ->
+            throw providerResponseFormatException(
+                providerName = providerName,
+                detail = "LLM response did not contain translation JSON.",
+                cause = error,
+            )
+        }
         val translations = runCatching {
-            extractJsonObject(content).getJSONArray("translations")
+            responseJson.getJSONArray("translations")
         }.getOrElse { error ->
             throw providerResponseFormatException(
                 providerName = providerName,
@@ -134,12 +178,41 @@ class OpenAiCompatibleLlmTranslationProvider(
             )
         }
 
+        if (characterAliasEnabled) {
+            acceptCharacterAliases(request, responseJson.optJSONArray("characterAliases"))
+        }
+
         return request.segments.mapIndexed { index, segment ->
             TranslatedSegment(
                 segmentId = segment.id,
                 translatedText = translations.getString(index),
             )
         }
+    }
+
+    private fun acceptCharacterAliases(request: TranslationRequest, values: JSONArray?) {
+        if (values == null) return
+        val sourceText = request.segments.joinToString("\n") { it.text }
+        val discovered = buildList {
+            for (index in 0 until values.length().coerceAtMost(MaxAliasesPerResponse)) {
+                val item = values.optJSONObject(index) ?: continue
+                val source = item.optString("source").trim()
+                val alias = item.optString("alias").trim()
+                if (source.isBlank() || alias.isBlank()) continue
+                if (source.length > MaxAliasCharacters || alias.length > MaxAliasCharacters) continue
+                if (!sourceText.contains(source, ignoreCase = true)) continue
+                val normalized = source.lowercase()
+                val added = synchronized(characterAliases) {
+                    if (characterAliases.containsKey(normalized)) false
+                    else {
+                        characterAliases[normalized] = CharacterAliasSuggestion(source, alias)
+                        true
+                    }
+                }
+                if (added) add(CharacterAliasSuggestion(source, alias))
+            }
+        }
+        if (discovered.isNotEmpty()) onCharacterAliases?.invoke(discovered)
     }
 
     private fun extractJsonObject(content: String): JSONObject {
@@ -161,6 +234,8 @@ class OpenAiCompatibleLlmTranslationProvider(
 
     private companion object {
         const val DefaultProviderName = "LLM API"
+        const val MaxAliasesPerResponse = 24
+        const val MaxAliasCharacters = 80
     }
 }
 

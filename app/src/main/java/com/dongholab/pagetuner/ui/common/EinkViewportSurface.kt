@@ -11,6 +11,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.unit.dp
 import com.dongholab.pagetuner.ui.theme.EinkLine
 import com.dongholab.pagetuner.ui.theme.EinkPanel
@@ -24,7 +25,9 @@ fun EinkViewportSurface(
     content: @Composable ColumnScope.() -> Unit,
 ) {
     Surface(
-        modifier = modifier.fillMaxSize(),
+        modifier = modifier
+            .fillMaxSize()
+            .clipToBounds(),
         color = EinkPanel,
         shape = RoundedCornerShape(6.dp),
         border = BorderStroke(1.dp, EinkLine),
@@ -32,7 +35,8 @@ fun EinkViewportSurface(
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(contentPadding),
+                .padding(contentPadding)
+                .clipToBounds(),
             verticalArrangement = verticalArrangement,
             content = content,
         )

@@ -25,6 +25,8 @@ import com.dongholab.pagetuner.R
 import com.dongholab.pagetuner.display.DisplayMode
 import com.dongholab.pagetuner.reader.PageTurnMode
 import com.dongholab.pagetuner.reader.PdfFitMode
+import com.dongholab.pagetuner.settings.ListLayoutMode
+import com.dongholab.pagetuner.ui.common.EinkSegmentedControl
 import com.dongholab.pagetuner.ui.text.localizedLabel
 import com.dongholab.pagetuner.ui.theme.EinkInk
 import com.dongholab.pagetuner.ui.theme.EinkLine
@@ -111,6 +113,59 @@ fun PageTurnSettingsPanel(
                     )
                 }
             }
+        }
+    }
+}
+
+@Composable
+fun ListLayoutSettingsPanel(
+    listLayoutMode: ListLayoutMode,
+    busy: Boolean,
+    onListLayoutModeChange: (ListLayoutMode) -> Unit,
+) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        color = EinkPanel,
+        shape = RoundedCornerShape(6.dp),
+        border = BorderStroke(1.dp, EinkLine),
+        shadowElevation = 0.dp,
+    ) {
+        Column(
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
+            Text(
+                text = stringResource(R.string.list_layout_settings_title),
+                style = MaterialTheme.typography.labelLarge,
+                color = EinkInk,
+                fontWeight = FontWeight.SemiBold,
+            )
+            val pagedLabel = stringResource(R.string.list_layout_paged)
+            val scrollLabel = stringResource(R.string.list_layout_scroll)
+            EinkSegmentedControl(
+                options = ListLayoutMode.entries,
+                selected = listLayoutMode,
+                onSelect = onListLayoutModeChange,
+                enabled = !busy,
+                itemHeight = 44.dp,
+                label = { mode ->
+                    when (mode) {
+                        ListLayoutMode.Paged -> pagedLabel
+                        ListLayoutMode.Scroll -> scrollLabel
+                    }
+                },
+            )
+            Text(
+                text = stringResource(
+                    if (listLayoutMode == ListLayoutMode.Paged) {
+                        R.string.list_layout_paged_description
+                    } else {
+                        R.string.list_layout_scroll_description
+                    },
+                ),
+                style = MaterialTheme.typography.labelSmall,
+                color = com.dongholab.pagetuner.ui.theme.EinkMuted,
+            )
         }
     }
 }

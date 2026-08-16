@@ -39,8 +39,9 @@ remote page request (provider page=12)
   -> RemoteCatalogPagingState
   -> stable remote-pager slot
   -> current remote page items
-  -> EinkPagingState
-  -> auto-fit viewport page
+  -> AdaptiveCollection
+     -> Paged: EinkPagingState + auto-fit viewport page
+     -> Scroll: current remote page touch list
 ```
 
 - `EinkRemoteCatalogPagerSlot` always occupies the same height. Receiving the
@@ -51,6 +52,8 @@ remote page request (provider page=12)
   result set starts at its first viewport page.
 - When a shorter result set makes the old page unreachable, the state clamps
   to the last valid page.
+- Touch scrolling never auto-fetches the next server page. Remote next/last
+  actions stay explicit so provider throttling and bot protection remain intact.
 
 ## 4. Stable rendering contract
 
@@ -90,7 +93,8 @@ ui/source/WebNovelBookRoutePage.kt           atomic book route loader
 ui/source/WebNovelDetailPagePanel.kt         book content and chapter viewport
 ui/common/EinkStablePageContent.kt           stable body/overlay contract
 ui/common/EinkRemoteCatalogPager.kt          fixed server-pager slot
-ui/common/EinkAutoFitPagingContainer.kt      persistent viewport paging state
+ui/common/AdaptiveCollection.kt              selectable list-layout boundary
+ui/common/EinkAutoFitPagingContainer.kt      persistent E-Ink paging state
 ```
 
 New providers should plug into the existing source/adapter interfaces. They

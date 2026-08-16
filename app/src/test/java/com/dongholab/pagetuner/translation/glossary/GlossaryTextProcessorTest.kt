@@ -48,4 +48,35 @@ class GlossaryTextProcessorTest {
         )
         assertTrue(first.activeEntries.isNotEmpty())
     }
+
+    @Test
+    fun characterAliasesExposeBoldRangesWithoutEmphasizingOrdinaryTerms() {
+        val display = GlossaryTextProcessor.applyTranslatedDisplayAliasesWithRanges(
+            text = "아푸 entered the North Hall. 아푸 waved.",
+            entries = listOf(
+                BookGlossaryEntry("apu", "A-Pu", "아푸", "아푸", GlossaryTermKind.Character),
+                BookGlossaryEntry("hall", "North Hall", "북쪽 전당", "전당", GlossaryTermKind.Place),
+            ),
+        )
+
+        assertEquals("아푸 entered the North Hall. 아푸 waved.", display.text)
+        assertEquals(listOf(0..1, 27..28), display.emphasizedRanges)
+    }
+
+    @Test
+    fun llmAliasesMergePerBookWithoutOverwritingManualChoices() {
+        val manual = BookGlossaryEntry("manual", "A-Pu", "에이푸", "에이푸")
+        val merged = BookGlossaryMerger.mergeCharacterAliases(
+            glossary = BookGlossary("book-1", listOf(manual)),
+            suggestions = listOf(
+                CharacterAliasSuggestion("A-Pu", "아푸"),
+                CharacterAliasSuggestion("Qin Feng", "진풍"),
+                CharacterAliasSuggestion("qin feng", "친펑"),
+            ),
+        )
+
+        assertEquals(2, merged.entries.size)
+        assertEquals("에이푸", merged.entries.first { it.sourceTerm == "A-Pu" }.displayTerm)
+        assertEquals("진풍", merged.entries.first { it.sourceTerm == "Qin Feng" }.displayTerm)
+    }
 }

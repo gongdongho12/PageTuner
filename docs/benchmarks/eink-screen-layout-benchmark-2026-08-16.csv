@@ -1,0 +1,67 @@
+screen_id,screen_label,mode,trial,interactions,frames,janky_frames,jank_percent,p50_ms,p90_ms,p95_ms,p99_ms,elapsed_ms,pss_kb
+local_library,"Local · Library",paged,1,20,153,5,3.27,9,17,17,40,2622,222564
+local_library,"Local · Library",paged,2,20,148,52,35.14,17,27,31,52,2604,201249
+local_library,"Local · Library",paged,3,20,153,17,11.11,11,20,32,67,2672,205461
+local_library,"Local · Library",scroll,1,20,534,122,22.85,17,22,24,67,10618,205568
+local_library,"Local · Library",scroll,2,20,535,71,13.27,17,21,24,67,10433,206580
+local_library,"Local · Library",scroll,3,20,536,70,13.06,17,20,21,50,10150,201940
+local_directory,"Local · Device files",paged,1,20,152,0,0.00,17,17,17,17,2584,202640
+local_directory,"Local · Device files",paged,2,20,149,0,0.00,17,17,17,17,2519,200216
+local_directory,"Local · Device files",paged,3,20,147,0,0.00,17,17,17,17,2485,205172
+local_directory,"Local · Device files",scroll,1,20,506,68,13.44,17,20,23,30,9199,202258
+local_directory,"Local · Device files",scroll,2,20,511,78,15.26,17,21,22,25,9249,206110
+local_directory,"Local · Device files",scroll,3,20,510,62,12.16,17,19,22,23,9317,203402
+favorites,"Favorites",paged,1,20,154,0,0.00,17,17,17,17,2620,204070
+favorites,"Favorites",paged,2,20,148,0,0.00,11,17,17,17,2504,201242
+favorites,"Favorites",paged,3,20,148,0,0.00,17,17,17,17,2504,201226
+favorites,"Favorites",scroll,1,20,534,45,8.43,17,17,21,34,9915,207079
+favorites,"Favorites",scroll,2,20,532,70,13.16,17,21,22,34,9965,207115
+favorites,"Favorites",scroll,3,20,534,71,13.30,17,23,24,34,9932,202303
+web_catalog_page,"Web Novel · Catalog page",paged,1,20,142,0,0.00,17,17,17,17,2402,203823
+web_catalog_page,"Web Novel · Catalog page",paged,2,20,147,1,0.68,17,17,17,17,2503,206707
+web_catalog_page,"Web Novel · Catalog page",paged,3,20,144,0,0.00,17,17,17,17,2453,200801
+web_catalog_page,"Web Novel · Catalog page",scroll,1,20,89,19,21.35,17,67,67,67,3550,201605
+web_catalog_page,"Web Novel · Catalog page",scroll,2,20,88,21,23.86,17,60,67,105,3699,202941
+web_catalog_page,"Web Novel · Catalog page",scroll,3,20,88,20,22.73,17,67,67,67,3566,203281
+web_catalog_root,"Web Novel · Root catalog",paged,1,20,152,1,0.66,17,17,17,17,2604,201965
+web_catalog_root,"Web Novel · Root catalog",paged,2,20,149,0,0.00,17,17,17,17,2521,201525
+web_catalog_root,"Web Novel · Root catalog",paged,3,20,149,0,0.00,17,17,17,17,2522,201765
+web_catalog_root,"Web Novel · Root catalog",scroll,1,20,87,20,22.99,17,71,84,151,3899,207225
+web_catalog_root,"Web Novel · Root catalog",scroll,2,20,88,24,27.27,17,83,94,179,4150,204185
+web_catalog_root,"Web Novel · Root catalog",scroll,3,20,88,21,23.86,17,67,83,133,3865,203629
+web_detail_dialog,"Web Novel · Chapter dialog",paged,1,20,154,0,0.00,11,17,17,17,2601,202957
+web_detail_dialog,"Web Novel · Chapter dialog",paged,2,20,148,0,0.00,11,17,17,17,2518,203533
+web_detail_dialog,"Web Novel · Chapter dialog",paged,3,20,159,65,40.88,17,24,25,56,2703,203833
+web_detail_dialog,"Web Novel · Chapter dialog",scroll,1,20,534,145,27.15,17,24,25,39,9967,205677
+web_detail_dialog,"Web Novel · Chapter dialog",scroll,2,20,536,120,22.39,17,24,24,38,10015,209073
+web_detail_dialog,"Web Novel · Chapter dialog",scroll,3,20,530,121,22.83,17,24,25,50,10032,206541
+web_detail_chapters,"Web Novel · Book chapters",paged,1,20,147,0,0.00,17,17,17,17,2486,204321
+web_detail_chapters,"Web Novel · Book chapters",paged,2,20,147,0,0.00,17,17,17,17,2484,204077
+web_detail_chapters,"Web Novel · Book chapters",paged,3,20,148,0,0.00,17,17,17,17,2503,202021
+web_detail_chapters,"Web Novel · Book chapters",scroll,1,20,87,20,22.99,17,50,67,67,3216,206005
+web_detail_chapters,"Web Novel · Book chapters",scroll,2,20,87,20,22.99,17,50,67,100,3332,209589
+web_detail_chapters,"Web Novel · Book chapters",scroll,3,20,89,19,21.35,17,50,50,67,3216,205773
+remote_accounts,"Drive/FTP · Accounts",paged,1,20,153,0,0.00,17,17,17,17,2585,201789
+remote_accounts,"Drive/FTP · Accounts",paged,2,20,144,0,0.00,17,17,17,17,2453,204221
+remote_accounts,"Drive/FTP · Accounts",paged,3,20,140,0,0.00,17,17,17,17,2388,204445
+remote_accounts,"Drive/FTP · Accounts",scroll,1,20,526,45,8.56,17,17,23,34,9799,207877
+remote_accounts,"Drive/FTP · Accounts",scroll,2,20,528,46,8.71,17,17,24,34,9900,208481
+remote_accounts,"Drive/FTP · Accounts",scroll,3,20,524,45,8.59,17,17,24,34,9749,205385
+book_glossary,"Reader · Book dictionary",paged,1,20,152,0,0.00,17,17,17,17,2569,201781
+book_glossary,"Reader · Book dictionary",paged,2,20,147,0,0.00,17,17,17,17,2484,204245
+book_glossary,"Reader · Book dictionary",paged,3,20,149,0,0.00,17,17,17,17,2520,201881
+book_glossary,"Reader · Book dictionary",scroll,1,20,535,69,12.90,17,23,24,50,10049,204381
+book_glossary,"Reader · Book dictionary",scroll,2,20,535,195,36.45,17,24,28,39,10016,209545
+book_glossary,"Reader · Book dictionary",scroll,3,20,535,120,22.43,17,24,26,50,10049,212199
+reader_bookmarks,"Reader · Bookmarks",paged,1,20,150,0,0.00,17,17,17,17,2536,202167
+reader_bookmarks,"Reader · Bookmarks",paged,2,20,146,0,0.00,17,17,17,17,2471,204287
+reader_bookmarks,"Reader · Bookmarks",paged,3,20,146,38,26.03,17,24,26,40,2485,204407
+reader_bookmarks,"Reader · Bookmarks",scroll,1,20,516,104,20.16,17,24,24,33,9366,205343
+reader_bookmarks,"Reader · Bookmarks",scroll,2,20,513,2,0.39,17,17,17,17,9232,209543
+reader_bookmarks,"Reader · Bookmarks",scroll,3,20,519,1,0.19,17,17,17,17,9383,205659
+reader_annotations,"Reader · Notes",paged,1,20,147,0,0.00,17,17,17,17,2504,204639
+reader_annotations,"Reader · Notes",paged,2,20,147,0,0.00,17,17,17,17,2486,204335
+reader_annotations,"Reader · Notes",paged,3,20,149,139,93.29,24,26,27,30,2553,202119
+reader_annotations,"Reader · Notes",scroll,1,20,520,52,10.00,17,17,22,23,9382,205659
+reader_annotations,"Reader · Notes",scroll,2,20,520,50,9.62,17,17,24,24,9348,205551
+reader_annotations,"Reader · Notes",scroll,3,20,520,15,2.88,17,17,17,25,9349,205183

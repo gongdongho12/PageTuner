@@ -1,9 +1,16 @@
 package com.dongholab.pagetuner.document
 
 object PlainTextDocumentParser {
-    // Sized conservatively for a 6–8 inch E-Ink viewport at the largest supported reader font.
-    private const val TargetPageChars = 620
+    // The reader auto-fits within a bounded viewport; this target avoids large blank lower halves.
+    private const val TargetPageChars = 1_100
+    // Translation cache IDs keep the original 620-character pagination identity during reflow.
+    private const val LegacyPageChars = 620
     private const val MaxSegmentChars = 400
+
+    private data class SegmentDraft(
+        val id: String,
+        val text: String,
+    )
 
     data class TextChapter(
         val title: String?,
@@ -118,22 +125,26 @@ object PlainTextDocumentParser {
 
     private fun paginateChapters(documentId: String, chapters: List<TextChapter>): List<ReaderPage> {
         val pages = mutableListOf<ReaderPage>()
-        var current = mutableListOf<String>()
+        var current = mutableListOf<SegmentDraft>()
         var currentChars = 0
         var currentChapterTitle: String? = null
         var currentChapterImageCount = 0
         var currentChapterImages = emptyList<ReaderPageImage>()
         var isFirstPageInChapter = true
+        var legacyPageIndex = 0
+        var legacyIndexInPage = 0
+        var legacyPageChars = 0
+        var legacyHasContent = false
 
         fun flush() {
             if (current.isEmpty()) return
             val pageIndex = pages.size
-            val pageSegments = current.mapIndexed { index, text ->
+            val pageSegments = current.mapIndexed { index, draft ->
                 TextSegment(
-                    id = DocumentIds.segmentId(documentId, pageIndex, index, text),
+                    id = draft.id,
                     pageIndex = pageIndex,
                     indexInPage = index,
-                    text = text,
+                    text = draft.text,
                 )
             }
             pages += ReaderPage(
@@ -150,6 +161,12 @@ object PlainTextDocumentParser {
 
         chapters.forEach { chapter ->
             flush()
+            if (legacyHasContent) {
+                legacyPageIndex += 1
+                legacyIndexInPage = 0
+                legacyPageChars = 0
+                legacyHasContent = false
+            }
             currentChapterTitle = chapter.title?.takeIf { it.isNotBlank() }
             currentChapterImageCount = chapter.imageCount
             currentChapterImages = chapter.images
@@ -157,12 +174,29 @@ object PlainTextDocumentParser {
 
             val sourceSegments = splitIntoSegments(chapter.rawText)
             for (segment in sourceSegments) {
+                val legacySeparatorChars = if (legacyHasContent) 2 else 0
+                if (legacyHasContent && legacyPageChars + legacySeparatorChars + segment.length > LegacyPageChars) {
+                    legacyPageIndex += 1
+                    legacyIndexInPage = 0
+                    legacyPageChars = 0
+                    legacyHasContent = false
+                }
+                val stableCacheId = DocumentIds.segmentId(
+                    documentId,
+                    legacyPageIndex,
+                    legacyIndexInPage,
+                    segment,
+                )
+                legacyPageChars += (if (legacyHasContent) 2 else 0) + segment.length
+                legacyIndexInPage += 1
+                legacyHasContent = true
+
                 val separatorChars = if (current.isEmpty()) 0 else 2
                 val nextChars = currentChars + separatorChars + segment.length
                 if (current.isNotEmpty() && nextChars > TargetPageChars) {
                     flush()
                 }
-                current += segment
+                current += SegmentDraft(id = stableCacheId, text = segment)
                 currentChars += (if (current.size == 1) 0 else 2) + segment.length
             }
         }

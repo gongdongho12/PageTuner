@@ -51,9 +51,28 @@ class BookGlossaryViewModel(private val store: BookGlossaryStore) : ViewModel() 
         glossary.copy(entries = glossary.entries.filterNot { it.id == entryId })
     }
 
+    fun mergeLlmCharacterAliases(suggestions: List<CharacterAliasSuggestion>) = mutate { glossary ->
+        BookGlossaryMerger.mergeCharacterAliases(glossary, suggestions)
+    }
+
+    fun importSharedDictionary(raw: String): Boolean {
+        return runCatching { BookGlossaryShareCodec.decode(raw) }
+            .fold(
+                onSuccess = { shared ->
+                    mutate { glossary -> BookGlossaryMerger.mergeEntries(glossary, shared.entries) }
+                    true
+                },
+                onFailure = { error ->
+                    _uiState.update { it.copy(error = error.message ?: "Unable to import dictionary.") }
+                    false
+                },
+            )
+    }
+
     private fun mutate(transform: (BookGlossary) -> BookGlossary) {
         val current = _uiState.value.glossary ?: return
         val updated = transform(current)
+        if (updated == current) return
         _uiState.update { it.copy(glossary = updated, busy = true, error = null) }
         viewModelScope.launch {
             runCatching { withContext(Dispatchers.IO) { store.save(updated) } }

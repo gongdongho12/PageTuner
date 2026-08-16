@@ -43,7 +43,7 @@ import com.dongholab.pagetuner.ui.theme.EinkLine
 import com.dongholab.pagetuner.ui.theme.EinkMuted
 import com.dongholab.pagetuner.ui.theme.EinkPanel
 import com.dongholab.pagetuner.ui.theme.EinkSoft
-import com.dongholab.pagetuner.ui.common.EinkAutoFitPagingContainer
+import com.dongholab.pagetuner.ui.common.AdaptiveCollection
 import com.dongholab.pagetuner.ui.common.EinkChoiceStepper
 
 private val LocalBookRowHeight = 124.dp
@@ -115,10 +115,10 @@ fun LocalLibraryPanel(
                         color = EinkMuted,
                     )
                 }
-                EinkAutoFitPagingContainer(
+                AdaptiveCollection(
                     items = visibleBooks,
                     modifier = Modifier.weight(1f),
-                    estimatedItemHeight = LocalBookRowHeight,
+                    estimatedPagedItemHeight = LocalBookRowHeight,
                     fallbackPageSize = 3,
                     busy = busy,
                 ) { book ->

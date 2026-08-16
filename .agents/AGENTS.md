@@ -4,11 +4,12 @@
 
 You are configured as the **PageTurner E-Ink Design System Bot**. All UI code and layout design in this project MUST strictly follow the E-Ink display design conventions without exception.
 
-### 1. Non-Scrollable UI & Discrete Paging Rule
-1. **Never Rely on Vertical Drag-Scrolling**: On E-Ink displays, continuous vertical drag scrolling causes severe screen ghosting, high latency, and heavy refresh artifacts.
-2. **Mandatory List & Panel Pagination**: All UI lists (Local Library, Local Directory Explorer, Web Novel catalogs, Bookmarks, Annotations) MUST use discrete `EinkAutoFitPagingContainer`. The bounded viewport determines 1 to 8 fully visible rows; an unbounded fallback must stay between 3 and 5. Use `EinkPagingContainer` only when the parent height and every row height are already fixed and proven safe.
-3. **No Screen Overflow**: Any UI screen or panel that exceeds viewport boundaries MUST be paginated into discrete E-Ink pages or sub-tabs (e.g., `SettingsScreen` category sub-tabs) to guarantee zero drag-scrolling and instantaneous page flips.
-4. **Exact Row Height Contract**: The row's actual fixed height MUST match `estimatedItemHeight` passed to `EinkAutoFitPagingContainer`. A guessed estimate with variable-height content is not allowed.
+### 1. E-Ink Default Paging & Explicit Touch-Scroll Rule
+1. **Never Require Vertical Drag-Scrolling**: E-Ink users must always be able to choose discrete paging. Continuous scrolling causes ghosting, latency, and refresh artifacts, so `ListLayoutMode.Paged` remains the default.
+2. **One Adaptive List Contract**: All UI lists (Local Library, Local Directory Explorer, Web Novel catalogs, Bookmarks, Annotations) MUST use `AdaptiveCollection`. Its paged branch delegates to `EinkAutoFitPagingContainer`; its scroll branch is allowed only when the user explicitly selects `ListLayoutMode.Scroll`. Do not add `LazyColumn` or `verticalScroll` directly to screen files.
+3. **Reader Body Stays Paged**: The touch-scroll preference applies to collection screens only. Reader body progress and rolling translation remain document-page based.
+4. **No Screen Overflow**: Every list viewport must be bounded and clipped. Fixed controls that leave fewer than two normal rows on a supported portrait viewport must move into a sub-tab.
+5. **Exact Row Height Contract**: In paged mode, the row's actual fixed height MUST match `estimatedPagedItemHeight` passed to `AdaptiveCollection`. Scroll mode may use a variable-height alternative row.
 
 ### 2. E-Ink Grayscale High-Contrast Color Palette
 - Use **ONLY** defined high-contrast monochrome design tokens:

@@ -40,7 +40,25 @@ class PlainTextDocumentParserTest {
         assertTrue(document.pageCount > 1)
         assertEquals(0, document.pages.first().index)
         assertEquals(1, document.pages[1].index)
-        assertTrue(document.pages.all { page -> page.plainText.length <= 620 })
+        assertTrue(document.pages.all { page -> page.plainText.length <= 1_100 })
+    }
+
+    @Test
+    fun denseReflowKeepsLegacyTranslationSegmentIds() {
+        val paragraphs = listOf("A".repeat(350), "B".repeat(350), "C".repeat(350))
+        val title = "Stable cache"
+        val rawText = paragraphs.joinToString("\n\n")
+        val document = PlainTextDocumentParser.parse(title = title, rawText = rawText)
+
+        assertEquals(1, document.pageCount)
+        assertEquals(
+            listOf(
+                DocumentIds.segmentId(document.id, 0, 0, paragraphs[0]),
+                DocumentIds.segmentId(document.id, 1, 0, paragraphs[1]),
+                DocumentIds.segmentId(document.id, 2, 0, paragraphs[2]),
+            ),
+            document.pages.single().segments.map(TextSegment::id),
+        )
     }
 
     @Test

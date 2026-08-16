@@ -1,6 +1,7 @@
 package com.dongholab.pagetuner.translation
 
 import com.dongholab.pagetuner.document.TextSegment
+import com.dongholab.pagetuner.translation.glossary.CharacterAliasSuggestion
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -9,6 +10,40 @@ import org.junit.Test
 
 /** Opt-in paid API test. The local Debug .env key is injected through BuildConfig. */
 class DeepSeekTranslationLiveTest {
+    @Test
+    fun discoversAndUsesCharacterAliasInOneRealRequest() = runTest {
+        assumeTrue(System.getenv("RUN_LIVE_DEEPSEEK_TESTS") == "1")
+        assumeTrue(TranslationRuntimeSecrets.hasLocalDeepSeekKey)
+        var aliases = emptyList<CharacterAliasSuggestion>()
+        val provider = DeepSeekTranslationProvider(
+            apiKey = TranslationRuntimeSecrets.deepSeekApiKey,
+            endpoint = TranslationRuntimeSecrets.deepSeekApiUrl,
+            model = TranslationRuntimeSecrets.deepSeekModel,
+            onCharacterAliases = { aliases = it },
+        )
+
+        val translated = provider.translate(
+            TranslationRequest(
+                sourceLanguage = "en",
+                targetLanguage = "ko",
+                segments = listOf(
+                    TextSegment(
+                        id = "alias-line",
+                        pageIndex = 0,
+                        indexInPage = 0,
+                        text = "A-Pu opened the door. A-Pu greeted the village chief.",
+                    ),
+                ),
+            ),
+        ).single().translatedText
+
+        val character = aliases.firstOrNull { it.sourceTerm.equals("A-Pu", ignoreCase = true) }
+        assertTrue(character != null)
+        assertTrue(character!!.alias.any { it in '\uAC00'..'\uD7A3' })
+        assertTrue(translated.contains(character.alias))
+        println("LIVE_DEEPSEEK_ALIAS_EVIDENCE source=${character.sourceTerm} alias=${character.alias} used=true")
+    }
+
     @Test
     fun translatesTenReaderPagesInOneRealRequest() = runTest {
         assumeTrue(System.getenv("RUN_LIVE_DEEPSEEK_TESTS") == "1")

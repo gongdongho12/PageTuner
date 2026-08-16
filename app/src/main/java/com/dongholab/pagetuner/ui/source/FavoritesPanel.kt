@@ -31,7 +31,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.dongholab.pagetuner.display.DisplayMode
 import com.dongholab.pagetuner.source.RemoteBookItem
-import com.dongholab.pagetuner.ui.common.EinkAutoFitPagingContainer
+import com.dongholab.pagetuner.ui.common.AdaptiveCollection
 import com.dongholab.pagetuner.ui.common.EinkViewportSurface
 import com.dongholab.pagetuner.ui.theme.EinkInk
 import com.dongholab.pagetuner.ui.theme.EinkLine
@@ -73,10 +73,10 @@ fun FavoritesPanel(
                     color = EinkMuted,
                 )
             } else {
-                EinkAutoFitPagingContainer(
+                AdaptiveCollection(
                     items = favorites,
                     modifier = Modifier.weight(1f),
-                    estimatedItemHeight = 116.dp,
+                    estimatedPagedItemHeight = 116.dp,
                     fallbackPageSize = 3,
                     busy = busy,
                 ) { item ->

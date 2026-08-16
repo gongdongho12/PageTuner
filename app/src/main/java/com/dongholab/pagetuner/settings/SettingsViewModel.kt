@@ -27,6 +27,10 @@ class SettingsViewModel(
         update { settingsStore.updateDisplayMode(displayMode) }
     }
 
+    fun updateListLayoutMode(listLayoutMode: ListLayoutMode) {
+        update { settingsStore.updateListLayoutMode(listLayoutMode) }
+    }
+
     fun updatePageTurnMode(pageTurnMode: PageTurnMode) {
         update { settingsStore.updatePageTurnMode(pageTurnMode) }
     }

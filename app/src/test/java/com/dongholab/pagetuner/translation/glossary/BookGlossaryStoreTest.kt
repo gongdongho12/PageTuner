@@ -31,4 +31,25 @@ class BookGlossaryStoreTest {
             directory.deleteRecursively()
         }
     }
+
+    @Test
+    fun mergesAndPersistsLlmCharacterAliasesForOneBook() {
+        val directory = Files.createTempDirectory("pageturner-glossary-alias-test").toFile()
+        try {
+            val store = BookGlossaryStore(directory)
+
+            store.mergeCharacterAliases(
+                "series:42",
+                listOf(CharacterAliasSuggestion("A-Pu", "아푸")),
+            )
+
+            val restored = store.load("series:42")
+            assertEquals("아푸", restored.entries.single().translatedTerm)
+            assertEquals("아푸", restored.entries.single().displayTerm)
+            assertEquals(GlossaryTermKind.Character, restored.entries.single().kind)
+            assertTrue(store.load("series:other").entries.isEmpty())
+        } finally {
+            directory.deleteRecursively()
+        }
+    }
 }

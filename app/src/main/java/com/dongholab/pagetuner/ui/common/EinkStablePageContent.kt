@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clipToBounds
 
 /**
  * Keeps a page's content viewport at one stable height while loading/error feedback is overlaid.
@@ -20,7 +21,8 @@ fun ColumnScope.EinkStablePageContent(
     Box(
         modifier = modifier
             .fillMaxWidth()
-            .weight(1f),
+            .weight(1f)
+            .clipToBounds(),
     ) {
         content()
         overlay()

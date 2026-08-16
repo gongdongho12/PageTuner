@@ -13,6 +13,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -21,6 +22,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -82,14 +84,19 @@ import com.dongholab.pagetuner.ui.LanguagePreset
 import com.dongholab.pagetuner.ui.common.AppTab
 import com.dongholab.pagetuner.ui.common.AppTabNavigation
 import com.dongholab.pagetuner.ui.common.ComingSoonPanel
+import com.dongholab.pagetuner.ui.common.LocalListLayoutMode
 import com.dongholab.pagetuner.ui.common.StatusStrip
 import com.dongholab.pagetuner.ui.reader.DocumentDetailsDialog
 import com.dongholab.pagetuner.ui.reader.ReaderAnnotationPanel
 import com.dongholab.pagetuner.ui.reader.ReaderBookmarkPanel
 import com.dongholab.pagetuner.ui.reader.ReaderHeader
+import com.dongholab.pagetuner.ui.reader.ReaderFullscreenSystemBars
 import com.dongholab.pagetuner.ui.reader.ReaderPager
 import com.dongholab.pagetuner.ui.reader.ReaderSearchPanel
 import com.dongholab.pagetuner.ui.reader.ReaderSurface
+import com.dongholab.pagetuner.ui.reader.forReaderPage
+import com.dongholab.pagetuner.ui.reader.isReaderPageTurnBlocked
+import com.dongholab.pagetuner.ui.reader.readerViewportPolicy
 import com.dongholab.pagetuner.ui.screen.FavoritesScreen
 import com.dongholab.pagetuner.ui.screen.LocalScreen
 import com.dongholab.pagetuner.ui.screen.ReaderActions
@@ -194,6 +201,7 @@ fun PageTurnerApp() {
     var pendingTranslationDocumentId by remember { mutableStateOf<String?>(null) }
     var readerReturnTab by remember { mutableStateOf(AppTab.Local) }
     var webCatalogRoute by remember { mutableStateOf<RemoteCatalogRoute>(RemoteCatalogRoute.SourceSystems) }
+    var readerFullscreen by rememberSaveable { mutableStateOf(false) }
 
     // — Derived reader state
     val localBooks = libraryState.books
@@ -208,9 +216,16 @@ fun PageTurnerApp() {
     val showDocumentDetails = readerState.showDocumentDetails
     val bookmarks = readerState.bookmarks
     val annotations = readerState.annotations
+    val readerFullscreenActive = readerFullscreen &&
+        !controlsVisible &&
+        readerSubPage == com.dongholab.pagetuner.ui.reader.ReaderSubPage.READER
 
     // Back button history restoration handler
-    BackHandler(enabled = !controlsVisible || navHistoryStack.isNotEmpty()) {
+    BackHandler(enabled = readerFullscreenActive || !controlsVisible || navHistoryStack.isNotEmpty()) {
+        if (readerFullscreenActive) {
+            readerFullscreen = false
+            return@BackHandler
+        }
         if (!controlsVisible) {
             readerViewModel.showControls()
             selectedTab = readerReturnTab
@@ -257,6 +272,15 @@ fun PageTurnerApp() {
         else -> readerSettings.llmModel
     }
     val busy = libraryState.busy || translationState.busy || webCatalogState.busy
+    val readerPageTurnBlocked = isReaderPageTurnBlocked(
+        libraryBusy = libraryState.busy,
+        translationBusy = translationState.busy,
+        catalogBusy = webCatalogState.busy,
+    )
+    val viewportPolicy = readerViewportPolicy(
+        fullScreen = readerFullscreenActive,
+        configuredPageMarginDp = readerSettings.readerPageMarginDp,
+    )
     val progress = translationState.progress
 
     // — Translation derived state
@@ -276,7 +300,13 @@ fun PageTurnerApp() {
     )
     val activeGlossary = glossaryState.glossary
     val repository = remember(settings, cache, activeGlossary?.translationFingerprint) {
-        val provider = TranslationProviderFactory.create(settings)
+        val provider = TranslationProviderFactory.create(
+            settings = settings,
+            initialCharacterAliases = activeGlossary?.characterAliases.orEmpty(),
+            onCharacterAliases = activeGlossary?.let {
+                { suggestions -> glossaryViewModel.mergeLlmCharacterAliases(suggestions) }
+            },
+        )
         TranslationRepository(
             provider = activeGlossary
                 ?.takeIf { it.activeEntries.isNotEmpty() }
@@ -291,6 +321,7 @@ fun PageTurnerApp() {
     val canRetryCurrentPageTranslation =
         translationState.status is TranslationStatus.Error && canTranslateCurrentPage
     val translationCacheStatus = translationState.cacheStatus
+    val currentPageTranslation = translationState.translation.forReaderPage(currentPage)
     val currentReaderTranslationLoad = translationState.readerLoad.takeIf {
         it.matches(document.id, pageIndex)
     }
@@ -300,7 +331,7 @@ fun PageTurnerApp() {
             currentPageIndex = pageIndex,
             pendingTranslationDocumentId = pendingTranslationDocumentId,
             pageHasText = currentPage.hasText,
-            hasTranslation = translationState.translation != null,
+            hasTranslation = currentPageTranslation != null,
             readerLoad = translationState.readerLoad,
         )
     val statusText = when (val s = translationState.status) {
@@ -447,12 +478,12 @@ fun PageTurnerApp() {
         document.id,
         pendingTranslationDocumentId,
         translationState.status,
-        translationState.translation,
+        currentPageTranslation,
     ) {
         if (com.dongholab.pagetuner.translation.shouldClearPendingReaderTranslation(
                 currentDocumentId = document.id,
                 pendingTranslationDocumentId = pendingTranslationDocumentId,
-                hasTranslation = translationState.translation != null,
+                hasTranslation = currentPageTranslation != null,
                 status = translationState.status,
             )
         ) {
@@ -508,13 +539,15 @@ fun PageTurnerApp() {
     }
 
     // ─── UI ──────────────────────────────────────────────────────────────
+    ReaderFullscreenSystemBars(readerFullscreenActive)
+    CompositionLocalProvider(LocalListLayoutMode provides readerSettings.listLayoutMode) {
     Scaffold(
         modifier = Modifier
             .fillMaxSize()
             .focusRequester(focusRequester)
             .focusable()
             .onPreviewKeyEvent { ev ->
-                if (ev.type != KeyEventType.KeyDown || busy) return@onPreviewKeyEvent false
+                if (ev.type != KeyEventType.KeyDown || readerPageTurnBlocked) return@onPreviewKeyEvent false
                 when (ev.key) {
                     Key.DirectionLeft, Key.PageUp -> { actions.previousPage(); true }
                     Key.DirectionRight, Key.PageDown, Key.Spacebar -> { actions.nextPage(); true }
@@ -531,25 +564,36 @@ fun PageTurnerApp() {
             modifier = Modifier
                 .fillMaxSize()
                 .background(paperColor)
-                .padding(innerPadding)
-                .padding(14.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp),
+                .padding(if (readerFullscreenActive) PaddingValues(0.dp) else innerPadding)
+                .padding(viewportPolicy.rootPaddingDp.dp),
+            verticalArrangement = Arrangement.spacedBy(
+                if (readerFullscreenActive) 0.dp else 10.dp,
+            ),
         ) {
-            ReaderHeader(
-                document = document,
-                page = currentPage,
-                controlsVisible = controlsVisible,
-                onOpen = {
-                    readerReturnTab = AppTab.Local
-                    actions.openFilePicker()
-                },
-                onToggleControls = {
-                    navHistoryStack.add(NavigationHistoryFrame.ControlsVisibilityFrame(controlsVisible))
-                    readerViewModel.toggleControls()
-                },
-                onManualRefresh = actions.requestManualRefresh,
-                onShowDetails = readerViewModel::showDocumentDetails,
-            )
+            if (viewportPolicy.showChrome) {
+                ReaderHeader(
+                    document = document,
+                    page = currentPage,
+                    controlsVisible = controlsVisible,
+                    onOpen = {
+                        readerReturnTab = AppTab.Local
+                        actions.openFilePicker()
+                    },
+                    onToggleControls = {
+                        readerFullscreen = false
+                        navHistoryStack.add(NavigationHistoryFrame.ControlsVisibilityFrame(controlsVisible))
+                        readerViewModel.toggleControls()
+                    },
+                    onManualRefresh = actions.requestManualRefresh,
+                    onShowDetails = readerViewModel::showDocumentDetails,
+                    onEnterFullscreen = {
+                        readerReturnTab = selectedTab
+                        readerSubPage = com.dongholab.pagetuner.ui.reader.ReaderSubPage.READER
+                        if (controlsVisible) readerViewModel.toggleControls()
+                        readerFullscreen = true
+                    },
+                )
+            }
 
             if (controlsVisible) {
                 AppTabNavigation(
@@ -665,6 +709,7 @@ fun PageTurnerApp() {
                             translationCacheStatusText = translationCacheStatusText,
                             translationQueueStatusText = translationQueueStatusText,
                             onDisplayModeChange = { pdfPageBitmap = null; pdfPageCache = emptyMap(); settingsViewModel.updateDisplayMode(it) },
+                            onListLayoutModeChange = settingsViewModel::updateListLayoutMode,
                             onPageTurnModeChange = settingsViewModel::updatePageTurnMode,
                             onPdfFitModeChange = settingsViewModel::updatePdfFitMode,
                             onFontSizeChange = settingsViewModel::updateReaderFontSize,
@@ -702,18 +747,20 @@ fun PageTurnerApp() {
                 StatusStrip(statusText = statusText, progress = progress, busy = busy)
             } else {
                 // Reader Mode: Sub-Page Navigation with History Tracking
-                com.dongholab.pagetuner.ui.reader.ReaderSubPageSelector(
-                    selectedPage = readerSubPage,
-                    busy = busy,
-                    onSelectPage = { page ->
-                        if (page != readerSubPage) {
-                            navHistoryStack.add(NavigationHistoryFrame.ReaderSubPageFrame(readerSubPage))
-                            readerSubPage = page
-                        }
-                    },
-                )
+                if (viewportPolicy.showChrome) {
+                    com.dongholab.pagetuner.ui.reader.ReaderSubPageSelector(
+                        selectedPage = readerSubPage,
+                        busy = busy,
+                        onSelectPage = { page ->
+                            if (page != readerSubPage) {
+                                readerFullscreen = false
+                                navHistoryStack.add(NavigationHistoryFrame.ReaderSubPageFrame(readerSubPage))
+                                readerSubPage = page
+                            }
+                        },
+                    )
 
-                com.dongholab.pagetuner.ui.common.EinkOperationIndicator(
+                    com.dongholab.pagetuner.ui.common.EinkOperationIndicator(
                     visible = readerTranslationLoading || translationState.busy ||
                         translationState.rolling.flagFor(pageIndex) in setOf(
                             com.dongholab.pagetuner.translation.TranslationPageFlag.Queued,
@@ -750,16 +797,16 @@ fun PageTurnerApp() {
                     } else {
                         translationState.progress.takeIf { it > 0f }
                     },
-                )
+                    )
 
-                if (
-                    readerSubPage == com.dongholab.pagetuner.ui.reader.ReaderSubPage.READER &&
-                    !readerTranslationLoading &&
-                    !translationState.busy &&
-                    translationState.translation == null &&
-                    !currentContentAlreadyTranslated
-                ) {
-                    com.dongholab.pagetuner.ui.translation.ReaderTranslationStatusBar(
+                    if (
+                        readerSubPage == com.dongholab.pagetuner.ui.reader.ReaderSubPage.READER &&
+                        !readerTranslationLoading &&
+                        !translationState.busy &&
+                        currentPageTranslation == null &&
+                        !currentContentAlreadyTranslated
+                    ) {
+                        com.dongholab.pagetuner.ui.translation.ReaderTranslationStatusBar(
                         targetLanguage = settings.normalizedTargetLanguage,
                         providerConfigured = canTranslateCurrentPage,
                         hasError = translationState.status is TranslationStatus.Error,
@@ -774,7 +821,8 @@ fun PageTurnerApp() {
                             )
                             actions.translateCurrentPage()
                         },
-                    )
+                        )
+                    }
                 }
 
                 when (readerSubPage) {
@@ -786,18 +834,20 @@ fun PageTurnerApp() {
                             pdfPageBitmap = pdfPageBitmap,
                             pdfFitMode = readerSettings.pdfFitMode,
                             displayMode = displayMode,
-                            translation = translationState.translation,
+                            translation = currentPageTranslation,
                             glossaryEntries = activeGlossary?.activeEntries.orEmpty(),
                             translationDisplayMode = readerSettings.translationDisplayMode,
                             pageTurnMode = readerSettings.pageTurnMode,
-                            pageTurningEnabled = !busy,
+                            pageTurningEnabled = !readerPageTurnBlocked,
                             fontSizeSp = readerSettings.readerFontSizeSp,
                             lineSpacing = readerSettings.readerLineSpacing,
-                            pageMarginDp = readerSettings.readerPageMarginDp,
+                            pageMarginDp = viewportPolicy.pageMarginDp,
                             onPreviousPage = actions.previousPage,
                             onNextPage = actions.nextPage,
+                            fullScreen = readerFullscreenActive,
+                            onExitFullscreen = { readerFullscreen = false },
                         )
-                        ReaderPager(
+                        if (viewportPolicy.showChrome) ReaderPager(
                             pageIndex = pageIndex,
                             pageCount = document.pageCount,
                             currentChapterTitle = tableOfContents.getOrNull(currentChapterIndex)?.title,
@@ -807,7 +857,7 @@ fun PageTurnerApp() {
                                 currentChapterIndex == -1 -> true
                                 else -> currentChapterIndex < tableOfContents.lastIndex
                             },
-                            busy = busy,
+                            busy = readerPageTurnBlocked,
                             onPrevious = actions.previousPage,
                             onNext = actions.nextPage,
                             onPreviousChapter = {
@@ -904,13 +954,21 @@ fun PageTurnerApp() {
                             entries = activeGlossary?.entries.orEmpty(),
                             busy = glossaryState.busy,
                             error = glossaryState.error,
+                            sharePayload = activeGlossary?.takeIf { it.entries.isNotEmpty() }?.let { glossary ->
+                                com.dongholab.pagetuner.translation.glossary.BookGlossaryShareCodec.encode(
+                                    glossary = glossary,
+                                    bookTitle = currentBook?.title.orEmpty(),
+                                )
+                            },
                             onSave = glossaryViewModel::upsert,
                             onDelete = { glossaryViewModel.delete(it.id) },
+                            onImportSharedDictionary = glossaryViewModel::importSharedDictionary,
                         )
                     }
                 }
             }
         }
+    }
     }
 
     if (showDocumentDetails) {

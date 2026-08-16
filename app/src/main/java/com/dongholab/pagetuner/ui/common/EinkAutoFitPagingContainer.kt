@@ -13,6 +13,7 @@ import androidx.compose.runtime.saveable.Saver
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.isSpecified
@@ -153,7 +154,11 @@ fun <T> EinkAutoFitPagingContainer(
         return
     }
 
-    BoxWithConstraints(modifier = modifier.fillMaxWidth()) {
+    BoxWithConstraints(
+        modifier = modifier
+            .fillMaxWidth()
+            .clipToBounds(),
+    ) {
         val viewportHeightDp = maxHeight.value.takeIf {
             maxHeight.isSpecified && it > 0f && it.isFinite()
         }

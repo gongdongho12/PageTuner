@@ -1,5 +1,8 @@
 package com.dongholab.pagetuner.ui.translation
 
+import android.content.Intent
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -26,9 +29,11 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -36,7 +41,7 @@ import androidx.compose.ui.unit.dp
 import com.dongholab.pagetuner.R
 import com.dongholab.pagetuner.translation.glossary.BookGlossaryEntry
 import com.dongholab.pagetuner.translation.glossary.GlossaryTermKind
-import com.dongholab.pagetuner.ui.common.EinkAutoFitPagingContainer
+import com.dongholab.pagetuner.ui.common.AdaptiveCollection
 import com.dongholab.pagetuner.ui.common.EinkOperationIndicator
 import com.dongholab.pagetuner.ui.common.EinkSegmentedControl
 import com.dongholab.pagetuner.ui.theme.EinkInk
@@ -44,6 +49,9 @@ import com.dongholab.pagetuner.ui.theme.EinkLine
 import com.dongholab.pagetuner.ui.theme.EinkMuted
 import com.dongholab.pagetuner.ui.theme.EinkPaper
 import com.dongholab.pagetuner.ui.theme.EinkSoft
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 private val GlossaryRowHeight = 92.dp
 
@@ -53,12 +61,49 @@ fun BookGlossaryPanel(
     entries: List<BookGlossaryEntry>,
     busy: Boolean,
     error: String?,
+    sharePayload: String?,
     onSave: (BookGlossaryEntry) -> Unit,
     onDelete: (BookGlossaryEntry) -> Unit,
+    onImportSharedDictionary: (String) -> Boolean,
     modifier: Modifier = Modifier,
 ) {
     var editing by remember { mutableStateOf<BookGlossaryEntry?>(null) }
     var showEditor by remember { mutableStateOf(false) }
+    var transferStatus by remember { mutableStateOf<String?>(null) }
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    val importSuccess = stringResource(R.string.glossary_import_success)
+    val importFailure = stringResource(R.string.glossary_import_failure)
+    val exportSuccess = stringResource(R.string.glossary_export_success)
+    val exportFailure = stringResource(R.string.glossary_export_failure)
+    val shareTitle = stringResource(R.string.glossary_share_title)
+    val exportLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.CreateDocument("application/json"),
+    ) { uri ->
+        val payload = sharePayload ?: return@rememberLauncherForActivityResult
+        if (uri != null) scope.launch {
+            val saved = withContext(Dispatchers.IO) {
+                runCatching {
+                    context.contentResolver.openOutputStream(uri)?.bufferedWriter()?.use { it.write(payload) }
+                        ?: error("Unable to open dictionary destination.")
+                }.isSuccess
+            }
+            transferStatus = if (saved) exportSuccess else exportFailure
+        }
+    }
+    val importLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri != null) scope.launch {
+            val raw = withContext(Dispatchers.IO) {
+                runCatching {
+                    context.contentResolver.openInputStream(uri)?.bufferedReader()?.use { it.readText() }
+                        ?: error("Unable to open dictionary file.")
+                }
+            }
+            raw.onSuccess {
+                transferStatus = if (onImportSharedDictionary(it)) importSuccess else importFailure
+            }.onFailure { transferStatus = importFailure }
+        }
+    }
 
     Surface(
         modifier = modifier.fillMaxSize(),
@@ -102,6 +147,44 @@ fun BookGlossaryPanel(
                 text = stringResource(R.string.glossary_description),
                 color = EinkMuted,
             )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+            ) {
+                Button(
+                    onClick = { importLauncher.launch(arrayOf("application/json", "text/plain")) },
+                    enabled = bookTitle != null && !busy,
+                    modifier = Modifier.weight(1f).height(44.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = EinkSoft, contentColor = EinkInk),
+                ) { Text(stringResource(R.string.glossary_import)) }
+                Button(
+                    onClick = {
+                        exportLauncher.launch("${bookTitle.toDictionaryFileName()}.pagetuner-dictionary.json")
+                    },
+                    enabled = sharePayload != null && !busy,
+                    modifier = Modifier.weight(1f).height(44.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = EinkSoft, contentColor = EinkInk),
+                ) { Text(stringResource(R.string.glossary_export)) }
+                Button(
+                    onClick = {
+                        val payload = sharePayload ?: return@Button
+                        context.startActivity(Intent.createChooser(
+                            Intent(Intent.ACTION_SEND).apply {
+                                type = "application/json"
+                                putExtra(Intent.EXTRA_SUBJECT, shareTitle)
+                                putExtra(Intent.EXTRA_TEXT, payload)
+                            },
+                            shareTitle,
+                        ))
+                    },
+                    enabled = sharePayload != null && !busy,
+                    modifier = Modifier.weight(1f).height(44.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = EinkInk, contentColor = EinkPaper),
+                ) { Text(stringResource(R.string.glossary_share)) }
+            }
+            transferStatus?.let { status ->
+                Text(text = status, color = EinkMuted, maxLines = 2, overflow = TextOverflow.Ellipsis)
+            }
             EinkOperationIndicator(
                 visible = busy,
                 title = stringResource(R.string.glossary_saving),
@@ -109,10 +192,10 @@ fun BookGlossaryPanel(
             )
             if (error != null && !busy) Text(error, color = EinkInk)
 
-            EinkAutoFitPagingContainer(
+            AdaptiveCollection(
                 items = entries,
                 modifier = Modifier.weight(1f),
-                estimatedItemHeight = GlossaryRowHeight,
+                estimatedPagedItemHeight = GlossaryRowHeight,
                 fallbackPageSize = 4,
                 busy = busy,
                 emptyContent = {
@@ -142,6 +225,15 @@ fun BookGlossaryPanel(
         )
     }
 }
+
+private fun String?.toDictionaryFileName(): String = this
+    .orEmpty()
+    .trim()
+    .ifBlank { "book" }
+    .replace(Regex("[^\\p{L}\\p{N}._-]+"), "-")
+    .trim('-')
+    .take(80)
+    .ifBlank { "book" }
 
 @Composable
 private fun GlossaryEntryRow(

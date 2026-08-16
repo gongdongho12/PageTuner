@@ -27,7 +27,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.dongholab.pagetuner.source.RemoteBookItem
-import com.dongholab.pagetuner.ui.common.EinkAutoFitPagingContainer
+import com.dongholab.pagetuner.ui.common.AdaptiveCollection
 import com.dongholab.pagetuner.ui.theme.EinkInk
 import com.dongholab.pagetuner.ui.theme.EinkLine
 import com.dongholab.pagetuner.ui.theme.EinkMuted
@@ -124,9 +124,9 @@ fun WebNovelDetailDialog(
                 )
 
                 // Paginated Chapter List for E-Ink
-                EinkAutoFitPagingContainer(
+                AdaptiveCollection(
                     items = filteredChapters,
-                    estimatedItemHeight = 64.dp,
+                    estimatedPagedItemHeight = 64.dp,
                     fallbackPageSize = 3,
                     busy = busy,
                     modifier = Modifier.weight(1f),

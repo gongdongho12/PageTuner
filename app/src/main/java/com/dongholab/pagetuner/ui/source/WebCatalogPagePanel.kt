@@ -168,37 +168,16 @@ fun WebCatalogPagePanel(
                                 modifier = Modifier.fillMaxSize(),
                                 verticalArrangement = Arrangement.spacedBy(8.dp),
                             ) {
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.SpaceBetween,
-                                    verticalAlignment = Alignment.CenterVertically,
-                                ) {
-                                    Text(
-                                        text = stringResource(R.string.web_catalog_visible_count, filteredItems.size),
-                                        style = MaterialTheme.typography.labelSmall,
-                                        color = EinkMuted,
-                                    )
-                                    TextButton(
-                                        onClick = onTranslateCatalog,
-                                        enabled = !busy && canTranslate && filteredItems.isNotEmpty(),
-                                    ) {
-                                        Text(
-                                            stringResource(R.string.web_catalog_translate_list, targetLanguage.uppercase()),
-                                            fontWeight = FontWeight.Bold,
-                                        )
-                                    }
-                                }
-                                EinkRemoteCatalogPagerSlot(
-                                    paging = remotePaging,
-                                    busy = busy,
-                                    onPageSelected = onRemotePageSelected,
+                                Text(
+                                    text = stringResource(R.string.web_catalog_visible_count, filteredItems.size),
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = EinkMuted,
                                 )
-
-                                com.dongholab.pagetuner.ui.common.EinkAutoFitPagingContainer(
+                                com.dongholab.pagetuner.ui.common.AdaptiveCollection(
                                     items = filteredItems,
-                                    estimatedItemHeight = 104.dp,
+                                    estimatedPagedItemHeight = 104.dp,
                                     busy = busy,
-                                    state = viewportPagingState,
+                                    pagingState = viewportPagingState,
                                     modifier = Modifier.weight(1f),
                                     emptyContent = {
                                         Text(
@@ -236,6 +215,21 @@ fun WebCatalogPagePanel(
                                     color = EinkMuted,
                                     maxLines = 1,
                                     overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                                )
+                                TextButton(
+                                    onClick = onTranslateCatalog,
+                                    enabled = !busy && canTranslate && filteredItems.isNotEmpty(),
+                                    modifier = Modifier.fillMaxWidth(),
+                                ) {
+                                    Text(
+                                        stringResource(R.string.web_catalog_translate_list, targetLanguage.uppercase()),
+                                        fontWeight = FontWeight.Bold,
+                                    )
+                                }
+                                EinkRemoteCatalogPagerSlot(
+                                    paging = remotePaging,
+                                    busy = busy,
+                                    onPageSelected = onRemotePageSelected,
                                 )
                                 WebCatalogSearchControls(
                                     query = query,

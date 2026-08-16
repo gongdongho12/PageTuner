@@ -25,17 +25,23 @@ The implementation has four primary goals:
 
 ## 2. Non-negotiable rules
 
-### No vertical drag scrolling
+### Discrete paging by default; explicit touch scrolling only
 
-Do not use these for application lists or settings panels:
+E-Ink collection screens default to `ListLayoutMode.Paged`. A user may explicitly
+select `ListLayoutMode.Scroll` for touch-oriented use, but screens must not build
+their own scrolling implementation.
+
+Do not use these directly in screen files:
 
 ```kotlin
 LazyColumn { /* ... */ }
 Modifier.verticalScroll(rememberScrollState())
 ```
 
-Continuous scrolling produces ghosting and unpredictable partial refreshes on
-E-Ink panels. Use page controls or sub-tabs.
+`AdaptiveCollection` owns the only permitted `LazyColumn`. Its paged branch uses
+`EinkAutoFitPagingContainer`, while its scrolling branch remains an explicit
+user preference. Reader body content never follows this setting because reading
+progress and rolling translation are document-page based.
 
 ### Bound every screen to the remaining viewport
 
@@ -110,7 +116,8 @@ on a device where those rows cannot fit.
 | UI need | Component | Notes |
 | --- | --- | --- |
 | Bounded full-screen panel | `EinkViewportSurface` | Supplies `fillMaxSize()` and standard panel border/padding. |
-| Viewport-sized list | `EinkAutoFitPagingContainer` | Preferred list component. Pair with exact fixed-height rows. |
+| Selectable collection list | `AdaptiveCollection` | Required screen-level component. Delegates to paging or opt-in touch scroll. |
+| E-Ink page implementation | `EinkAutoFitPagingContainer` | Internal paged branch. Pair with exact fixed-height rows. |
 | Proven fixed-height list | `EinkPagingContainer` | Use only when the complete parent and row height are statically known. |
 | Page navigation | `EinkPageNavigation` | Internal shared previous/range/next bar. Center text has a fixed region. |
 | Remote catalog navigation | `EinkRemoteCatalogPager` | Server-side first/previous/next/last controls; keep separate from viewport paging. |
@@ -142,6 +149,10 @@ Current examples:
 
 Use `EinkSegmentedControl` instead of reimplementing selected borders and
 indicator bars in each screen.
+
+In paged mode, a primary list should retain room for at least two normal rows on
+a supported portrait viewport. Search, batch actions, and advanced filters must
+move into a sub-tab when they would reduce the list below that threshold.
 
 ```kotlin
 enum class Section(val label: String) {
@@ -329,15 +340,38 @@ status is shown only at the bottom of a different screen.
 Fix: show `EinkOperationIndicator` inline and render unknown progress as a
 solid high-contrast bar.
 
+### "The reader leaves too little room for the book"
+
+Use reader full screen when the goal is maximum text per physical refresh.
+The full-screen viewport is intentionally body-only: Android system bars, the
+app header, reader sub-tabs, translation status, and the bottom pager are all
+removed. The configured paper margin is capped at 8 dp and translation-only
+mode applies that margin once (never both outside and inside its panel).
+
+The left and right 40% regions remain previous/next page targets. The center
+20% exits full screen, as does the Android Back action. Background translation
+and catalog loading must not disable page turns; only a library mutation may
+temporarily lock navigation. A cached translation is rendered only when its
+page index matches the visible page, preventing a stale translated page from
+flashing during fast navigation.
+
+Plain-text and downloaded web-novel chapters use a dense 1,100-character page
+target. Auto-fit reduces the font only when that bounded page would otherwise
+clip, down to the 11 sp safety floor. Reflow deliberately retains the former
+620-character segment IDs, so already downloaded translations remain addressable;
+when the resulting page count changes, saved reading progress is remapped by
+percentage instead of merely clamping to the new last page.
+
 ## 10. Implementation checklist
 
 Before completing an E-Ink UI change, verify all of the following:
 
 - [ ] The screen root receives a bounded `fillMaxSize()` viewport.
-- [ ] No `LazyColumn` or `verticalScroll` was introduced.
-- [ ] Every dynamic list uses discrete paging.
+- [ ] No screen directly introduces `LazyColumn` or `verticalScroll`.
+- [ ] Every dynamic collection uses `AdaptiveCollection`.
+- [ ] `ListLayoutMode.Paged` remains the default and Reader body stays paged.
 - [ ] Auto-fit pagers use `Modifier.weight(1f)`.
-- [ ] Every paged row has a fixed height matching `estimatedItemHeight`.
+- [ ] Every paged row has a fixed height matching `estimatedPagedItemHeight`.
 - [ ] The page size remains between 1 and 8; fallback remains between 3 and 5.
 - [ ] Dynamic choices remain reachable without an unbounded `FlowRow`.
 - [ ] Complex screens use sub-tabs.
@@ -348,6 +382,9 @@ Before completing an E-Ink UI change, verify all of the following:
 - [ ] English and Korean resources are updated for new production strings.
 - [ ] Hardware or button page navigation still works while touch scrolling is
       absent.
+- [ ] Full screen leaves only reader content and restores system bars on exit.
+- [ ] Translation-only content has one paper margin, not nested panel padding.
+- [ ] Background translation/catalog work does not block reader page turns.
 
 ## 11. Verification
 
@@ -361,12 +398,13 @@ Static checks:
 
 ```bash
 rg -n "verticalScroll|LazyColumn" app/src/main/java/com/dongholab/pagetuner/ui
+rg -n "AdaptiveCollection\(" app/src/main/java/com/dongholab/pagetuner/ui
 rg -n "EinkPagingContainer\\(" app/src/main/java/com/dongholab/pagetuner/ui
 ```
 
-The second command should normally return only the shared component
-declaration. A new fixed-page call requires an explicit viewport/row-height
-justification.
+The first command may return `LazyColumn` only from
+`ui/common/AdaptiveCollection.kt`. Every screen-level list should appear in the
+second command. A direct pager or scroll call requires an explicit justification.
 
 Manual device checks should include:
 
@@ -386,11 +424,14 @@ navigation height, row spacing, fallback policy, or maximum page size.
 
 Web-novel route ownership, remote-versus-viewport paging, and refresh behavior
 are documented in [Web Novel Page Architecture](WEB_NOVEL_PAGE_ARCHITECTURE.md).
+The measured Android rendering comparison between the paged and opt-in scroll
+branches is recorded in [E-Ink Collection Layout Benchmark](EINK_LIST_LAYOUT_BENCHMARK.md).
 
 ## 12. Shared component file map
 
 ```text
 ui/common/EinkViewportSurface.kt
+ui/common/AdaptiveCollection.kt
 ui/common/EinkSegmentedControl.kt
 ui/common/EinkChoiceStepper.kt
 ui/common/EinkAutoFitPagingContainer.kt

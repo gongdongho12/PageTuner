@@ -35,6 +35,15 @@ fingerprint, preventing a cached page from silently retaining an older spelling.
 
 An optional display alias is applied by `ReaderSurface` after cache lookup. It
 does not participate in the fingerprint because it changes presentation only.
+When a book context is available, DeepSeek and OpenAI-compatible providers also
+request structured character aliases with the translation. Suggestions are
+accepted only when their source spelling exists in the submitted text, merged
+without overwriting manual choices, and persisted under the same book ID.
+Character aliases are exposed as annotated ranges and rendered in bold by the
+shared E-Ink auto-fit text component.
+Book dictionaries can be exported, shared as JSON text, and imported into the
+currently open work. Import is additive by normalized source term and never
+overwrites an existing reader choice.
 Offline web-novel batch translation loads the same series glossary before it
 creates `ContentTranslationService`. See
 [Book Glossary and Reader Return Flow](BOOK_GLOSSARY_AND_READER_FLOW.md).
@@ -105,6 +114,14 @@ The reader uses `EinkOperationIndicator` for all three loading stages. Missing
 and failed stages replace it with the persistent translate/retry action. State
 is keyed by document ID and page index so a late result cannot hide the loading
 state of a newly selected page.
+
+### Saved translation display
+
+`TranslationOnly` is the default reader display mode. A cached translation uses
+the complete reader surface and does not spend a title row on the redundant
+`Saved Translation` label. The label is shown only as a compact separator when
+the user explicitly selects comparison mode. Comparison mode reserves 65% of
+the bounded text viewport for translation and 35% for the original.
 
 ### `ContentTranslationService`
 

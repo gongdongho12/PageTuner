@@ -13,6 +13,7 @@ import java.io.File
 import java.io.IOException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import kotlin.math.roundToInt
 
 data class LocalLibraryOpenResult(
     val book: LocalBook,
@@ -166,11 +167,13 @@ class LocalLibraryStore(context: Context) {
             uri = Uri.fromFile(storedFile),
             preferredTitle = book.currentChapterTitle ?: book.title,
         )
+        val loadedPageCount = loaded.document.pageCount.coerceAtLeast(1)
         val updatedBook = book.copy(
-            pageCount = loaded.document.pageCount.coerceAtLeast(1),
-            currentPageIndex = book.currentPageIndex.coerceIn(
-                0,
-                (loaded.document.pageCount - 1).coerceAtLeast(0),
+            pageCount = loadedPageCount,
+            currentPageIndex = remapReaderPageIndex(
+                currentPageIndex = book.currentPageIndex,
+                previousPageCount = book.pageCount,
+                newPageCount = loadedPageCount,
             ),
             lastOpenedAtMillis = System.currentTimeMillis(),
         )
@@ -352,4 +355,16 @@ class LocalLibraryStore(context: Context) {
             .ifBlank { "book$fallbackExtension" }
         return if (cleaned.contains('.')) cleaned else cleaned + fallbackExtension
     }
+}
+
+internal fun remapReaderPageIndex(
+    currentPageIndex: Int,
+    previousPageCount: Int,
+    newPageCount: Int,
+): Int {
+    val safeNewCount = newPageCount.coerceAtLeast(1)
+    if (previousPageCount <= 1 || safeNewCount <= 1) return 0
+    val progress = currentPageIndex.coerceIn(0, previousPageCount - 1).toFloat() /
+        (previousPageCount - 1).toFloat()
+    return (progress * (safeNewCount - 1)).roundToInt().coerceIn(0, safeNewCount - 1)
 }

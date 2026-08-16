@@ -34,6 +34,7 @@ import com.dongholab.pagetuner.display.DisplayMode
 import com.dongholab.pagetuner.reader.PageTurnMode
 import com.dongholab.pagetuner.reader.PdfFitMode
 import com.dongholab.pagetuner.settings.ReaderSettings
+import com.dongholab.pagetuner.settings.ListLayoutMode
 import com.dongholab.pagetuner.translation.TranslationDisplayMode
 import com.dongholab.pagetuner.translation.TranslationPaceMode
 import com.dongholab.pagetuner.translation.TranslationProviderKind
@@ -41,6 +42,7 @@ import com.dongholab.pagetuner.translation.TranslationUiState
 import com.dongholab.pagetuner.ui.LanguagePreset
 import com.dongholab.pagetuner.ui.reader.DiagnosticLogPanel
 import com.dongholab.pagetuner.ui.settings.DisplaySettingsPanel
+import com.dongholab.pagetuner.ui.settings.ListLayoutSettingsPanel
 import com.dongholab.pagetuner.ui.settings.PageTurnSettingsPanel
 import com.dongholab.pagetuner.ui.settings.ReaderPreferencesPanel
 import com.dongholab.pagetuner.ui.theme.EinkInk
@@ -78,6 +80,7 @@ fun SettingsScreen(
     translationQueueStatusText: String,
     // Settings change callbacks
     onDisplayModeChange: (DisplayMode) -> Unit,
+    onListLayoutModeChange: (ListLayoutMode) -> Unit,
     onPageTurnModeChange: (PageTurnMode) -> Unit,
     onPdfFitModeChange: (PdfFitMode) -> Unit,
     onFontSizeChange: (Int) -> Unit,
@@ -130,6 +133,11 @@ fun SettingsScreen(
                         displayMode = readerSettings.displayMode,
                         busy = busy,
                         onDisplayModeChange = onDisplayModeChange,
+                    )
+                    ListLayoutSettingsPanel(
+                        listLayoutMode = readerSettings.listLayoutMode,
+                        busy = busy,
+                        onListLayoutModeChange = onListLayoutModeChange,
                     )
                     PageTurnSettingsPanel(
                         pageTurnMode = readerSettings.pageTurnMode,

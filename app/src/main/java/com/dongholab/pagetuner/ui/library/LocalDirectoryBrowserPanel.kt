@@ -122,10 +122,10 @@ fun LocalDirectoryBrowserPanel(
                     color = EinkMuted,
                 )
             } else {
-                com.dongholab.pagetuner.ui.common.EinkAutoFitPagingContainer(
+                com.dongholab.pagetuner.ui.common.AdaptiveCollection(
                     items = entries,
                     modifier = Modifier.weight(1f),
-                    estimatedItemHeight = 64.dp,
+                    estimatedPagedItemHeight = 64.dp,
                     fallbackPageSize = 5,
                     busy = busy,
                 ) { file ->
