@@ -12,6 +12,7 @@ import com.dongholab.pagetuner.translation.TranslationSettings
 import java.net.SocketException
 import java.net.SocketTimeoutException
 import java.net.UnknownHostException
+import java.util.concurrent.atomic.AtomicLong
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -126,12 +127,15 @@ sealed interface WebCatalogEvent {
 class WebCatalogViewModel(
     private val cache: RemoteCatalogCache,
     private val accountStore: RemoteSourceAccountStore,
-    private val pageService: WebCatalogPageService = DefaultWebCatalogPageService(),
+    private val pageService: WebCatalogPageService = DefaultWebCatalogPageService(pageStore = cache.pageStore()),
 ) : ViewModel() {
     private val offlineDownloadCoordinator = OfflineBookDownloadCoordinator(viewModelScope)
     private val catalogTranslationCoordinator = CatalogTranslationCoordinator(viewModelScope)
     private val coverRepository = CoverThumbnailRepository()
     private var catalogPreloadJob: Job? = null
+    private var catalogPageJob: Job? = null
+    private val catalogPageGeneration = AtomicLong()
+    private val pagePrefetcher = CatalogPagePrefetcher(viewModelScope, pageService)
     private var coverThumbnailJob: Job? = null
     private val _uiState = MutableStateFlow(WebCatalogUiState())
     val uiState: StateFlow<WebCatalogUiState> = _uiState.asStateFlow()
@@ -277,10 +281,12 @@ class WebCatalogViewModel(
                         pageNumber = 1,
                     ),
                     onStep = ::updateCatalogLoadStep,
-                ).also { loaded -> cache.saveStructured(DefaultCatalogUrl, loaded.catalog) }
+                )
             }.onSuccess { loaded ->
                 if (_uiState.value.catalogUrl == DefaultCatalogUrl) {
-                    applyLoadedWebNovelCatalog(loaded, cachedCatalogs = cache.list())
+                    applyLoadedWebNovelCatalog(loaded)
+                    pagePrefetcher.schedule(WebCatalogPageRequest(DefaultCatalogUrl, defaultWtrLabAccount().id, 1), loaded)
+                    updateLegacyCatalogIndex(DefaultCatalogUrl, loaded)
                 }
             }.onFailure { error ->
                 if (cached == null && error !is CancellationException) {
@@ -722,7 +728,11 @@ class WebCatalogViewModel(
         page: Int,
         forceRefresh: Boolean,
     ) {
-        viewModelScope.launch {
+        catalogPageJob?.cancel()
+        pagePrefetcher.cancel()
+        val generation = catalogPageGeneration.incrementAndGet()
+        val request = WebCatalogPageRequest(url, accountId, page, forceRefresh)
+        catalogPageJob = viewModelScope.launch {
             _uiState.update { state ->
                 state.copy(
                     catalogLoading = WebCatalogLoading(WebCatalogLoadPhase.CheckingCache, page),
@@ -739,16 +749,14 @@ class WebCatalogViewModel(
             )
             runCatching {
                 pageService.load(
-                    request = WebCatalogPageRequest(
-                        url = url,
-                        accountId = accountId,
-                        pageNumber = page,
-                        forceRefresh = forceRefresh,
-                    ),
-                    onStep = ::updateCatalogLoadStep,
+                    request = request,
+                    onStep = { step ->
+                        if (catalogPageGeneration.get() == generation) updateCatalogLoadStep(step)
+                    },
                 )
             }.onSuccess { loaded ->
-                val logStep = if (loaded.fromMemoryCache) {
+                if (catalogPageGeneration.get() != generation) return@onSuccess
+                val logStep = if (loaded.fromMemoryCache || loaded.fromDiskCache) {
                     "[WEB CATALOG CACHE HIT]"
                 } else {
                     "[WEB CATALOG SUCCESS]"
@@ -757,12 +765,12 @@ class WebCatalogViewModel(
                     logStep,
                     "provider=${loaded.providerId} page=${loaded.paging.currentPage}/${loaded.paging.totalPages} items=${loaded.catalog.items.size} total=${loaded.paging.totalItems} durationMs=${(System.nanoTime() - startedAtNanos) / 1_000_000L}",
                 )
-                if (loaded.paging.currentPage == 1) {
-                    cache.saveStructured(url, loaded.catalog)
-                }
-                applyLoadedWebNovelCatalog(loaded, cachedCatalogs = cache.list())
+                applyLoadedWebNovelCatalog(loaded)
+                pagePrefetcher.schedule(request, loaded)
+                updateLegacyCatalogIndex(url, loaded)
             }.onFailure { error ->
                 if (error !is CancellationException) {
+                    if (catalogPageGeneration.get() != generation) return@onFailure
                     DiagnosticLogger.log(
                         "[WEB CATALOG FAILURE]",
                         "provider=${adapter?.id ?: "unknown"} page=$page durationMs=${(System.nanoTime() - startedAtNanos) / 1_000_000L} ${error.javaClass.simpleName}: ${error.message}",
@@ -793,6 +801,18 @@ class WebCatalogViewModel(
         }
     }
 
+    private suspend fun updateLegacyCatalogIndex(url: String, loaded: WebCatalogPageData) {
+        try {
+            if (loaded.paging.currentPage == 1) cache.saveStructured(url, loaded.catalog)
+            val catalogs = cache.list()
+            _uiState.update { it.copy(cachedCatalogs = catalogs) }
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (error: Exception) {
+            DiagnosticLogger.log("[CATALOG INDEX WRITE FAILED]", error.javaClass.simpleName)
+        }
+    }
+
     private fun applyLoadedWebNovelCatalog(
         loaded: WebCatalogPageData,
         cachedCatalogs: List<CachedWebCatalog>? = null,
@@ -813,7 +833,9 @@ class WebCatalogViewModel(
                 cachedCatalogs = cachedCatalogs ?: state.cachedCatalogs,
                 remotePaging = loaded.paging,
                 catalogLoading = null,
-                status = WebCatalogStatus.LoadedRemote(
+                status = if (loaded.fromDiskCache || loaded.isStale) WebCatalogStatus.LoadedCached(
+                    title = loaded.catalog.title, itemCount = loaded.catalog.items.size,
+                ) else WebCatalogStatus.LoadedRemote(
                     title = loaded.catalog.title,
                     itemCount = loaded.catalog.items.size,
                     currentPage = loaded.paging.currentPage,

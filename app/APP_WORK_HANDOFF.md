@@ -86,4 +86,5 @@ Android SDK는 `ANDROID_HOME` 또는 이 worktree의 `local.properties`로 설�
 - 실제 ADB 기기 연결은 확인했으나 덮어설치 승인 대기: instrumentation 실행은 미완료.
 - 외부 번역 API 호출, DB 저장, E-Ink 프레임 벤치마크는 이번 테스트에 포함하지 않음.
 
-다음 앱 단계는 영속 페이지 캐시와 제한된 다음 페이지 선행 로딩입니다.
+다음 앱 단계의 영속 페이지 캐시와 제한된 다음 페이지 선행 로딩은
+`codex/persistent-web-page-cache`에서 이어졌으며 [별도 인계 문서](PAGE_CACHE_HANDOFF.md)를 참고합니다.
