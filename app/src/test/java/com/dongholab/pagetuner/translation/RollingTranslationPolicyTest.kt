@@ -28,20 +28,29 @@ class RollingTranslationPolicyTest {
     }
 
     @Test
-    fun largeJumpStartsWindowAtCurrentReaderPage() {
+    fun largeJumpUsesTheAlignedBlockContainingTheReaderPage() {
         val state = stateFor(requireNotNull(policy.initialWindow(0, 100)))
         val next = requireNotNull(policy.nextWindow(currentPageIndex = 42, totalPages = 100, state = state))
 
-        assertEquals((42 until 52).toList(), next.pageIndexes)
-        assertEquals(46, next.triggerPageIndex)
+        assertEquals((40 until 50).toList(), next.pageIndexes)
+        assertEquals(44, next.triggerPageIndex)
+    }
+
+    @Test
+    fun pageTwentyFiveLoadsPagesTwentyOneThroughThirty() {
+        val state = stateFor(requireNotNull(policy.initialWindow(0, 100)))
+        val next = requireNotNull(policy.nextWindow(currentPageIndex = 24, totalPages = 100, state = state))
+
+        assertEquals((20 until 30).toList(), next.pageIndexes)
+        assertEquals(24, next.triggerPageIndex)
     }
 
     @Test
     fun finalWindowIsBoundedByDocumentEnd() {
         val window = requireNotNull(policy.initialWindow(currentPageIndex = 23, totalPages = 27))
 
-        assertEquals(listOf(23, 24, 25, 26), window.pageIndexes)
-        assertEquals(26, window.triggerPageIndex)
+        assertEquals((20 until 27).toList(), window.pageIndexes)
+        assertEquals(24, window.triggerPageIndex)
         assertEquals(27, window.nextWindowStartIndex)
     }
 

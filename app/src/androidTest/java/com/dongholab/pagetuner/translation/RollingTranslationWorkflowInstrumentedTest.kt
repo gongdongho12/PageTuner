@@ -24,7 +24,7 @@ class RollingTranslationWorkflowInstrumentedTest {
         runBlocking {
             val provider = DeviceRecordingProvider()
             val repository = TranslationRepository(provider, DeviceMemoryCache())
-            val document = workflowDocument(pageCount = 25)
+            val document = workflowDocument(pageCount = 35)
             val settings = TranslationSettings(
                 providerKind = TranslationProviderKind.GOOGLE_WEB_TRANSLATE_HTML,
                 apiKey = "",
@@ -61,6 +61,14 @@ class RollingTranslationWorkflowInstrumentedTest {
                 viewModel.uiState.value.rolling.flagFor(it) == TranslationPageFlag.Ready
             })
             Log.i(Tag, "STEP_4 recompositions=3 duplicate-requests=0 ready-pages=20")
+
+            viewModel.onReaderPageChanged(document, currentPageIndex = 24, settings, repository)
+            awaitReady(viewModel, expectedReadyPageIndex = 29)
+            assertEquals(3, provider.requestCount.get())
+            assertEquals((0 until 30).toSet(), provider.translatedPageIndexes.toSet())
+            assertEquals(20, viewModel.uiState.value.rolling.windowStartIndex)
+            assertEquals(30, viewModel.uiState.value.rolling.windowEndExclusive)
+            Log.i(Tag, "STEP_5 visible-page=25 aligned-window=21-30 requests=3")
         }
     }
 

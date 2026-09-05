@@ -24,4 +24,4 @@ dependencyResolutionManagement {
 
 rootProject.name = "PageTurner"
 include(":app")
- 
+include(":core-model")

@@ -1,11 +1,21 @@
 # PageTurner Architecture
 
 PageTurner should grow by adding feature modules behind stable boundaries, not
-by appending everything to the activity.
+by appending everything to the activity or Compose state.
+
+The paging-specific dependency flow and extraction plan are documented in
+[`CORE_PAGING_ARCHITECTURE.md`](CORE_PAGING_ARCHITECTURE.md). The staged
+implementation and device-validation plan is in
+[`CORE_PAGING_REFACTOR_PLAN.md`](CORE_PAGING_REFACTOR_PLAN.md).
 
 ## Current Boundaries
 
 ```text
+core-model/ (pure Kotlin; no Android or Compose dependency)
+  -> PageRequest / PageResult / PageLoader
+  -> immutable page metadata and list slices
+  -> aligned reader-page windows
+
 MainActivity
   -> Compose app assembly and renderer side effects
 
@@ -52,6 +62,7 @@ source/
   -> RemoteCatalogTranslationService for remote item title/description mapping
   -> WebNovelRemoteBookSource orchestration
   -> WebNovelSiteAdapter registry with dedicated and generic site implementations
+  -> WebCatalogPageService for background fetch/DOM parse/page mapping
   -> Remote library TODO model
 
 ui/
@@ -76,6 +87,12 @@ ui/
 - Keep display-mode behavior in `display/` and renderer-specific pipelines.
 - Keep OCR behind a future provider boundary; see `docs/OCR_PLAN.md`.
 - Keep remote services behind source abstractions before adding network UI.
+- Put reusable page/list rules in `:core-model`; Android and Compose types must
+  never be added to that module.
+- Make provider pages implement the common `PageResult<T>` contract and expose
+  loading through `PageLoader<T>` or a feature service.
+- Keep DOM parsing, cached JSON decoding, and image preparation off the main
+  dispatcher. Publish one immutable result to the ViewModel when work completes.
 - Add web novel sites through `WebNovelSiteAdapter`; keep host checks and URL
   rules out of `WebNovelRemoteBookSource` and ViewModels.
 - Avoid placing new parsing, network, cache, or provider code in
