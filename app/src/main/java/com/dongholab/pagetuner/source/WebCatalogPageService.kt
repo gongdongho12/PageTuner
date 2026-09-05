@@ -46,7 +46,8 @@ class DefaultWebCatalogPageService(
 ) : WebCatalogPageService {
     init { require(ttlMillis > 0 && maxMemoryPages > 0) }
     private val memoryPages = LinkedHashMap<String, StoredCatalogPage>(16, 0.75f, true)
-    private val locks = Array(16) { Mutex() }
+    private class InFlightLock(val mutex: Mutex = Mutex(), var users: Int = 0)
+    private val inFlightLocks = mutableMapOf<String, InFlightLock>()
 
     override suspend fun load(
         request: WebCatalogPageRequest,
@@ -57,17 +58,17 @@ class DefaultWebCatalogPageService(
         val pageUrl = adapter.catalogPageUrl(request.url, request.pageNumber)
         // Length-prefix components so account/query separators cannot alias another cache entry.
         val cacheKey = listOf(adapter.id, request.accountId, pageUrl).joinToString("") { "${it.length}:$it" }
-        locks[(cacheKey.hashCode() and Int.MAX_VALUE) % locks.size].withLock {
+        withPageLock(cacheKey) {
             val memory = synchronized(memoryPages) { memoryPages[cacheKey] }
             if (!request.forceRefresh && memory?.isFresh() == true) {
-                return@withLock memory.data.copy(fromMemoryCache = true, fromDiskCache = false, isStale = false)
+                return@withPageLock memory.data.copy(fromMemoryCache = true, fromDiskCache = false, isStale = false)
             }
             val disk = try { pageStore?.read(cacheKey) } catch (cancelled: CancellationException) {
                 throw cancelled
             } catch (_: Exception) { null }
             if (!request.forceRefresh && disk?.isFresh() == true) {
                 remember(cacheKey, disk)
-                return@withLock disk.data.copy(fromMemoryCache = false, fromDiskCache = true, isStale = false)
+                return@withPageLock disk.data.copy(fromMemoryCache = false, fromDiskCache = true, isStale = false)
             }
             val loaded = try {
                 val remote = sourceFactory(request.accountId, request.url).loadCatalogPage(request.pageNumber, onStep)
@@ -79,7 +80,7 @@ class DefaultWebCatalogPageService(
             } catch (offline: IOException) {
                 val fallback = listOfNotNull(memory, disk).maxByOrNull { it.fetchedAtMillis }
                 if (!request.forceRefresh && fallback != null) {
-                    return@withLock fallback.data.copy(
+                    return@withPageLock fallback.data.copy(
                         fromMemoryCache = fallback === memory, fromDiskCache = fallback !== memory, isStale = true,
                     )
                 }
@@ -95,6 +96,20 @@ class DefaultWebCatalogPageService(
     }
 
     private fun StoredCatalogPage.isFresh(): Boolean = (nowMillis() - fetchedAtMillis) in 0 until ttlMillis
+
+    /** Only identical requests wait on each other; unrelated pages never share a network lock. */
+    private suspend fun <T> withPageLock(key: String, action: suspend () -> T): T {
+        val entry = synchronized(inFlightLocks) {
+            inFlightLocks.getOrPut(key) { InFlightLock() }.also { it.users++ }
+        }
+        return try {
+            entry.mutex.withLock { action() }
+        } finally {
+            synchronized(inFlightLocks) {
+                if (--entry.users == 0) inFlightLocks.remove(key)
+            }
+        }
+    }
 
     private fun remember(key: String, page: StoredCatalogPage) = synchronized(memoryPages) {
         memoryPages[key] = page

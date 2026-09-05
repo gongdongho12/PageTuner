@@ -6,6 +6,8 @@ import java.io.File
 import java.io.IOException
 import java.util.concurrent.atomic.AtomicInteger
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.withTimeout
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.delay
@@ -98,6 +100,27 @@ class PersistentWebCatalogPageTest {
         val results = List(8) { async { loader.load(request) } }.awaitAll()
         assertEquals(1, calls.get())
         assertEquals(7, results.count { it.fromMemoryCache })
+    }
+
+    @Test
+    fun unrelatedPagesDoNotQueueBehindCollidingPrefetchLock() = runTest {
+        val adapter = com.dongholab.pagetuner.source.webnovel.WebNovelSiteAdapterRegistry.default.resolve(request.url)
+        val collidingPages = (1..100).groupBy { page ->
+            val url = adapter.catalogPageUrl(request.url, page)
+            val key = listOf(adapter.id, request.accountId, url).joinToString("") { "${it.length}:$it" }
+            (key.hashCode() and Int.MAX_VALUE) % 16
+        }.values.first { it.size >= 2 }.take(2)
+        val started = AtomicInteger()
+        val bothStarted = CompletableDeferred<Unit>()
+        val loader = service { account, page ->
+            if (started.incrementAndGet() == 2) bothStarted.complete(Unit)
+            // Former 16 shared locks deadlocked here until this assertion timed out.
+            withTimeout(2_000) { bothStarted.await() }
+            remotePage(account, page)
+        }
+        val pages = collidingPages.map { page -> async { loader.load(request.copy(pageNumber = page)) } }.awaitAll()
+        assertEquals(collidingPages, pages.map { it.paging.currentPage })
+        assertEquals(2, started.get())
     }
 
     @Test
