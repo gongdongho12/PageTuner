@@ -55,6 +55,7 @@ object RemoteCatalogSnapshotJson {
             .put("seriesId", seriesId)
             .put("seriesTitle", seriesTitle)
             .put("chapterNumber", chapterNumber)
+            .put("contentVariant", contentVariant.name)
     }
 
     private fun JSONObject.toRemoteBookItem(): RemoteBookItem? {
@@ -88,6 +89,8 @@ object RemoteCatalogSnapshotJson {
             seriesId = nullableString("seriesId"),
             seriesTitle = nullableString("seriesTitle"),
             chapterNumber = nullableInt("chapterNumber"),
+            contentVariant = runCatching { RemoteBookContentVariant.valueOf(optString("contentVariant")) }
+                .getOrDefault(RemoteBookContentVariant.Original),
         )
     }
 
