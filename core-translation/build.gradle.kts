@@ -9,4 +9,5 @@ kotlin {
 dependencies {
     api(project(":core-content"))
     testImplementation(libs.junit)
+    testImplementation(libs.kotlinx.coroutines.test)
 }
