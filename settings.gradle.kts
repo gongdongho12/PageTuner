@@ -25,3 +25,6 @@ dependencyResolutionManagement {
 rootProject.name = "PageTurner"
 include(":app")
 include(":core-model")
+include(":core-content")
+include(":core-translation")
+include(":core-backup")
