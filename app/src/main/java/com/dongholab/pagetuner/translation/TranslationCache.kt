@@ -1,7 +1,7 @@
 package com.dongholab.pagetuner.translation
 
 import android.content.Context
-import com.dongholab.pagetuner.document.DocumentIds
+import com.dongholab.pagetuner.core.translation.TranslationSegmentIdentity
 import java.io.File
 import java.io.FileOutputStream
 import java.io.IOException
@@ -16,9 +16,15 @@ data class TranslationCacheKey(
     val targetLanguage: String,
     val providerId: String,
 ) {
-    val id: String = DocumentIds.sha256(
-        listOf(documentId, segmentId, sourceLanguage, targetLanguage, providerId).joinToString("|"),
+    val identity: TranslationSegmentIdentity = TranslationSegmentIdentity(
+        documentId = documentId,
+        segmentId = segmentId,
+        sourceLanguage = sourceLanguage,
+        targetLanguage = targetLanguage,
+        providerId = providerId,
     )
+
+    val id: String = identity.id
 }
 
 data class CachedTranslation(

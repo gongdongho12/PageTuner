@@ -77,6 +77,8 @@ android {
 
 dependencies {
     implementation(project(":core-model"))
+    implementation(project(":core-translation"))
+    implementation(project(":core-backup"))
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.activity.compose)
     implementation(libs.androidx.compose.material3)
