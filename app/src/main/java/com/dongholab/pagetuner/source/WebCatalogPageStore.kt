@@ -40,6 +40,16 @@ class FileWebCatalogPageStore(
                 hasNextPage = metadata.getBoolean("hasNextPage"),
             )
             require(paging.currentPage > 0 && paging.pageItemCount == catalog.items.size)
+            paging.totalItems?.let { total -> require(total >= paging.pageItemCount) }
+            paging.totalPages?.let { total ->
+                require(total >= 0)
+                if (total == 0) {
+                    require(paging.currentPage == 1 && catalog.items.isEmpty())
+                    require(!paging.hasNextPage && !paging.hasPreviousPage)
+                } else {
+                    require(paging.currentPage <= total)
+                }
+            }
             StoredCatalogPage(json.getLong("fetchedAtMillis"), WebCatalogPageData(
                 catalog, paging, json.getString("providerId"), fromMemoryCache = false,
             ))

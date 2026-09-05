@@ -17,6 +17,7 @@ import org.junit.Assume.assumeTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.rules.TemporaryFolder
+import org.json.JSONObject
 
 class PersistentWebCatalogPageTest {
     @get:Rule val temp = TemporaryFolder()
@@ -151,6 +152,52 @@ class PersistentWebCatalogPageTest {
             override suspend fun write(key: String, page: StoredCatalogPage) { throw IOException("disk full") }
         }
         assertEquals(1, service(broken) { a, p -> remotePage(a, p) }.load(request).catalog.items.size)
+    }
+
+    @Test
+    fun negativePagingCountsAreRefetchedInsteadOfRestored() = runTest {
+        for (field in listOf("totalPages", "totalItems")) {
+            val directory = temp.newFolder()
+            val store = FileWebCatalogPageStore(directory)
+            service(store) { a, p -> remotePage(a, p) }.load(request)
+            val file = directory.listFiles()!!.single()
+            val json = JSONObject(file.readText())
+            json.getJSONObject("paging").put(field, -1)
+            file.writeText(json.toString())
+            var calls = 0
+            val result = service(store) { a, p -> calls++; remotePage(a, p) }.load(request)
+            assertEquals("Invalid $field must be a cache miss", 1, calls)
+            assertFalse(result.fromDiskCache)
+        }
+    }
+
+    @Test
+    fun impossiblePageRangeOrItemCountIsNotRestored() = runTest {
+        for ((field, invalidValue) in listOf("totalPages" to 1, "totalItems" to 0)) {
+            val directory = temp.newFolder()
+            val store = FileWebCatalogPageStore(directory)
+            val pageTwo = request.copy(pageNumber = 2)
+            service(store) { a, p -> remotePage(a, p) }.load(pageTwo)
+            val file = directory.listFiles()!!.single()
+            val json = JSONObject(file.readText())
+            json.getJSONObject("paging").put(field, invalidValue)
+            file.writeText(json.toString())
+            var calls = 0
+            service(store) { a, p -> calls++; remotePage(a, p) }.load(pageTwo)
+            assertEquals("Inconsistent $field must be a cache miss", 1, calls)
+        }
+    }
+
+    @Test
+    fun validZeroPageEmptyCatalogStillRestores() = runTest {
+        val store = FileWebCatalogPageStore(temp.newFolder())
+        service(store) { a, p -> remotePage(a, p).copy(
+            items = emptyList(), totalPages = 0, totalItems = 0,
+            hasPreviousPage = false, hasNextPage = false,
+        ) }.load(request)
+        val restored = service(store) { _, _ -> error("A valid empty catalog should use disk") }.load(request)
+        assertTrue(restored.fromDiskCache)
+        assertTrue(restored.catalog.items.isEmpty())
     }
 
     @Test
