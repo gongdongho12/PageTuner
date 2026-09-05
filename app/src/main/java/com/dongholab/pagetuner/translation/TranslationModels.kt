@@ -86,15 +86,7 @@ data class PageTranslation(
     val text: String = segments.joinToString(separator = "\n\n") { it.translatedText }
 }
 
-data class TranslationProgress(
-    val completedSegments: Int,
-    val totalSegments: Int,
-    val status: String,
-    val currentText: String,
-) {
-    val fraction: Float
-        get() = if (totalSegments == 0) 1f else completedSegments.toFloat() / totalSegments.toFloat()
-}
+typealias TranslationProgress = com.dongholab.pagetuner.core.translation.ContentTranslationProgress
 
 data class PrefetchProgress(
     val completedPages: Int,
