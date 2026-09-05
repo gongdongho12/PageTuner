@@ -17,6 +17,7 @@ import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.isSpecified
+import com.dongholab.pagetuner.core.paging.ListPagePolicy
 
 internal fun calculateEinkAutoFitPageSize(
     viewportHeightDp: Float?,
@@ -103,9 +104,7 @@ internal fun coerceEinkPageIndex(
     itemCount: Int,
     pageSize: Int,
 ): Int {
-    if (itemCount <= 0 || pageSize <= 0) return 0
-    val lastPageIndex = ((itemCount - 1) / pageSize).coerceAtLeast(0)
-    return requestedPageIndex.coerceIn(0, lastPageIndex)
+    return ListPagePolicy.coercePageIndex(requestedPageIndex, itemCount, pageSize)
 }
 
 /**
@@ -171,19 +170,15 @@ fun <T> EinkAutoFitPagingContainer(
         )
         val calculatedPageSize = pagePlan.pageSize
 
-        val totalPages = (items.size + calculatedPageSize - 1) / calculatedPageSize
-        val safePageIndex = coerceEinkPageIndex(
-            requestedPageIndex = state.currentPageIndex,
-            itemCount = items.size,
-            pageSize = calculatedPageSize,
-        )
+        val listPage = ListPagePolicy.slice(items, state.currentPageIndex, calculatedPageSize)
+        val totalPages = listPage.pageCount
+        val safePageIndex = listPage.pageIndex
         SideEffect {
             if (state.currentPageIndex != safePageIndex) state.currentPageIndex = safePageIndex
         }
-        val currentPageItems = items.drop(safePageIndex * calculatedPageSize).take(calculatedPageSize)
-
-        val startIndex = safePageIndex * calculatedPageSize + 1
-        val endIndex = minOf((safePageIndex + 1) * calculatedPageSize, items.size)
+        val currentPageItems = listPage.items
+        val startIndex = listPage.startItemNumber
+        val endIndex = listPage.endItemNumber
 
         val navigation: @Composable () -> Unit = {
             EinkPageNavigation(

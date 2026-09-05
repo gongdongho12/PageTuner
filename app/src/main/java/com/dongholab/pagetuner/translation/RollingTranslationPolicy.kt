@@ -1,5 +1,8 @@
 package com.dongholab.pagetuner.translation
 
+import com.dongholab.pagetuner.core.paging.AlignedPageWindowPolicy
+import com.dongholab.pagetuner.core.paging.PageWindow
+
 enum class TranslationPageFlag {
     Queued,
     Translating,
@@ -48,6 +51,8 @@ class RollingTranslationPolicy(
     val windowSize: Int = 10,
     val triggerPageCount: Int = 5,
 ) {
+    private val pageWindows = AlignedPageWindowPolicy(windowSize)
+
     init {
         require(windowSize > 0) { "windowSize must be positive." }
         require(triggerPageCount in 1..windowSize) {
@@ -56,8 +61,7 @@ class RollingTranslationPolicy(
     }
 
     fun initialWindow(currentPageIndex: Int, totalPages: Int): RollingTranslationWindow? {
-        if (totalPages <= 0) return null
-        return window(currentPageIndex.coerceIn(0, totalPages - 1), totalPages)
+        return pageWindows.containing(currentPageIndex, totalPages)?.toRollingWindow()
     }
 
     fun nextWindow(
@@ -66,26 +70,24 @@ class RollingTranslationPolicy(
         state: RollingTranslationState,
     ): RollingTranslationWindow? {
         if (!state.enabled || totalPages <= 0) return null
-        if (currentPageIndex < state.triggerPageIndex) return null
-        if (state.nextWindowStartIndex >= totalPages) return null
-
-        val skippedPastNextWindow = currentPageIndex >= state.nextWindowStartIndex + windowSize
-        val startIndex = if (skippedPastNextWindow) {
-            currentPageIndex.coerceIn(0, totalPages - 1)
-        } else {
-            state.nextWindowStartIndex
+        val safePageIndex = currentPageIndex.coerceIn(0, totalPages - 1)
+        val activeWindow = PageWindow(
+            startIndex = state.windowStartIndex.coerceAtLeast(0),
+            endExclusive = state.windowEndExclusive.coerceAtLeast(state.windowStartIndex),
+        )
+        if (safePageIndex !in activeWindow) {
+            return pageWindows.containing(safePageIndex, totalPages)?.toRollingWindow()
         }
-        return window(startIndex, totalPages)
+        if (safePageIndex < state.triggerPageIndex) return null
+        return pageWindows.following(activeWindow, totalPages)?.toRollingWindow()
     }
 
-    private fun window(startIndex: Int, totalPages: Int): RollingTranslationWindow {
-        val endExclusive = (startIndex + windowSize).coerceAtMost(totalPages)
+    private fun PageWindow.toRollingWindow(): RollingTranslationWindow {
         return RollingTranslationWindow(
             startIndex = startIndex,
             endExclusive = endExclusive,
             nextWindowStartIndex = endExclusive,
-            // Human page positions are 1-based: count 5 means the fifth page in this window.
-            triggerPageIndex = (startIndex + triggerPageCount - 1).coerceAtMost(endExclusive - 1),
+            triggerPageIndex = pageWindows.triggerIndex(this, triggerPageCount),
         )
     }
 }

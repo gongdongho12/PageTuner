@@ -36,7 +36,9 @@ Remote and viewport paging are intentionally different:
 
 ```text
 remote page request (provider page=12)
-  -> RemoteCatalogPagingState
+  -> core PageRequest / PageResult<RemoteBookItem>
+  -> WebCatalogPageService (background fetch + DOM parse + memory page cache)
+  -> immutable PageMetadata
   -> stable remote-pager slot
   -> current remote page items
   -> AdaptiveCollection
@@ -54,6 +56,8 @@ remote page request (provider page=12)
   to the last valid page.
 - Touch scrolling never auto-fetches the next server page. Remote next/last
   actions stay explicit so provider throttling and bot protection remain intact.
+- WTR-LAB and NovelBuddy implement the same core `PageResult<T>` contract.
+  Compose does not know their query parameters, DOM shape, or cache keys.
 
 ## 4. Stable rendering contract
 
@@ -86,6 +90,7 @@ Every paged row still follows the standard E-Ink contract:
 
 ```text
 source/RemoteCatalogRoute.kt                 route hierarchy + page state key
+source/WebCatalogPageService.kt              UI-free fetch/parse/cache boundary
 ui/screen/WebNovelScreen.kt                  state/callback adapter
 ui/source/RemoteSourcesTodoPanel.kt          route host + source systems page
 ui/source/WebCatalogPagePanel.kt             catalog page
@@ -95,6 +100,7 @@ ui/common/EinkStablePageContent.kt           stable body/overlay contract
 ui/common/EinkRemoteCatalogPager.kt          fixed server-pager slot
 ui/common/AdaptiveCollection.kt              selectable list-layout boundary
 ui/common/EinkAutoFitPagingContainer.kt      persistent E-Ink paging state
+core-model/.../paging/PagingModels.kt         page contracts, aligned blocks, list slices
 ```
 
 New providers should plug into the existing source/adapter interfaces. They

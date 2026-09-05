@@ -256,6 +256,28 @@ class TranslationViewModelTest {
             assertEquals(14, viewModel.uiState.value.rolling.triggerPageIndex)
         }
 
+    @Test
+    fun rollingJumpToPageTwentyFiveQueuesOnlyTheAlignedTwentyOneToThirtyBlock() =
+        runTest(mainDispatcherRule.dispatcher) {
+            val provider = RecordingRollingProvider()
+            val document = rollingDocument(pageCount = 35)
+            val repository = TranslationRepository(provider, ViewModelMemoryCache())
+            val settings = webTranslationSettings()
+            val viewModel = TranslationViewModel()
+
+            viewModel.startRollingPrefetch(document, 0, settings, repository)
+            advanceUntilIdle()
+            viewModel.onReaderPageChanged(document, 24, settings, repository)
+            advanceUntilIdle()
+
+            assertEquals(2, provider.requests)
+            assertEquals(((0 until 10) + (20 until 30)).toSet(), provider.translatedPageIndexes)
+            assertEquals(20, viewModel.uiState.value.rolling.windowStartIndex)
+            assertEquals(30, viewModel.uiState.value.rolling.windowEndExclusive)
+            assertEquals(24, viewModel.uiState.value.rolling.triggerPageIndex)
+            assertNull(viewModel.uiState.value.rolling.flagFor(10))
+        }
+
     private fun webTranslationSettings() = TranslationSettings(
         providerKind = TranslationProviderKind.GOOGLE_WEB_TRANSLATE_HTML,
         apiKey = "",

@@ -1,5 +1,6 @@
 package com.dongholab.pagetuner.source.webnovel
 
+import com.dongholab.pagetuner.core.paging.PageResult
 import com.dongholab.pagetuner.source.RenderedChapterLoader
 
 enum class WebNovelPageKind {
@@ -23,13 +24,13 @@ data class WebNovelSiteBook(
 /** One server-side catalog page. This is intentionally separate from E-Ink viewport paging. */
 data class WebNovelCatalogPage(
     val url: String,
-    val currentPage: Int = 1,
-    val totalPages: Int? = null,
-    val totalItems: Int? = null,
-    val items: List<WebNovelSiteBook> = emptyList(),
-    val hasPreviousPage: Boolean = currentPage > 1,
-    val hasNextPage: Boolean = totalPages?.let { currentPage < it } ?: false,
-)
+    override val currentPage: Int = 1,
+    override val totalPages: Int? = null,
+    override val totalItems: Int? = null,
+    override val items: List<WebNovelSiteBook> = emptyList(),
+    override val hasPreviousPage: Boolean = currentPage > 1,
+    override val hasNextPage: Boolean = totalPages?.let { currentPage < it } ?: false,
+) : PageResult<WebNovelSiteBook>
 
 /** URL helper shared by every paginated web-novel adapter. */
 object WebNovelCatalogPageUrls {
