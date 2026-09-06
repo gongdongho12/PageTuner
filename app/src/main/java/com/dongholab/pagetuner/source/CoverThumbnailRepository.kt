@@ -2,6 +2,7 @@ package com.dongholab.pagetuner.source
 
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
@@ -25,14 +26,18 @@ class CoverThumbnailRepository(
         val requested = urls.filter(String::isNotBlank).distinct().take(maxEntries)
         mutex.withLock {
             requested.forEach { url ->
+                ensureActive()
                 if (cache[url] != null) return@forEach
                 val bytes = try {
                     fetch(url, maxImageBytes)
                 } catch (cancelled: CancellationException) {
                     throw cancelled
                 } catch (_: Exception) {
+                    ensureActive()
                     return@forEach
                 }
+                // A blocking fetch may finish after cancellation without throwing it itself.
+                ensureActive()
                 if (bytes.isEmpty() || bytes.size > maxImageBytes || bytes.size > maxCacheBytes) return@forEach
                 cache[url] = bytes
                 cachedBytes += bytes.size

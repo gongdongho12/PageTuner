@@ -6,6 +6,8 @@ import java.io.File
 import java.io.IOException
 import java.util.concurrent.atomic.AtomicInteger
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.withTimeout
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.delay
@@ -15,6 +17,7 @@ import org.junit.Assume.assumeTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.rules.TemporaryFolder
+import org.json.JSONObject
 
 class PersistentWebCatalogPageTest {
     @get:Rule val temp = TemporaryFolder()
@@ -101,6 +104,27 @@ class PersistentWebCatalogPageTest {
     }
 
     @Test
+    fun unrelatedPagesDoNotQueueBehindCollidingPrefetchLock() = runTest {
+        val adapter = com.dongholab.pagetuner.source.webnovel.WebNovelSiteAdapterRegistry.default.resolve(request.url)
+        val collidingPages = (1..100).groupBy { page ->
+            val url = adapter.catalogPageUrl(request.url, page)
+            val key = listOf(adapter.id, request.accountId, url).joinToString("") { "${it.length}:$it" }
+            (key.hashCode() and Int.MAX_VALUE) % 16
+        }.values.first { it.size >= 2 }.take(2)
+        val started = AtomicInteger()
+        val bothStarted = CompletableDeferred<Unit>()
+        val loader = service { account, page ->
+            if (started.incrementAndGet() == 2) bothStarted.complete(Unit)
+            // Former 16 shared locks deadlocked here until this assertion timed out.
+            withTimeout(2_000) { bothStarted.await() }
+            remotePage(account, page)
+        }
+        val pages = collidingPages.map { page -> async { loader.load(request.copy(pageNumber = page)) } }.awaitAll()
+        assertEquals(collidingPages, pages.map { it.paging.currentPage })
+        assertEquals(2, started.get())
+    }
+
+    @Test
     fun cancellationNeverReturnsStaleData() = runTest {
         val store = FileWebCatalogPageStore(temp.newFolder())
         service(store) { a, p -> remotePage(a, p) }.load(request)
@@ -128,6 +152,52 @@ class PersistentWebCatalogPageTest {
             override suspend fun write(key: String, page: StoredCatalogPage) { throw IOException("disk full") }
         }
         assertEquals(1, service(broken) { a, p -> remotePage(a, p) }.load(request).catalog.items.size)
+    }
+
+    @Test
+    fun negativePagingCountsAreRefetchedInsteadOfRestored() = runTest {
+        for (field in listOf("totalPages", "totalItems")) {
+            val directory = temp.newFolder()
+            val store = FileWebCatalogPageStore(directory)
+            service(store) { a, p -> remotePage(a, p) }.load(request)
+            val file = directory.listFiles()!!.single()
+            val json = JSONObject(file.readText())
+            json.getJSONObject("paging").put(field, -1)
+            file.writeText(json.toString())
+            var calls = 0
+            val result = service(store) { a, p -> calls++; remotePage(a, p) }.load(request)
+            assertEquals("Invalid $field must be a cache miss", 1, calls)
+            assertFalse(result.fromDiskCache)
+        }
+    }
+
+    @Test
+    fun impossiblePageRangeOrItemCountIsNotRestored() = runTest {
+        for ((field, invalidValue) in listOf("totalPages" to 1, "totalItems" to 0)) {
+            val directory = temp.newFolder()
+            val store = FileWebCatalogPageStore(directory)
+            val pageTwo = request.copy(pageNumber = 2)
+            service(store) { a, p -> remotePage(a, p) }.load(pageTwo)
+            val file = directory.listFiles()!!.single()
+            val json = JSONObject(file.readText())
+            json.getJSONObject("paging").put(field, invalidValue)
+            file.writeText(json.toString())
+            var calls = 0
+            service(store) { a, p -> calls++; remotePage(a, p) }.load(pageTwo)
+            assertEquals("Inconsistent $field must be a cache miss", 1, calls)
+        }
+    }
+
+    @Test
+    fun validZeroPageEmptyCatalogStillRestores() = runTest {
+        val store = FileWebCatalogPageStore(temp.newFolder())
+        service(store) { a, p -> remotePage(a, p).copy(
+            items = emptyList(), totalPages = 0, totalItems = 0,
+            hasPreviousPage = false, hasNextPage = false,
+        ) }.load(request)
+        val restored = service(store) { _, _ -> error("A valid empty catalog should use disk") }.load(request)
+        assertTrue(restored.fromDiskCache)
+        assertTrue(restored.catalog.items.isEmpty())
     }
 
     @Test

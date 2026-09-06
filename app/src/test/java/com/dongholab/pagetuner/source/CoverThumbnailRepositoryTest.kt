@@ -2,11 +2,50 @@ package com.dongholab.pagetuner.source
 
 import java.io.IOException
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.*
 import org.junit.Test
 
 class CoverThumbnailRepositoryTest {
+    @Test
+    fun cancelledSuccessfulFetchStopsRemainingUrlsAndDoesNotPopulateCache() = runTest {
+        val fetched = mutableListOf<String>()
+        val repository = CoverThumbnailRepository(fetch = { url, _ ->
+            fetched += url
+            // Model an in-flight blocking fetch returning after its caller cancelled it.
+            if (fetched.size == 1) currentCoroutineContext().cancel()
+            byteArrayOf(1)
+        })
+        val cancelled = launch { repository.load(listOf("old", "unneeded")) }
+        cancelled.join()
+        assertTrue(cancelled.isCancelled)
+        assertEquals(listOf("old"), fetched)
+        assertEquals(setOf("old"), repository.load(listOf("old")).keys)
+        assertEquals(listOf("old", "old"), fetched)
+    }
+
+    @Test
+    fun cancelledFailedFetchDoesNotContinueWithRemainingUrls() = runTest {
+        val fetched = mutableListOf<String>()
+        val repository = CoverThumbnailRepository(fetch = { url, _ ->
+            fetched += url
+            if (fetched.size == 1) {
+                currentCoroutineContext().cancel()
+                throw IOException("Connection ended after cancellation")
+            }
+            byteArrayOf(1)
+        })
+        val cancelled = launch { repository.load(listOf("old", "unneeded")) }
+        cancelled.join()
+        assertTrue(cancelled.isCancelled)
+        assertEquals(listOf("old"), fetched)
+        assertEquals(setOf("new"), repository.load(listOf("new")).keys)
+        assertEquals(listOf("old", "new"), fetched)
+    }
+
     @Test
     fun duplicateAndRevisitedUrlsReuseCache() = runTest {
         val fetched = mutableListOf<String>()
