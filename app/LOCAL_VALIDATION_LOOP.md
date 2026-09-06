@@ -110,3 +110,30 @@ flowchart TD
 진행 중인 blocking HTTP 연결 자체를 즉시 중단하는 변경도 아닙니다.
 이번 ADB 확인에서 연결 기기가 없어 APK 설치 및 화면/instrumentation 실행은 보류했습니다.
 백엔드, 공용 코어, UI 레이아웃은 변경하지 않았습니다.
+
+## 2026-09-07 후속 반복: 빈 카탈로그 페이지 이동 방어
+
+`totalPages = 0`인 빈 카탈로그는 정상적인 캐시 값이지만, ViewModel에서 페이지 이동을
+요청하면 `coerceIn(1, 0)`이 `IllegalArgumentException`을 발생시켰습니다.
+이동 계산을 앱 전용 `PageMetadata.catalogNavigationTarget` 함수로 분리하여 ViewModel이 사용하도록 했습니다.
+
+- 기존 계산을 그대로 추출한 상태에서 테스트 5개 실행: 빈 목록/음수 전체 페이지 수 2개 실패,
+  정상 범위 보정/현재 페이지 중복 방지/전체 수 미상 이동 3개 통과.
+- 전체 페이지 수가 0 이하이면 이동 대상을 반환하지 않도록 수정했습니다.
+  ViewModel은 작업 취소나 새 요청 없이 반환합니다. 정상 범위 및 미상 전체 수 처리 방식은 유지합니다.
+- 수정 후 이동 정책 테스트 5개 모두 통과. 전체 앱 테스트 **256개 중 242개 통과,
+  14개 건너뜀, 실패 0**. 모듈 경계 검사, Lint, debug/instrumentation APK 빌드 성공.
+
+```mermaid
+flowchart LR
+    INPUT[페이지 이동 요청] --> VALID{알려진 전체 페이지 수가 0 이하?}
+    VALID -->|예| STOP[이동하지 않음]
+    VALID -->|아니오| CLAMP[1부터 마지막 페이지까지 범위 보정]
+    CLAMP --> SAME{현재 페이지?}
+    SAME -->|예| STOP
+    SAME -->|아니오| LOAD[기존 페이지 로딩 경로]
+```
+
+이는 Kotlin 이동 정책 단위 테스트이며 실제 UI 버튼/하드웨어 키 조작으로 재현한 결과는 아닙니다.
+이번 ADB 확인도 기기 미연결로 설치 및 instrumentation 실행은 하지 않았습니다.
+실제 HTTP/LLM 호출 없이 검증했으며 공용 코어·서버·E-Ink 레이아웃은 수정하지 않았습니다.

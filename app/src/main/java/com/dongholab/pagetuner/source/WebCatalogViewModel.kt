@@ -248,8 +248,7 @@ class WebCatalogViewModel(
     fun loadRemoteCatalogPage(page: Int) {
         val state = _uiState.value
         if (state.busy || state.catalogLoading != null || state.remotePaging == null) return
-        val targetPage = page.coerceIn(1, state.remotePaging.totalPages ?: Int.MAX_VALUE)
-        if (targetPage == state.remotePaging.currentPage) return
+        val targetPage = state.remotePaging.catalogNavigationTarget(page) ?: return
         catalogPreloadJob?.cancel()
         loadWebNovelPage(
             url = state.catalogUrl,
