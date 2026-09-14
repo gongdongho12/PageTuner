@@ -40,7 +40,17 @@ dependencies {
 tasks.withType<Test> {
     useJUnitPlatform {
         if (System.getenv("RUN_LIVE_WEB_NOVEL_TESTS") != "1") excludeTags("live-source")
+        if (name != "catalogTranslationLiveTest" && System.getenv("RUN_LIVE_CATALOG_TRANSLATION_TESTS") != "1") excludeTags("live-catalog-translation")
     }
+}
+
+tasks.register<Test>("catalogTranslationLiveTest") {
+    description = "Verify catalog title and description translation with the actual Google Web service."
+    group = "verification"
+    environment("RUN_LIVE_CATALOG_TRANSLATION_TESTS", "1")
+    testClassesDirs = sourceSets["test"].output.classesDirs
+    classpath = sourceSets["test"].runtimeClasspath
+    useJUnitPlatform { includeTags("live-catalog-translation") }
 }
 
 sourceSets.named("test") {

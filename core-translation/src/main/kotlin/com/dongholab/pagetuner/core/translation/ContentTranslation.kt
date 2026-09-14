@@ -64,7 +64,7 @@ object TranslationFieldSegmenter {
         val segments = buildList {
             activeFields.forEach { field ->
                 require(field.id.isNotBlank()) { "Translation field ID cannot be blank." }
-                fieldSegments[field.id] = field.text.chunked(400).mapIndexed { index, text ->
+                fieldSegments[field.id] = splitField(field.text).mapIndexed { index, text ->
                     val id = StableContentHash.sha256("$documentId:${field.id}:$index:$text").take(24)
                     add(TranslationFieldSegment(id, text, size))
                     id
@@ -72,5 +72,16 @@ object TranslationFieldSegmenter {
             }
         }
         return TranslationFieldPlan(documentId, segments, fieldSegments)
+    }
+
+    /** Keep v1's 400 UTF-16 unit identities except where that boundary would split one code point. */
+    private fun splitField(text: String): List<String> = buildList {
+        var start = 0
+        while (start < text.length) {
+            var end = (start + 400).coerceAtMost(text.length)
+            if (end < text.length && text[end - 1].isHighSurrogate() && text[end].isLowSurrogate()) end--
+            add(text.substring(start, end))
+            start = end
+        }
     }
 }

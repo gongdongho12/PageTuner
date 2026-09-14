@@ -30,33 +30,37 @@ import kotlin.coroutines.resumeWithException
 
 class UnsafeNovelUrl(message: String) : IllegalArgumentException(message)
 class NovelProviderFailure(val status: Int) : IOException("The novel provider returned HTTP $status.")
+data class PublicHttpsContent(val url: String, val bytes: ByteArray, val contentType: String?)
 
 /** Uses the validated DNS answers for the actual socket, not a separate preflight lookup. */
-class PublicHttpsNovelHttpClient : NovelHttpTransport {
-    private val client = OkHttpClient.Builder()
-        .dns(PublicNovelDns())
-        .proxy(Proxy.NO_PROXY)
-        .followRedirects(false)
-        .followSslRedirects(false)
-        .retryOnConnectionFailure(false)
-        .connectTimeout(10, TimeUnit.SECONDS)
-        .readTimeout(15, TimeUnit.SECONDS)
-        .writeTimeout(10, TimeUnit.SECONDS)
-        .callTimeout(25, TimeUnit.SECONDS)
-        .build()
+class PublicHttpsNovelHttpClient internal constructor(private val client: OkHttpClient) : NovelHttpTransport {
+    constructor() : this(OkHttpClient.Builder()
+        .dns(PublicNovelDns()).proxy(Proxy.NO_PROXY)
+        .followRedirects(false).followSslRedirects(false).retryOnConnectionFailure(false)
+        .connectTimeout(10, TimeUnit.SECONDS).readTimeout(15, TimeUnit.SECONDS)
+        .writeTimeout(10, TimeUnit.SECONDS).callTimeout(25, TimeUnit.SECONDS).build())
     private val permits = Semaphore(8)
 
-    override suspend fun fetchText(url: String): String = request(url, null, null)
+    override suspend fun fetchText(url: String): String = text(request(url, null, null, MAX_RESPONSE_BYTES))
+
+    /** Reuses the same DNS, redirect, cancellation, rate and concurrency policy for catalog files. */
+    suspend fun fetchContent(url: String, maxBytes: Int = MAX_RESPONSE_BYTES): PublicHttpsContent {
+        require(maxBytes in 1..MAX_FILE_BYTES) { "Invalid response byte limit." }
+        return request(url, null, null, maxBytes)
+    }
+
+    private fun text(content: PublicHttpsContent): String = content.bytes.toString(Charsets.UTF_8)
+        .takeIf(String::isNotBlank) ?: throw IOException("The novel provider returned an empty response.")
 
     override suspend fun postJson(url: String, body: String, referer: String): String {
         require(body.toByteArray(Charsets.UTF_8).size <= 64 * 1024) { "Provider request is too large." }
         val target = PublicNovelTargets.url(url)
         val referring = PublicNovelTargets.url(referer)
         require(target.host == referring.host) { "Provider POST and referer must have the same host." }
-        return request(url, body, referer)
+        return text(request(url, body, referer, MAX_RESPONSE_BYTES))
     }
 
-    private suspend fun request(url: String, body: String?, referer: String?): String = withTimeout(60_000) {
+    private suspend fun request(url: String, body: String?, referer: String?, maxBytes: Int): PublicHttpsContent = withTimeout(60_000) {
         permits.withPermit {
             var target = PublicNovelTargets.url(url)
             var postBody = body
@@ -65,14 +69,14 @@ class PublicHttpsNovelHttpClient : NovelHttpTransport {
                 WebNovelRequestGate.awaitPermit(target.toString())
                 val builder = Request.Builder().url(target)
                     .header("User-Agent", USER_AGENT)
-                    .header("Accept", "text/html,application/xhtml+xml,application/json;q=0.9")
+                    .header("Accept", "text/html,application/xhtml+xml,application/json;q=0.9,*/*;q=0.8")
                     .header("Accept-Language", "en-US,en;q=0.9")
                 postBody?.let {
                     builder.post(it.toRequestBody("application/json; charset=utf-8".toMediaType()))
                         .header("Origin", "https://${target.host}")
                         .header("Referer", requireNotNull(referer))
                 }
-                val response = execute(builder.build())
+                val response = execute(builder.build(), maxBytes)
                 if (response.status in setOf(301, 302, 303, 307, 308)) {
                     if (++redirects > 5) throw IOException("The novel provider redirected too many times.")
                     val location = response.location ?: throw IOException("Provider redirect has no location.")
@@ -91,15 +95,16 @@ class PublicHttpsNovelHttpClient : NovelHttpTransport {
                 }
                 if (response.status !in 200..299) throw NovelProviderFailure(response.status)
                 WebNovelRequestGate.recordSuccess(target.toString())
-                return@withPermit response.body?.takeIf(String::isNotBlank)
+                val bytes = response.body?.takeIf { it.isNotEmpty() }
                     ?: throw IOException("The novel provider returned an empty response.")
+                return@withPermit PublicHttpsContent(target.toString(), bytes, response.contentType)
             }
             @Suppress("UNREACHABLE_CODE")
             throw IOException("No provider response.")
         }
     }
 
-    private suspend fun execute(request: Request): ProviderResponse = suspendCancellableCoroutine { continuation ->
+    private suspend fun execute(request: Request, maxBytes: Int): ProviderResponse = suspendCancellableCoroutine { continuation ->
         val call = client.newCall(request)
         continuation.invokeOnCancellation { call.cancel() }
         call.enqueue(object : Callback {
@@ -110,10 +115,10 @@ class PublicHttpsNovelHttpClient : NovelHttpTransport {
             override fun onResponse(call: Call, response: Response) {
                 try {
                     val result = response.use {
-                        val text = if (response.isSuccessful) {
+                        val bytes = if (response.isSuccessful) {
                             val responseBody = response.body ?: throw IOException("Missing provider response body.")
-                            if (responseBody.contentLength() > MAX_RESPONSE_BYTES) {
-                                throw IOException("The novel provider response exceeded 5 MB.")
+                            if (responseBody.contentLength() > maxBytes) {
+                                throw IOException("The provider response exceeded $maxBytes bytes.")
                             }
                             // OkHttp transparently decompresses gzip; bound the decoded bytes too.
                             responseBody.byteStream().use { input ->
@@ -122,15 +127,15 @@ class PublicHttpsNovelHttpClient : NovelHttpTransport {
                                 while (true) {
                                     val count = input.read(buffer)
                                     if (count < 0) break
-                                    if (output.size() + count > MAX_RESPONSE_BYTES) {
-                                        throw IOException("The novel provider response exceeded 5 MB.")
+                                    if (output.size() + count > maxBytes) {
+                                        throw IOException("The provider response exceeded $maxBytes bytes.")
                                     }
                                     output.write(buffer, 0, count)
                                 }
-                                output.toString(Charsets.UTF_8.name())
+                                output.toByteArray()
                             }
                         } else null
-                        ProviderResponse(response.code, response.header("Location"), response.header("Retry-After"), text)
+                        ProviderResponse(response.code, response.header("Location"), response.header("Retry-After"), bytes, response.header("Content-Type"))
                     }
                     if (continuation.isActive) continuation.resume(result)
                 } catch (error: Exception) {
@@ -140,10 +145,11 @@ class PublicHttpsNovelHttpClient : NovelHttpTransport {
         })
     }
 
-    private data class ProviderResponse(val status: Int, val location: String?, val retryAfter: String?, val body: String?)
+    private data class ProviderResponse(val status: Int, val location: String?, val retryAfter: String?, val body: ByteArray?, val contentType: String?)
 
     companion object {
         private const val MAX_RESPONSE_BYTES = 5 * 1024 * 1024
+        const val MAX_FILE_BYTES = 32 * 1024 * 1024
         private const val USER_AGENT =
             "Mozilla/5.0 (Linux; Android 13) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Mobile Safari/537.36"
     }

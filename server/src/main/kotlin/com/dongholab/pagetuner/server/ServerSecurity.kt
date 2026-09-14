@@ -24,6 +24,7 @@ class ServerSecurity {
                 .anyRequest().authenticated()
         }
         .httpBasic(withDefaults())
+        .addFilterAfter(ApiRequestBodyLimit(), BasicAuthenticationFilter::class.java)
         .also { security -> attempts.ifAvailable { security.addFilterBefore(AccountLoginGuard(it), BasicAuthenticationFilter::class.java) } }
         // Keep CSRF protection enabled, including for browser-cached Basic credentials.
         .build()

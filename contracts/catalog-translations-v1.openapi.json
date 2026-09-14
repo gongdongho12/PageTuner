@@ -1,0 +1,326 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "PageTurner Catalog Display Translation",
+    "version": "1.0.0",
+    "description": "Separate from chapter translation/storage. Reuses the shared catalog field mapper, segment identities, and translation engine. POST requires /api/v1/csrf token and its same-session cookie."
+  },
+  "paths": {
+    "/api/v1/catalog-translations": {
+      "post": {
+        "security": [
+          {
+            "basicAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Current task state",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CatalogTranslationResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "CSRF rejected"
+          },
+          "409": {
+            "description": "Request identity conflict"
+          },
+          "429": {
+            "description": "One active catalog task per account; 16 active tasks server-wide"
+          }
+        },
+        "operationId": "startCatalogTranslation",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CatalogTranslationRequest"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/catalog-translations/{id}": {
+      "get": {
+        "security": [
+          {
+            "basicAuth": []
+          }
+        ],
+        "operationId": "getCatalogTranslation",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Current task state",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CatalogTranslationResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Expired or belongs to another account"
+          }
+        }
+      }
+    },
+    "/api/v1/catalog-translations/{id}/cancel": {
+      "post": {
+        "security": [
+          {
+            "basicAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Current task state",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CatalogTranslationResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "CSRF rejected"
+          },
+          "409": {
+            "description": "Request identity conflict"
+          },
+          "429": {
+            "description": "One active catalog task per account; 16 active tasks server-wide"
+          }
+        },
+        "operationId": "cancelCatalogTranslation",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ]
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "basicAuth": {
+        "type": "http",
+        "scheme": "basic"
+      }
+    },
+    "schemas": {
+      "CatalogEntry": {
+        "type": "object",
+        "required": [
+          "key",
+          "title",
+          "description"
+        ],
+        "properties": {
+          "key": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 512
+          },
+          "title": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 400
+          },
+          "description": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 2000
+          }
+        }
+      },
+      "CatalogTranslationRequest": {
+        "type": "object",
+        "required": [
+          "requestId",
+          "items"
+        ],
+        "description": "At most 24 visible catalog entries and 24,000 UTF-16 characters. Credentials are memory-only. Retransmission with the same request ID reuses the existing task; editing the input requires a new ID.",
+        "properties": {
+          "requestId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "items": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 24,
+            "items": {
+              "$ref": "#/components/schemas/CatalogEntry"
+            }
+          },
+          "sourceLanguage": {
+            "type": "string",
+            "default": "auto",
+            "maxLength": 24
+          },
+          "targetLanguage": {
+            "type": "string",
+            "default": "ko",
+            "maxLength": 24
+          },
+          "providerKind": {
+            "type": "string",
+            "enum": [
+              "GOOGLE_WEB_TRANSLATE_HTML",
+              "GOOGLE_CLOUD",
+              "DEEPSEEK",
+              "OPENAI_COMPATIBLE_LLM"
+            ],
+            "default": "GOOGLE_WEB_TRANSLATE_HTML"
+          },
+          "endpoint": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 2000
+          },
+          "model": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 200
+          },
+          "apiKey": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 4096,
+            "writeOnly": true
+          }
+        }
+      },
+      "CatalogTranslationItem": {
+        "type": "object",
+        "required": [
+          "key",
+          "title",
+          "description",
+          "targetLanguage"
+        ],
+        "properties": {
+          "key": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string",
+            "maxLength": 4000
+          },
+          "description": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 16000
+          },
+          "targetLanguage": {
+            "type": "string"
+          }
+        }
+      },
+      "CatalogTranslationResponse": {
+        "type": "object",
+        "required": [
+          "requestId",
+          "status",
+          "sourceHash",
+          "providerKind",
+          "targetLanguage",
+          "completedSegments",
+          "totalSegments",
+          "items",
+          "errorCode",
+          "updatedAt"
+        ],
+        "description": "Account-scoped, memory-only display result. Terminal records are retained for up to 15 minutes and may be evicted earlier at capacity. All records disappear on restart. Partial translations are not exposed. Cancellation prevents late publication.",
+        "properties": {
+          "requestId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "QUEUED",
+              "RUNNING",
+              "COMPLETED",
+              "FAILED",
+              "CANCELLED"
+            ]
+          },
+          "sourceHash": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$",
+            "description": "SHA-256 of each input row's concatenated UTF-16 length-prefixed key/title/description (null becomes empty), rows joined by LF."
+          },
+          "providerKind": {
+            "type": "string"
+          },
+          "targetLanguage": {
+            "type": "string"
+          },
+          "completedSegments": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "totalSegments": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "items": {
+            "type": "array",
+            "maxItems": 24,
+            "items": {
+              "$ref": "#/components/schemas/CatalogTranslationItem"
+            }
+          },
+          "errorCode": {
+            "type": "string",
+            "nullable": true
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      }
+    }
+  }
+}
