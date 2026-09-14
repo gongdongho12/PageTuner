@@ -1,0 +1,2089 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "PageTurner web novel and translation workflow",
+    "version": "1.0.0",
+    "description": "Canonical wire contracts for shared source discovery, immutable chapter import and server-owned translation jobs. Source DTOs match NovelSourceService; workflow DTOs match WorkflowModels. Saved translation retrieval and CSRF bootstrap are defined in translation-v1.openapi.json."
+  },
+  "servers": [
+    {
+      "url": "http://127.0.0.1:8080",
+      "description": "Loopback development; use HTTPS for deployment."
+    }
+  ],
+  "security": [
+    {
+      "basicAuth": []
+    }
+  ],
+  "paths": {
+    "/api/v1/novel-sources": {
+      "get": {
+        "operationId": "listNovelSources",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Successful response.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NovelSourceList"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid URL, pagination, provider or settings.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkflowProblem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required."
+          },
+          "403": {
+            "description": "Forbidden or session CSRF token invalid."
+          },
+          "404": {
+            "description": "Item not found for this authenticated user."
+          },
+          "409": {
+            "description": "Conflicting idempotency request, retry settings or job state.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkflowProblem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many active jobs."
+          },
+          "502": {
+            "description": "Source provider failed or requires source-site authentication.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkflowProblem"
+                }
+              }
+            }
+          },
+          "504": {
+            "description": "Source provider timed out."
+          }
+        }
+      }
+    },
+    "/api/v1/novels/catalog": {
+      "get": {
+        "operationId": "getNovelCatalog",
+        "description": "Browse or search using the selected provider. Source adapters own URL classification and remote pagination.",
+        "parameters": [
+          {
+            "name": "sourceId",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "url",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uri"
+            }
+          },
+          {
+            "name": "query",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 200
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "minimum": 1,
+              "maximum": 100000,
+              "default": 1
+            }
+          },
+          {
+            "name": "genre",
+            "in": "query",
+            "required": false,
+            "description": "Pass a supported value from the selected source filters unchanged.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "orderBy",
+            "in": "query",
+            "required": false,
+            "description": "Pass a supported value from the selected source filters unchanged.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "order",
+            "in": "query",
+            "required": false,
+            "description": "Pass a supported value from the selected source filters unchanged.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "description": "Pass a supported value from the selected source filters unchanged.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NovelCatalog"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid URL, pagination, provider or settings.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkflowProblem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required."
+          },
+          "403": {
+            "description": "Forbidden or session CSRF token invalid."
+          },
+          "404": {
+            "description": "Item not found for this authenticated user."
+          },
+          "409": {
+            "description": "Conflicting idempotency request, retry settings or job state.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkflowProblem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many active jobs."
+          },
+          "502": {
+            "description": "Source provider failed or requires source-site authentication.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkflowProblem"
+                }
+              }
+            }
+          },
+          "504": {
+            "description": "Source provider timed out."
+          }
+        }
+      }
+    },
+    "/api/v1/novels/detail": {
+      "get": {
+        "operationId": "getNovelDetail",
+        "description": "Retrieve book metadata and a page of the complete provider chapter index.",
+        "parameters": [
+          {
+            "name": "url",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uri"
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "minimum": 0,
+              "default": 0
+            },
+            "description": "Zero-based result page."
+          },
+          {
+            "name": "size",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NovelDetail"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid URL, pagination, provider or settings.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkflowProblem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required."
+          },
+          "403": {
+            "description": "Forbidden or session CSRF token invalid."
+          },
+          "404": {
+            "description": "Item not found for this authenticated user."
+          },
+          "409": {
+            "description": "Conflicting idempotency request, retry settings or job state.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkflowProblem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many active jobs."
+          },
+          "502": {
+            "description": "Source provider failed or requires source-site authentication.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkflowProblem"
+                }
+              }
+            }
+          },
+          "504": {
+            "description": "Source provider timed out."
+          }
+        }
+      }
+    },
+    "/api/v1/chapters": {
+      "get": {
+        "operationId": "listStoredChapters",
+        "description": "List source metadata for this user. Paragraph bodies are intentionally omitted.",
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "minimum": 0,
+              "default": 0
+            },
+            "description": "Zero-based result page."
+          },
+          {
+            "name": "size",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "minimum": 1,
+              "maximum": 50,
+              "default": 12
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChapterListResponse"
+                }
+              }
+            },
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "no-store"
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid URL, pagination, provider or settings.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkflowProblem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required."
+          },
+          "403": {
+            "description": "Forbidden or session CSRF token invalid."
+          },
+          "404": {
+            "description": "Item not found for this authenticated user."
+          },
+          "409": {
+            "description": "Conflicting idempotency request, retry settings or job state.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkflowProblem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many active jobs."
+          },
+          "502": {
+            "description": "Source provider failed or requires source-site authentication.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkflowProblem"
+                }
+              }
+            }
+          },
+          "504": {
+            "description": "Source provider timed out."
+          }
+        }
+      }
+    },
+    "/api/v1/chapters/import": {
+      "post": {
+        "operationId": "importChapter",
+        "description": "Fetch readable source paragraphs and atomically save an immutable source revision for this user. Retrying the same content reuses the stored revision. Requires the cookie and CSRF token from GET /api/v1/csrf in translation-v1.openapi.json.",
+        "security": [
+          {
+            "basicAuth": [],
+            "csrfHeader": [],
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ImportChapterRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful response.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StoredChapter"
+                }
+              }
+            },
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "no-store"
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid URL, pagination, provider or settings.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkflowProblem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required."
+          },
+          "403": {
+            "description": "Forbidden or session CSRF token invalid."
+          },
+          "404": {
+            "description": "Item not found for this authenticated user."
+          },
+          "409": {
+            "description": "Conflicting idempotency request, retry settings or job state.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkflowProblem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many active jobs."
+          },
+          "502": {
+            "description": "Source provider failed or requires source-site authentication.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkflowProblem"
+                }
+              }
+            }
+          },
+          "504": {
+            "description": "Source provider timed out."
+          }
+        }
+      }
+    },
+    "/api/v1/chapters/{recordId}": {
+      "get": {
+        "operationId": "getStoredChapter",
+        "parameters": [
+          {
+            "name": "recordId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StoredChapter"
+                }
+              }
+            },
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "no-store"
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid URL, pagination, provider or settings.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkflowProblem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required."
+          },
+          "403": {
+            "description": "Forbidden or session CSRF token invalid."
+          },
+          "404": {
+            "description": "Item not found for this authenticated user."
+          },
+          "409": {
+            "description": "Conflicting idempotency request, retry settings or job state.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkflowProblem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many active jobs."
+          },
+          "502": {
+            "description": "Source provider failed or requires source-site authentication.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkflowProblem"
+                }
+              }
+            }
+          },
+          "504": {
+            "description": "Source provider timed out."
+          }
+        }
+      }
+    },
+    "/api/v1/translation-providers": {
+      "get": {
+        "operationId": "listTranslationProviders",
+        "description": "Return supported providers and safe defaults. Configured indicates usable server credentials, never their values.",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Successful response.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TranslationProviderList"
+                }
+              }
+            },
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "no-store"
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid URL, pagination, provider or settings.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkflowProblem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required."
+          },
+          "403": {
+            "description": "Forbidden or session CSRF token invalid."
+          },
+          "404": {
+            "description": "Item not found for this authenticated user."
+          },
+          "409": {
+            "description": "Conflicting idempotency request, retry settings or job state.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkflowProblem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many active jobs."
+          },
+          "502": {
+            "description": "Source provider failed or requires source-site authentication.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkflowProblem"
+                }
+              }
+            }
+          },
+          "504": {
+            "description": "Source provider timed out."
+          }
+        }
+      }
+    },
+    "/api/v1/translation-jobs": {
+      "get": {
+        "operationId": "listTranslationJobs",
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "minimum": 0,
+              "default": 0
+            },
+            "description": "Zero-based result page."
+          },
+          {
+            "name": "size",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "minimum": 1,
+              "maximum": 50,
+              "default": 12
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TranslationJobListResponse"
+                }
+              }
+            },
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "no-store"
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid URL, pagination, provider or settings.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkflowProblem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required."
+          },
+          "403": {
+            "description": "Forbidden or session CSRF token invalid."
+          },
+          "404": {
+            "description": "Item not found for this authenticated user."
+          },
+          "409": {
+            "description": "Conflicting idempotency request, retry settings or job state.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkflowProblem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many active jobs."
+          },
+          "502": {
+            "description": "Source provider failed or requires source-site authentication.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkflowProblem"
+                }
+              }
+            }
+          },
+          "504": {
+            "description": "Source provider timed out."
+          }
+        }
+      },
+      "post": {
+        "operationId": "createTranslationJob",
+        "description": "Create or reuse a translation execution. Repeated matching idempotency requests reuse a job; different settings under the same key return 409. At most four active jobs per user. Custom API keys are memory-only and must be supplied again after interruption. Reuse settings from the failed job with retryOf to copy valid checkpoints.",
+        "security": [
+          {
+            "basicAuth": [],
+            "csrfHeader": [],
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateTranslationJobRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful response.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TranslationJob"
+                }
+              }
+            },
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "no-store"
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid URL, pagination, provider or settings.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkflowProblem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required."
+          },
+          "403": {
+            "description": "Forbidden or session CSRF token invalid."
+          },
+          "404": {
+            "description": "Item not found for this authenticated user."
+          },
+          "409": {
+            "description": "Conflicting idempotency request, retry settings or job state.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkflowProblem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many active jobs."
+          },
+          "502": {
+            "description": "Source provider failed or requires source-site authentication.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkflowProblem"
+                }
+              }
+            }
+          },
+          "504": {
+            "description": "Source provider timed out."
+          }
+        }
+      }
+    },
+    "/api/v1/translation-jobs/{jobId}": {
+      "get": {
+        "operationId": "getTranslationJob",
+        "description": "Poll for execution status. Navigating away does not cancel a job.",
+        "parameters": [
+          {
+            "name": "jobId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TranslationJob"
+                }
+              }
+            },
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "no-store"
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid URL, pagination, provider or settings.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkflowProblem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required."
+          },
+          "403": {
+            "description": "Forbidden or session CSRF token invalid."
+          },
+          "404": {
+            "description": "Item not found for this authenticated user."
+          },
+          "409": {
+            "description": "Conflicting idempotency request, retry settings or job state.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkflowProblem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many active jobs."
+          },
+          "502": {
+            "description": "Source provider failed or requires source-site authentication.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkflowProblem"
+                }
+              }
+            }
+          },
+          "504": {
+            "description": "Source provider timed out."
+          }
+        }
+      }
+    },
+    "/api/v1/translation-jobs/{jobId}/cancel": {
+      "post": {
+        "operationId": "cancelTranslationJob",
+        "description": "Cancel this user's queued or running job. Terminal jobs return their existing status. Cancellation does not delete source content or checkpoints.",
+        "security": [
+          {
+            "basicAuth": [],
+            "csrfHeader": [],
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "jobId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TranslationJob"
+                }
+              }
+            },
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "no-store"
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid URL, pagination, provider or settings.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkflowProblem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required."
+          },
+          "403": {
+            "description": "Forbidden or session CSRF token invalid."
+          },
+          "404": {
+            "description": "Item not found for this authenticated user."
+          },
+          "409": {
+            "description": "Conflicting idempotency request, retry settings or job state.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkflowProblem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many active jobs."
+          },
+          "502": {
+            "description": "Source provider failed or requires source-site authentication.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkflowProblem"
+                }
+              }
+            }
+          },
+          "504": {
+            "description": "Source provider timed out."
+          }
+        }
+      }
+    },
+    "/api/v1/chapters/upload": {
+      "post": {
+        "operationId": "uploadLocalChapter",
+        "description": "Save extracted local document text as an immutable original belonging to the authenticated user. Requires the session CSRF token. No file binary, credentials or device notes are accepted.",
+        "security": [
+          {
+            "basicAuth": [],
+            "csrfHeader": [],
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UploadedChapterRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful response.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StoredChapter"
+                }
+              }
+            },
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "no-store"
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid URL, pagination, provider or settings.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkflowProblem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required."
+          },
+          "403": {
+            "description": "Forbidden or session CSRF token invalid."
+          },
+          "404": {
+            "description": "Item not found for this authenticated user."
+          },
+          "409": {
+            "description": "Conflicting idempotency request, retry settings or job state.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkflowProblem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many active jobs."
+          },
+          "502": {
+            "description": "Source provider failed or requires source-site authentication.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkflowProblem"
+                }
+              }
+            }
+          },
+          "504": {
+            "description": "Source provider timed out."
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "basicAuth": {
+        "type": "http",
+        "scheme": "basic"
+      },
+      "csrfHeader": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "X-CSRF-TOKEN",
+        "description": "Use headerName/token returned by GET /api/v1/csrf."
+      },
+      "sessionCookie": {
+        "type": "apiKey",
+        "in": "cookie",
+        "name": "JSESSIONID"
+      }
+    },
+    "schemas": {
+      "Pagination": {
+        "type": "object",
+        "description": "Zero-based server pagination. totalPages=ceil(totalItems/size); hasNext=(page+1<totalPages).",
+        "required": [
+          "page",
+          "size",
+          "totalItems",
+          "totalPages",
+          "hasNext"
+        ],
+        "properties": {
+          "page": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "size": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 1
+          },
+          "totalItems": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "totalPages": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "hasNext": {
+            "type": "boolean"
+          }
+        }
+      },
+      "NovelSource": {
+        "type": "object",
+        "required": [
+          "id",
+          "displayName",
+          "defaultCatalogUrl",
+          "remoteSearch",
+          "requiresUrl",
+          "filters"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "displayName": {
+            "type": "string"
+          },
+          "defaultCatalogUrl": {
+            "type": "string",
+            "format": "uri",
+            "nullable": true
+          },
+          "remoteSearch": {
+            "type": "boolean"
+          },
+          "requiresUrl": {
+            "type": "boolean"
+          },
+          "filters": {
+            "$ref": "#/components/schemas/SourceFilters"
+          }
+        }
+      },
+      "NovelSourceList": {
+        "type": "object",
+        "required": [
+          "items"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/NovelSource"
+            }
+          }
+        }
+      },
+      "NovelBook": {
+        "type": "object",
+        "required": [
+          "bookId",
+          "title",
+          "url",
+          "authors",
+          "sourceLanguage",
+          "coverUrl",
+          "description",
+          "chapterCount",
+          "tags"
+        ],
+        "properties": {
+          "bookId": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "url": {
+            "type": "string",
+            "format": "uri"
+          },
+          "authors": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "sourceLanguage": {
+            "type": "string"
+          },
+          "coverUrl": {
+            "type": "string",
+            "format": "uri",
+            "nullable": true
+          },
+          "description": {
+            "type": "string",
+            "nullable": true
+          },
+          "chapterCount": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0,
+            "nullable": true
+          },
+          "tags": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "NovelCatalog": {
+        "type": "object",
+        "description": "A provider-owned, one-based catalog page. Unknown totals are null. UI pagination within this result is separate from fetching another provider page.",
+        "required": [
+          "sourceId",
+          "url",
+          "currentPage",
+          "totalPages",
+          "totalItems",
+          "hasPreviousPage",
+          "hasNextPage",
+          "items"
+        ],
+        "properties": {
+          "sourceId": {
+            "type": "string"
+          },
+          "url": {
+            "type": "string",
+            "format": "uri"
+          },
+          "currentPage": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 1
+          },
+          "totalPages": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0,
+            "nullable": true
+          },
+          "totalItems": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0,
+            "nullable": true
+          },
+          "hasPreviousPage": {
+            "type": "boolean"
+          },
+          "hasNextPage": {
+            "type": "boolean"
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/NovelBook"
+            }
+          }
+        }
+      },
+      "NovelChapter": {
+        "type": "object",
+        "required": [
+          "chapterId",
+          "number",
+          "title",
+          "url",
+          "sourceLanguage"
+        ],
+        "properties": {
+          "chapterId": {
+            "type": "string"
+          },
+          "number": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "title": {
+            "type": "string"
+          },
+          "url": {
+            "type": "string",
+            "format": "uri"
+          },
+          "sourceLanguage": {
+            "type": "string"
+          }
+        }
+      },
+      "NovelDetail": {
+        "type": "object",
+        "required": [
+          "sourceId",
+          "bookId",
+          "title",
+          "url",
+          "author",
+          "sourceLanguage",
+          "status",
+          "totalChapters",
+          "summary",
+          "tags",
+          "coverUrl",
+          "chapters",
+          "page",
+          "size",
+          "totalItems",
+          "totalPages",
+          "hasNext"
+        ],
+        "properties": {
+          "sourceId": {
+            "type": "string"
+          },
+          "bookId": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "url": {
+            "type": "string",
+            "format": "uri"
+          },
+          "author": {
+            "type": "string"
+          },
+          "sourceLanguage": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "totalChapters": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "summary": {
+            "type": "string"
+          },
+          "tags": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "coverUrl": {
+            "type": "string",
+            "format": "uri",
+            "nullable": true
+          },
+          "chapters": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/NovelChapter"
+            }
+          },
+          "page": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "size": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 1
+          },
+          "totalItems": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "totalPages": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "hasNext": {
+            "type": "boolean"
+          }
+        }
+      },
+      "SourceParagraph": {
+        "type": "object",
+        "description": "Stable source paragraph identity and original text. Ordinals preserve source order independently of rendered pages.",
+        "required": [
+          "paragraphId",
+          "ordinal",
+          "text"
+        ],
+        "properties": {
+          "paragraphId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "ordinal": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "text": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 1000000
+          }
+        }
+      },
+      "StoredChapter": {
+        "type": "object",
+        "description": "Immutable imported chapter revision belonging to the authenticated user. Paragraphs are returned only for import and detail.",
+        "required": [
+          "recordId",
+          "providerId",
+          "bookId",
+          "bookTitle",
+          "bookUrl",
+          "chapterId",
+          "chapterTitle",
+          "chapterUrl",
+          "sourceLanguage",
+          "sourceRevision",
+          "createdAt",
+          "paragraphs"
+        ],
+        "properties": {
+          "recordId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "providerId": {
+            "type": "string"
+          },
+          "bookId": {
+            "type": "string"
+          },
+          "bookTitle": {
+            "type": "string"
+          },
+          "bookUrl": {
+            "type": "string",
+            "description": "Original source URL; empty for an uploaded local document."
+          },
+          "chapterId": {
+            "type": "string"
+          },
+          "chapterTitle": {
+            "type": "string"
+          },
+          "chapterUrl": {
+            "type": "string",
+            "description": "Original source URL; empty for an uploaded local document."
+          },
+          "sourceLanguage": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 32
+          },
+          "sourceRevision": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "paragraphs": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SourceParagraph"
+            },
+            "minItems": 1,
+            "maxItems": 10000
+          }
+        }
+      },
+      "ChapterSummary": {
+        "type": "object",
+        "description": "Imported chapter metadata without paragraph bodies. Fetch /chapters/{recordId} before reading.",
+        "required": [
+          "recordId",
+          "providerId",
+          "bookId",
+          "bookTitle",
+          "bookUrl",
+          "chapterId",
+          "chapterTitle",
+          "chapterUrl",
+          "sourceLanguage",
+          "sourceRevision",
+          "createdAt",
+          "paragraphCount"
+        ],
+        "properties": {
+          "recordId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "providerId": {
+            "type": "string"
+          },
+          "bookId": {
+            "type": "string"
+          },
+          "bookTitle": {
+            "type": "string"
+          },
+          "bookUrl": {
+            "type": "string",
+            "description": "Original source URL; empty for an uploaded local document."
+          },
+          "chapterId": {
+            "type": "string"
+          },
+          "chapterTitle": {
+            "type": "string"
+          },
+          "chapterUrl": {
+            "type": "string",
+            "description": "Original source URL; empty for an uploaded local document."
+          },
+          "sourceLanguage": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 32
+          },
+          "sourceRevision": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "paragraphCount": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 1,
+            "maximum": 10000
+          }
+        }
+      },
+      "ChapterListResponse": {
+        "type": "object",
+        "required": [
+          "items",
+          "page",
+          "size",
+          "totalItems",
+          "totalPages",
+          "hasNext"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ChapterSummary"
+            }
+          },
+          "page": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "size": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 1
+          },
+          "totalItems": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "totalPages": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "hasNext": {
+            "type": "boolean"
+          }
+        }
+      },
+      "ImportChapterRequest": {
+        "type": "object",
+        "required": [
+          "url"
+        ],
+        "properties": {
+          "url": {
+            "type": "string",
+            "format": "uri",
+            "description": "Readable chapter URL, fetched on the server through the source provider."
+          },
+          "bookUrl": {
+            "type": "string",
+            "format": "uri",
+            "nullable": true,
+            "description": "Optional matching book detail URL. The source chapter must belong to this book."
+          }
+        }
+      },
+      "ProviderKind": {
+        "type": "string",
+        "enum": [
+          "GOOGLE_CLOUD",
+          "GOOGLE_WEB_TRANSLATE_HTML",
+          "DEEPSEEK",
+          "OPENAI_COMPATIBLE_LLM"
+        ]
+      },
+      "TranslationProvider": {
+        "type": "object",
+        "required": [
+          "id",
+          "displayName",
+          "configured",
+          "requiresKey",
+          "defaultEndpoint",
+          "defaultModel"
+        ],
+        "properties": {
+          "id": {
+            "$ref": "#/components/schemas/ProviderKind"
+          },
+          "displayName": {
+            "type": "string"
+          },
+          "configured": {
+            "type": "boolean"
+          },
+          "requiresKey": {
+            "type": "boolean"
+          },
+          "defaultEndpoint": {
+            "type": "string"
+          },
+          "defaultModel": {
+            "type": "string"
+          }
+        }
+      },
+      "TranslationProviderList": {
+        "type": "object",
+        "required": [
+          "providers"
+        ],
+        "properties": {
+          "providers": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TranslationProvider"
+            }
+          }
+        }
+      },
+      "GlossaryEntry": {
+        "type": "object",
+        "required": [
+          "source",
+          "target"
+        ],
+        "properties": {
+          "source": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "target": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          }
+        }
+      },
+      "TranslationJobSettings": {
+        "type": "object",
+        "description": "The normalized settings used for this job, without credentials. Reuse these values with providerKind and retryOf to resume committed paragraphs.",
+        "required": [
+          "sourceLanguage",
+          "targetLanguage",
+          "endpoint",
+          "model",
+          "glossary"
+        ],
+        "properties": {
+          "sourceLanguage": {
+            "type": "string"
+          },
+          "targetLanguage": {
+            "type": "string"
+          },
+          "endpoint": {
+            "type": "string"
+          },
+          "model": {
+            "type": "string"
+          },
+          "glossary": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/GlossaryEntry"
+            },
+            "maxItems": 200
+          }
+        }
+      },
+      "CreateTranslationJobRequest": {
+        "type": "object",
+        "required": [
+          "chapterRecordId",
+          "providerKind",
+          "targetLanguage",
+          "idempotencyKey"
+        ],
+        "properties": {
+          "chapterRecordId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "providerKind": {
+            "$ref": "#/components/schemas/ProviderKind"
+          },
+          "targetLanguage": {
+            "type": "string",
+            "pattern": "^[A-Za-z][A-Za-z0-9-]{0,23}$",
+            "description": "Target language must differ from source and must not be auto."
+          },
+          "idempotencyKey": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "sourceLanguage": {
+            "type": "string",
+            "nullable": true,
+            "description": "Defaults to the imported chapter language."
+          },
+          "endpoint": {
+            "type": "string",
+            "nullable": true,
+            "description": "LLM endpoint; must be allowed by server configuration. Never fetched by the browser."
+          },
+          "model": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 200
+          },
+          "apiKey": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 4096,
+            "writeOnly": true,
+            "description": "Memory-only credential for this execution. Must never be logged or written to job records, offline storage, URLs or response bodies."
+          },
+          "glossary": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/GlossaryEntry"
+            },
+            "maxItems": 200,
+            "description": "Source terms must be unique after case folding and trimming."
+          },
+          "retryOf": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true,
+            "description": "Retry a FAILED, CANCELLED or INTERRUPTED job with the same chapter revision and normalized settings. The server copies committed paragraph checkpoints."
+          }
+        }
+      },
+      "TranslationJob": {
+        "type": "object",
+        "description": "Server-owned execution. COMPLETED references a full immutable saved translation; partial translations are not published. Cancellation preserves imported source and committed checkpoints. Expired workers become INTERRUPTED.",
+        "required": [
+          "jobId",
+          "status",
+          "chapterRecordId",
+          "bookTitle",
+          "chapterTitle",
+          "providerKind",
+          "targetLanguage",
+          "settings",
+          "completedParagraphs",
+          "totalParagraphs",
+          "translationRecordId",
+          "errorCode",
+          "errorMessage",
+          "createdAt",
+          "updatedAt",
+          "canRetry"
+        ],
+        "properties": {
+          "jobId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "QUEUED",
+              "RUNNING",
+              "COMPLETED",
+              "FAILED",
+              "CANCELLED",
+              "INTERRUPTED"
+            ]
+          },
+          "chapterRecordId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "bookTitle": {
+            "type": "string"
+          },
+          "chapterTitle": {
+            "type": "string"
+          },
+          "providerKind": {
+            "$ref": "#/components/schemas/ProviderKind"
+          },
+          "targetLanguage": {
+            "type": "string"
+          },
+          "settings": {
+            "$ref": "#/components/schemas/TranslationJobSettings"
+          },
+          "completedParagraphs": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0,
+            "maximum": 10000
+          },
+          "totalParagraphs": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 1,
+            "maximum": 10000
+          },
+          "translationRecordId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "errorCode": {
+            "type": "string",
+            "nullable": true
+          },
+          "errorMessage": {
+            "type": "string",
+            "nullable": true
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "canRetry": {
+            "type": "boolean"
+          }
+        }
+      },
+      "TranslationJobListResponse": {
+        "type": "object",
+        "required": [
+          "items",
+          "page",
+          "size",
+          "totalItems",
+          "totalPages",
+          "hasNext"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TranslationJob"
+            }
+          },
+          "page": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "size": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 1
+          },
+          "totalItems": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "totalPages": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "hasNext": {
+            "type": "boolean"
+          }
+        }
+      },
+      "WorkflowProblem": {
+        "type": "object",
+        "description": "RFC 9457 problem response. Display safe messages; never echo provider exception details or credentials.",
+        "properties": {
+          "type": {
+            "type": "string",
+            "format": "uri"
+          },
+          "title": {
+            "type": "string"
+          },
+          "status": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "detail": {
+            "type": "string"
+          },
+          "instance": {
+            "type": "string",
+            "format": "uri"
+          },
+          "code": {
+            "type": "string"
+          }
+        }
+      },
+      "SourceFilterOption": {
+        "type": "object",
+        "required": [
+          "value",
+          "label"
+        ],
+        "properties": {
+          "value": {
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          }
+        }
+      },
+      "SourceFilters": {
+        "type": "object",
+        "required": [
+          "genres",
+          "sort",
+          "status",
+          "directions"
+        ],
+        "properties": {
+          "genres": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SourceFilterOption"
+            }
+          },
+          "sort": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SourceFilterOption"
+            }
+          },
+          "status": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SourceFilterOption"
+            }
+          },
+          "directions": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SourceFilterOption"
+            }
+          }
+        }
+      },
+      "UploadedChapterRequest": {
+        "type": "object",
+        "required": [
+          "bookId",
+          "bookTitle",
+          "chapterId",
+          "chapterTitle",
+          "sourceLanguage",
+          "paragraphs"
+        ],
+        "description": "Uploads extracted local document text only. Binary file assets are never accepted. Total paragraph text must not exceed 1,000,000 UTF-16 code units.",
+        "properties": {
+          "bookId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 2000
+          },
+          "bookTitle": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 2000
+          },
+          "chapterId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 2000
+          },
+          "chapterTitle": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 2000
+          },
+          "sourceLanguage": {
+            "type": "string",
+            "minLength": 2,
+            "maxLength": 24
+          },
+          "paragraphs": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 10000,
+            "items": {
+              "$ref": "#/components/schemas/SourceParagraph"
+            }
+          }
+        }
+      }
+    }
+  }
+}

@@ -10,7 +10,7 @@ import org.springframework.web.bind.annotation.PathVariable
 import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RequestMapping
-import org.springframework.web.bind.annotation.ResponseStatus
+import org.springframework.web.bind.annotation.RequestParam
 import org.springframework.web.bind.annotation.RestController
 
 @RestController
@@ -18,6 +18,13 @@ import org.springframework.web.bind.annotation.RestController
 class TranslationController(
     private val service: TranslationApplicationService,
 ) {
+    @GetMapping
+    fun list(
+        principal: Principal,
+        @RequestParam(defaultValue = "0") page: Int,
+        @RequestParam(defaultValue = "12") size: Int,
+    ): TranslationListResponse = service.list(principal.name, page, size)
+
     @PostMapping
     fun save(
         principal: Principal,

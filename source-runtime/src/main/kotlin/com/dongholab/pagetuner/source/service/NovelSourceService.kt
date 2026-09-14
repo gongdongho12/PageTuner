@@ -1,6 +1,7 @@
 package com.dongholab.pagetuner.source.service
 
 import com.dongholab.pagetuner.source.RenderedChapterLoader
+import com.dongholab.pagetuner.source.WtrLabCatalogQueryParams
 import com.dongholab.pagetuner.source.webnovel.*
 import java.io.IOException
 
@@ -16,7 +17,12 @@ data class NovelSourceInfo(
     val defaultCatalogUrl: String?,
     val remoteSearch: Boolean,
     val requiresUrl: Boolean,
+    val filters: NovelFilterCapabilities = NovelFilterCapabilities(),
 )
+
+data class NovelFilterOption(val value: String, val label: String)
+data class NovelFilterCapabilities(val genres: List<NovelFilterOption> = emptyList(), val sort: List<NovelFilterOption> = emptyList(),
+    val status: List<NovelFilterOption> = emptyList(), val directions: List<NovelFilterOption> = emptyList())
 data class NovelSourcesResponse(val items: List<NovelSourceInfo>)
 data class NovelBookSummary(
     val bookId: String,
@@ -95,10 +101,15 @@ class NovelSourceService(
         val manifest = plugin.manifest
         val adapter = registry.all().first { it.id == manifest.id }
         NovelSourceInfo(manifest.id, manifest.displayName, manifest.defaultCatalogUrl,
-            adapter.catalogCapabilities.remoteSearch, manifest.defaultCatalogUrl == null)
+            adapter.catalogCapabilities.remoteSearch, manifest.defaultCatalogUrl == null,
+            NovelFilterCapabilities(genres = adapter.catalogCapabilities.genreOptions.map { NovelFilterOption(it.key.orEmpty(), it.label) },
+                sort = if (adapter.id == "wtr-lab") WtrLabCatalogQueryParams.ORDER_BY_OPTIONS.map { NovelFilterOption(it.first, it.second) } else emptyList(),
+                status = if (adapter.id == "wtr-lab") WtrLabCatalogQueryParams.STATUS_OPTIONS.map { NovelFilterOption(it.first, it.second) } else emptyList(),
+                directions = if (adapter.id == "wtr-lab") listOf(NovelFilterOption("asc", "Ascending"), NovelFilterOption("desc", "Descending")) else emptyList()))
     })
 
-    suspend fun catalog(sourceId: String, url: String?, query: String?, page: Int): NovelCatalogResponse {
+    suspend fun catalog(sourceId: String, url: String?, query: String?, page: Int,
+        genre: String? = null, orderBy: String? = null, order: String? = null, status: String? = null): NovelCatalogResponse {
         require(page in 1..100_000) { "page must be between 1 and 100000." }
         require(query == null || query.length <= 200) { "query must be at most 200 characters." }
         val source = sources().items.firstOrNull { it.id == sourceId }
@@ -110,8 +121,16 @@ class NovelSourceService(
         require(adapter.classify(initialUrl) == WebNovelPageKind.Catalog) { "A catalog URL is required." }
         val canonical = adapter.canonicalCatalogUrl(initialUrl)
         val search = query?.trim()?.takeIf(String::isNotBlank)
-        val pageUrl = if (search != null) {
-            adapter.catalogSearchUrl(canonical, adapter.catalogRequest(canonical).copy(query = search, page = page))
+        val filters = adapter.catalogRequest(canonical).filters.toMutableMap()
+        fun option(value: String?, options: List<NovelFilterOption>, key: String) {
+            if (value == null) return
+            require(options.any { it.value == value }) { "Unsupported catalog filter: $key." }
+            if (value.isEmpty()) filters.remove(key) else filters[key] = value
+        }
+        option(genre, source.filters.genres, adapter.catalogCapabilities.genreFilterKey ?: "genre")
+        option(orderBy, source.filters.sort, "orderBy"); option(order, source.filters.directions, "order"); option(status, source.filters.status, "status")
+        val pageUrl = if (search != null || listOf(genre, orderBy, order, status).any { it != null }) {
+            adapter.catalogSearchUrl(canonical, adapter.catalogRequest(canonical).copy(query = search.orEmpty(), page = page, filters = filters))
                 ?: throw IllegalArgumentException("This source does not provide remote keyword search.")
         } else adapter.catalogPageUrl(canonical, page)
         val parsed = adapter.parseCatalogPage(transport.fetchText(pageUrl), pageUrl)

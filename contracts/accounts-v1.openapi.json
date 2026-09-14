@@ -1,0 +1,384 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "PageTurner accounts and language preferences",
+    "version": "1.0.0",
+    "description": "Username registration and account preferences. UI language and translation target are separate. Credentials remain in browser memory and all writes require a same-origin session CSRF token."
+  },
+  "security": [
+    {
+      "basicAuth": []
+    }
+  ],
+  "paths": {
+    "/api/v1/accounts/languages": {
+      "get": {
+        "operationId": "listAccountLanguages",
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Successful response.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AccountLanguages"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid account or language preference."
+          },
+          "401": {
+            "description": "Authentication required."
+          },
+          "403": {
+            "description": "Invalid CSRF token or forbidden."
+          },
+          "409": {
+            "description": "Username is unavailable."
+          }
+        }
+      }
+    },
+    "/api/v1/accounts/csrf": {
+      "get": {
+        "operationId": "getPublicAccountCsrf",
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Successful response.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CsrfResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid account or language preference."
+          },
+          "401": {
+            "description": "Authentication required."
+          },
+          "403": {
+            "description": "Invalid CSRF token or forbidden."
+          },
+          "409": {
+            "description": "Username is unavailable."
+          }
+        }
+      }
+    },
+    "/api/v1/accounts/register": {
+      "post": {
+        "operationId": "registerAccount",
+        "security": [
+          {
+            "csrfHeader": [],
+            "sessionCookie": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RegisterAccountRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful response.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AccountProfile"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid account or language preference."
+          },
+          "401": {
+            "description": "Authentication required."
+          },
+          "403": {
+            "description": "Invalid CSRF token or forbidden."
+          },
+          "409": {
+            "description": "Username is unavailable."
+          }
+        }
+      }
+    },
+    "/api/v1/accounts/me": {
+      "get": {
+        "operationId": "getMyAccount",
+        "responses": {
+          "200": {
+            "description": "Successful response.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AccountProfile"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid account or language preference."
+          },
+          "401": {
+            "description": "Authentication required."
+          },
+          "403": {
+            "description": "Invalid CSRF token or forbidden."
+          },
+          "409": {
+            "description": "Username is unavailable."
+          }
+        }
+      },
+      "patch": {
+        "operationId": "updateMyAccount",
+        "description": "Idempotently replace displayName, locale and targetLanguage; all three are required. Obtain an authenticated token from GET /api/v1/csrf.",
+        "security": [
+          {
+            "basicAuth": [],
+            "csrfHeader": [],
+            "sessionCookie": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AccountPreferences"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful response.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AccountProfile"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid account or language preference."
+          },
+          "401": {
+            "description": "Authentication required."
+          },
+          "403": {
+            "description": "Invalid CSRF token or forbidden."
+          },
+          "409": {
+            "description": "Username is unavailable."
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "basicAuth": {
+        "type": "http",
+        "scheme": "basic"
+      },
+      "csrfHeader": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "X-CSRF-TOKEN"
+      },
+      "sessionCookie": {
+        "type": "apiKey",
+        "in": "cookie",
+        "name": "JSESSIONID"
+      }
+    },
+    "schemas": {
+      "AccountProfile": {
+        "type": "object",
+        "required": [
+          "accountId",
+          "username",
+          "displayName",
+          "locale",
+          "targetLanguage",
+          "effectiveLocale"
+        ],
+        "properties": {
+          "accountId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "username": {
+            "type": "string"
+          },
+          "displayName": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 80
+          },
+          "locale": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 35,
+            "description": "Valid BCP 47 preference. ko-* resolves to ko, en-* to en; other registered or future locales currently fall back to en."
+          },
+          "targetLanguage": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 24,
+            "description": "Concrete BCP 47 translation target; auto is not permitted."
+          },
+          "effectiveLocale": {
+            "type": "string",
+            "description": "Available interface pack used for this preference. Initially ko or en; additional packs may be registered without changing the account shape."
+          }
+        }
+      },
+      "AccountPreferences": {
+        "type": "object",
+        "required": [
+          "displayName",
+          "locale",
+          "targetLanguage"
+        ],
+        "properties": {
+          "displayName": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 80
+          },
+          "locale": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 35,
+            "description": "Valid BCP 47 preference. ko-* resolves to ko, en-* to en; other registered or future locales currently fall back to en."
+          },
+          "targetLanguage": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 24,
+            "description": "Concrete BCP 47 translation target; auto is not permitted."
+          }
+        }
+      },
+      "RegisterAccountRequest": {
+        "type": "object",
+        "required": [
+          "username",
+          "password",
+          "displayName",
+          "locale",
+          "targetLanguage"
+        ],
+        "properties": {
+          "username": {
+            "type": "string",
+            "minLength": 3,
+            "maxLength": 40,
+            "pattern": "^[a-z0-9][a-z0-9_.-]*$",
+            "description": "Trimmed and normalized to lowercase."
+          },
+          "password": {
+            "type": "string",
+            "minLength": 10,
+            "writeOnly": true,
+            "description": "Whitespace is preserved. At most 72 UTF-8 bytes; control characters are prohibited."
+          },
+          "displayName": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 80
+          },
+          "locale": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 35,
+            "description": "Valid BCP 47 preference. ko-* resolves to ko, en-* to en; other registered or future locales currently fall back to en."
+          },
+          "targetLanguage": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 24,
+            "description": "Concrete BCP 47 translation target; auto is not permitted."
+          }
+        }
+      },
+      "AccountLanguage": {
+        "type": "object",
+        "required": [
+          "tag",
+          "nativeName",
+          "displayName",
+          "available",
+          "fallbackTag"
+        ],
+        "properties": {
+          "tag": {
+            "type": "string"
+          },
+          "nativeName": {
+            "type": "string"
+          },
+          "displayName": {
+            "type": "string"
+          },
+          "available": {
+            "type": "boolean"
+          },
+          "fallbackTag": {
+            "type": "string"
+          }
+        }
+      },
+      "AccountLanguages": {
+        "type": "object",
+        "required": [
+          "items",
+          "defaultTag"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AccountLanguage"
+            }
+          },
+          "defaultTag": {
+            "type": "string"
+          }
+        }
+      },
+      "CsrfResponse": {
+        "type": "object",
+        "required": [
+          "token",
+          "headerName"
+        ],
+        "properties": {
+          "token": {
+            "type": "string"
+          },
+          "headerName": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  }
+}

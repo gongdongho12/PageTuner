@@ -10,6 +10,22 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class NovelSourceServiceTest {
+    @Test fun catalogFilterCapabilitiesUseProviderKeysAndRejectUnsupportedValues() {
+        var requested = ""
+        val service = NovelSourceService(object : NovelHttpTransport {
+            override suspend fun fetchText(url: String): String { requested = url; throw IOException("Captured request") }
+            override suspend fun postJson(url: String, body: String, referer: String): String = error("Unexpected POST")
+        })
+        assertThrows(IOException::class.java) { runBlocking {
+            service.catalog("wtr-lab", null, "reader", 3, "9", "views", "asc", "completed")
+        } }
+        assertTrue(requested.contains("gi=9")); assertTrue(requested.contains("orderBy=view"))
+        assertTrue(requested.contains("order=asc")); assertTrue(requested.contains("status=completed")); assertTrue(requested.contains("page=3"))
+        assertThrows(IOException::class.java) { runBlocking { service.catalog("novelbuddy", null, "reader", 2, "action") } }
+        assertTrue(requested.contains("genres=action")); assertTrue(requested.contains("page=2"))
+        assertThrows(IllegalArgumentException::class.java) { runBlocking { service.catalog("novelbuddy", null, null, 1, orderBy = "views") } }
+        assertThrows(IllegalArgumentException::class.java) { runBlocking { service.catalog("wtr-lab", null, null, 1, genre = "99999") } }
+    }
     @Test
     fun wtrCatalogDetailAndChapterUseOneInjectedTransportAndStableIdentities() = runBlocking {
         val calls = mutableListOf<String>()
