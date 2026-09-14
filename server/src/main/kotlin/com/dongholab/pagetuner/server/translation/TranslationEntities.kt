@@ -11,6 +11,7 @@ import jakarta.persistence.Id
 import jakarta.persistence.Table
 import jakarta.persistence.UniqueConstraint
 import java.time.Instant
+import java.time.temporal.ChronoUnit
 import java.util.UUID
 
 @Entity
@@ -26,9 +27,9 @@ import java.util.UUID
 class TranslationArtifactEntity(
     @Column(name = "user_id", nullable = false, length = 120)
     var userId: String,
-    @Column(name = "provider_book_id", nullable = false, length = 160)
+    @Column(name = "provider_book_id", nullable = false, columnDefinition = "text")
     var providerBookId: String,
-    @Column(name = "chapter_id", nullable = false, length = 240)
+    @Column(name = "chapter_id", nullable = false, columnDefinition = "text")
     var chapterId: String,
     @Column(name = "source_revision", nullable = false, length = 64)
     var sourceRevision: String,
@@ -36,9 +37,9 @@ class TranslationArtifactEntity(
     var sourceLanguage: String,
     @Column(name = "target_language", nullable = false, length = 24)
     var targetLanguage: String,
-    @Column(name = "translation_provider_id", nullable = false, length = 80)
+    @Column(name = "translation_provider_id", nullable = false, columnDefinition = "text")
     var translationProviderId: String,
-    @Column(name = "model_id", nullable = false, length = 160)
+    @Column(name = "model_id", nullable = false, columnDefinition = "text")
     var modelId: String,
     @Column(name = "prompt_revision", nullable = false, length = 80)
     var promptRevision: String,
@@ -52,8 +53,18 @@ class TranslationArtifactEntity(
     var payloadHash: String,
     @Column(name = "paragraphs_json", nullable = false, columnDefinition = "text")
     var paragraphsJson: String,
+    // V1 stored only a trimmed, colon-joined identifier. Null means the original
+    // components must be supplied again; splitting that identifier would guess.
+    @Column(name = "content_provider_id", columnDefinition = "text")
+    var contentProviderId: String? = null,
+    @Column(name = "book_id", columnDefinition = "text")
+    var bookId: String? = null,
+    @Column(name = "book_title", columnDefinition = "text")
+    var bookTitle: String? = null,
+    @Column(name = "chapter_title", columnDefinition = "text")
+    var chapterTitle: String? = null,
     @Column(name = "created_at", nullable = false)
-    var createdAt: Instant = Instant.now(),
+    var createdAt: Instant = Instant.now().truncatedTo(ChronoUnit.MICROS),
     @Column(name = "updated_at", nullable = false)
     var updatedAt: Instant = Instant.now(),
     @Id
@@ -87,7 +98,7 @@ class TranslationBackupEntity(
     @Column(name = "remote_file_id", length = 240)
     var remoteFileId: String? = null,
     @Column(name = "created_at", nullable = false)
-    var createdAt: Instant = Instant.now(),
+    var createdAt: Instant = Instant.now().truncatedTo(ChronoUnit.MICROS),
     @Column(name = "updated_at", nullable = false)
     var updatedAt: Instant = Instant.now(),
     @Id

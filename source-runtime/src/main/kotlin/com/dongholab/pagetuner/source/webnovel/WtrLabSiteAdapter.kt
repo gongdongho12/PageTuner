@@ -75,6 +75,9 @@ class WtrLabSiteAdapter(
         val current = WtrLabCatalogQueryParams.fromUrl(url)
         return current.copy(
             query = request.query.trim(),
+            orderBy = request.filters["orderBy"] ?: current.orderBy,
+            order = request.filters["order"] ?: current.order,
+            status = request.filters["status"] ?: current.status,
             genreId = request.filters["genreId"]?.toIntOrNull(),
             page = request.page.coerceAtLeast(1),
         ).buildUrl(url)
