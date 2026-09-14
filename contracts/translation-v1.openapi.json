@@ -1,0 +1,675 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "PageTurner translation sync",
+    "version": "1.0.0",
+    "description": "Explicit publication and retrieval of paragraph translations. No background synchronization, source-to-paragraph inference or translation execution. Kotlin domain contracts remain framework-free. The v1 identity encoding is preserved."
+  },
+  "servers": [
+    {
+      "url": "http://127.0.0.1:8080",
+      "description": "Local development only; use HTTPS for non-loopback deployments."
+    }
+  ],
+  "security": [
+    {
+      "basicAuth": []
+    }
+  ],
+  "paths": {
+    "/api/v1/csrf": {
+      "get": {
+        "operationId": "getCsrfToken",
+        "description": "Authenticate, retain the session cookie and send the returned token under headerName on POST. The response has Cache-Control: no-store. Tokens and credentials must not be persisted in caches or logs.",
+        "responses": {
+          "200": {
+            "description": "CSRF token for the current session.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CsrfResponse"
+                }
+              }
+            },
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "no-store"
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required."
+          }
+        }
+      }
+    },
+    "/api/v1/translations": {
+      "post": {
+        "operationId": "saveTranslation",
+        "description": "Repeated saves of the same authenticated user's artifact/revision reuse one record. A fully specified repeat POST can repair missing original book metadata on a legacy record. No source content is fetched or translated.",
+        "security": [
+          {
+            "basicAuth": [],
+            "csrfHeader": [],
+            "sessionCookie": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SaveTranslationRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Existing record reused (created=false).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TranslationResponse"
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "Created (created=true).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TranslationResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid or inconsistent content.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required."
+          },
+          "403": {
+            "description": "Missing or invalid CSRF token/session."
+          },
+          "409": {
+            "description": "Stored identity cannot be reconciled with the supplied metadata.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "operationId": "listTranslations",
+        "description": "Lists only the authenticated user's saved revisions whose original contentProviderId and bookId are available. Legacy rows missing those fields are omitted from both items and totals. Items are ordered by createdAt DESC, recordId DESC. The zero-based page defaults to 0 and size defaults to 12. Size must be 1..50 and page*size must not exceed 2147483647. Pages beyond the end return empty items with unchanged totals. Paragraph bodies are excluded. Each saved revision remains a separate entry.",
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "minimum": 0,
+              "default": 0
+            }
+          },
+          {
+            "name": "size",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "minimum": 1,
+              "maximum": 50,
+              "default": 12
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A page of the authenticated user's complete translation metadata.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TranslationListResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid page, size or excessive page offset.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required."
+          }
+        }
+      }
+    },
+    "/api/v1/translations/{recordId}": {
+      "get": {
+        "operationId": "getTranslation",
+        "parameters": [
+          {
+            "name": "recordId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "description": "Returns a complete artifact owned by the authenticated user (created=false). Clients validate artifactId/revision/payloadHash and expected source/settings before writing to a local cache.",
+        "responses": {
+          "200": {
+            "description": "Complete saved translation.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TranslationResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid record identifier.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required."
+          },
+          "404": {
+            "description": "Record absent or owned by another user."
+          },
+          "409": {
+            "description": "Legacy record lacks the original book identifiers required for a safe restore. Republish the original complete artifact to repair it.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "basicAuth": {
+        "type": "http",
+        "scheme": "basic"
+      },
+      "csrfHeader": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "X-CSRF-TOKEN",
+        "description": "Use the headerName and token returned by /api/v1/csrf."
+      },
+      "sessionCookie": {
+        "type": "apiKey",
+        "in": "cookie",
+        "name": "JSESSIONID"
+      }
+    },
+    "schemas": {
+      "Paragraph": {
+        "type": "object",
+        "required": [
+          "paragraphId",
+          "text"
+        ],
+        "properties": {
+          "paragraphId": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": "\\S"
+          },
+          "text": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": "\\S"
+          }
+        }
+      },
+      "SaveTranslationRequest": {
+        "type": "object",
+        "required": [
+          "contentProviderId",
+          "bookId",
+          "chapterId",
+          "sourceRevision",
+          "sourceLanguage",
+          "targetLanguage",
+          "translationProviderId",
+          "paragraphs"
+        ],
+        "properties": {
+          "contentProviderId": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": "\\S"
+          },
+          "bookId": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": "\\S"
+          },
+          "chapterId": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": "\\S"
+          },
+          "sourceRevision": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": "\\S"
+          },
+          "sourceLanguage": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": "\\S"
+          },
+          "targetLanguage": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": "\\S"
+          },
+          "translationProviderId": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": "\\S"
+          },
+          "modelId": {
+            "type": "string",
+            "default": ""
+          },
+          "promptRevision": {
+            "type": "string",
+            "default": ""
+          },
+          "glossaryRevision": {
+            "type": "string",
+            "default": ""
+          },
+          "paragraphs": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "$ref": "#/components/schemas/Paragraph"
+            }
+          },
+          "bookTitle": {
+            "type": "string",
+            "description": "Optional human-readable display title. Does not participate in paragraph, artifact or revision hashes; legacy records may omit it."
+          },
+          "chapterTitle": {
+            "type": "string",
+            "description": "Optional human-readable display title. Does not participate in paragraph, artifact or revision hashes; legacy records may omit it."
+          }
+        },
+        "example": {
+          "contentProviderId": "fixture-site",
+          "bookId": "book-42",
+          "chapterId": "chapter-7",
+          "sourceRevision": "source-v1",
+          "sourceLanguage": "en",
+          "targetLanguage": "ko",
+          "translationProviderId": "fixture-translator",
+          "modelId": "model-v1",
+          "promptRevision": "prompt-v1",
+          "glossaryRevision": "glossary-v1",
+          "paragraphs": [
+            {
+              "paragraphId": "p-1",
+              "text": "첫 번째 문단입니다."
+            },
+            {
+              "paragraphId": "p-2",
+              "text": "두 번째 문단입니다."
+            }
+          ]
+        }
+      },
+      "TranslationResponse": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/SaveTranslationRequest"
+          },
+          {
+            "type": "object",
+            "required": [
+              "contentProviderId",
+              "bookId",
+              "chapterId",
+              "sourceRevision",
+              "sourceLanguage",
+              "targetLanguage",
+              "translationProviderId",
+              "modelId",
+              "promptRevision",
+              "glossaryRevision",
+              "paragraphs",
+              "recordId",
+              "artifactId",
+              "revision",
+              "payloadHash",
+              "created",
+              "createdAt"
+            ],
+            "properties": {
+              "recordId": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "artifactId": {
+                "type": "string",
+                "pattern": "^[a-f0-9]{64}$"
+              },
+              "revision": {
+                "type": "string",
+                "pattern": "^[a-f0-9]{64}$"
+              },
+              "payloadHash": {
+                "type": "string",
+                "pattern": "^[a-f0-9]{64}$"
+              },
+              "created": {
+                "type": "boolean"
+              },
+              "createdAt": {
+                "type": "string",
+                "format": "date-time"
+              }
+            }
+          }
+        ],
+        "example": {
+          "recordId": "5ca57e1a-0b31-40f2-a170-0e68b546e0ca",
+          "artifactId": "c9cf8eada168518eba1340f1e9cfe136b0ac3509da949da0551afc18f6de5c26",
+          "revision": "c1310764c870042b1297181c6a94a8e00e06e06e93d5aff8aaf3da7aa70e29a5",
+          "payloadHash": "444a7063ccbd87c1984846efb0edb98b9d46d5f22efbaf0953c05fba951ade1a",
+          "created": true,
+          "createdAt": "2026-09-14T00:00:00Z",
+          "contentProviderId": "fixture-site",
+          "bookId": "book-42",
+          "chapterId": "chapter-7",
+          "sourceRevision": "source-v1",
+          "sourceLanguage": "en",
+          "targetLanguage": "ko",
+          "translationProviderId": "fixture-translator",
+          "modelId": "model-v1",
+          "promptRevision": "prompt-v1",
+          "glossaryRevision": "glossary-v1",
+          "paragraphs": [
+            {
+              "paragraphId": "p-1",
+              "text": "첫 번째 문단입니다."
+            },
+            {
+              "paragraphId": "p-2",
+              "text": "두 번째 문단입니다."
+            }
+          ]
+        }
+      },
+      "CsrfResponse": {
+        "type": "object",
+        "required": [
+          "headerName",
+          "token"
+        ],
+        "properties": {
+          "headerName": {
+            "type": "string",
+            "example": "X-CSRF-TOKEN"
+          },
+          "token": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      },
+      "Problem": {
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "string"
+          },
+          "status": {
+            "type": "integer"
+          },
+          "detail": {
+            "type": "string"
+          }
+        }
+      },
+      "TranslationSummary": {
+        "type": "object",
+        "description": "A saved translation revision without paragraph bodies. Revisions are separate entries.",
+        "required": [
+          "recordId",
+          "contentProviderId",
+          "bookId",
+          "chapterId",
+          "sourceLanguage",
+          "targetLanguage",
+          "translationProviderId",
+          "modelId",
+          "promptRevision",
+          "glossaryRevision",
+          "sourceRevision",
+          "artifactId",
+          "revision",
+          "payloadHash",
+          "createdAt",
+          "paragraphCount"
+        ],
+        "properties": {
+          "recordId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "contentProviderId": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": "\\S"
+          },
+          "bookId": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": "\\S"
+          },
+          "chapterId": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": "\\S"
+          },
+          "sourceLanguage": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": "\\S"
+          },
+          "targetLanguage": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": "\\S"
+          },
+          "translationProviderId": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": "\\S"
+          },
+          "modelId": {
+            "type": "string",
+            "default": ""
+          },
+          "promptRevision": {
+            "type": "string",
+            "default": ""
+          },
+          "glossaryRevision": {
+            "type": "string",
+            "default": ""
+          },
+          "sourceRevision": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": "\\S"
+          },
+          "artifactId": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          },
+          "revision": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          },
+          "payloadHash": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "paragraphCount": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "bookTitle": {
+            "type": "string",
+            "description": "Optional human-readable display title. Does not participate in paragraph, artifact or revision hashes; legacy records may omit it."
+          },
+          "chapterTitle": {
+            "type": "string",
+            "description": "Optional human-readable display title. Does not participate in paragraph, artifact or revision hashes; legacy records may omit it."
+          }
+        },
+        "example": {
+          "recordId": "5ca57e1a-0b31-40f2-a170-0e68b546e0ca",
+          "contentProviderId": "fixture-site",
+          "bookId": "book-42",
+          "chapterId": "chapter-7",
+          "sourceLanguage": "en",
+          "targetLanguage": "ko",
+          "translationProviderId": "fixture-translator",
+          "modelId": "model-v1",
+          "promptRevision": "prompt-v1",
+          "glossaryRevision": "glossary-v1",
+          "sourceRevision": "source-v1",
+          "artifactId": "c9cf8eada168518eba1340f1e9cfe136b0ac3509da949da0551afc18f6de5c26",
+          "revision": "c1310764c870042b1297181c6a94a8e00e06e06e93d5aff8aaf3da7aa70e29a5",
+          "payloadHash": "444a7063ccbd87c1984846efb0edb98b9d46d5f22efbaf0953c05fba951ade1a",
+          "createdAt": "2026-09-14T00:00:00Z",
+          "paragraphCount": 2
+        }
+      },
+      "TranslationListResponse": {
+        "type": "object",
+        "required": [
+          "items",
+          "page",
+          "size",
+          "totalItems",
+          "totalPages",
+          "hasNext"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "maxItems": 50,
+            "items": {
+              "$ref": "#/components/schemas/TranslationSummary"
+            }
+          },
+          "page": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "size": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 1,
+            "maximum": 50
+          },
+          "totalItems": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "totalPages": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "hasNext": {
+            "type": "boolean"
+          }
+        },
+        "example": {
+          "items": [
+            {
+              "recordId": "5ca57e1a-0b31-40f2-a170-0e68b546e0ca",
+              "contentProviderId": "fixture-site",
+              "bookId": "book-42",
+              "chapterId": "chapter-7",
+              "sourceLanguage": "en",
+              "targetLanguage": "ko",
+              "translationProviderId": "fixture-translator",
+              "modelId": "model-v1",
+              "promptRevision": "prompt-v1",
+              "glossaryRevision": "glossary-v1",
+              "sourceRevision": "source-v1",
+              "artifactId": "c9cf8eada168518eba1340f1e9cfe136b0ac3509da949da0551afc18f6de5c26",
+              "revision": "c1310764c870042b1297181c6a94a8e00e06e06e93d5aff8aaf3da7aa70e29a5",
+              "payloadHash": "444a7063ccbd87c1984846efb0edb98b9d46d5f22efbaf0953c05fba951ade1a",
+              "createdAt": "2026-09-14T00:00:00Z",
+              "paragraphCount": 2
+            }
+          ],
+          "page": 0,
+          "size": 12,
+          "totalItems": 1,
+          "totalPages": 1,
+          "hasNext": false
+        }
+      }
+    }
+  }
+}

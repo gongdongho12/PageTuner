@@ -1,0 +1,28 @@
+{
+  "recordId": "5ca57e1a-0b31-40f2-a170-0e68b546e0ca",
+  "artifactId": "c9cf8eada168518eba1340f1e9cfe136b0ac3509da949da0551afc18f6de5c26",
+  "revision": "c1310764c870042b1297181c6a94a8e00e06e06e93d5aff8aaf3da7aa70e29a5",
+  "payloadHash": "444a7063ccbd87c1984846efb0edb98b9d46d5f22efbaf0953c05fba951ade1a",
+  "created": true,
+  "createdAt": "2026-09-14T00:00:00Z",
+  "contentProviderId": "fixture-site",
+  "bookId": "book-42",
+  "chapterId": "chapter-7",
+  "sourceRevision": "source-v1",
+  "sourceLanguage": "en",
+  "targetLanguage": "ko",
+  "translationProviderId": "fixture-translator",
+  "modelId": "model-v1",
+  "promptRevision": "prompt-v1",
+  "glossaryRevision": "glossary-v1",
+  "paragraphs": [
+    {
+      "paragraphId": "p-1",
+      "text": "첫 번째 문단입니다."
+    },
+    {
+      "paragraphId": "p-2",
+      "text": "두 번째 문단입니다."
+    }
+  ]
+}

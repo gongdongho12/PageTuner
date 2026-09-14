@@ -3,9 +3,9 @@ package com.dongholab.pagetuner.source.offline
 import android.content.Context
 import com.dongholab.pagetuner.document.DocumentIds
 import com.dongholab.pagetuner.source.RemoteBookItem
+import com.dongholab.pagetuner.storage.replaceFileAtomically
 import java.io.File
 import java.io.FileOutputStream
-import java.io.IOException
 import org.json.JSONObject
 
 data class OfflineChapterTranslation(
@@ -322,7 +322,7 @@ class OfflineNovelStorageStore private constructor(
                 output.write(bytes)
                 output.fd.sync()
             }
-            if (!temporary.renameTo(this)) throw IOException("Could not save offline chapter.")
+            replaceFileAtomically(temporary, this)
         } finally {
             if (temporary.exists()) temporary.delete()
         }
