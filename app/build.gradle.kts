@@ -73,17 +73,21 @@ android {
         compose = true
         buildConfig = true
     }
+    sourceSets.getByName("test").resources.srcDir(rootProject.file("contracts/fixtures"))
 }
 
 dependencies {
     implementation(project(":core-model"))
     implementation(project(":core-translation"))
     implementation(project(":core-backup"))
+    implementation(project(":source-runtime"))
+    implementation(project(":translation-runtime"))
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.activity.compose)
     implementation(libs.androidx.compose.material3)
     implementation(libs.androidx.compose.material.icons.extended)
     implementation(libs.coil.compose)
+    implementation("com.squareup.okhttp3:okhttp:4.12.0")
     implementation(libs.androidx.compose.ui)
     implementation(libs.androidx.compose.ui.graphics)
     implementation(libs.androidx.compose.ui.tooling.preview)
@@ -102,4 +106,28 @@ dependencies {
     androidTestImplementation(libs.androidx.junit)
     debugImplementation(libs.androidx.compose.ui.test.manifest)
     debugImplementation(libs.androidx.compose.ui.tooling)
+}
+
+// Real server validation is opt-in and never appears as a skipped/default unit test.
+tasks.withType<Test>().configureEach {
+    if (name != "translationServerIntegrationTest") {
+        exclude("**/TranslationServerIntegrationTest.class")
+    }
+}
+
+tasks.register<Test>("translationServerIntegrationTest") {
+    group = "verification"
+    description = "Runs the Android translation adapter against an explicitly configured local server."
+    val unitTest = tasks.named<Test>("testDebugUnitTest")
+    testClassesDirs = unitTest.get().testClassesDirs
+    classpath = unitTest.get().classpath
+    include("**/TranslationServerIntegrationTest.class")
+    useJUnit()
+    // The additional real-provider read check is included only when explicitly supplied records exist.
+    // Supplying only one ID still runs the test and fails with the missing environment name.
+    if (System.getenv("PAGETUNER_LIVE_TRANSLATION_RECORD_ID").isNullOrBlank() &&
+        System.getenv("PAGETUNER_LIVE_CHAPTER_RECORD_ID").isNullOrBlank()) {
+        filter.excludeTestsMatching("*.TranslationServerIntegrationTest.realGoogleServerTranslationIsReadableWithMatchingOriginalAndTitles")
+    }
+    outputs.upToDateWhen { false }
 }

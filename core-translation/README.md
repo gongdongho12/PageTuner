@@ -18,6 +18,8 @@ flowchart LR
 - `CatalogTranslationService`: 항목 → 한 번의 명명된 필드 묶음 요청 → 제목/설명 결과.
 - `ContentTranslationPort`: 공급자와 저장소 구현을 주입하는 경계. 언어는 공용 값으로 전달.
 - `TranslationFieldSegmenter`: 400자 분할과 기존 v1 document/segment ID 계산을 공유.
+- `TranslationStore`: 완전한 문단 번역본의 명시적 저장/조회 계약. Android HTTP 구현과
+  서버의 `StoredTranslation` / `TranslationSaveResult` 응답 매핑이 같은 도메인 모델을 사용.
 - 자격증명·구독/공급자 선택·재시도·실행 디스패처·HTTP와 DB는 플랫폼 구현체 책임.
 
 서버 작업에서는 이 PR을 merge하거나 공용 변경 커밋을 cherry-pick한 후
@@ -30,3 +32,7 @@ flowchart LR
 검증: `./gradlew -PbuildTarget=core verifyModuleBoundaries :core-translation:test`.
 테스트는 실제 공용 코드에 fixture 포트를 주입합니다. 외부 번역 API나 서버 DB의
 실동작 검증으로 해석하지 않습니다.
+
+번역본 동기화의 HTTP 계약과 공통 샘플은 `contracts/translation-v1.openapi.json` 및
+`contracts/fixtures/translation-v1/`에 있습니다. 앱과 서버 테스트가 동일 샘플을 읽어
+필드와 기존 해시 계산의 호환성을 확인합니다. [동기화 범위](../docs/TRANSLATION_SYNC.md).

@@ -2,6 +2,7 @@ package com.dongholab.pagetuner.source
 
 import com.dongholab.pagetuner.core.content.StableContentHash
 import com.dongholab.pagetuner.core.paging.PageMetadata
+import com.dongholab.pagetuner.storage.replaceFileAtomically
 import java.io.File
 import java.io.IOException
 import kotlinx.coroutines.Dispatchers
@@ -74,7 +75,7 @@ class FileWebCatalogPageStore(
         val temporary = File.createTempFile("page-", ".tmp", directory)
         try {
             temporary.writeBytes(bytes)
-            if (!temporary.renameTo(fileFor(key))) throw IOException("Cannot atomically replace cached page")
+            replaceFileAtomically(temporary, fileFor(key))
         } finally {
             temporary.delete()
         }
