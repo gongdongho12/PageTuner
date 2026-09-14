@@ -10,6 +10,17 @@ class ContentTranslationTest {
     private val languages = TranslationLanguages("en", "ko")
 
     @Test
+    fun fieldChunksPreserveSupplementaryCharactersAtEveryLegacyBoundary() {
+        val text = "a".repeat(399) + "\uD83D\uDE00" + "b".repeat(397) + "\uD83D\uDE03" + "end"
+        val request = ContentTranslationRequest("web-catalog-v1", "Emoji", listOf(TranslatableField("book:description", text)))
+        val plan = TranslationFieldSegmenter.create(request)
+        assertEquals(text, plan.segments.joinToString("") { it.text })
+        assertTrue(plan.segments.all { it.text.length <= 400 && !it.text.last().isHighSurrogate() && !it.text.first().isLowSurrogate() })
+        assertEquals(399, plan.segments.first().text.length)
+        assertEquals(plan.segments, TranslationFieldSegmenter.create(request).segments)
+    }
+
+    @Test
     fun segmentationMatchesLegacyCacheAndSurvivesSubsetAndReordering() {
         val fields = listOf(TranslatableField("book:title", "a".repeat(401)), TranslatableField("other", "Other"))
         val plan = TranslationFieldSegmenter.create(ContentTranslationRequest("web-catalog-v1", "Display", fields))

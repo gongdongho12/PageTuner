@@ -8,8 +8,12 @@ import org.springframework.http.ProblemDetail
 import org.springframework.web.bind.annotation.ExceptionHandler
 import org.springframework.web.bind.annotation.RestControllerAdvice
 
-@RestControllerAdvice(assignableTypes = [NovelController::class, com.dongholab.pagetuner.server.workflow.WorkflowController::class])
+@RestControllerAdvice(assignableTypes = [NovelController::class, com.dongholab.pagetuner.server.workflow.WorkflowController::class,
+    com.dongholab.pagetuner.server.catalog.JsonCatalogController::class])
 class NovelErrors {
+    @ExceptionHandler(com.dongholab.pagetuner.server.catalog.InvalidJsonCatalog::class)
+    fun invalidCatalog(): ProblemDetail = problem(HttpStatus.BAD_GATEWAY,
+        "The remote catalog does not match pagetuner.catalog.v0.", "catalog_invalid")
     @ExceptionHandler(WebNovelAuthenticationRequiredException::class)
     fun authenticationRequired(): ProblemDetail = problem(HttpStatus.BAD_GATEWAY,
         "This chapter requires an account on the source website; server import cannot complete it.", "source_auth_required")

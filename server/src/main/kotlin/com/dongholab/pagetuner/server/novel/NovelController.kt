@@ -11,7 +11,9 @@ import org.springframework.web.bind.annotation.RestController
 @Configuration
 class NovelSourceConfiguration {
     @Bean
-    fun novelSourceService(): NovelSourceService = NovelSourceService(PublicHttpsNovelHttpClient())
+    fun publicHttpsNovelHttpClient() = PublicHttpsNovelHttpClient()
+    @Bean
+    fun novelSourceService(client: PublicHttpsNovelHttpClient): NovelSourceService = NovelSourceService(client)
 }
 
 @RestController
