@@ -1,5 +1,9 @@
 /** Korean source keys keep existing copy readable. Add packs through registerLanguagePack. */
 export const englishMessages: Record<string, string> = {
+  '현재 목록': 'Current list',
+  '사이트의 다음 목록 불러오기': 'Load the next catalog page',
+  '이전 목록': 'Previous list',
+  '다음 목록': 'Next list',
   '연결 확인': 'Check connection',
   '짧은 예문으로 확인': 'Test with a short sample',
   '연결 확인 취소': 'Cancel check',
