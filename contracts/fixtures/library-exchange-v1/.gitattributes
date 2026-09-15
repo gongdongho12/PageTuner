@@ -1,0 +1,6 @@
+# Manifest hashes describe exact bytes, independent of checkout line endings.
+assets/* binary
+documents/*.json -text
+manifest.json -text
+portable-v1.zip binary
+generate-fixture.mjs text eol=lf

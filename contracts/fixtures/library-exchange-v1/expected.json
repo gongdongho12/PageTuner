@@ -1,0 +1,18 @@
+{
+  "createdAt": "2026-09-15T00:00:00Z",
+  "documentIds": [
+    "fixture:original",
+    "fixture:translation",
+    "fixture:pdf"
+  ],
+  "assetSha256": [
+    "e878950f8091ec010cf5cc723bdea027a8539cf7147cfea199c2f666232dcd4e",
+    "646afc0abe8b35d35cdf6c4ed88a4fcafe5a956225be324c5e082915ae7d4ccd"
+  ],
+  "originalFirstParagraph": "Hello 🌏.\nSecond line.",
+  "position": {
+    "paragraphId": "p-1",
+    "characterOffset": 8
+  },
+  "translationFirstParagraph": "안녕 🌏.\n두 번째 줄."
+}

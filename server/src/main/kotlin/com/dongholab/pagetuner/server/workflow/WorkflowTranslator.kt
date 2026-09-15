@@ -11,6 +11,7 @@ import com.dongholab.pagetuner.translation.TranslationRuntimeIdentity
 import com.dongholab.pagetuner.translation.TranslationSettings
 import com.dongholab.pagetuner.translation.glossary.BookGlossary
 import com.dongholab.pagetuner.translation.glossary.BookGlossaryEntry
+import com.dongholab.pagetuner.translation.glossary.GlossaryTermKind
 import com.dongholab.pagetuner.server.account.LanguageCatalog
 import java.net.URI
 import org.springframework.stereotype.Component
@@ -33,7 +34,8 @@ fun JobConfiguration.settings(key: String) = TranslationSettings(
     sourceLanguage = sourceLanguage, targetLanguage = targetLanguage, paceMode = TranslationPaceMode.FAST,
 )
 fun JobConfiguration.glossary(bookId: String): BookGlossary? = glossary.takeIf { it.isNotEmpty() }?.let { entries ->
-    BookGlossary(bookId, entries.map { BookGlossaryEntry(StableContentHash.sha256(it.source.lowercase()).take(24), it.source, it.target) })
+    BookGlossary(bookId, entries.map { BookGlossaryEntry(StableContentHash.sha256(it.source.lowercase()).take(24), it.source, it.target,
+        it.displayTerm.orEmpty(), GlossaryTermKind.valueOf(it.kind ?: "Character"), it.caseSensitive ?: false, it.enabled ?: true) })
 }
 
 @Component
@@ -75,7 +77,13 @@ class WorkflowProviders {
             require(model.length in 1..200 && model.none(Char::isISOControl)) { "Invalid translation model." }
         }
         require(request.glossary.size <= 200) { "A glossary can contain at most 200 entries." }
-        val glossary = request.glossary.map { WorkflowGlossaryEntry(it.source.trim(), it.target.trim()) }
+        val glossary = request.glossary.map {
+            require(it.kind == null || it.kind in setOf("Character", "Place", "Term")) { "Invalid glossary kind." }
+            require((it.displayTerm?.trim()?.length ?: 0) <= 200) { "Invalid glossary display alias." }
+            WorkflowGlossaryEntry(it.source.trim(), it.target.trim(), it.kind?.takeUnless { kind -> kind == "Character" },
+                it.displayTerm?.trim()?.takeIf(String::isNotEmpty), it.caseSensitive?.takeIf { sensitive -> sensitive },
+                it.enabled?.takeUnless { enabled -> enabled })
+        }
         require(glossary.all { it.source.length in 1..200 && it.target.length in 1..200 }) { "Invalid glossary entry." }
         require(glossary.map { it.source.lowercase() }.distinct().size == glossary.size) { "Duplicate glossary source terms." }
         val preliminary = JobConfiguration(provider.id, source, target, endpoint, model, glossary.sortedBy { it.source }, "", "", "")

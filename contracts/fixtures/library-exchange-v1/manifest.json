@@ -1,0 +1,36 @@
+{
+  "format": "pageturner.library",
+  "version": 1,
+  "createdAt": "2026-09-15T00:00:00Z",
+  "documents": [
+    {
+      "path": "documents/a79d8cf53441b724d60b411adcd76a2eeec2dd5a1f4924d068331839ddcad596.json",
+      "sha256": "a79d8cf53441b724d60b411adcd76a2eeec2dd5a1f4924d068331839ddcad596",
+      "bytes": 1640
+    },
+    {
+      "path": "documents/b528f7801312ae0d4467b1bb5d387f68f4ae2f51ed313230d62949422220101e.json",
+      "sha256": "b528f7801312ae0d4467b1bb5d387f68f4ae2f51ed313230d62949422220101e",
+      "bytes": 1045
+    },
+    {
+      "path": "documents/af1ed48908dfe244f2b92d220a17fa48d6b743aff0e43e3ae65bcd29ee41cec5.json",
+      "sha256": "af1ed48908dfe244f2b92d220a17fa48d6b743aff0e43e3ae65bcd29ee41cec5",
+      "bytes": 624
+    }
+  ],
+  "assets": [
+    {
+      "path": "assets/e878950f8091ec010cf5cc723bdea027a8539cf7147cfea199c2f666232dcd4e",
+      "sha256": "e878950f8091ec010cf5cc723bdea027a8539cf7147cfea199c2f666232dcd4e",
+      "bytes": 69,
+      "mimeType": "image/png"
+    },
+    {
+      "path": "assets/646afc0abe8b35d35cdf6c4ed88a4fcafe5a956225be324c5e082915ae7d4ccd",
+      "sha256": "646afc0abe8b35d35cdf6c4ed88a4fcafe5a956225be324c5e082915ae7d4ccd",
+      "bytes": 598,
+      "mimeType": "application/pdf"
+    }
+  ]
+}
