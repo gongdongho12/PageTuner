@@ -1,11 +1,12 @@
 import { useEffect, useSyncExternalStore } from "react";
 import { englishMessages } from "./localeMessages";
 import { exchangeEnglish } from './exchangeMessages';
+import { rollingEnglish } from './rollingMessages';
 
 export type MessageCatalog = Record<string, string>;
 const packs = new Map<string, MessageCatalog>([
   ["ko", {}],
-  ["en", { ...englishMessages, ...exchangeEnglish }],
+  ["en", { ...englishMessages, ...exchangeEnglish, ...rollingEnglish }],
 ]);
 const listeners = new Set<() => void>();
 let catalogVersion = 0;

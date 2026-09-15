@@ -66,7 +66,7 @@
 | --- | --- | --- | --- |
 | Google Web·Google Cloud·DeepSeek·OpenAI 호환 공급자 | 완료 | 완료 | 공통 네 공급자를 선택할 수 있다. 공급자별 실제 호출 성공은 키·운영 설정·가용성에 달려 있다. [TranslationProviderFactory](../translation-runtime/src/main/kotlin/com/dongholab/pagetuner/translation/TranslationProviderFactory.kt), [TranslationSetup](../web/src/components/TranslationSetup.tsx) |
 | 원문/대상 언어·모델·endpoint·API 키 | 완료 | 완료 | 웹은 서버 허용 endpoint 범위 안에서 설정한다. 웹 작업 API 키와 앱 서버 로그인 비밀번호는 화면 메모리로 취급한다. 임의 endpoint를 무제한 허용하는 기능은 아니다. [SettingsScreen](../app/src/main/java/com/dongholab/pagetuner/ui/screen/SettingsScreen.kt), [TranslationSetup](../web/src/components/TranslationSetup.tsx), [WorkflowTranslator](../server/src/main/kotlin/com/dongholab/pagetuner/server/workflow/WorkflowTranslator.kt) |
-| 현재 페이지 번역·읽는 속도 기반 선행 번역 | 완료 | 부분 | 앱은 현재 페이지·다음 페이지와 WPM/배치/pace 설정을 사용한다. 웹은 서버의 챕터 단위 작업이며 읽는 속도에 연동한 rolling prefetch UI가 없다. [TranslationViewModel](../app/src/main/java/com/dongholab/pagetuner/translation/TranslationViewModel.kt), [TranslationPacing](../translation-runtime/src/main/kotlin/com/dongholab/pagetuner/translation/TranslationPacing.kt) |
+| 현재 페이지 번역·읽는 속도 기반 선행 번역 | 완료 | 완료 / 서버 보관 원문 | 웹은 실제 원문 페이지 범위, 10쪽 단위 창과 5번째 쪽의 다음 창 준비, 현재 쪽 우선, WPM/pace·공급자·용어집 설정을 사용한다. 로컬 파일은 서버 원문으로 보관한 뒤 같은 리더를 사용한다. 임시 번역은 세션 메모리에만 두며 완성 번역본 저장은 기존 전체 작업으로 실행한다. [RollingTranslationReader](../web/src/components/RollingTranslationReader.tsx), [rollingTranslation](../web/src/lib/rollingTranslation.ts), [읽기 번역 계약](../contracts/reading-translation-v1.md) |
 | 일시정지·재개·취소·실패 재시도 | 완료 | 부분 / 작업 경계 차이 | 웹 단일 서버 번역은 취소·체크포인트 재시도, 묶음 큐는 회차 사이 pause·resume을 제공한다. 앱의 현재 페이지·선행 번역을 즉시 pause하는 제어와는 다르다. [TranslationViewModel](../app/src/main/java/com/dongholab/pagetuner/translation/TranslationViewModel.kt), [bulkNovelQueue](../web/src/lib/bulkNovelQueue.ts), [TranslationWorkflowService](../server/src/main/kotlin/com/dongholab/pagetuner/server/workflow/TranslationWorkflowService.kt) |
 | 서버 작업 내역·새로고침·결과 읽기 | 완료 | 완료 | 앱 ServerTranslationJobsPanel과 웹 작업 화면이 생성·목록·진행·취소·재시도·결과 읽기를 제공한다. 앱의 모든 로컬 번역 작업이 서버 작업으로 동기화되는 것은 아니다. [ServerTranslationJobsPanel](../app/src/main/java/com/dongholab/pagetuner/ui/screen/ServerTranslationJobsPanel.kt), [ServerLibraryViewModel](../app/src/main/java/com/dongholab/pagetuner/translation/sync/ServerLibraryViewModel.kt), [NovelWorkspace](../web/src/components/NovelWorkspace.tsx) |
 | 번역 캐시·중복 방지·내용 검증 | 완료 | 완료 | 앱 캐시와 서버 artifact는 variant/revision/문단 ID를 검증한다. 웹은 wire hash를 확인한 번역을 보관한다. 저장 위치와 동기화 범위는 다르다. [TranslationCache](../app/src/main/java/com/dongholab/pagetuner/translation/TranslationCache.kt), [TranslationApplicationService](../server/src/main/kotlin/com/dongholab/pagetuner/server/translation/TranslationApplicationService.kt), [validation.ts](../web/src/lib/validation.ts) |
@@ -107,7 +107,7 @@
 
 ## 실제 남은 기능 분류
 
-- **앱에서 이미 사용 가능한 웹 잔여:** 현재 페이지/WPM 기반 rolling 번역과 원문·번역 대조 표시를 진행 중이다. 카탈로그 캐시, 용어집 속성, 임의 범위 강조와 독서 기록 내보내기는 구현됐으며 개별 검증 근거를 확인한다.
+- **이번에 연결한 앱의 독서 기능:** 현재 페이지/WPM 기반 읽기 번역, 원문·번역 대조, 카탈로그 캐시, 용어집 속성, 임의 범위 강조와 독서 기록 내보내기를 구현했다. 웹의 번역 실행에는 서버 연결이 필요하며, 임시 읽기 번역과 기기에 저장한 완성 번역본은 수명이 다르다. 개별 검증 근거는 검증 기록에서 확인한다.
 - **기기 기능과의 대응 판단이 필요한 항목:** 디렉터리 트리 탐색·OS 파일 권한, 볼륨 키 직접 제어·시스템 바·전자잉크 비트맵 변환, Android 렌더링 loader. 웹 파일 선택·Fullscreen API를 동일한 OS 권한 기능으로 세지 않는다.
 - **앱에서도 부분 또는 미완인 항목:** OCR, 사용자 CSS 규칙의 완전한 실행, Drive/FTP의 계정 설정부터 파일 열기까지의 화면, 미니앱/스크립트 플러그인 실행, Drive 자동 백업·복구. 이 항목은 웹에만 빠진 완성 앱 기능으로 설명하지 않는다.
 - **양쪽을 함께 확장해야 하는 항목:** 독서 메타데이터의 서버 자동 동기화. 이번 ZIP 교환은 계정별 수동 파일 이동과 충돌 시 별도 사본 보존이며, 상시 양방향 자동 동기화가 아니다.

@@ -7,3 +7,4 @@ await generateWorkflowApi(check);
 await generateContract('accounts-v1.openapi.json', 'accounts.ts', check);
 await generateContract('catalog-translations-v1.openapi.json', 'catalogTranslations.ts', check);
 await generateContract('json-catalog-v1.openapi.json', 'jsonCatalog.ts', check);
+await generateContract('reading-translation-v1.openapi.json', 'readingTranslations.ts', check);

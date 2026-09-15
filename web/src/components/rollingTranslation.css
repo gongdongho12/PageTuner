@@ -1,0 +1,22 @@
+.rolling-reader{height:100%;min-height:0;display:flex;flex-direction:column;background:#fff;color:#000;overflow:hidden}
+.rolling-controls,.rolling-settings,.rolling-source-navigation{display:flex;align-items:center;gap:6px;padding:6px 10px;border-bottom:1px solid #d0d0d0;flex-shrink:0;flex-wrap:wrap}
+.rolling-controls button,.rolling-settings button,.rolling-source-navigation button{min-height:44px;padding:6px 10px;border:1px solid #000;background:#fff;color:#000;font-weight:700}
+.rolling-controls button[aria-pressed=true]{background:#000;color:#fff}
+.rolling-controls span{font-size:12px;color:#606060}
+.rolling-main-controls{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));grid-template-rows:44px 18px}
+.rolling-main-controls button{height:44px;overflow:hidden;line-height:15px}
+.rolling-main-controls span{grid-column:1/-1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rolling-status-space{height:56px;flex:0 0 56px;overflow:auto;border-bottom:1px solid #d0d0d0}
+.rolling-status-space .rolling-notice{min-height:100%;box-sizing:border-box;border-bottom:0}
+.rolling-settings label{display:flex;gap:6px;align-items:center;font-size:13px;font-weight:700}
+.rolling-settings input,.rolling-settings select{min-height:44px;max-width:150px;background:#fff;color:#000;border:1px solid #000;padding:4px}
+.rolling-settings-page{align-items:stretch;flex-direction:column;border-bottom:0;padding:16px;gap:12px;max-width:620px}
+.rolling-settings-page label{justify-content:space-between}.rolling-settings-page p{font-size:13px;color:#606060}
+.rolling-pane{min-height:0;flex:1;overflow:hidden}
+.rolling-pane>.reader{height:100%}
+.rolling-notice{display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:13px;padding:4px 10px;border-bottom:1px solid #d0d0d0;flex-shrink:0}
+.rolling-notice button{min-height:44px;flex-shrink:0}
+.rolling-source-navigation{justify-content:space-between;border-top:1px solid #d0d0d0;border-bottom:0;font-size:12px;flex-wrap:nowrap;height:56px;box-sizing:border-box}
+.rolling-source-navigation button{flex:1;min-width:0;line-height:15px;height:44px;overflow:hidden}
+.rolling-source-navigation span{max-width:22%;text-align:center}
+@media(max-width:600px){.rolling-controls{padding:4px;gap:4px}.rolling-controls button{font-size:12px;padding:4px 6px}.rolling-controls span{width:100%}.rolling-settings{padding:4px}.rolling-settings label{font-size:12px}.rolling-notice{font-size:12px}}

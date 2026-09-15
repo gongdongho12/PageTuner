@@ -2,6 +2,7 @@ import { ApiError } from "./errors";
 import { normalizeGlossary } from './glossary';
 import { validRecordId, validTimestamp } from "./validation";
 import { validateCatalogTranslation, type CatalogTranslationRequest } from './catalogTranslation';
+import { validateReadingTranslation, type ReadingTranslationRequest } from './readingTranslation';
 import type {
   NovelSource,
   NovelCatalog,
@@ -422,7 +423,20 @@ export function createWorkflowClient(
   let authorization = `Basic ${btoa(Array.from(new TextEncoder().encode(`${credentials.username}:${credentials.password}`), (byte) => String.fromCharCode(byte)).join(""))}`;
   const transport = options.fetch ?? globalThis.fetch.bind(globalThis);
   const controllers = new Set<AbortController>();
+  const readingRequests = new Map<string, { authorization: string; token: string; headerName: string }>();
   let closed = false;
+  const cancelDetachedReadingRequests = () => {
+    for (const [id, authentication] of readingRequests) {
+      // Keepalive is independent of the client controllers; disconnect must still cancel an uncertain POST.
+      void transport(`/api/v1/reading-translations/${id}/cancel`, {
+        method: 'POST', credentials: 'same-origin', mode: 'same-origin', redirect: 'error', cache: 'no-store', keepalive: true,
+        headers: { Authorization: authentication.authorization, 'Content-Type': 'application/json', Accept: 'application/json',
+          [authentication.headerName]: authentication.token, 'X-Requested-With': 'XMLHttpRequest' }, body: '{}',
+      }).catch(() => undefined);
+    }
+    readingRequests.clear();
+  };
+  if (typeof window !== 'undefined') window.addEventListener('pagehide', cancelDetachedReadingRequests);
   async function request<T>(
     path: string,
     parse: (value: unknown) => T,
@@ -542,10 +556,16 @@ export function createWorkflowClient(
       },
       signal,
     );
+    if (path === '/api/v1/reading-translations' && !closed && !signal?.aborted) {
+      const id = requestId((body as ReadingTranslationRequest).requestId);
+      readingRequests.set(id, { authorization, ...csrf });
+    }
     return request(path, parse, signal, body, csrf);
   }
   return {
     close() {
+      cancelDetachedReadingRequests();
+      if (typeof window !== 'undefined') window.removeEventListener('pagehide', cancelDetachedReadingRequests);
       closed = true;
       authorization = "";
       controllers.forEach((c) => c.abort());
@@ -557,6 +577,20 @@ export function createWorkflowClient(
       request(`/api/v1/catalog-translations/${requestId(id)}`, validateCatalogTranslation, signal),
     cancelCatalogTranslation: (id: string, signal?: AbortSignal) =>
       write(`/api/v1/catalog-translations/${requestId(id)}/cancel`, {}, validateCatalogTranslation, signal),
+    startReadingTranslation: (input: ReadingTranslationRequest, signal?: AbortSignal) =>
+      write('/api/v1/reading-translations', input, validateReadingTranslation, signal).then(result => {
+        if (result.requestId === input.requestId && ['COMPLETED', 'FAILED', 'CANCELLED'].includes(result.status)) readingRequests.delete(input.requestId);
+        return result;
+      }),
+    getReadingTranslation: (id: string, signal?: AbortSignal) =>
+      request(`/api/v1/reading-translations/${requestId(id)}`, validateReadingTranslation, signal).then(result => {
+        if (result.requestId === id && ['COMPLETED', 'FAILED', 'CANCELLED'].includes(result.status)) readingRequests.delete(id);
+        return result;
+      }),
+    cancelReadingTranslation: (id: string, signal?: AbortSignal) =>
+      write(`/api/v1/reading-translations/${requestId(id)}/cancel`, {}, validateReadingTranslation, signal).then(result => {
+        readingRequests.delete(id); return result;
+      }).catch(error => { if (error instanceof ApiError && error.status === 404) readingRequests.delete(id); throw error }),
     sources: (signal?: AbortSignal) =>
       request(
         "/api/v1/novel-sources",

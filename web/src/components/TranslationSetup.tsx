@@ -18,6 +18,9 @@ export function TranslationSetup({
   busy,
   onSubmit,
   onBack,
+  onReadOriginal,
+  initialSettings,
+  readingPreview = false,
   defaultTargetLanguage,
   username,
 }: {
@@ -27,6 +30,9 @@ export function TranslationSetup({
   busy: boolean;
   onSubmit: (input: StartTranslation) => Promise<void>;
   onBack: () => void;
+  onReadOriginal?: () => void;
+  initialSettings?: Partial<StartTranslation>;
+  readingPreview?: boolean;
   defaultTargetLanguage: string;
   username: string;
 }) {
@@ -58,17 +64,17 @@ export function TranslationSetup({
     };
   }, [personal, chapter.providerId, chapter.bookId, retry]);
   const [kind, setKind] = useState<ProviderKind>(
-    retry?.providerKind ?? "GOOGLE_WEB_TRANSLATE_HTML",
+    retry?.providerKind ?? initialSettings?.providerKind ?? "GOOGLE_WEB_TRANSLATE_HTML",
   );
   const [target, setTarget] = useState(
-    retry?.settings.targetLanguage ?? defaultTargetLanguage,
+    retry?.settings.targetLanguage ?? initialSettings?.targetLanguage ?? defaultTargetLanguage,
   );
   const [source, setSource] = useState(
-    retry?.settings.sourceLanguage ?? chapter.sourceLanguage,
+    retry?.settings.sourceLanguage ?? initialSettings?.sourceLanguage ?? chapter.sourceLanguage,
   );
-  const [apiKey, setApiKey] = useState("");
-  const [endpoint, setEndpoint] = useState(retry?.settings.endpoint ?? "");
-  const [model, setModel] = useState(retry?.settings.model ?? "");
+  const [apiKey, setApiKey] = useState(initialSettings?.apiKey ?? "");
+  const [endpoint, setEndpoint] = useState(retry?.settings.endpoint ?? initialSettings?.endpoint ?? "");
+  const [model, setModel] = useState(retry?.settings.model ?? initialSettings?.model ?? "");
   const [validation, setValidation] = useState("");
   const submitted = useRef<{
     signature: string;
@@ -158,7 +164,7 @@ export function TranslationSetup({
         </button>
         <div>
           <span className="eyebrow">TRANSLATION SETTINGS</span>
-          <h2>{retry ? t("번역 다시 시도") : t("번역 준비")}</h2>
+          <h2>{readingPreview ? t("읽기 번역 설정") : retry ? t("번역 다시 시도") : t("번역 준비")}</h2>
         </div>
       </div>
       <p className="workflow-book-name" title={chapter.chapterTitle}>
@@ -245,9 +251,9 @@ export function TranslationSetup({
                 : selected?.configured
                   ? t("서버에 준비된 번역기를 사용합니다.")
                   : t("선택한 번역기로 요청을 보냅니다.")}{" "}
-              {t("원문")}
-              {chapter.paragraphs.length}
-              {t("개 문단을 번역합니다.")}
+              {readingPreview
+                ? t("현재 쪽부터 읽는 속도에 맞춰 번역합니다. 결과는 이번 읽기에만 표시되며 전체 번역으로 저장되지 않습니다.")
+                : <>{t("원문")}{chapter.paragraphs.length}{t("개 문단을 번역합니다.")}</>}
               {retry &&
                 t(
                   " 이전 작업의 설정과 용어집 {0}개를 유지해 이어서 번역합니다.",
@@ -325,13 +331,18 @@ export function TranslationSetup({
         </p>
       )}
       <div className="workflow-form-actions">
+        {onReadOriginal && <button type="button" className="button-outline" disabled={busy} onClick={onReadOriginal}>
+          {t("원문 열고 읽으며 번역")}
+        </button>}
         <button
           className="button-primary"
           disabled={busy || !selected || !glossaryReady}
         >
           {busy
             ? t("번역 요청 중\u2026")
-            : retry
+            : readingPreview
+              ? t("현재 쪽 번역")
+              : retry
               ? t("다시 번역하기")
               : t("번역 시작")}
           <Icon name="arrow" />
