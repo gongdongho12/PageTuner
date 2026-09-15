@@ -193,3 +193,19 @@ Android 실기기 UI와 모든 외부 공급자·소설 사이트의 상시 가�
 - 서버 전체 **71개 통과, 실패·오류·건너뜀 0개**. 별도 PostgreSQL 검증 DB를 사용했으며 요청 제한 후 checkpoint 재개·완성 artifact 생성과 9종 오류의 비밀정보 제거를 포함한다. 최신 웹을 포함한 `bootJar` 빌드도 통과했다. 과거 작업의 일반 오류를 추정해서 바꾸지 않으며 새 오류 분류는 이후 발생하는 실패부터 적용된다.
 - 00:23 재실행에서도 일반 오류가 나와 리다이렉트를 따르지 않는 진단으로 원인을 확인했다. Google public endpoint는 HTTP 302로 `www.google.com/sorry/index`를 가리켰다. 해당 응답을 이동 없이 요청 제한으로 분류하도록 공통 transport와 Google 설정을 보강했다. 유사 호스트·다른 경로·HTTP·다른 포트·사용자 정보·잘못된 URI는 기존 거부 동작을 유지하며 목적지 query를 오류로 노출하지 않는다.
 - 보강 후 번역 runtime **30개**, 서버 **71개** 테스트와 모듈 경계·`bootJar` 빌드 통과. 00:28 실제 프론트에서 다시 실행한 작업은 `TRANSLATION_RATE_LIMITED`와 요청 제한 안내를 표시했고 **102/180문단 보존**, `canRetry=true`, 완성 artifact 없음이 API와 일치했다. 외부 제한이 계속돼 전체 회차 번역은 완료하지 못했다.
+
+## 2026-09-16 여러 번역 공급자와 연결 확인
+
+- 웹 `npm run verify`: 여섯 계약 생성 일치, TypeScript, 프로덕션 빌드 및 **210개 테스트·32개 파일 통과**. 기존 PDF chunk 경고는 비차단이다. 고정 예문 요청 projection, 인증·CSRF, 응답 설정 대조, 중복 클릭, 취소·설정 변경 후 늦은 응답 폐기, 오류의 비밀정보 제거를 포함한다.
+- 번역 runtime **42개 통과**. DeepSeek·OpenAI 호환·Google Cloud의 실제 localhost HTTP 요청/응답을 검사했다. Cloud는 고정 공식 URL만 테스트 transport에서 localhost로 라우팅하며 실제 헤더·본문·HTTP transport·응답 parser를 사용한다. 잘린 completion, 거절, 잘못된 타입, 중복 JSON 키, 불완전 JSON, 요청 제한과 checkpoint 미발행 검사를 포함한다.
+- 서버 전체 **81개 통과**, 실패·오류·건너뜀 0개. 기존 미리보기 DB와 분리한 `pagetuner_test_20260915_rolling` PostgreSQL을 사용했다. 새 점검 API의 실제 MVC 인증·CSRF·본문 크기, 20초 제한, 취소 정리 중 실행 슬롯 유지와 읽기·목록 번역의 공통 오류 코드를 확인했다. 모듈 경계와 최신 웹 포함 `bootJar` 빌드도 통과했다.
+- Android 전체 **275개 통과**, 선택적 외부 호출 14개와 별도 브라우저 ZIP 입력을 요구하는 1개는 이번 실행에서 제외됐다. debug APK 빌드 성공. 현재 제공자·repository 관련 focused 8개도 통과했다. ZIP 입력 검증은 앞선 실제 브라우저 다운로드 왕복 기록을 따른다.
+- 실제 브라우저에서는 별도 서버 8081, 별도 `pagetuner_test_20260916_providers_preview` DB, localhost 19999의 **가짜 공급자 응답**을 사용했다. 외부 유료 API 호출과 구분하기 위해 본문에 `[검증용 응답]`을 표시했다. 검증용 코드·키·주소는 저장소에 포함하지 않으며 정상 미리보기 8080의 제공자 설정과 분리했다.
+- DeepSeek 선택 → 고정 예문 연결 성공 → 원문 2문단 전체 작업 COMPLETED/2개 → 서버 저장 → 번역문 리더 표시를 확인했다. 실제 요청에는 `deepseek-flash`, JSON 응답 모드, thinking 비활성화와 `max_tokens=32768`이 있었다.
+- OpenAI 호환 API 선택 → 연결 성공 → 모델 변경 시 이전 성공 폐기 → 가짜 401의 API 키·권한 안내 → 정상 모델의 현재 쪽 번역 1/1 준비·임시 결과 표시를 확인했다. 점검/읽기 실행 후 완성 artifact는 전체 번역에서 생성한 **1개**로 유지됐다.
+- Google Cloud는 키 미설정 시 안내와 연결 확인 버튼 비활성화를 확인했다. 키가 없는 상태에서 실제 유료 endpoint로 요청하지 않았다.
+- 390×844 화면의 연결 확인 탭은 document scrollWidth/scrollHeight가 **390×844**, 보이는 버튼 높이는 모두 **44px 이상**이었다. 확인 결과와 복귀 버튼이 화면에 들어왔다. 검증 후 읽기 작업 중지와 viewport 복원을 수행했다.
+
+이 결과는 유료 공급자의 실제 번역 품질·과금·모델 접근 권한을 검증한 것이 아니다. 현재 환경에
+DeepSeek·Google Cloud·OpenAI의 실제 키가 없어 해당 실서비스 검증은 남아 있다.
+설정·API 사용법은 [공급자 연결 확인](PROVIDER_CONNECTION_CHECK.md)을 따른다.

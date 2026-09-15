@@ -1,6 +1,6 @@
 # 앱·웹 기능 대응표
 
-기준일: 2026-09-15. 현재 작업 트리의 화면 진입점, 상태 모델, 저장소와 API 호출을 기준으로 정리했다. **앱의 모든 기능이 웹에 옮겨진 상태는 아니다.** 현재 공통 흐름은 웹소설 수집, 챕터 원문 저장, 서버 번역 실행, 번역본 조회·보관·읽기까지 연결되어 있다. 로컬 파일·독서 도구·계정·개인 서재도 연결됐으며 아래에 남은 차이와 확인된 연결 결함을 별도로 표시한다.
+기준일: 2026-09-16. 현재 작업 트리의 화면 진입점, 상태 모델, 저장소와 API 호출을 기준으로 정리했다. **앱의 모든 기능이 웹에 옮겨진 상태는 아니다.** 현재 공통 흐름은 웹소설 수집, 챕터 원문 저장, 서버 번역 실행, 번역본 조회·보관·읽기까지 연결되어 있다. 로컬 파일·독서 도구·계정·개인 서재도 연결됐으며 아래에 남은 차이와 확인된 연결 결함을 별도로 표시한다.
 
 ## 판정 방법
 
@@ -64,7 +64,7 @@
 
 | 기능 | Android 앱 | 웹 대응 | 범위·근거 |
 | --- | --- | --- | --- |
-| Google Web·Google Cloud·DeepSeek·OpenAI 호환 공급자 | 완료 | 완료 | 공통 네 공급자를 선택할 수 있다. 공급자별 실제 호출 성공은 키·운영 설정·가용성에 달려 있다. [TranslationProviderFactory](../translation-runtime/src/main/kotlin/com/dongholab/pagetuner/translation/TranslationProviderFactory.kt), [TranslationSetup](../web/src/components/TranslationSetup.tsx) |
+| Google Web·Google Cloud·DeepSeek·OpenAI 호환 공급자 | 완료 | 완료 | 공통 네 공급자와 완결 응답 검증을 사용한다. 웹 전체·읽기·묶음·목록 번역 설정에 공통 연결 필드와 서버 고정 예문 확인을 연결했다. 유료 공급자는 localhost HTTP·브라우저 경로를 검증했고 실서비스 성공은 키·접근 권한에 달려 있다. [공급자 연결 확인](PROVIDER_CONNECTION_CHECK.md), [TranslationProviderFactory](../translation-runtime/src/main/kotlin/com/dongholab/pagetuner/translation/TranslationProviderFactory.kt), [TranslationSetup](../web/src/components/TranslationSetup.tsx) |
 | 원문/대상 언어·모델·endpoint·API 키 | 완료 | 완료 | 웹은 서버 허용 endpoint 범위 안에서 설정한다. 웹 작업 API 키와 앱 서버 로그인 비밀번호는 화면 메모리로 취급한다. 임의 endpoint를 무제한 허용하는 기능은 아니다. [SettingsScreen](../app/src/main/java/com/dongholab/pagetuner/ui/screen/SettingsScreen.kt), [TranslationSetup](../web/src/components/TranslationSetup.tsx), [WorkflowTranslator](../server/src/main/kotlin/com/dongholab/pagetuner/server/workflow/WorkflowTranslator.kt) |
 | 현재 페이지 번역·읽는 속도 기반 선행 번역 | 완료 | 완료 / 서버 보관 원문 | 웹은 실제 원문 페이지 범위, 10쪽 단위 창과 5번째 쪽의 다음 창 준비, 현재 쪽 우선, WPM/pace·공급자·용어집 설정을 사용한다. 로컬 파일은 서버 원문으로 보관한 뒤 같은 리더를 사용한다. 임시 번역은 세션 메모리에만 두며 완성 번역본 저장은 기존 전체 작업으로 실행한다. [RollingTranslationReader](../web/src/components/RollingTranslationReader.tsx), [rollingTranslation](../web/src/lib/rollingTranslation.ts), [읽기 번역 계약](../contracts/reading-translation-v1.md) |
 | 일시정지·재개·취소·실패 재시도 | 완료 | 부분 / 작업 경계 차이 | 웹 단일 서버 번역은 취소·체크포인트 재시도, 묶음 큐는 회차 사이 pause·resume을 제공한다. 앱의 현재 페이지·선행 번역을 즉시 pause하는 제어와는 다르다. [TranslationViewModel](../app/src/main/java/com/dongholab/pagetuner/translation/TranslationViewModel.kt), [bulkNovelQueue](../web/src/lib/bulkNovelQueue.ts), [TranslationWorkflowService](../server/src/main/kotlin/com/dongholab/pagetuner/server/workflow/TranslationWorkflowService.kt) |

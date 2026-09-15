@@ -1,6 +1,7 @@
 import type { StoredChapter } from './workflowTypes'
 import { normalizeGlossary, type GlossaryEntry } from './glossary'
 import { ApiError } from './errors'
+import { providerFailureMessage } from './providerCheck'
 import { readingFragmentKey, readingFragmentText, verifyReadingTranslation, type ReadingFragment, type ReadingPagination, type ReadingPace,
   type ReadingTranslationClient, type ReadingTranslationItem, type ReadingTranslationRequest, type ReadingTranslationSettings } from './readingTranslation'
 
@@ -194,7 +195,7 @@ export class RollingTranslationSession {
         while (true) {
           controller.signal.throwIfAborted(); await verifyReadingTranslation(result, request); controller.signal.throwIfAborted()
           if (result.status === 'COMPLETED') break
-          if (result.status === 'FAILED' || result.status === 'CANCELLED') throw new Error(result.errorCode === 'READING_TIMEOUT' ? '읽기 번역이 시간 내 끝나지 않았습니다. 현재 쪽을 다시 시도해 주세요.' : '읽기 번역을 완료하지 못했습니다. 원문을 읽거나 다시 시도해 주세요.')
+          if (result.status === 'FAILED' || result.status === 'CANCELLED') throw new Error(result.errorCode === 'READING_TIMEOUT' ? '읽기 번역이 시간 내 끝나지 않았습니다. 현재 쪽을 다시 시도해 주세요.' : providerFailureMessage(result.errorCode, '읽기 번역을 완료하지 못했습니다. 원문을 읽거나 다시 시도해 주세요.'))
           await this.wait(750, controller.signal); result = await this.client.getReadingTranslation(request.requestId, controller.signal)
         }
         if (!this.enabled || generation !== this.generation) return

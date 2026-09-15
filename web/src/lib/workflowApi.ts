@@ -3,6 +3,7 @@ import { normalizeGlossary } from './glossary';
 import { validRecordId, validTimestamp } from "./validation";
 import { validateCatalogTranslation, type CatalogTranslationRequest } from './catalogTranslation';
 import { validateReadingTranslation, type ReadingTranslationRequest } from './readingTranslation';
+import { createProviderCheckInput, validateProviderCheck, ProviderCheckError, type ProviderCheckInput } from './providerCheck';
 import type {
   NovelSource,
   NovelCatalog,
@@ -406,6 +407,31 @@ function httpError(status: number) {
   );
 }
 
+async function providerCheckHttpError(response: Response): Promise<ApiError> {
+  if (response.status === 429) return new ProviderCheckError('PROVIDER_CHECK_BUSY', 429);
+  const fallback = httpError(response.status);
+  if (response.status !== 400 || !response.headers.get('content-type')?.includes('json')) return fallback;
+  const reader = response.body?.getReader();
+  if (!reader) return fallback;
+  try {
+    let size = 0, text = '';
+    const decoder = new TextDecoder('utf-8', { fatal: true });
+    while (true) {
+      const part = await reader.read();
+      if (part.done) break;
+      size += part.value.length;
+      if (size > 4096) return fallback;
+      text += decoder.decode(part.value, { stream: true });
+    }
+    text += decoder.decode();
+    const code = JSON.parse(text)?.code;
+    if (['INVALID_PROVIDER', 'PROVIDER_NOT_CONFIGURED', 'ENDPOINT_NOT_ALLOWED'].includes(code))
+      return new ProviderCheckError(code, 400);
+  } catch { /* Malformed error details never replace the fixed safe fallback. */ }
+  finally { await reader.cancel().catch(() => undefined); reader.releaseLock(); }
+  return fallback;
+}
+
 /** Only fixed same-origin API paths are fetched. Passwords and provider keys never enter persistent storage. */
 export function createWorkflowClient(
   credentials: { username: string; password: string },
@@ -476,7 +502,10 @@ export function createWorkflowClient(
         body: body === undefined ? undefined : JSON.stringify(body),
         signal: controller.signal,
       });
-      if (!response.ok) throw httpError(response.status);
+      if (!response.ok) {
+        if (path === '/api/v1/translation-providers/check') throw await providerCheckHttpError(response);
+        throw httpError(response.status);
+      }
       if (
         response.redirected ||
         !response.headers
@@ -656,6 +685,10 @@ export function createWorkflowClient(
         (v) => array(object(v).providers, provider),
         signal,
       ),
+    checkProvider: (settings: ProviderCheckInput, signal?: AbortSignal) => {
+      const input = createProviderCheckInput(settings);
+      return write('/api/v1/translation-providers/check', input, (value) => validateProviderCheck(value, input), signal);
+    },
     jobs: (n = 0, signal?: AbortSignal) =>
       request(
         `/api/v1/translation-jobs?page=${pageNumber(n)}&size=12`,
