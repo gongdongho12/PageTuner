@@ -60,6 +60,7 @@ class ServerReadingProgressSync(private val scope: CoroutineScope, private val s
         var record: DeviceReadingProgress, var page: Int, var restoredPage: Int? = null, var failedStorage: Boolean = false,
         var sentMutationId: String? = null,
         var pageChangeRevision: Long = 0,
+        var terminalFailure: Boolean = false,
     )
     private val actions = Channel<Action>(Channel.UNLIMITED)
     private val mutableState = MutableStateFlow(ReadingProgressUiState())
@@ -152,7 +153,9 @@ class ServerReadingProgressSync(private val scope: CoroutineScope, private val s
                 }
                 persist(current, next)
                 mutableState.value = mutableState.value.copy(restore = null)
-                if (next.conflict != null) showConflict(current) else {
+                if (current.terminalFailure) {
+                    mutableState.value = mutableState.value.copy(phase = ReadingProgressPhase.Unavailable)
+                } else if (next.conflict != null) showConflict(current) else {
                     mutableState.value = mutableState.value.copy(phase = ReadingProgressPhase.Pending)
                     schedule(current, 700, retry = false)
                 }
@@ -160,6 +163,7 @@ class ServerReadingProgressSync(private val scope: CoroutineScope, private val s
             is Action.Send -> session?.takeIf { it.ticket == action.ticket && it.record.conflict == null && !it.failedStorage }?.let { send(it) }
             is Action.Retry -> {
                 session?.takeIf { (action.ticket == null || action.ticket == it.ticket) && !it.failedStorage }?.let {
+                    if (action.ticket == null) it.terminalFailure = false
                     if (it.record.conflict != null) showConflict(it) else if (it.record.pending != null) send(it) else fetch(it)
                 }
                 if (action.ticket == null) { terminalOutbox.clear(); attemptedOutbox.clear(); pumpOutbox() }
@@ -209,7 +213,11 @@ class ServerReadingProgressSync(private val scope: CoroutineScope, private val s
                         val transient = error is TranslationStoreException && error.failure in setOf(
                             TranslationStoreFailure.NETWORK, TranslationStoreFailure.TIMEOUT, TranslationStoreFailure.SERVER)
                         mutableState.value = mutableState.value.copy(phase = if (transient) ReadingProgressPhase.Offline else ReadingProgressPhase.Unavailable)
-                        if (transient) schedule(current, 15_000, retry = true)
+                        if (transient) schedule(current, 15_000, retry = true) else {
+                            current.terminalFailure = true
+                            terminalOutbox += current.document.key
+                            timer?.cancel(); timer = null
+                        }
                     }
                 })
             }
@@ -273,13 +281,13 @@ class ServerReadingProgressSync(private val scope: CoroutineScope, private val s
     }
 
     private fun fetch(current: Session) {
-        if (network != null) return
+        if (network != null || current.terminalFailure) return
         if (waitForRetryDeadline(current)) return
         mutableState.value = mutableState.value.copy(phase = ReadingProgressPhase.Loading)
         request(current, null)
     }
     private fun send(current: Session) {
-        if (network != null) return
+        if (network != null || current.terminalFailure) return
         if (waitForRetryDeadline(current)) return
         val pending = current.record.pending ?: return
         timer?.cancel()

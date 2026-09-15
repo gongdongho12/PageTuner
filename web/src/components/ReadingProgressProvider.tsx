@@ -14,6 +14,7 @@ class ProgressRegistry {
   private closed = false
   private draining = false
   private drainOffset = 0
+  private refreshOpenReaders = false
   constructor(readonly username: string, readonly api: ReadingProgressClient | null) {
     this.store = createReadingProgressStore(username)
   }
@@ -40,7 +41,8 @@ class ProgressRegistry {
     const entry = this.entries.get(keyFor(identity))
     if (entry) entry.readers = Math.max(0, entry.readers - 1)
   }
-  async drain() {
+  async drain(refreshOpenReaders = false) {
+    this.refreshOpenReaders ||= refreshOpenReaders
     if (!this.api || this.closed || this.draining) return
     this.draining = true
     try {
@@ -53,9 +55,12 @@ class ProgressRegistry {
         if (!entry.started) { entry.started = true; await entry.controller.start() }
         else await entry.controller.flush()
       }
-      // A reader with a failed initial GET has no outgoing mutation to enumerate.
+      // Reconnecting or returning to the app also restores changes from another device.
+      const refreshActive = this.refreshOpenReaders
+      this.refreshOpenReaders = false
       for (const entry of [...this.entries.values()].filter(entry => entry.readers > 0 &&
-        ['network', 'timeout', 'server'].includes(entry.controller.snapshot().errorCode ?? '')).slice(0, 20)) {
+        (refreshActive && !entry.controller.snapshot().errorCode ||
+          ['network', 'timeout', 'server'].includes(entry.controller.snapshot().errorCode ?? ''))).slice(0, 20)) {
         if (this.closed) return
         await entry.controller.refresh()
       }
@@ -77,10 +82,12 @@ export function ReadingProgressProvider({ username, client, children }: { userna
     const next = new ProgressRegistry(username, client)
     setRegistry(next)
     const retry = () => { void next.drain() }
+    const reconnect = () => { void next.drain(true) }
     retry()
     const interval = setInterval(retry, 30_000)
-    window.addEventListener('online', retry)
-    return () => { clearInterval(interval); window.removeEventListener('online', retry); next.close() }
+    window.addEventListener('online', reconnect)
+    window.addEventListener('focus', reconnect)
+    return () => { clearInterval(interval); window.removeEventListener('online', reconnect); window.removeEventListener('focus', reconnect); next.close() }
   }, [username, client])
   const current = registry?.username === username && registry.api === client ? registry : null
   return <ProgressContext.Provider value={current}>{children}</ProgressContext.Provider>

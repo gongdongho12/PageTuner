@@ -310,6 +310,52 @@ class ServerReadingProgressTest {
         }
     }
 
+    @Test fun terminalForegroundFailureKeepsNewPagesLocallyUntilReopenOrExplicitRetry() = runTest {
+        for (status in listOf(401, 403, 404, 400)) {
+            val document = document()
+            val store = MemoryStore()
+            val mutations = mutableListOf<ServerReadingMutation>()
+            var allowSuccess = false
+            val connection = connection { request ->
+                if (request.method == "GET") response(progress(0)) else {
+                    val pending = ServerReadingProgressJson.mutation(JSONObject(request.body!!))
+                    mutations += pending
+                    if (allowSuccess) response(progress(pending.expectedVersion + 1, pending.anchor.paragraphId, pending.anchor.characterOffset))
+                    else TranslationStoreHttpResponse(status)
+                }
+            }
+            val sync = ServerReadingProgressSync(backgroundScope, store) { testScheduler.currentTime }
+            sync.open(document, connection, 0); sync.state.first { it.phase == ReadingProgressPhase.Synced }
+            sync.pageChanged(document.readerId, 1); sync.state.first { it.phase == ReadingProgressPhase.Pending }
+            advanceTimeBy(701); runCurrent()
+            sync.state.first { it.phase == ReadingProgressPhase.Unavailable }
+            val originalMutation = mutations.single()
+            sync.pageChanged(document.readerId, 2)
+            sync.pageChanged(document.readerId, 3)
+            store.await { it.queuedAnchor?.paragraphId == "p4" }
+            advanceTimeBy(60_000); runCurrent()
+            assertEquals(1, mutations.size)
+            assertEquals(ReadingProgressPhase.Unavailable, sync.state.value.phase)
+            assertEquals(originalMutation, store.records[document.key]!!.pending)
+            sync.close(); sync.state.first { it.phase == ReadingProgressPhase.Inactive }
+            advanceTimeBy(15_000); runCurrent()
+            assertEquals(1, mutations.size)
+
+            // Explicit reopening permits one new attempt with the same uncertain mutation.
+            sync.open(document.copy(openId = UUID.randomUUID().toString()), connection, 3)
+            sync.state.first { it.phase == ReadingProgressPhase.Unavailable }
+            assertEquals(listOf(originalMutation, originalMutation), mutations)
+            allowSuccess = true
+            sync.retry(); sync.state.first { it.phase == ReadingProgressPhase.Synced }
+            assertEquals(4, mutations.size)
+            assertEquals(originalMutation, mutations[2])
+            assertEquals("p4", mutations[3].anchor.paragraphId)
+            assertEquals(1L, mutations[3].expectedVersion)
+            assertNull(store.records[document.key]!!.pending)
+            sync.connect(null); runCurrent()
+        }
+    }
+
     @Test fun conflictIsPersistedAcrossReopenAndBothResolutionsAreExplicit() = runTest {
         val document = document()
         val local = ServerReadingMutation(1, UUID.randomUUID().toString(), ServerReadingAnchor("p2", 0))
