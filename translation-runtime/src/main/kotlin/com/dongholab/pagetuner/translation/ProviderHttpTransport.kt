@@ -23,6 +23,7 @@ class ProviderHttpTransport(
     private val requestTimeoutMillis: Long = 75_000,
     private val maxResponseBytes: Int = 4 * 1024 * 1024,
     private val allowInsecureHttp: Boolean = false,
+    private val isRateLimitRedirect: (source: URI, target: URI) -> Boolean = { _, _ -> false },
     private val connectionFactory: (URL) -> HttpURLConnection = { it.openConnection() as HttpURLConnection },
 ) {
     init {
@@ -60,7 +61,15 @@ class ProviderHttpTransport(
                         connection.outputStream.use { it.write(bytes) }
                         val status = connection.responseCode
                         // Never forward credentials or source text to a redirected endpoint.
-                        if (status in 300..399) throw providerHttpException(providerName, status, "Redirect refused.")
+                        if (status in 300..399) {
+                            val target = runCatching { URI(connection.getHeaderField("Location").orEmpty()) }.getOrNull()
+                            if (target != null && isRateLimitRedirect(uri, target)) {
+                                throw TranslationProviderException(TranslationProviderFailure(
+                                    providerName, TranslationProviderErrorKind.RateLimited, "Provider requests are temporarily limited.",
+                                ))
+                            }
+                            throw providerHttpException(providerName, status, "Redirect refused.")
+                        }
                         val stream = if (status in 200..299) connection.inputStream else connection.errorStream
                         val response = stream?.use { input ->
                             val output = ByteArrayOutputStream()

@@ -48,6 +48,49 @@ class ProviderHttpTransportTest {
         assertEquals("translated", transport.post("http://127.0.0.1:8080/path", emptyMap(), ""))
     }
 
+    @Test fun googlePublicChallengeIsRateLimitedWithoutFollowingReadingOrLeakingTheRedirect() = runBlocking {
+        val location = "https://www.google.com/sorry/index?continue=private-source&token=secret-token"
+        val connection = FakeConnection(status = 302, location = location)
+        var connections = 0
+        val error = runCatching { ProviderHttpTransport("Google Web Translate",
+            isRateLimitRedirect = ::isGooglePublicRateLimitRedirect,
+            connectionFactory = { connections++; connection })
+            .post(GoogleWebTranslateHtmlProvider.DefaultPublicEndpoint, emptyMap(), "private-source") }.exceptionOrNull()
+        assertEquals(TranslationProviderErrorKind.RateLimited, (error as TranslationProviderException).failure.kind)
+        assertEquals(1, connections)
+        assertFalse(connection.instanceFollowRedirects)
+        assertFalse(connection.read)
+        assertTrue(connection.closed)
+        assertFalse(error.toString().contains("private-source"))
+        assertFalse(error.toString().contains("secret-token"))
+        assertFalse(error.toString().contains("sorry"))
+    }
+
+    @Test fun otherRedirectsRemainRejectedWithoutBeingMisclassifiedAsGoogleRateLimits() = runBlocking {
+        val google = GoogleWebTranslateHtmlProvider.DefaultPublicEndpoint
+        val cases = listOf(
+            google to "https://www.google.com/account",
+            google to "https://www.google.com.evil.example/sorry/index",
+            google to "https://www.google.com@evil.example/sorry/index",
+            google to "https://secret@www.google.com/sorry/index",
+            google to "http://www.google.com/sorry/index",
+            google to "https://www.google.com:444/sorry/index",
+            google to "/sorry/index",
+            google to "not a URI",
+            google to "",
+            "https://other-provider.example/translate" to "https://www.google.com/sorry/index",
+        )
+        cases.forEach { (source, location) ->
+            val connection = FakeConnection(status = 302, location = location)
+            val error = runCatching { ProviderHttpTransport("test", isRateLimitRedirect = ::isGooglePublicRateLimitRedirect,
+                connectionFactory = { connection }).post(source, emptyMap(), "private-source") }.exceptionOrNull()
+            assertEquals(TranslationProviderErrorKind.Unknown, (error as TranslationProviderException).failure.kind)
+            assertFalse(connection.read)
+            assertFalse(connection.instanceFollowRedirects)
+            assertTrue(connection.closed)
+        }
+    }
+
     @Test fun configurationHealthUsesTheSameEndpointRulesAsDefaultTransport() {
         val settings = TranslationSettings(TranslationProviderKind.OPENAI_COMPATIBLE_LLM, "key", llmEndpoint = "http://remote.example/chat", llmModel = "model")
         assertEquals(ProviderHealthState.InvalidConfiguration, settings.checkProviderHealth().state)
@@ -102,7 +145,7 @@ class ProviderHttpTransportTest {
         assertTrue(connection.closed)
     }
 
-    private open class FakeConnection(private val status: Int = 200, private val response: String = "translated") : HttpURLConnection(URL("https://provider.example")) {
+    private open class FakeConnection(private val status: Int = 200, private val response: String = "translated", private val location: String? = null) : HttpURLConnection(URL("https://provider.example")) {
         val body = ByteArrayOutputStream()
         @Volatile var closed = false
         var read = false
@@ -111,6 +154,7 @@ class ProviderHttpTransportTest {
         override fun usingProxy() = false
         override fun getOutputStream() = body
         override fun getResponseCode() = status
+        override fun getHeaderField(name: String): String? = if (name.equals("Location", ignoreCase = true)) location else null
         override fun getInputStream(): InputStream { read = true; return ByteArrayInputStream(response.toByteArray(Charsets.UTF_8)) }
         override fun getErrorStream(): InputStream = ByteArrayInputStream(response.toByteArray(Charsets.UTF_8))
     }
