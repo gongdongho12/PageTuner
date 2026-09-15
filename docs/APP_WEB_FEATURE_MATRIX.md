@@ -84,7 +84,7 @@
 | 책 안 검색·검색 결과 이동 | 완료 | 완료 | 웹에서 문자 그대로 대소문자를 구분하지 않고 검색하며 원본 UTF-16 위치를 반환한다. 결과를 선택하면 해당 페이지로 이동하고 재배치 뒤에도 위치를 유지한다. PDF는 추출된 실제 텍스트만 검색하며 이미지 페이지는 제외한다. 최대 500개 결과를 명시한다. [ReaderViewModel](../app/src/main/java/com/dongholab/pagetuner/reader/ReaderViewModel.kt), [readerSearch](../web/src/lib/readerSearch.ts), [ReaderSearch](../web/src/components/ReaderSearch.tsx) |
 | 이름 있는 북마크 | 완료 | 완료 / 기기 내 | 웹 읽기 도구가 현재 문단 ID/문자 위치를 저장하고 이름 있는 북마크 목록·삭제·이동을 제공한다. 계정/문서 namespace를 분리하며 서버 동기화는 없다. [ReaderViewModel](../app/src/main/java/com/dongholab/pagetuner/reader/ReaderViewModel.kt), [readingNotes](../web/src/lib/readingNotes.ts), [ReaderTools](../web/src/components/ReaderTools.tsx) |
 | 하이라이트·메모·내보내기 | 완료 | 완료 / 기기 내 | 실제 선택 범위를 원본 UTF-16 문단 위치로 저장하고 글자 크기 변경 뒤 강조를 유지한다. 북마크·메모·강조의 JSON/Markdown 내보내기와 지원 브라우저 공유를 제공한다. 서버 자동 동기화는 별도다. [readingSelection](../web/src/lib/readingSelection.ts), [readingNotes](../web/src/lib/readingNotes.ts), [ReaderTools](../web/src/components/ReaderTools.tsx) |
-| 마지막 읽은 위치 | 완료 | 완료 / 기기 내 | 웹 번역 작업 결과·서버 서재·오프라인 보관은 같은 문서 ID와 공통 위치 helper를 사용한다. 과거 위치 키를 복구하며 이전 문서 ID의 메모를 계정 내에서 이전한다. localStorage 쓰기 실패 시 IndexedDB 위치를 사용한다. 서버를 통한 앱↔웹 위치 동기화는 미완이다. [LocalLibraryStore](../app/src/main/java/com/dongholab/pagetuner/library/LocalLibraryStore.kt), [translationReading](../web/src/lib/translationReading.ts), [translationReading.test](../web/src/lib/translationReading.test.ts) |
+| 마지막 읽은 위치 | 완료 / 서버 문서 동기화 | 완료 / 서버 문서 동기화 | 서버 원문·번역 UUID와 문단/UTF-16 위치를 공유한다. 기기 변경 대기열·재접속·버전 충돌 선택을 연결했다. 웹 기기 보관본은 서버 ID를 유지하며 Android의 별도 TXT 사본·로컬/ZIP 문서 대응은 S4다. 실기기 조작 검증은 별도다. [읽기 위치 규격과 검증](READING_PROGRESS_SYNC.md), [translationReading](../web/src/lib/translationReading.ts) |
 | 목록 높이에 맞춘 페이지 조작 | 완료 | 완료 | 앱 AdaptiveCollection과 웹 AdaptiveCollection이 별도 플랫폼 구현이다. 공유 정책과 공유 소스 코드는 구분한다. [Android AdaptiveCollection](../app/src/main/java/com/dongholab/pagetuner/ui/common/AdaptiveCollection.kt), [Web AdaptiveCollection](../web/src/components/AdaptiveCollection.tsx) |
 | 명시적 목록 스크롤 모드 선택 | 완료 | 완료 | 웹 AdaptiveCollection은 기본 paged이며 독서 설정에서 명시적으로 scroll을 선택했을 때만 목록에 적용한다. 스크롤에서도 이전/다음 버튼이 있고 설정 화면은 페이지 방식으로 복귀 가능하다. 본문은 항상 paged다. [ListLayoutMode](../app/src/main/java/com/dongholab/pagetuner/settings/ListLayoutMode.kt), [AdaptiveCollection](../web/src/components/AdaptiveCollection.tsx), [ReaderPreferences](../web/src/components/ReaderPreferences.tsx) |
 | 키보드·물리 페이지 키·터치 방향 설정 | 완료 | 부분 / 브라우저 범위 | 웹은 페이지 키 기본/반전/비활성, 양쪽 터치 영역 기본/반전/버튼 전용을 저장한다. 드래그·긴 누르기·텍스트 선택은 페이지 넘김으로 처리하지 않는다. 볼륨 키 등은 브라우저가 이벤트를 전달할 때만 지원하며 OS 전용 키 제어까지 보장하지 않는다. [readerPreferences](../web/src/lib/readerPreferences.ts), [usePageKeys](../web/src/components/usePageKeys.ts), [useReaderControls](../web/src/components/useReaderControls.ts) |
@@ -103,7 +103,7 @@
 | 현재 비밀번호로 비밀번호 변경 | 완료 / 기기 UI 계측 미실행 | 완료 / API·화면 배치 검증 | 공통 API로 현재 비밀번호를 확인한 뒤 변경한다. 성공·응답 유실 시 연결을 해제하고 재로그인을 안내하며 계정 ID·언어·서재를 유지한다. 비밀번호 분실 재설정은 별도 미완 범위다. [비밀번호 변경 규격과 검증](ACCOUNT_PASSWORD_CHANGE.md) |
 | 계정 UI 언어·기본 번역 언어 | 부분 / 언어팩 범위 | 완료 / ko·en 팩 | 양쪽 locale/targetLanguage를 분리 저장한다. 앱 AccountLocale은 리소스 조회를 바꾸며 기존 하드코딩 UI 전체의 번역을 뜻하지 않는다. 앱은 계정 번역 언어를 현재 설정에 적용하는 버튼을 제공한다. 웹은 다음 번역 기본값으로 쓰며 미지원 팩은 en으로 표시한다. [AccountLocale](../app/src/main/java/com/dongholab/pagetuner/ui/common/AccountLocale.kt), [AccountPanel](../web/src/components/AccountPanel.tsx), [locale](../web/src/lib/locale.ts) |
 | 사용자별 원문·번역·작업 서버 영속화 | 완료 / 서버 작업 | 완료 | 서버 PostgreSQL에 원문/번역/작업이 남고 양쪽 화면이 해당 흐름을 사용한다. 앱도 원문/번역 조회·보관·게시와 서버 번역 작업을 연결했다. 앱 로컬 서재 전체 메타데이터의 동기화를 뜻하지 않는다. [SourceChapterStore](../server/src/main/kotlin/com/dongholab/pagetuner/server/workflow/SourceChapterStore.kt), [TranslationJobStore](../server/src/main/kotlin/com/dongholab/pagetuner/server/workflow/TranslationJobStore.kt), [ServerTranslationJobsPanel](../app/src/main/java/com/dongholab/pagetuner/ui/screen/ServerTranslationJobsPanel.kt) |
-| 책 폴더·주석·즐겨찾기·진행 위치의 기기 간 동기화 | 미완 | 미완 | 현재 번역/원문 저장 API만으로 앱의 모든 메타데이터가 동기화되는 것은 아니다. 별도 공통 계약·사용자별 저장·충돌 정책이 필요하다. [현재 동기화 계약](TRANSLATION_SYNC.md), [앱 어댑터 범위](../app/TRANSLATION_STORE_SYNC.md) |
+| 책 폴더·주석·즐겨찾기·진행 위치의 기기 간 동기화 | 부분 | 부분 | 서버 문서의 읽기 위치 동기화를 연결했다. 북마크·메모·강조는 S2, 분류·용어집·설정은 S3, 독립 로컬/ZIP 문서 식별은 S4로 남아 있다. [읽기 위치 동기화](READING_PROGRESS_SYNC.md), [작업 큐](AGENT_WORK_QUEUE.md) |
 | Drive 자동 백업·복구 | 미완 | 미완 | 공통 백업 정책/서버 백업 관련 데이터는 전체 사용자 Drive 백업 작업자·OAuth·복구 화면의 완성을 의미하지 않는다. [core-backup](../core-backup/src/main/kotlin), [서버 README](../server/README.md) |
 
 ## 실제 남은 기능 분류
@@ -113,7 +113,7 @@
 - **이번에 연결한 앱의 독서 기능:** 현재 페이지/WPM 기반 읽기 번역, 원문·번역 대조, 카탈로그 캐시, 용어집 속성, 임의 범위 강조와 독서 기록 내보내기를 구현했다. 웹의 번역 실행에는 서버 연결이 필요하며, 임시 읽기 번역과 기기에 저장한 완성 번역본은 수명이 다르다. 개별 검증 근거는 검증 기록에서 확인한다.
 - **기기 기능과의 대응 판단이 필요한 항목:** 디렉터리 트리 탐색·OS 파일 권한, 볼륨 키 직접 제어·시스템 바·전자잉크 비트맵 변환, Android 렌더링 loader. 웹 파일 선택·Fullscreen API를 동일한 OS 권한 기능으로 세지 않는다.
 - **앱에서도 부분 또는 미완인 항목:** OCR, 사용자 CSS 규칙의 완전한 실행, Drive/FTP의 계정 설정부터 파일 열기까지의 화면, 미니앱/스크립트 플러그인 실행, Drive 자동 백업·복구. 이 항목은 웹에만 빠진 완성 앱 기능으로 설명하지 않는다.
-- **양쪽을 함께 확장해야 하는 항목:** 독서 메타데이터의 서버 자동 동기화. 이번 ZIP 교환은 계정별 수동 파일 이동과 충돌 시 별도 사본 보존이며, 상시 양방향 자동 동기화가 아니다.
+- **양쪽을 함께 확장해야 하는 항목:** 읽기 위치 외 독서 메타데이터와 독립 로컬 문서의 서버 자동 동기화. 서버 문서 위치는 S1로 연결했고, ZIP 교환은 계속 계정별 수동 파일 이동과 충돌 시 별도 사본 보존을 제공한다.
 
 ## 2026-09-15 교차리뷰에서 확인한 연결 경계
 
