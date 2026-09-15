@@ -1711,6 +1711,7 @@
       },
       "GlossaryEntry": {
         "type": "object",
+        "description": "Defaults preserve the original source/target contract. Kind and display aliases affect only reader display, while enabled and caseSensitive also affect the shared translation fingerprint. Display options never rewrite a stored translation artifact.",
         "required": [
           "source",
           "target"
@@ -1725,6 +1726,24 @@
             "type": "string",
             "minLength": 1,
             "maxLength": 200
+          },
+          "kind": {
+            "type": "string",
+            "enum": ["Character", "Place", "Term"],
+            "description": "Omitted means Character."
+          },
+          "displayTerm": {
+            "type": "string",
+            "maxLength": 200,
+            "description": "Omitted means no display alias."
+          },
+          "caseSensitive": {
+            "type": "boolean",
+            "description": "Omitted means false."
+          },
+          "enabled": {
+            "type": "boolean",
+            "description": "Omitted means true."
           }
         }
       },

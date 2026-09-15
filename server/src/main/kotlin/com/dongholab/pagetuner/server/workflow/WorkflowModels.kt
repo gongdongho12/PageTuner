@@ -42,7 +42,12 @@ data class ChapterSummary(
     val chapterId: String, val chapterTitle: String, val chapterUrl: String, val sourceLanguage: String,
     val sourceRevision: String, val paragraphCount: Int, val createdAt: Instant,
 )
-data class WorkflowGlossaryEntry(val source: String, val target: String)
+/** Omitted defaults preserve the JSON used by existing job idempotency hashes. */
+@com.fasterxml.jackson.annotation.JsonInclude(com.fasterxml.jackson.annotation.JsonInclude.Include.NON_NULL)
+data class WorkflowGlossaryEntry(
+    val source: String, val target: String, val kind: String? = null, val displayTerm: String? = null,
+    val caseSensitive: Boolean? = null, val enabled: Boolean? = null,
+)
 
 // Deliberately not a data class: never generate a toString containing credentials.
 class CreateTranslationJobRequest(
