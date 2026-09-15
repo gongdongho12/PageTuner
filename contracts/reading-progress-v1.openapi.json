@@ -1,0 +1,131 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "PageTurner Server Reading Progress",
+    "version": "1.0.0",
+    "description": "Account-scoped compare-and-set reading positions for immutable server originals and translations. See reading-progress-v1.md for retry and conflict semantics."
+  },
+  "paths": {
+    "/api/v1/reading-progress/{kind}/{recordId}": {
+      "parameters": [
+        { "name": "kind", "in": "path", "required": true, "schema": { "$ref": "#/components/schemas/ReadingProgressKind" } },
+        { "name": "recordId", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } }
+      ],
+      "get": {
+        "operationId": "getReadingProgress",
+        "security": [{ "basicAuth": [] }],
+        "responses": {
+          "200": { "$ref": "#/components/responses/ReadingProgressSuccess" },
+          "400": { "$ref": "#/components/responses/ReadingProgressError" },
+          "401": { "description": "Authentication required." },
+          "404": { "$ref": "#/components/responses/ReadingProgressError" }
+        }
+      },
+      "put": {
+        "operationId": "putReadingProgress",
+        "security": [{ "basicAuth": [] }],
+        "parameters": [{ "name": "X-CSRF-TOKEN", "in": "header", "required": true, "schema": { "type": "string" }, "description": "Use /api/v1/csrf and the matching session cookie." }],
+        "requestBody": {
+          "required": true,
+          "description": "At most 8 KiB, including chunked JSON. Retry a lost response with the exact same request.",
+          "content": { "application/json": { "schema": { "$ref": "#/components/schemas/PutReadingProgressRequest" } } }
+        },
+        "responses": {
+          "200": { "$ref": "#/components/responses/ReadingProgressSuccess" },
+          "400": { "$ref": "#/components/responses/ReadingProgressError" },
+          "401": { "description": "Authentication required." },
+          "403": { "description": "Missing or invalid CSRF token." },
+          "404": { "$ref": "#/components/responses/ReadingProgressError" },
+          "409": {
+            "description": "Stale expectedVersion. Keep the pending local position and ask which position to retain.",
+            "headers": { "Cache-Control": { "schema": { "type": "string", "enum": ["no-store"] } } },
+            "content": { "application/problem+json": { "schema": { "$ref": "#/components/schemas/ReadingProgressConflict" } } }
+          },
+          "413": { "$ref": "#/components/responses/ReadingProgressError" },
+          "429": {
+            "description": "Per-account write limit; retain the pending position and obey Retry-After.",
+            "headers": {
+              "Cache-Control": { "schema": { "type": "string", "enum": ["no-store"] } },
+              "Retry-After": { "required": true, "schema": { "type": "integer", "minimum": 1, "maximum": 60 } }
+            },
+            "content": { "application/problem+json": { "schema": { "$ref": "#/components/schemas/ReadingProgressProblem" } } }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": { "basicAuth": { "type": "http", "scheme": "basic" } },
+    "responses": {
+      "ReadingProgressSuccess": {
+        "description": "Current reading position. Version zero has null anchor and updatedAt; positive versions have both values.",
+        "headers": { "Cache-Control": { "schema": { "type": "string", "enum": ["no-store"] } } },
+        "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ReadingProgressView" } } }
+      },
+      "ReadingProgressError": {
+        "description": "Invalid request, inaccessible document or exceeded body limit. Error codes are described in reading-progress-v1.md.",
+        "headers": { "Cache-Control": { "schema": { "type": "string", "enum": ["no-store"] } } },
+        "content": { "application/problem+json": { "schema": { "$ref": "#/components/schemas/ReadingProgressProblem" } } }
+      }
+    },
+    "schemas": {
+      "ReadingProgressKind": { "type": "string", "enum": ["ORIGINAL", "TRANSLATION"] },
+      "ReadingProgressAnchor": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["paragraphId", "characterOffset"],
+        "properties": {
+          "paragraphId": { "type": "string", "minLength": 1, "maxLength": 200, "description": "Persisted paragraph ID; no ISO control characters. Limit measured in UTF-16 code units." },
+          "characterOffset": { "type": "integer", "minimum": 0, "maximum": 2147483647, "description": "UTF-16 code units in the original or translated paragraph text, including paragraph end but excluding the middle of a surrogate pair." }
+        }
+      },
+      "ReadingProgressView": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["kind", "recordId", "version", "anchor", "updatedAt"],
+        "properties": {
+          "kind": { "$ref": "#/components/schemas/ReadingProgressKind" },
+          "recordId": { "type": "string", "format": "uuid" },
+          "version": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
+          "anchor": { "nullable": true, "allOf": [{ "$ref": "#/components/schemas/ReadingProgressAnchor" }] },
+          "updatedAt": { "type": "string", "format": "date-time", "nullable": true, "description": "Server UTC timestamp; informational, never a concurrency token." }
+        }
+      },
+      "PutReadingProgressRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["expectedVersion", "mutationId", "anchor"],
+        "properties": {
+          "expectedVersion": { "type": "integer", "minimum": 0, "maximum": 9007199254740990 },
+          "mutationId": { "type": "string", "format": "uuid", "description": "New UUID for a new update. Preserve the whole request for response-loss retries." },
+          "anchor": { "$ref": "#/components/schemas/ReadingProgressAnchor" }
+        }
+      },
+      "ReadingProgressProblem": {
+        "type": "object",
+        "required": ["status"],
+        "properties": {
+          "type": { "type": "string" },
+          "title": { "type": "string" },
+          "status": { "type": "integer" },
+          "detail": { "type": "string" },
+          "instance": { "type": "string" },
+          "code": { "type": "string" }
+        }
+      },
+      "ReadingProgressConflict": {
+        "type": "object",
+        "required": ["status", "code", "current"],
+        "properties": {
+          "type": { "type": "string" },
+          "title": { "type": "string" },
+          "status": { "type": "integer", "enum": [409] },
+          "detail": { "type": "string" },
+          "instance": { "type": "string" },
+          "code": { "type": "string", "enum": ["READING_PROGRESS_CONFLICT"] },
+          "current": { "$ref": "#/components/schemas/ReadingProgressView" }
+        }
+      }
+    }
+  }
+}
