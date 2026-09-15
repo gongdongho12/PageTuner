@@ -20,10 +20,11 @@ import com.dongholab.pagetuner.translation.sync.ServerLibraryDocument
 import java.io.File
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Deferred
+import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import org.json.JSONArray
 import org.json.JSONObject
 
 data class PortableLibraryState(val entries: List<PortableLibraryEntry> = emptyList(), val busy: Boolean = false, val status: Int? = null, val error: String? = null)
@@ -38,6 +39,7 @@ class PortableLibraryViewModel(private val context: Context, private val local: 
     val opened = mutableOpened.asSharedFlow()
     private var preparedExport: ByteArray? = null
     private val readerGenerations = mutableMapOf<String, Long>()
+    private val readerWrites = mutableMapOf<String, Deferred<Result<Unit>>>()
     private val mutableExportReady = MutableSharedFlow<String>(extraBufferCapacity = 1)
     val exportReady = mutableExportReady.asSharedFlow()
 
@@ -56,9 +58,12 @@ class PortableLibraryViewModel(private val context: Context, private val local: 
         mutableState.update { it.copy(entries = store.list()) }
     }
 
-    fun prepareExport(entry: PortableLibraryEntry) = operation {
-        preparedExport = store.export(entry)
-        mutableExportReady.emit("PageTurner-${entry.document.bookTitle.safeFilename()}.ptlibrary.zip")
+    fun prepareExport(entry: PortableLibraryEntry) {
+        operation {
+            awaitReaderWrites(entry)
+            preparedExport = store.export(entry)
+            mutableExportReady.emit("PageTurner-${entry.document.bookTitle.portableFilename()}.ptlibrary.zip")
+        }
     }
 
     fun prepareNativeExport(book: LocalBook, translation: Boolean = false, settings: TranslationSettings? = null,
@@ -88,7 +93,7 @@ class PortableLibraryViewModel(private val context: Context, private val local: 
             value = value.copy(documents = value.documents + translated)
         }
         preparedExport = LibraryExchangeCodec.write(value)
-        mutableExportReady.emit("PageTurner-${book.title.safeFilename()}.ptlibrary.zip")
+        mutableExportReady.emit("PageTurner-${book.title.portableFilename()}.ptlibrary.zip")
     }
 
     fun writeExport(uri: Uri?) {
@@ -101,29 +106,32 @@ class PortableLibraryViewModel(private val context: Context, private val local: 
         }
     }
 
-    fun open(entry: PortableLibraryEntry, originalPdf: Boolean = false) = operation {
-        val value = store.read(entry)
-        val document = value.documents[entry.documentIndex]
-        val currentEntry = entry.copy(document = document)
-        if (originalPdf || document.paragraphs.isEmpty() && document.assets.any { it.role == "pdf" }) {
-            val ref = requireNotNull(document.assets.firstOrNull { it.role == "pdf" })
-            val asset = requireNotNull(value.assets.firstOrNull { it.path == ref.path })
-            val file = File(context.cacheDir, "portable-pdf/${asset.sha256}.pdf")
-            file.parentFile?.mkdirs()
-            if (!file.exists() || DocumentIds.sha256(file.readBytes()) != asset.sha256) file.writeBytes(asset.bytes)
-            val loaded = context.readReaderDocument(Uri.fromFile(file), document.bookTitle, DocumentFormat.PDF)
-            val reader = loaded.document.copy(id = entry.readerId)
-            val android = document.extensionsJson?.let(::JSONObject)?.optJSONObject("android")
-            val page = android?.optInt("pageIndex", 0) ?: 0
-            val marks = android?.optJSONArray("pageBookmarks") ?: JSONArray()
-            val notes = android?.optJSONArray("pageAnnotations") ?: JSONArray()
-            mutableOpened.emit(PortableOpened(currentEntry, loaded.copy(document = reader), PortableReaderMapping(reader, List(reader.pageCount) { null }), page,
-                List(marks.length()) { marks.getJSONObject(it).let { item -> ReaderBookmark(item.getString("id"), item.getInt("pageIndex"), item.optString("label").takeIf(String::isNotBlank), item.getLong("createdAtMillis")) } },
-                List(notes.length()) { notes.getJSONObject(it).let { item -> ReaderAnnotation(item.getString("id"), if (item.optString("kind") == "Highlight") ReaderAnnotationType.Highlight else ReaderAnnotationType.Note, item.getInt("pageIndex"), item.getString("text"), item.getLong("createdAtMillis")) } }, true))
-        } else {
-            val mapping = PortableDocumentMapper.reader(document, value.assets, entry.readerId)
-            mutableOpened.emit(PortableOpened(currentEntry, LoadedReaderDocument(mapping.document), mapping,
-                document.position?.let(mapping::pageFor) ?: 0, PortableDocumentMapper.bookmarks(document, mapping), PortableDocumentMapper.annotations(document, mapping)))
+    fun open(entry: PortableLibraryEntry, originalPdf: Boolean = false) {
+        operation {
+            awaitReaderWrites(entry)
+            val value = store.read(entry)
+            val document = value.documents[entry.documentIndex]
+            val currentEntry = entry.copy(document = document)
+            if (originalPdf || document.paragraphs.isEmpty() && document.assets.any { it.role == "pdf" }) {
+                val ref = requireNotNull(document.assets.firstOrNull { it.role == "pdf" })
+                val asset = requireNotNull(value.assets.firstOrNull { it.path == ref.path })
+                val file = File(context.cacheDir, "portable-pdf/${asset.sha256}.pdf")
+                file.parentFile?.mkdirs()
+                if (!file.exists() || DocumentIds.sha256(file.readBytes()) != asset.sha256) file.writeBytes(asset.bytes)
+                val loaded = context.readReaderDocument(Uri.fromFile(file), document.bookTitle, DocumentFormat.PDF)
+                val reader = loaded.document.copy(id = entry.readerId)
+                val mapping = PortableReaderMapping(reader, List(reader.pageCount) { null })
+                val pageState = PortablePageMetadata.read(document, mapping, pdf = true)
+                mutableOpened.emit(PortableOpened(currentEntry, loaded.copy(document = reader), mapping, pageState.pageIndex ?: 0,
+                    pageState.bookmarks, pageState.annotations, true))
+            } else {
+                val mapping = PortableDocumentMapper.reader(document, value.assets, entry.readerId)
+                val pageState = PortablePageMetadata.read(document, mapping, pdf = false)
+                mutableOpened.emit(PortableOpened(currentEntry, LoadedReaderDocument(mapping.document), mapping,
+                    pageState.pageIndex ?: document.position?.let(mapping::pageFor) ?: 0,
+                    PortableDocumentMapper.bookmarks(document, mapping) + pageState.bookmarks,
+                    PortableDocumentMapper.annotations(document, mapping) + pageState.annotations))
+            }
         }
     }
 
@@ -131,25 +139,31 @@ class PortableLibraryViewModel(private val context: Context, private val local: 
         val generation = synchronized(readerGenerations) {
             (readerGenerations.getOrDefault(opened.entry.key, 0L) + 1L).also { readerGenerations[opened.entry.key] = it }
         }
-        viewModelScope.launch {
+        val write = viewModelScope.async {
             try {
                 withContext(Dispatchers.IO) {
                     store.update(opened.entry) { value ->
                         if (synchronized(readerGenerations) { readerGenerations[opened.entry.key] } != generation) return@update value
-                        if (opened.pdf) {
-                            val extensions = value.extensionsJson?.let(::JSONObject) ?: JSONObject()
-                            val android = extensions.optJSONObject("android") ?: JSONObject()
-                            android.put("pageIndex", pageIndex).put("pageBookmarks", JSONArray(bookmarks.map {
-                                JSONObject().put("id", it.id).put("pageIndex", it.pageIndex).put("label", it.label).put("createdAtMillis", it.createdAtMillis)
-                            })).put("pageAnnotations", JSONArray(annotations.map {
-                                JSONObject().put("id", it.id).put("pageIndex", it.pageIndex).put("text", it.text).put("kind", it.type.name).put("createdAtMillis", it.createdAtMillis)
-                            }))
-                            value.copy(extensionsJson = extensions.put("android", android).toString())
-                        } else PortableDocumentMapper.mergeReader(value, opened.mapping, pageIndex, bookmarks, annotations)
+                        val pageState = PortablePageMetadata.merge(value, opened.mapping, pageIndex, bookmarks, annotations, opened.pdf)
+                        if (opened.pdf) pageState else PortableDocumentMapper.mergeReader(pageState, opened.mapping, pageIndex, bookmarks, annotations)
                     }
                 }
+                Result.success(Unit)
             } catch (cancelled: CancellationException) { throw cancelled }
-            catch (error: Exception) { mutableState.update { it.copy(error = error.message ?: context.getString(R.string.portable_error_write)) } }
+            catch (error: Exception) {
+                mutableState.update { it.copy(error = error.message ?: context.getString(R.string.portable_error_write)) }
+                Result.failure(error)
+            }
+        }
+        synchronized(readerWrites) { readerWrites[opened.entry.key] = write }
+    }
+
+    private suspend fun awaitReaderWrites(entry: PortableLibraryEntry) {
+        while (true) {
+            val pending = synchronized(readerWrites) { readerWrites[entry.key] } ?: return
+            pending.await().getOrThrow()
+            // A later page/annotation update may have superseded the write while it was pending.
+            if (synchronized(readerWrites) { readerWrites[entry.key] } === pending) return
         }
     }
 
@@ -170,4 +184,9 @@ class PortableLibraryViewModel(private val context: Context, private val local: 
     }
 }
 
-private fun String.safeFilename() = replace(Regex("[^\\p{L}\\p{N}._ -]"), "_").take(80).ifBlank { "library" }
+internal fun String.portableFilename(): String {
+    val normalized = replace(Regex("[^\\p{L}\\p{N}._ -]"), "_")
+    var end = minOf(normalized.length, 80)
+    if (end < normalized.length && end > 0 && normalized[end - 1].isHighSurrogate() && normalized[end].isLowSurrogate()) end--
+    return normalized.substring(0, end).ifBlank { "library" }
+}
