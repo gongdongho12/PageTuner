@@ -7,6 +7,8 @@ export type ReadingDocument = {
   chapterTitle: string
   language: string
   kind: 'original' | 'translation' | 'introduction' | 'local'
+  /** Only server records have cross-device progress; display-only derivatives omit this identity. */
+  serverProgress?: { kind: 'ORIGINAL' | 'TRANSLATION'; recordId: string }
   glossaryIdentity?: { providerId: string; bookId: string }
   paragraphs: { paragraphId: string; text: string }[]
   outline?: { title: string; paragraphId: string }[]

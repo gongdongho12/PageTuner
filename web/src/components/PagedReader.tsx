@@ -5,6 +5,8 @@ import { Icon } from "./Icon";
 import { usePageKeys } from "./usePageKeys";
 import { ReaderTools } from './ReaderTools';
 import { firstAnchor, type ReadingDocument } from '../lib/readingDocument';
+import { useReadingProgress } from './ReadingProgressProvider';
+import { ReadingProgressPanel, readingProgressStatus } from './ReadingProgressPanel';
 import { useReaderPreferences } from './ReaderPreferences';
 import { readerFontFamilies } from '../lib/readerPreferences';
 import { useReaderFullscreen, useReaderTouch } from './useReaderControls';
@@ -22,6 +24,8 @@ type Fragment = ReaderFragment;
 export type PagedReaderProps = {
     document: ReadingDocument;
     anchor?: ReadingAnchor;
+    /** A deliberate view switch must take precedence over a saved remote position. */
+    anchorIsNavigation?: boolean;
     preview?: boolean;
     /** Derived display-only documents must never create canonical notes or highlights. */
     readOnly?: boolean;
@@ -116,7 +120,7 @@ function setMeasuredText(element: HTMLElement, text: string, start: number, emph
         const node = document.createElement('strong'); node.textContent = part.text; return node;
     }));
 }
-export function PagedReader({ document: readingDocument, anchor, preview = false, readOnly = false, editionLabel, readerLabel, contentKindLabel, saved, saving, onClose, onSave, actionLabel, onAction, positionNote, notesNamespace, actionError, onAnchorChange, onPaginationChange, onBoundaryPageTurn, hasPreviousBoundary = false, hasNextBoundary = false, }: PagedReaderProps) {
+export function PagedReader({ document: readingDocument, anchor, anchorIsNavigation = false, preview = false, readOnly = false, editionLabel, readerLabel, contentKindLabel, saved, saving, onClose, onSave, actionLabel, onAction, positionNote, notesNamespace, actionError, onAnchorChange, onPaginationChange, onBoundaryPageTurn, hasPreviousBoundary = false, hasNextBoundary = false, }: PagedReaderProps) {
     const root = useRef<HTMLElement>(null);
     const { preferences, update: updatePreferences, error: preferencesError } = useReaderPreferences(notesNamespace);
     const fullscreen = useReaderFullscreen(root);
@@ -131,6 +135,8 @@ export function PagedReader({ document: readingDocument, anchor, preview = false
     const [error, setError] = useState("");
     const [toolsOpen, setToolsOpen] = useState(false);
     const [glossaryOpen, setGlossaryOpen] = useState(false);
+    const [progressOpen, setProgressOpen] = useState(false);
+    const progress = useReadingProgress(readingDocument, notesNamespace, anchor, !preview && !readOnly, anchorIsNavigation);
     const personal = usePersonalLibrary(preview || readOnly ? '' : notesNamespace ?? '');
     const glossaryIdentity = readingDocument.glossaryIdentity ?? (readingDocument.kind === 'local' && readingDocument.local
         ? { providerId: 'uploaded-document', bookId: `local:${readingDocument.local.contentHash}` } : undefined);
@@ -205,7 +211,7 @@ export function PagedReader({ document: readingDocument, anchor, preview = false
             observer.disconnect();
             cancelAnimationFrame(frame);
         };
-    }, [toolsOpen, glossaryOpen]);
+    }, [toolsOpen, glossaryOpen, progressOpen]);
     useLayoutEffect(() => {
         if (!measure.current || bounds.width < 1 || bounds.height < 1)
             return;
@@ -225,7 +231,26 @@ export function PagedReader({ document: readingDocument, anchor, preview = false
                 ? failure.message
                 : t("\uD398\uC774\uC9C0\uB97C \uB098\uB204\uC9C0 \uBABB\uD588\uC2B5\uB2C8\uB2E4."));
         }
-    }, [projection, bounds, fontSize, preferences.fontFamily, preferences.lineHeight, preferences.pageMargin, toolsOpen, glossaryOpen]);
+    }, [projection, bounds, fontSize, preferences.fontFamily, preferences.lineHeight, preferences.pageMargin, toolsOpen, glossaryOpen, progressOpen]);
+    const syncedAnchor = progress.state?.restoration?.anchor;
+    const restorationSequence = progress.state?.restoration?.sequence;
+    const appliedProgress = useRef<{ documentId: string; source: unknown; sequence: number | undefined } | undefined>(undefined);
+    useLayoutEffect(() => {
+        if (!syncedAnchor) return;
+        const paragraph = readingDocument.paragraphs.find(p => p.paragraphId === syncedAnchor.paragraphId);
+        if (!paragraph || !Number.isInteger(syncedAnchor.characterOffset) || syncedAnchor.characterOffset < 0 || syncedAnchor.characterOffset > paragraph.text.length) return;
+        const applied = appliedProgress.current;
+        if (applied?.documentId === readingDocument.id && applied.source === progress.restorationSource && applied.sequence === restorationSequence) return;
+        const text = paragraph.text;
+        if (syncedAnchor.characterOffset > 0 && /[\uD800-\uDBFF]/.test(text[syncedAnchor.characterOffset - 1]) && /[\uDC00-\uDFFF]/.test(text[syncedAnchor.characterOffset])) return;
+        appliedProgress.current = { documentId: readingDocument.id, source: progress.restorationSource, sequence: restorationSequence };
+        if (location.current.anchor?.paragraphId === syncedAnchor.paragraphId && location.current.anchor.characterOffset === syncedAnchor.characterOffset) return;
+        const moved = reflowReaderLocation(pages, projection.displayAnchor(syncedAnchor));
+        location.current = { ...moved, anchor: syncedAnchor };
+        setPage(moved.page);
+        // Restore local reader stores, but only explicit user movement enters the outgoing queue.
+        onAnchorChange(syncedAnchor);
+    }, [syncedAnchor, restorationSequence, progress.restorationSource, pages, projection, readingDocument, onAnchorChange]);
     const turnPage = useCallback((direction: -1 | 1) => {
         const next = turnReaderPage(pages, location.current, direction);
         if (next === location.current) {
@@ -236,26 +261,29 @@ export function PagedReader({ document: readingDocument, anchor, preview = false
         location.current = { ...next, anchor: source };
         window.getSelection()?.removeAllRanges(); setSelection(undefined);
         setPage(next.page);
-        if (source)
+        if (source) {
             onAnchorChange(source);
-    }, [pages, onAnchorChange, projection, onBoundaryPageTurn, hasPreviousBoundary, hasNextBoundary]);
+            progress.move(source);
+        }
+    }, [pages, onAnchorChange, projection, onBoundaryPageTurn, hasPreviousBoundary, hasNextBoundary, progress.move]);
     useEffect(() => {
         onPaginationChange?.({ documentId: readingDocument.id, pages: canonicalPages, page });
     }, [readingDocument.id, canonicalPages, page, onPaginationChange]);
     const previous = useCallback(() => turnPage(-1), [turnPage]);
     const next = useCallback(() => turnPage(1), [turnPage]);
-    usePageKeys(previous, next, !error && !toolsOpen && !glossaryOpen, preferences.pageKeys);
+    usePageKeys(previous, next, !error && !toolsOpen && !glossaryOpen && !progressOpen, preferences.pageKeys);
     const touch = useReaderTouch(preferences.touchDirection, turnPage);
     const typography = { fontFamily: readerFontFamilies[preferences.fontFamily], lineHeight: preferences.lineHeight };
     const percentage = pages.length
         ? Math.round(((page + 1) / pages.length) * 100)
         : 0;
+    if (progressOpen && progress.available) return <ReadingProgressPanel document={readingDocument} progress={progress} onClose={() => setProgressOpen(false)}/>;
     if (glossaryOpen && personal && glossaryIdentity) return <section className="novel-workspace"><div className="workflow-heading">
         <button className="button-quiet" onClick={() => setGlossaryOpen(false)}>{t('읽기로 돌아가기')}</button><h2>{t('책별 용어집')}</h2></div>
         <GlossaryEditor storage={personal} providerId={glossaryIdentity.providerId} bookId={glossaryIdentity.bookId} onChange={() => {}} /></section>;
     if (toolsOpen && notesNamespace) return <ReaderTools namespace={notesNamespace} document={readingDocument}
       anchor={location.current.anchor ?? firstAnchor(readingDocument)} onClose={() => setToolsOpen(false)}
-      onJump={anchor => { const moved = reflowReaderLocation(pages, projection.displayAnchor(anchor)); location.current = { ...moved, anchor }; setPage(moved.page); onAnchorChange(anchor); setToolsOpen(false); }}/>
+      onJump={anchor => { const moved = reflowReaderLocation(pages, projection.displayAnchor(anchor)); location.current = { ...moved, anchor }; setPage(moved.page); onAnchorChange(anchor); progress.move(anchor); setToolsOpen(false); }}/>
     return (<section ref={root} className="reader" aria-label={readerLabel ?? (readingDocument.kind === 'local' ? t('로컬 파일 읽기') : readingDocument.kind === "original"
             ? t("\uC6D0\uBB38 \uC77D\uAE30") : readingDocument.kind === "introduction"
             ? t("\uC18C\uAC1C \uC77D\uAE30") : t("\uBC88\uC5ED\uBB38 \uC77D\uAE30"))}>
@@ -323,11 +351,13 @@ export function PagedReader({ document: readingDocument, anchor, preview = false
                 </p>))}
             </article>)}
         </div>
-        <div className="reader-bottom-rule">
-          <span>
+      <div className={`reader-bottom-rule${progress.available ? ' reader-progress-rule' : ''}`}>
+          {progress.available ? <button className="button-text reader-progress-status" onClick={() => setProgressOpen(true)} aria-label={t('읽기 위치 동기화')}>
+            {t(readingProgressStatus(progress))}
+          </button> : <span>
             {preview
             ? t("\uB9C8\uC74C\uC5D0 \uB4DC\uB294 \uC18D\uB3C4\uB85C, \uD55C \uD398\uC774\uC9C0\uC529.") : (positionNote ?? t("\uC77D\uC740 \uC704\uCE58\uAC00 \uC774 \uAE30\uAE30\uC5D0 \uAE30\uC5B5\uB429\uB2C8\uB2E4."))}
-          </span>
+          </span>}
           <span>{percentage}%</span>
         </div>
       </div>

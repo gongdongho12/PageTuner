@@ -6,6 +6,7 @@ import type { ReadingPagination, ReadingPace, ReadingTranslationClient, ReadingT
 import type { ReadingAnchor } from '../lib/offline'
 import { translate as t } from '../lib/locale'
 import { usePersonalLibrary } from './usePersonalLibrary'
+import { useReadingProgress } from './ReadingProgressProvider'
 import { normalizeGlossary, type GlossaryEntry } from '../lib/glossary'
 import { TranslationSetup } from './TranslationSetup'
 import type { ProviderCheckHandler } from './ProviderCheckSession'
@@ -36,6 +37,9 @@ function ActiveRollingReader(props: RollingTranslationReaderProps & { source: St
   const personal = usePersonalLibrary(props.notesNamespace ?? '')
   const operation = useRef(0)
   const [sourceAnchor, setSourceAnchor] = useState(props.anchor), [sourceMount, setSourceMount] = useState(0)
+  // The source reader is unmounted while displaying temporary translations. Keep its
+  // shared progress controller available for explicit source-page navigation there.
+  const sourceProgress = useReadingProgress(props.document, props.notesNamespace, props.anchor, true)
   const pagination = useRef<ReadingPagination | undefined>(undefined), mounted = useRef(true)
   const options = useMemo<ReadingTranslationSettings>(() => ({ providerKind: providerSettings.providerKind ?? 'GOOGLE_WEB_TRANSLATE_HTML',
     targetLanguage: target, sourceLanguage: providerSettings.sourceLanguage ?? props.source.sourceLanguage,
@@ -70,7 +74,7 @@ function ActiveRollingReader(props: RollingTranslationReaderProps & { source: St
     const page = Math.max(0, Math.min(layout.pages.length - 1, snapshot.page + direction)), first = layout.pages[page]?.[0]
     if (page === snapshot.page || !first) return
     const anchor = { paragraphId: first.paragraphId, characterOffset: first.start }
-    setSourceAnchor(anchor); setSourceMount(value => value + 1); props.onAnchorChange(anchor)
+    setSourceAnchor(anchor); setSourceMount(value => value + 1); props.onAnchorChange(anchor); sourceProgress.move(anchor)
     const next = { ...layout, page }; pagination.current = next; session.setPagination(next)
   }
   function updateSpeed(value: Speed) {

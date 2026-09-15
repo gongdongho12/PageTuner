@@ -14,6 +14,13 @@ function fragment(
 }
 
 describe("reader logical position", () => {
+  it("restores the paragraph end without confusing an interior page boundary", () => {
+    const pages = [[fragment('p1', 0, 20)], [fragment('p2', 0, 30)], [fragment('p2', 30, 60)]];
+    expect(reflowReaderLocation(pages, { paragraphId: 'p2', characterOffset: 30 }).page).toBe(2);
+    expect(reflowReaderLocation(pages, { paragraphId: 'p2', characterOffset: 60 })).toEqual({
+      page: 2, anchor: { paragraphId: 'p2', characterOffset: 60 },
+    });
+  });
   it("retains p9 across six larger-font reflows and the reverse resizes", () => {
     const original = { paragraphId: "preview-p-9", characterOffset: 0 };
     let location = { page: 6, anchor: original };

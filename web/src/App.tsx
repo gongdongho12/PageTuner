@@ -31,6 +31,8 @@ import { Icon, type IconName } from "./components/Icon";
 import { TranslationComparisonReader } from "./components/TranslationComparisonReader";
 import { NovelWorkspace } from "./components/NovelWorkspace";
 import { AccountPanel } from "./components/AccountPanel";
+import { ReadingProgressProvider } from './components/ReadingProgressProvider';
+import { createReadingProgressClient, type ReadingProgressClient } from './lib/readingProgressApi';
 import { LocalWorkspace } from "./components/LocalWorkspace";
 import { LibraryExchangeWorkspace } from "./components/LibraryExchangeWorkspace";
 import { OriginalLibrary } from "./components/OriginalLibrary";
@@ -237,6 +239,8 @@ export default function App() {
     null,
   );
   const accountClientRef = useRef<AccountClient | null>(null);
+  const [progressClient, setProgressClient] = useState<ReadingProgressClient | null>(null);
+  const progressClientRef = useRef<ReadingProgressClient | null>(null);
   const [workflowClient, setWorkflowClient] = useState<WorkflowClient | null>(
     null,
   );
@@ -403,6 +407,7 @@ export default function App() {
       request.current?.abort();
       workflowClientRef.current?.close();
       accountClientRef.current?.close();
+      progressClientRef.current?.close();
       session.current += 1;
     },
     [],
@@ -416,6 +421,9 @@ export default function App() {
     setJsonCatalogOpen(false);
     accountClientRef.current?.close();
     accountClientRef.current = null;
+    progressClientRef.current?.close();
+    progressClientRef.current = null;
+    setProgressClient(null);
     setAccountClient(null);
     setAccountProfile(null);
     workflowClientRef.current?.close();
@@ -460,6 +468,9 @@ export default function App() {
       accountClientRef.current = nextAccountClient;
       setAccountClient(nextAccountClient);
       setAccountProfile(profile);
+      const nextProgressClient = createReadingProgressClient({ username: profile.username, password: details.password });
+      progressClientRef.current = nextProgressClient;
+      setProgressClient(nextProgressClient);
       setLocale(profile.locale);
       setUsername(profile.username);
       setFormUsername(profile.username);
@@ -740,6 +751,7 @@ export default function App() {
           : t("현재 화면에서 오프라인 읽기 가능");
   return (
     <ReaderPreferencesProvider namespace={username}>
+    <ReadingProgressProvider username={username} client={progressClient}>
       <div className="app-shell">
         <header className="app-header">
           <a
@@ -1409,6 +1421,7 @@ export default function App() {
           </div>
         )}
       </div>
+    </ReadingProgressProvider>
     </ReaderPreferencesProvider>
   );
 }
