@@ -1,0 +1,907 @@
+/** Korean source keys keep existing copy readable. Add packs through registerLanguagePack. */
+export const englishMessages: Record<string, string> = {
+  '서버에서 받은 목록': 'Catalog from the server',
+  '목록 새로 받기': 'Refresh catalog',
+  '원문 보기': 'View original',
+  '번역 설정': 'Translation settings',
+  '저장된 목록을 확인할 수 없습니다.': 'The saved catalog could not be verified.',
+  '저장된 목록': 'Saved catalogs',
+  '기기에 남은 소스 목록입니다. 새 검색·목차·본문을 열려면 서버 연결이 필요합니다.': 'These source catalogs are saved on this device. Connect to the server for new searches, chapter lists, and book content.',
+  '저장 목록 · {0}페이지 · {1}': 'Saved catalog · Page {0} · {1}',
+  '오래된 목록': 'Outdated catalog',
+  '저장된 목록을 확인하고 있습니다…': 'Checking saved catalogs…',
+  '{0}페이지': 'Page {0}',
+  '전체 목록': 'All books',
+  '기기에 저장된 소스 목록이 없습니다.': 'There are no source catalogs saved on this device.',
+  '연결된 상태에서 소스 목록을 열면 최근 목록을 임시 보관합니다.': 'Open a source catalog while connected to keep a recent copy on this device.',
+  '기기 목록 · {0}': 'Device catalog · {0}',
+  '연결 없이 표시 중': 'Showing offline copy',
+  '새 목록을 받지 못했습니다': 'Could not refresh the catalog',
+  '기기 목록 캐시를 사용할 수 없습니다.': 'The device catalog cache is unavailable.',
+  '목록 페이지 정보를 확인할 수 없습니다.': 'The catalog page could not be verified.',
+  '저장된 목록을 열 계정 이름을 입력해 주세요.': 'Enter the account name for the saved catalogs.',
+  '연결 없이 사용할 저장된 목록이 없습니다. 서버에 연결해 주세요.': 'No saved catalog is available offline. Connect to the server.',
+  '카탈로그 주소에서 파일 가져오기': 'Import files from a catalog address',
+  '기기에 임시 보관한 소스 목록': 'Source catalogs cached on this device',
+  '원문·번역 보기': 'Original and translation views',
+  '읽기 표시 모드': 'Reading display mode',
+  '대조': 'Compare',
+  '원문·번역 대조': 'Original and translation comparison',
+  '대조 읽기': 'Comparison reading',
+  '대응 원문을 확인하고 있습니다…': 'Finding the matching original…',
+  '이 번역에 대응하는 원문을 확인하지 못했습니다. 다른 원문과 대조하지 않습니다.': 'The original does not match this translation. Comparison is unavailable.',
+  '이 기기에 대응 원문이 없습니다. 서버에 연결해 원문을 함께 보관하면 오프라인에서도 대조할 수 있습니다.': 'The matching original is not saved on this device. Connect to the server and save it to compare offline.',
+  '이 번역에 대응하는 원문이 서버나 기기에 없습니다. 번역문은 계속 읽을 수 있습니다.': 'The matching original is unavailable on the server or this device. You can continue reading the translation.',
+  '대응 원문을 불러오지 못했습니다. 번역문은 계속 읽을 수 있습니다.': 'Could not load the matching original. You can continue reading the translation.',
+  '원문을 기기에 보관하지 못했습니다.': 'Could not save the original on this device.',
+  '원문의 읽은 위치를 저장하지 못했습니다.': 'Could not save the original reading position.',
+  '같은 번호의 원문과 번역을 이어 표시합니다. 메모·강조는 원문 또는 번역문 보기에서 사용하세요.': 'Original and translation paragraphs share a number. Use the original or translation view for notes and highlights.',
+  '기기에 보관한 원문입니다. 연결 없이 대조할 수 있습니다.': 'The original is saved on this device and available for offline comparison.',
+  '원문도 기기에 보관하면 연결 없이 대조할 수 있습니다.': 'Save the original too to compare without a connection.',
+  'Google 웹 번역': 'Google Web Translation',
+  'OpenAI 호환 API': 'OpenAI-compatible API',
+  '용어의 종류와 표시 설정을 확인해 주세요.': 'Check the term kind and display settings.',
+  '표시할 용어가 너무 많습니다. 용어집의 표시 별칭을 줄여 주세요.': 'Too many display matches. Reduce the glossary display aliases.',
+  '표시 별칭으로 본문이 너무 길어졌습니다. 더 짧은 별칭을 사용해 주세요.': 'Display aliases make the text too long. Use shorter aliases.',
+  '본문 문자 위치가 올바르지 않습니다.': 'The text position is invalid.',
+  '지원하지 않는 용어집 파일입니다.': 'This glossary file is unsupported.',
+  '앱과 공유하려면 각 용어와 표시 이름을 160자 이하로 줄여 주세요.': 'Use at most 160 characters per term and display name to share with the app.',
+  '번역 용어': 'Translation terms',
+  '표시·적용 설정': 'Display and matching',
+  '용어 종류': 'Term kind',
+  '인물': 'Character',
+  '장소': 'Place',
+  '일반 용어': 'General term',
+  '읽기 표시 이름': 'Reader display name',
+  '용어 적용 켜짐': 'Term enabled',
+  '용어 적용 꺼짐': 'Term disabled',
+  '대소문자 구분': 'Case sensitive',
+  '대소문자 무시': 'Ignore case',
+  '표시 이름은 저장된 번역을 바꾸지 않고 읽기 화면에만 적용됩니다.': 'Display names apply only in the reader and do not change saved translations.',
+  '앱과 공유하는 JSON 용어집입니다. 기존 용어를 유지하고 새로운 원문 용어만 추가합니다.': 'Share this JSON glossary with the app. Imports keep existing terms and add only new source terms.',
+  '읽기로 돌아가기': 'Back to reading',
+  '강조': 'Highlights',
+  '내보내기 · 공유': 'Export · Share',
+  '이 문서의 북마크·강조·메모를 내보냅니다. 계정 정보와 원본 파일은 포함하지 않습니다.': 'Export this document’s bookmarks, highlights, and notes. Account details and the original file are excluded.',
+  '공유 화면에 읽기 기록을 전달했습니다.': 'Reading records were sent to the share sheet.',
+  '공유를 취소했습니다.': 'Sharing was cancelled.',
+  '읽기 기록 파일의 다운로드를 요청했습니다.': 'Requested a download of your reading records.',
+  'TXT로 내보내기': 'Export TXT',
+  'JSON으로 내보내기': 'Export JSON',
+  '공유 화면 열기': 'Open share sheet',
+  '본문을 선택한 뒤 선택 강조를 눌러 주세요.': 'Select some text, then choose Highlight selection.',
+  '선택한 내용을 강조했습니다. 읽기 도구에서 삭제하거나 내보낼 수 있습니다.': 'Selection highlighted. Delete or export it from Reading tools.',
+  '선택 강조': 'Highlight selection',
+  '저장된 강조 범위가 본문과 일치하지 않습니다.': 'The saved highlight range does not match the text.',
+  '읽기 기록의 종류와 강조 범위가 일치하지 않습니다.': 'The reading record type does not match its highlight range.',
+  '강조할 본문 범위를 확인할 수 없습니다. 본문에서 다시 선택해 주세요.': 'The highlight range is invalid. Select the text again.',
+  '한 번에 4,000자 이하를 선택해 주세요.': 'Select up to 4,000 characters at a time.',
+  '읽기 기록이 너무 큽니다. 일부 기록을 정리한 뒤 내보내 주세요.': 'The reading records are too large. Remove some records before exporting.',
+  '이 브라우저는 공유를 지원하지 않습니다. TXT 파일로 내보내 주세요.': 'This browser does not support sharing. Export a TXT file instead.',
+  '공유 화면을 열지 못했습니다. TXT 파일로 내보내 주세요.': 'Could not open the share sheet. Export a TXT file instead.',
+  '목록 번역 응답을 확인할 수 없습니다. 원문을 표시합니다.': 'The catalog translation response is invalid. Showing the original.',
+  '목록과 번역 언어를 확인해 주세요.': 'Check the catalog items and target language.',
+  '제공자 API 키를 확인한 뒤 다시 번역해 주세요.': 'Check the provider API key and try translating again.',
+  '서버에서 허용한 제공자 주소를 사용해 주세요.': 'Use a provider endpoint allowed by the server.',
+  '목록 번역 시간이 초과되었습니다. 적은 항목으로 다시 시도해 주세요.': 'Catalog translation timed out. Try again with fewer items.',
+  '목록 번역을 완료하지 못했습니다. 제공자 설정과 연결을 확인해 주세요.': 'Could not translate the catalog. Check the provider settings and connection.',
+  '취소 요청을 확인하지 못했습니다. 서버 작업은 최대 2분 후 종료됩니다.': 'Cancellation could not be confirmed. The server task has a two-minute time limit.',
+  '번역기 목록을 불러오지 못했습니다. 다시 시도해 주세요.': 'Could not load the translation providers. Please try again.',
+  '목록 번역 ({0}권)': 'Translate catalog ({0} books)',
+  '목록 번역 중: {0}/{1}구간': 'Translating catalog: {0}/{1} segments',
+  '최대 24권과 설명 앞부분만 번역했습니다. 전체 내용은 원문으로 확인하세요.': 'Only up to 24 books and the beginning of their descriptions were translated. Read the original for the full text.',
+  '제목 400자, 설명 2,000자, 총 24,000자까지 처리합니다. 키와 결과는 디스크에 저장하지 않습니다.': 'Up to 400 characters per title, 2,000 per description, and 24,000 in total. Keys and results are not saved to disk.',
+  '목록 번역 시작': 'Start catalog translation',
+  '원문 소개 전체 읽기': 'Read the full original description',
+  'JSON 카탈로그': 'JSON catalog',
+  '소설로 돌아가기': 'Back to novels',
+  '카탈로그 목록': 'Catalog books',
+  '주소 · 검색 · 인코딩': 'Address · Search · Encoding',
+  '닫기': 'Close',
+  '카탈로그 또는 파일을 가져오고 있습니다…': 'Loading the catalog or file…',
+  '로컬 파일 서재에 보관했습니다.': 'Saved to your local file library.',
+  '카탈로그 HTTPS 주소': 'Catalog HTTPS address',
+  '카탈로그 불러오기': 'Load catalog',
+  '현재 페이지에서 제목 · 저자 검색': 'Search titles and authors on this page',
+  'PageTurner v0 JSON 카탈로그의 TXT·Markdown·EPUB·PDF를 가져옵니다. 공개 HTTPS 파일만 지원하며, 32MB 이하 원본을 현재 계정의 기기 서재에 보관합니다.': 'Import TXT, Markdown, EPUB, and PDF from a PageTurner v0 JSON catalog. Public HTTPS files up to 32 MB are saved to this account’s device library.',
+  '새로 고침': 'Refresh',
+  '현재 카탈로그 페이지: {0}개 · 검색 결과: {1}개': 'This catalog page: {0} books · Matches: {1}',
+  '저자 정보 없음': 'Author unavailable',
+  '가져오기': 'Import',
+  '현재 페이지에 조건에 맞는 파일이 없습니다.': 'No matching files on this page.',
+  '이전 카탈로그': 'Previous catalog',
+  '다음 카탈로그': 'Next catalog',
+  '카탈로그 응답의 형식을 확인할 수 없습니다.': 'The catalog response has an invalid format.',
+  '공개 HTTPS 카탈로그 또는 파일 주소를 입력해 주세요.': 'Enter a public HTTPS catalog or file address.',
+  '32MB 이하의 비어 있지 않은 파일만 가져올 수 있습니다.': 'Import a nonempty file up to 32 MB.',
+  '이 파일의 체크섬 방식은 지원하지 않습니다. SHA-256 카탈로그를 사용해 주세요.': 'This checksum format is unsupported. Use a catalog with SHA-256 checksums.',
+  '카탈로그 파일이 비어 있거나 32MB를 초과했습니다.': 'The catalog file is empty or larger than 32 MB.',
+  '다운로드한 파일 크기가 카탈로그와 일치하지 않습니다.': 'The downloaded file size does not match the catalog.',
+  '다운로드한 파일의 SHA-256이 카탈로그와 일치하지 않습니다.': 'The downloaded file’s SHA-256 does not match the catalog.',
+  '카탈로그 응답이 허용 크기를 초과했습니다.': 'The catalog response exceeds the size limit.',
+  '카탈로그 응답이 비어 있습니다.': 'The catalog response is empty.',
+  '카탈로그나 파일을 가져오지 못했습니다. 주소와 원격 서버 상태를 확인해 주세요.': 'Could not load the catalog or file. Check the address and remote server.',
+  '일부 페이지의 텍스트 추출에 실패해 파일 전체 번역을 사용할 수 없습니다. 원본 읽기는 가능합니다.': 'Text extraction failed on some pages. Whole-file translation is unavailable; you can still read the original.',
+  'PDF의 텍스트 추출 상태를 확인하려면 원본 파일을 다시 가져와 주세요.': 'Import the original PDF again to verify its text extraction status.',
+  '이 페이지의 텍스트 추출에 실패했습니다. 원본 화면을 표시합니다.': 'Text extraction failed on this page. Showing the original page.',
+  '이 PDF의 텍스트 추출 상태를 확인할 수 없습니다.': 'This PDF’s text extraction status is unknown.',
+  '저장된 PDF 텍스트 추출 상태를 확인할 수 없습니다.': 'The saved PDF’s text extraction status is invalid.',
+  '텍스트를 추출하지 못한 PDF 페이지가 있어 파일 전체를 번역할 수 없습니다. 원본은 계속 읽을 수 있습니다.': 'Some PDF pages could not be extracted, so the whole file cannot be translated. You can still read the original.',
+  "번역 설정을 완료한 뒤 일괄 작업을 시작해 주세요.": "Complete the translation settings before starting the batch.",
+  "손상된 기기 기록만 지우기 (서버 작업 유지)": "Remove damaged device history (keep server jobs)",
+  "정상 작업 기록은 완료하거나 취소한 뒤 교체해 주세요.": "Finish or cancel a valid batch before replacing it.",
+  대기: "Waiting",
+  "원문 보관됨": "Original saved",
+  "번역 요청 확인 중": "Checking translation request",
+  완료: "Complete",
+  "재시도 필요": "Retry needed",
+  "일괄 작업 기록을 읽지 못했습니다. 저장소를 확인해 주세요.":
+    "Could not read the batch history. Check device storage.",
+  "선택한 {0}회차에 같은 번역 설정을 적용합니다.":
+    "Apply the same translation settings to {0} selected chapters.",
+  뒤로: "Back",
+  "여러 회차 가져오기": "Import multiple chapters",
+  진행: "Progress",
+  "회차 선택": "Select chapters",
+  "기록을 불러오는 중…": "Loading history…",
+  "목차에서 책을 선택해 주세요.": "Choose a book from its contents page.",
+  "시작 목차 순서": "First chapter position",
+  "마지막 목차 순서": "Last chapter position",
+  "목차에 표시된 순서로 최대 20회차를 선택합니다. 완료한 뒤 다음 범위를 추가할 수 있습니다.":
+    "Choose up to 20 chapters in contents order. Add the next range after this batch finishes.",
+  "기존 일괄 작업을 완료하거나 취소한 뒤 새로 선택해 주세요.":
+    "Finish or cancel the current batch before selecting another.",
+  "선택한 회차 보관": "Save selected chapters",
+  "키는 이 화면의 메모리에만 보관됩니다. 재방문 시 다시 입력하거나 서버에 설정된 키를 사용합니다.":
+    "The key stays in this screen's memory. Enter it again on your next visit or use the server's configured key.",
+  "진행 화면으로": "Show progress",
+  "목차에서 책을 선택하고 회차 범위를 보관해 주세요.":
+    "Choose a book and save a chapter range from its contents page.",
+  "회차를 순서대로 처리하고 있습니다.": "Processing chapters in order.",
+  "재개는 직접 눌러 시작합니다. 창을 닫아도 이미 제출한 서버 번역은 계속됩니다.":
+    "Press Resume to continue. Server translations already submitted continue when this window closes.",
+  "원문만 가져오기": "Import originals only",
+  "가져오기와 번역 설정": "Import and translate",
+  "재개 / 실패 회차 재시도": "Resume / retry failed chapters",
+  일시정지: "Pause",
+  "남은 작업 취소": "Cancel remaining work",
+  "서재 분류를 저장하지 못했습니다.":
+    "Could not save the library organization.",
+  폴더: "Folder",
+  "태그 · 쉼표로 구분": "Tags · separate with commas",
+  "즐겨찾기에 표시": "Mark as favorite",
+  "분류 저장": "Save organization",
+  "전체 화면 해제": "Exit full screen",
+  "전체 화면": "Full screen",
+  "찾기 · 정렬": "Find & sort",
+  "제목 · 형식 · 폴더 · 태그 검색": "Search title, format, folder or tags",
+  "모든 폴더": "All folders",
+  "즐겨찾기만 보기": "Favorites only",
+  "최근 가져온 순서": "Recently imported",
+  "제목 순서": "By title",
+  "폴더 순서": "By folder",
+  "필터 초기화": "Reset filters",
+  "{0}개 파일 보기": "Show {0} files",
+  분류: "Organize",
+  "조건에 맞는 파일이 없습니다.": "No files match these filters.",
+  "묶음 작업": "Batch jobs",
+  "여러 회차": "Batch",
+  "독서 설정을 읽지 못했습니다.": "Could not read the reading preferences.",
+  "독서 설정을 저장하지 못했습니다.": "Could not save the reading preferences.",
+  글꼴: "Font",
+  행간: "Line spacing",
+  "페이지 여백": "Page margins",
+  "페이지 키": "Page keys",
+  "터치 방향": "Touch direction",
+  "목록 표시": "List display",
+  명조: "Serif",
+  고딕: "Sans serif",
+  고정폭: "Monospace",
+  "기본 방향": "Default direction",
+  "반대 방향": "Reverse direction",
+  "키 사용 안 함": "Disable keys",
+  "왼쪽 이전 · 오른쪽 다음": "Left previous · right next",
+  "왼쪽 다음 · 오른쪽 이전": "Left next · right previous",
+  "버튼으로만 넘기기": "Buttons only",
+  "페이지 방식": "Paged",
+  "터치 스크롤": "Touch scroll",
+  "독서 설정": "Reading preferences",
+  "기본값으로 초기화": "Reset defaults",
+  "이 계정의 설정은 이 기기에 저장됩니다. 본문은 항상 페이지로 읽습니다. 볼륨 키는 브라우저가 전달하는 경우에만 동작합니다.":
+    "Preferences for this account are saved on this device. Text remains paged. Volume keys work only when the browser forwards them.",
+  "본문을 검색하지 못했습니다.": "Could not search this text.",
+  "본문 검색어": "Search within text",
+  "처음 500개 결과를 표시합니다. 검색어를 더 구체적으로 입력해 주세요.":
+    "Showing the first 500 matches. Use a more specific search.",
+  "{0}번째 문단": "Paragraph {0}",
+  "일치하는 본문이 없습니다.": "No matching text found.",
+  "책 안에서 단어나 문장을 찾아보세요.":
+    "Find a word or sentence in this book.",
+  "본문 검색": "Search text",
+  "이 브라우저에서는 전체 화면을 사용할 수 없습니다.":
+    "Full screen is unavailable in this browser.",
+  "전체 화면을 전환하지 못했습니다. 브라우저의 전체 화면 지원과 권한을 확인해 주세요.":
+    "Could not change full screen mode. Check browser support and permissions.",
+  "일괄 작업 기록을 확인할 수 없습니다.": "Could not verify the batch history.",
+  "이 브라우저에서는 일괄 작업을 보관할 수 없습니다.":
+    "This browser cannot save batch jobs.",
+  "다른 창을 닫고 다시 시도해 주세요.": "Close other windows and try again.",
+  "일괄 작업 저장소를 열지 못했습니다.": "Could not open batch job storage.",
+  "기기 저장 공간이 부족합니다.": "Device storage is full.",
+  "일괄 작업을 저장하지 못했습니다.": "Could not save this batch job.",
+  "다른 창에서 일괄 작업을 진행하고 있습니다. 잠시 후 다시 시도해 주세요.":
+    "Another window is processing this batch. Try again later.",
+  "일괄 작업의 실행 권한이 다른 창으로 변경되었습니다.":
+    "Another window now owns this batch execution.",
+  "목차 순서로 한 번에 1~20회차를 선택해 주세요.":
+    "Choose 1–20 chapters in contents order.",
+  "회차 번역이 중단되었습니다. 설정을 유지해 다시 시도할 수 있습니다.":
+    "Chapter translation stopped. Retry with the same settings.",
+  "일괄 작업을 완료하지 못했습니다. 연결과 저장 공간을 확인한 뒤 다시 시도해 주세요.":
+    "Could not finish the batch. Check your connection and storage, then retry.",
+  "분류할 로컬 파일을 찾지 못했습니다. 서재를 새로 불러와 주세요.":
+    "The local file could not be found. Refresh the library.",
+  "폴더는 200자, 태그는 각 60자·32개 이하로 입력해 주세요.":
+    "Use up to 200 characters for folders and up to 32 tags of 60 characters each.",
+  "저장된 독서 설정을 확인할 수 없습니다. 기본값으로 초기화해 주세요.":
+    "Could not verify the saved reading preferences. Reset them to defaults.",
+  "검색어는 200자 이하로 입력해 주세요.":
+    "Use a search term of at most 200 characters.",
+  "서로 다른 원문·번역 언어를 입력해 주세요. 자동 감지는 원문에만 사용할 수 있습니다.":
+    "Enter different source and target languages. Auto detection is available for the source only.",
+  장르: "Genre",
+  "연재 상태": "Publication status",
+  "정렬 기준": "Sort by",
+  "정렬 방향": "Sort direction",
+  목록으로: "Back to list",
+  "검색 필터": "Search filters",
+  "장르·연재": "Genre & status",
+  정렬: "Sort",
+  "사이트 기본값": "Site default",
+  초기화: "Reset",
+  "필터 적용": "Apply filters",
+  "용어 목록": "Glossary terms",
+  "용어 추가": "Add term",
+  "가져오기·내보내기": "Import & export",
+  "원문 용어": "Source term",
+  "번역 표기": "Translation",
+  "한 책에 최대 200개 용어를 저장하고 다음 번역에 적용합니다.":
+    "Save up to 200 terms for this book and apply them to future translations.",
+  "JSON 용어집 가져오기": "Import JSON glossary",
+  "용어집 파일은 256KB 이하로 선택해 주세요.":
+    "Choose a glossary file up to 256 KB.",
+  "가져온 파일로 이 책의 용어집 전체를 교체합니다. 필요하면 먼저 내보내세요.":
+    "Import replaces this book's entire glossary. Export it first if you need a copy.",
+  "용어집 내보내기": "Export glossary",
+  "아직 저장한 용어가 없습니다.": "No terms saved yet.",
+  "PDF를 열지 못했습니다.": "Could not open the PDF.",
+  "이 브라우저에서는 PDF 페이지를 표시할 수 없습니다.":
+    "This browser cannot display PDF pages.",
+  "PDF 페이지를 표시하지 못했습니다. 다른 페이지를 선택해 주세요.":
+    "Could not display this PDF page. Choose another page.",
+  "PDF 읽기": "Read PDF",
+  "텍스트 페이지 번역": "Translate text pages",
+  "PDF 맞춤": "PDF fit",
+  "페이지 맞춤": "Fit page",
+  "너비 맞춤": "Fit width",
+  "PDF {0}페이지": "PDF page {0}",
+  "PDF 페이지 안 이동": "Move within PDF page",
+  위로: "Up",
+  아래로: "Down",
+  "페이지를 표시하고 있습니다…": "Rendering page…",
+  "텍스트가 있는 PDF 페이지입니다.": "This PDF page contains text.",
+  "이미지 PDF 페이지입니다. 읽기는 가능하며 텍스트 번역·검색은 지원하지 않습니다.":
+    "This is an image PDF page. It can be read, but text translation and search are unavailable.",
+  "서버에서 번역": "Translate on server",
+  "32MB 이하 TXT·Markdown·EPUB·PDF를 기기에 보관합니다. 서버에 업로드하지 않습니다. 텍스트 인코딩은 TXT·Markdown에만 적용합니다.":
+    "Save TXT, Markdown, EPUB or PDF files up to 32 MB on this device. Import does not upload them. Text encoding applies to TXT and Markdown only.",
+  "문서를 서버에 보관하고 있습니다": "Saving document on server",
+  "원문을 기기에 보관하고 있습니다": "Saving original on this device",
+  "기기에 보관한 원문입니다. 연결 없이 읽을 수 있습니다.":
+    "This original is saved on your device and can be read offline.",
+  즐겨찾기: "Favorites",
+  "이 소스는 현재 서버에서 사용할 수 없습니다.":
+    "This source is currently unavailable on the server.",
+  필터: "Filters",
+  "즐겨찾기에 보관하고 있습니다": "Saving favorite",
+  "즐겨찾기에 보관했습니다.": "Saved to favorites.",
+  "즐겨찾기 추가": "Add favorite",
+  "기기에 보관한 원문": "Saved originals",
+  "이 기기에서 원문을 삭제할까요?": "Remove this original from this device?",
+  "서버에 보관한 원문은 그대로 유지됩니다.":
+    "The original on the server will be kept.",
+  "다시 보관해야 하는 원문 {0}개가 있습니다.":
+    "{0} originals need to be saved again.",
+  "아직 기기에 보관한 원문이 없습니다.":
+    "No originals saved on this device yet.",
+  "웹소설 원문 리더에서 기기에 보관을 눌러 주세요.":
+    "Choose Save to device while reading an original web novel.",
+  "즐겨찾는 책": "Favorite books",
+  "저장한 소스": "Saved sources",
+  "소스 주소 추가": "Add source URL",
+  소스: "Source",
+  이름: "Name",
+  "목록 주소": "Catalog URL",
+  "손상된 항목이 있습니다.": "Some saved items are damaged.",
+  "책 소개에서 즐겨찾기를 추가해 보세요.":
+    "Add favorites from a book's detail page.",
+  "자주 여는 소스의 목록 주소를 저장해 보세요.":
+    "Save the catalog URLs you visit often.",
+  삽화: "Illustration",
+  "이 기기에 저장한 읽기 기록입니다.":
+    "These reading notes are saved on this device.",
+  "번역 설정으로": "Translation settings",
+  "책별 용어집": "Book glossary",
+  용어집: "Glossary",
+  "이전 작업의 설정과 용어집 {0}개를 유지해 이어서 번역합니다.":
+    "Resume with the previous settings and {0} glossary terms.",
+  "이번 번역은 용어집 없이 진행합니다.":
+    "This translation will run without a glossary.",
+  "용어집 없이 진행": "Continue without glossary",
+  "계정 이름과 비밀번호 형식을 확인해 주세요.":
+    "Check the username and password format.",
+  "계정 이름 또는 비밀번호를 확인해 주세요.":
+    "Check your username or password.",
+  "이 번역에 접근할 권한이 없습니다.":
+    "You do not have access to this translation.",
+  "번역을 찾을 수 없습니다.": "Translation not found.",
+  "이 번역은 현재 복원할 수 없습니다. 앱에서 다시 저장해 주세요.":
+    "This translation cannot be restored. Save it again from the app.",
+  "요청을 처리할 수 없습니다.": "Could not process the request.",
+  "서버에서 요청을 처리하지 못했습니다. 잠시 후 다시 시도해 주세요.":
+    "The server could not process the request. Try again later.",
+  "서버가 올바른 JSON 응답을 보내지 않았습니다.":
+    "The server returned an invalid response.",
+  "번역 응답이 저장 가능한 크기를 초과했습니다.":
+    "The translation exceeds the storage size limit.",
+  "서버 응답이 비어 있습니다.": "The server returned an empty response.",
+  "서버 응답을 읽을 수 없습니다.": "Could not read the server response.",
+  "요청 제한 시간이 올바르지 않습니다.": "Invalid request timeout.",
+  "서버 주소가 변경되어 요청을 중단했습니다.":
+    "The request stopped because the server address changed.",
+  "응답 시간이 초과되었습니다. 다시 시도해 주세요.":
+    "The request timed out. Try again.",
+  "페이지 번호가 올바르지 않습니다.": "Invalid page number.",
+  "요청한 페이지와 응답이 일치하지 않습니다.":
+    "The response does not match the requested page.",
+  "번역 식별자가 올바르지 않습니다.": "Invalid translation identifier.",
+  "요청한 번역과 응답이 일치하지 않습니다.":
+    "The response does not match the requested translation.",
+  "EPUB 내부 파일 경로가 잘못되었습니다.":
+    "The EPUB contains an invalid internal file path.",
+  "EPUB에 허용되지 않는 외부 파일 경로가 있습니다.":
+    "The EPUB contains an unsupported external file path.",
+  "EPUB 압축 파일의 크기 또는 구조가 허용 범위를 벗어났습니다.":
+    "The EPUB archive exceeds the size or structure limits.",
+  "EPUB 압축을 풀지 못했습니다.": "Could not extract the EPUB.",
+  "EPUB 압축 해제 크기가 너무 큽니다.": "The extracted EPUB is too large.",
+  "EPUB에 필요한 내부 파일이 없습니다.":
+    "A required file is missing from the EPUB.",
+  "EPUB XML 인코딩을 읽지 못했습니다.":
+    "Could not read the EPUB text encoding.",
+  "EPUB의 외부 엔터티 선언은 지원하지 않습니다.":
+    "External entity declarations are unsupported in EPUB files.",
+  "EPUB XML 문서가 손상되었습니다.": "The EPUB XML document is damaged.",
+  "EPUB 패키지 경로를 찾지 못했습니다.": "Could not find the EPUB package.",
+  "EPUB 읽기 순서를 찾지 못했습니다.": "Could not find the EPUB reading order.",
+  "EPUB 목차가 존재하지 않는 파일을 가리킵니다.":
+    "The EPUB contents refer to a missing file.",
+  "EPUB 삽화 용량이 너무 큽니다.": "The EPUB illustrations are too large.",
+  용량: "Size",
+  "EPUB 장에서 읽을 본문이나 삽화를 찾지 못했습니다.":
+    "No text or illustrations were found in this EPUB chapter.",
+  "EPUB 본문이 너무 큽니다.": "The EPUB text is too large.",
+  "이 기기에 저장된 문서의 정보를 확인할 수 없습니다.":
+    "Could not verify this document's saved details.",
+  "저장된 PDF 원본을 확인할 수 없습니다.": "Could not verify the saved PDF.",
+  "저장된 EPUB 삽화를 확인할 수 없습니다.":
+    "Could not verify the saved EPUB illustrations.",
+  "저장된 PDF 원본이 파일 식별자와 일치하지 않습니다.":
+    "The saved PDF does not match its file identity.",
+  "저장된 EPUB 삽화의 형식이 올바르지 않습니다.":
+    "The saved EPUB illustration format is invalid.",
+  "같은 파일을 다른 본문으로 덮어쓸 수 없습니다. 기존 파일과 읽기 기록을 확인한 뒤 삭제하고 다시 가져와 주세요.":
+    "This file cannot be overwritten with different text. Check its reading notes, then remove and import it again.",
+  "번역할 텍스트가 없습니다. 이미지 PDF는 원본으로만 읽을 수 있습니다.":
+    "No text is available for translation. Image PDFs can be read in their original form.",
+  "서버 번역은 10,000개 문단·100만 문자 이하입니다. 파일을 나누어 가져와 주세요.":
+    "Server translation supports up to 10,000 paragraphs and one million characters. Split the file before importing.",
+  "번역할 문서는 10,000문단·100만자 이하로 나누어 주세요.":
+    "Split the document into at most 10,000 paragraphs and one million characters.",
+  "문서의 내용을 확인할 수 없습니다. 다시 가져와 주세요.":
+    "Could not verify the document. Import it again.",
+  "저장된 번역이 손상되었습니다. 서버에서 다시 받아 주세요.":
+    "The saved translation is damaged. Download it from the server again.",
+  "기기의 저장 공간이 부족합니다. 보관한 번역을 일부 삭제해 주세요.":
+    "Device storage is full. Remove some saved translations.",
+  "기기 저장소를 사용할 수 없습니다. 브라우저 저장 설정을 확인해 주세요.":
+    "Device storage is unavailable. Check your browser storage settings.",
+  "보관함을 열 계정 이름을 입력해 주세요.":
+    "Enter a username to open its library.",
+  "다른 탭이 저장소를 사용 중입니다. 다른 탭을 닫고 다시 열어 주세요.":
+    "Another tab is using storage. Close it and reopen this library.",
+  "보관함이 닫혔습니다.": "The library is closed.",
+  "같은 번역 식별자에 다른 내용이 저장되어 있습니다. 기존 저장본을 확인해 주세요.":
+    "Different content is saved for this translation. Check the existing copy.",
+  "삭제할 손상 항목을 찾을 수 없습니다. 보관함을 다시 열어 주세요.":
+    "The damaged item could not be found. Reopen the library.",
+  "저장 항목이 변경되었습니다. 보관함을 새로고침한 뒤 다시 시도해 주세요.":
+    "The saved item changed. Refresh the library and try again.",
+  "다시 보관할 손상 항목을 찾을 수 없습니다. 보관함을 다시 열어 주세요.":
+    "The item to restore could not be found. Reopen the library.",
+  "복구할 번역 식별자가 원래 항목과 다릅니다.":
+    "The replacement translation does not match the original item.",
+  "저장된 번역을 찾을 수 없습니다.": "Saved translation not found.",
+  "읽기 위치가 번역 본문 범위를 벗어났습니다.":
+    "The reading position is outside the translation.",
+  "번역이 변경되어 읽기 위치를 저장하지 못했습니다.":
+    "The reading position was not saved because the translation changed.",
+  "PDF의 내장 글꼴 또는 이미지 자료를 읽을 수 없습니다.":
+    "Could not read the PDF font or image resources.",
+  "PDF가 너무 깁니다. 2,000페이지 이하로 나누어 주세요.":
+    "The PDF is too long. Split it into files of at most 2,000 pages.",
+  "PDF가 너무 깁니다.": "The PDF is too long.",
+  "암호로 보호된 PDF입니다. 암호를 해제한 파일을 가져와 주세요.":
+    "This PDF is password protected. Import an unlocked copy.",
+  "PDF를 열지 못했습니다. 손상되었거나 지원하지 않는 파일인지 확인해 주세요.":
+    "Could not open the PDF. Check whether it is damaged or unsupported.",
+  "PDF의 텍스트가 너무 큽니다. 더 작은 파일로 나누어 주세요.":
+    "The PDF text is too large. Split it into smaller files.",
+  "보관한 항목을 확인할 수 없습니다. 원본에서 다시 가져와 주세요.":
+    "Could not verify this saved item. Import it from the original again.",
+  "용어집은 최대 200개까지 사용할 수 있습니다.":
+    "A glossary can contain up to 200 terms.",
+  "용어집의 원문과 번역을 확인해 주세요.":
+    "Check the glossary source terms and translations.",
+  "각 용어와 번역은 1~200자로 입력해 주세요.":
+    "Each term and translation must be 1–200 characters.",
+  "중복된 원문 용어가 있습니다. 대소문자를 구분하지 않습니다.":
+    "Duplicate source terms were found. Terms are case insensitive.",
+  "올바른 JSON 용어집을 선택해 주세요.": "Choose a valid JSON glossary.",
+  "같은 원문 식별자에 다른 내용이 저장되어 있습니다.":
+    "Different content is saved for this original.",
+  "즐겨찾기의 책 정보와 주소를 확인해 주세요.":
+    "Check the favorite's book details and URL.",
+  "저장할 소스 이름과 주소를 확인해 주세요.": "Check the source name and URL.",
+  "서버 응답 형식이 올바르지 않습니다.":
+    "The server response format is invalid.",
+  "번역 검증을 위해 HTTPS 또는 localhost에서 열어 주세요.":
+    "Open over HTTPS or localhost to verify translations.",
+  "번역 식별자 검증에 실패했습니다. 저장하거나 읽을 수 없습니다.":
+    "Translation identity verification failed. This translation cannot be saved or read.",
+  "번역 본문 검증에 실패했습니다. 저장하거나 읽을 수 없습니다.":
+    "Translation text verification failed. This translation cannot be saved or read.",
+  "원문 보관": "Originals",
+  "문서를 번역하려면 서버에 연결해 주세요.":
+    "Connect to the server to translate this document.",
+  로그인: "Sign in",
+  회원가입: "Create account",
+  "계정 설정": "Account settings",
+  "계정 이름": "Username",
+  비밀번호: "Password",
+  "표시 이름": "Display name",
+  "화면 언어": "Interface language",
+  "기본 번역 언어": "Default translation language",
+  "언어 태그": "Language tag",
+  "다른 언어 태그": "Another language tag",
+  "계정 만들기": "Create account",
+  다음: "Next",
+  이전: "Previous",
+  저장: "Save",
+  "저장 중…": "Saving…",
+  "연결 확인 중…": "Connecting…",
+  "언어 설정": "Language preferences",
+  "서버 연결": "Connect to server",
+  "연결 해제": "Disconnect",
+  "서재로 이동": "Open library",
+  "서재 연결": "Connect library",
+  "계정 정보를 입력하세요": "Enter your account details",
+  "사용할 언어를 선택하세요": "Choose your languages",
+  "계정 설정을 저장했습니다.": "Account preferences saved.",
+  "언어 목록을 불러오지 못했습니다.": "Could not load languages.",
+  "화면 언어와 번역 결과의 언어는 별도로 설정합니다.":
+    "Interface language and translation language are separate preferences.",
+  "언어팩이 준비되면 선택한 언어로 표시됩니다. 현재는 {0}로 표시합니다.":
+    "Your preferred language will appear when its language pack is available. Currently using {0}.",
+  "비밀번호는 이 화면을 여는 동안만 사용하며 기기에 저장하지 않습니다.":
+    "Your password stays in memory for this visit and is not saved on this device.",
+  "영문 소문자, 숫자, 밑줄, 점, 하이픈 · 3~40자":
+    "Lowercase letters, numbers, underscore, dot or hyphen · 3–40 characters",
+  "10자 이상 · UTF-8 72바이트 이내":
+    "At least 10 characters · Up to 72 UTF-8 bytes",
+  "계정이 만들어졌습니다. 로그인해 주세요.":
+    "Your account was created. Please sign in.",
+  "다시 시도": "Retry",
+  "계정 이름을 입력하세요": "Enter your username",
+  "비밀번호를 입력하세요": "Enter your password",
+  "계정 이름과 비밀번호를 확인해 주세요.": "Check your username and password.",
+  "서버에 연결할 수 없습니다. 연결 상태를 확인한 뒤 다시 시도해 주세요.":
+    "Cannot connect to the server. Check your connection and try again.",
+  "번역본을 확인할 수 없습니다. 서버에서 다시 불러와 주세요.":
+    "This translation could not be verified. Download it again from the server.",
+  "이 기기의 저장 공간이 부족합니다. 보관한 책을 정리한 뒤 다시 시도해 주세요.":
+    "This device is out of storage. Remove a saved book and try again.",
+  번역본: "Translation",
+  "이 기기에서 삭제": "Remove from this device",
+  "기기에 보관됨": "Saved on device",
+  "이 기기에 보관": "Save on this device",
+  웹소설: "Web novels",
+  "나의 서재": "My library",
+  "이 기기 보관": "On this device",
+  "보관함을 열지 못했습니다.": "Could not open your saved books.",
+  "이 기기의 보관함을 열지 못했습니다. 브라우저의 저장 공간 권한을 확인해 주세요.":
+    "Could not open device storage. Check your browser storage permissions.",
+  "서버에 연결하지 못했습니다. 계정 정보와 서버 연결을 확인해 주세요.":
+    "Could not connect. Check your account and server connection.",
+  "서버 연결을 해제했습니다. 이 기기에 보관한 책은 계속 읽을 수 있습니다.":
+    "Disconnected. Books saved on this device remain available.",
+  "서재를 불러오지 못했습니다. 다시 시도해 주세요.":
+    "Could not load your library. Please retry.",
+  "보관함을 불러오지 못했습니다. 다시 시도해 주세요.":
+    "Could not load saved books. Please retry.",
+  "책을 열지 못했습니다. 목록에서 다시 선택해 주세요.":
+    "Could not open this book. Select it again from the list.",
+  "이 기기에 보관했습니다. 다음 방문에도 연결 없이 읽을 수 있습니다.":
+    "Saved on this device. You can read offline on your next visit.",
+  "번역본을 보관했습니다. 오프라인 읽기 화면을 준비하고 있어요.":
+    "Translation saved. Preparing the offline reading screen.",
+  "번역본을 보관했습니다. 오프라인 재방문을 위해 연결된 상태에서 화면을 다시 열어 주세요.":
+    "Translation saved. Reopen the page online to prepare offline visits.",
+  "번역본을 보관했습니다. 현재 화면에서 연결 없이 읽을 수 있습니다.":
+    "Translation saved. You can read offline in this open page.",
+  "이 기기에 보관하지 못했습니다. 저장 공간을 확인한 뒤 다시 시도해 주세요.":
+    "Could not save on this device. Check storage and retry.",
+  "이 기기에서 삭제했습니다. 서버의 번역본은 그대로 있습니다.":
+    "Removed from this device. The server copy remains available.",
+  "보관한 책을 삭제하지 못했습니다. 다시 시도해 주세요.":
+    "Could not remove the saved book. Please retry.",
+  "이 브라우저에서 읽은 위치를 기억할 수 없습니다.":
+    "This browser could not remember your reading position.",
+  "읽은 위치를 보관함에 저장하지 못했습니다.":
+    "Could not save your reading position.",
+  "오프라인 읽기 가능 · 새 화면 업데이트 대기":
+    "Offline reading ready · Update pending",
+  "오프라인 읽기 준비 완료": "Offline reading ready",
+  "오프라인 화면 준비 중": "Preparing offline reading",
+  "오프라인 화면 준비 실패 · 온라인에서 다시 열어 주세요":
+    "Offline setup failed · Reopen online",
+  "현재 화면에서 오프라인 읽기 가능": "Offline reading available in this page",
+  "PageTurner 서재": "PageTurner library",
+  "이야기와 나 사이, 한 페이지.": "One page between you and a story.",
+  "알림 닫기": "Dismiss notice",
+  "서재 메뉴": "Library menu",
+  "서버 서재": "Server library",
+  연결: "Account",
+  "서두르지 않아도 좋은": "Take your time.",
+  "당신만의 읽는 시간.": "This reading time is yours.",
+  새로고침: "Refresh",
+  "책을 펼치고 있습니다": "Opening your book",
+  "번역문과 읽은 위치를 확인하고 있어요.":
+    "Checking the translation and your reading position.",
+  "한 페이지씩,": "One page at a time,",
+  "당신의 속도로.": "at your own pace.",
+  "흩어져 있던 이야기를 한곳에.": "Bring your stories together.",
+  "번역한 책을 꺼내고, 마지막으로 읽은": "Open a translated book and return",
+  "페이지에서 다시 시작하세요.": "to the page where you left off.",
+  "내 서재 연결": "Connect my library",
+  "미리보기 읽기": "Read a preview",
+  "복잡한 화면 없이, 읽는 일에만 집중하세요.":
+    "A quiet space to focus on reading.",
+  "이야기는, 다음 장에도.": "The story continues on the next page.",
+  "번역본 보관": "Save translations",
+  "오프라인 읽기": "Read offline",
+  "읽은 위치 기억": "Remember your place",
+  "저장한 이야기들": "Your saved stories",
+  "서재를 불러오고 있습니다": "Loading your library",
+  "잠시만 기다려 주세요.": "Please wait a moment.",
+  "서재에 연결하지 못했습니다": "Could not connect to your library",
+  "첫 이야기를 기다리는 서재": "Your library awaits its first story",
+  "앱에서 번역본을 저장하면 이곳에서 이어 읽을 수 있어요.":
+    "Save a translation in the app to continue reading here.",
+  "나만의 기기 보관함": "Your device library",
+  "이 기기에 남겨 둔 이야기": "Stories saved on this device",
+  "보관할 때 사용한 계정 이름으로": "Use the account name you saved with",
+  "오프라인 서재를 열어 보세요.": "to open your offline library.",
+  "보관한 계정 이름": "Account name used to save",
+  "보관함 열기": "Open saved books",
+  "보관함을 열고 있습니다": "Opening saved books",
+  "이 기기에 저장한 번역본을 확인하고 있어요.":
+    "Checking translations saved on this device.",
+  "보관함을 열지 못했습니다": "Could not open saved books",
+  "다시 보관이 필요한 책": "A book needs to be saved again",
+  "저장한 파일을 확인할 수 없습니다.": "The saved file could not be verified.",
+  "서버에서 다시 받기": "Download again",
+  "손상된 책 서버에서 다시 받기": "Download damaged book again",
+  "손상된 책 이 기기에서 삭제": "Remove damaged book from this device",
+  "가져가고 싶은 책을 담아 보세요": "Keep a book with you",
+  "서버 서재 열기": "Open server library",
+  "서재에서 보관 버튼을 누르면": "Choose Save in your library",
+  "연결이 없어도 이 기기에서 읽을 수 있어요.":
+    "to read on this device without a connection.",
+  "이 브라우저에 보관한 번역본만 표시됩니다.":
+    "Only translations saved in this browser appear here.",
+  "나의 문장, 나의 속도.": "Your words. Your pace.",
+  "보관함 바꾸기": "Switch device library",
+  "이 기기에서 삭제할까요?": "Remove from this device?",
+  "서버의 번역본은 그대로 있습니다.": "The server copy will remain available.",
+  "필요할 때 다시 보관할 수 있어요.":
+    "You can save it again whenever you need it.",
+  취소: "Cancel",
+  "삭제 중…": "Removing…",
+  "기기에서 삭제": "Remove from device",
+  "순서를 기다리는 중": "Waiting to start",
+  "번역하는 중": "Translating",
+  "번역 완료": "Translation complete",
+  "번역 실패": "Translation failed",
+  "번역 취소됨": "Translation cancelled",
+  "번역 중단됨": "Translation interrupted",
+  "작업을 완료하지 못했습니다. 다시 시도해 주세요.":
+    "Could not complete this action. Please retry.",
+  "소스를 불러오고 있습니다": "Loading sources",
+  "이야기를 찾고 있습니다": "Finding stories",
+  "목차를 불러오고 있습니다": "Loading chapters",
+  "보관한 원문을 불러오고 있습니다": "Loading saved originals",
+  "번역 작업을 확인하고 있습니다": "Loading translation jobs",
+  "원문을 펼치고 있습니다": "Opening the original",
+  "원문을 불러와 서버에 보관하고 있습니다":
+    "Importing the original to your server",
+  "번역기를 확인하고 있습니다": "Checking translation providers",
+  "원문을 확인하고 있습니다": "Checking the original",
+  "번역을 요청하고 있습니다": "Starting translation",
+  "진행 상황을 확인하고 있습니다": "Checking progress",
+  "번역문을 펼치고 있습니다": "Opening the translation",
+  "이야기를 찾고,": "Find a story.",
+  "당신의 언어로 읽으세요.": "Read it in your language.",
+  "웹소설의 목차와 원문을 불러오고": "Explore web novels and their chapters.",
+  "번역한 이야기를 서재에 모아 보세요.":
+    "Collect translated stories in your library.",
+  "서버에 연결": "Connect to server",
+  번역하기: "Translate",
+  "원문은 서버에 보관되어 있습니다.": "The original is saved on your server.",
+  "웹소설 메뉴": "Web novel menu",
+  "이야기 찾기": "Discover",
+  "보관 원문": "Originals",
+  "번역 작업": "Translation jobs",
+  "어디에서 읽을까요?": "Where will your next story begin?",
+  "사이트를 선택하거나 책 주소로 목차를 열어 보세요.":
+    "Choose a source or enter a book URL to open its chapters.",
+  "웹소설 책 주소": "Web novel book URL",
+  "웹소설 책 주소 붙여넣기": "Paste a web novel book URL",
+  "목차 열기": "Open chapters",
+  "웹소설 주소로 불러오기": "Import using a web novel URL",
+  "목록 둘러보기 · 제목 검색": "Browse stories · Search by title",
+  "목록 둘러보기": "Browse stories",
+  "등록된 소스가 없습니다": "No sources are available",
+  "서버의 소스 설정을 확인해 주세요.": "Check your server source settings.",
+  "소스 목록으로": "Back to sources",
+  "웹소설 검색어": "Search web novels",
+  "책 주소를 붙여넣으세요": "Paste a book URL",
+  "제목으로 검색": "Search by title",
+  검색: "Search",
+  "목차 보기": "View chapters",
+  "읽을 책의 주소를 입력해 주세요": "Enter the book URL",
+  "검색 결과가 없습니다": "No stories found",
+  "책 소개와 목차가 있는 페이지 주소를 사용하세요.":
+    "Use the page containing the book description and chapters.",
+  "다른 검색어로 다시 찾아보세요.": "Try another search.",
+  "검색 결과로": "Back to search results",
+  "목차 ·": "Chapters ·",
+  "책 소개": "About this book",
+  "연재 정보 없음": "No publication status",
+  "등록된 소개가 없습니다.": "No description is available.",
+  "소개 전체 읽기": "Read full description",
+  "원문 불러와 읽기 ·": "Read original ·",
+  "목차를 찾지 못했습니다": "Could not find chapters",
+  "원문 사이트의 목차를 확인한 뒤 다시 시도해 주세요.":
+    "Check the source website and try again.",
+  "보관한 원문": "Saved originals",
+  "원문 목록 새로고침": "Refresh saved originals",
+  "읽을 회차 주소": "Chapter URL to read",
+  "회차 주소로 원문 불러오기": "Paste a chapter URL",
+  불러오기: "Import",
+  "· 원문": "· Original",
+  "아직 보관한 원문이 없습니다": "No originals saved yet",
+  "목차에서 읽을 회차를 선택하거나 회차 주소를 입력하세요.":
+    "Select a chapter or paste its URL.",
+  "번역 작업 새로고침": "Refresh translation jobs",
+  "문단 ·": "paragraphs ·",
+  "아직 번역 작업이 없습니다": "No translation jobs yet",
+  "원문을 연 뒤 번역하기를 눌러 시작하세요.":
+    "Open an original and choose Translate to begin.",
+  "번역 작업 목록으로": "Back to translation jobs",
+  문단: "paragraphs",
+  "번역한 문단": "Translated paragraphs",
+  "번역본이 서버 서재에 저장되었습니다.":
+    "The translation is saved in your server library.",
+  "다른 화면을 읽는 동안에도 서버에서 계속 번역합니다.":
+    "Translation continues on the server while you browse.",
+  "보관한 원문은 그대로 유지됩니다.": "Your saved original remains available.",
+  "번역문 읽기": "Read translation",
+  "설정 확인 후 재시도": "Review and retry",
+  "작업 취소를 요청하고 있습니다": "Cancelling translation",
+  "번역 취소": "Cancel translation",
+  "진행 확인": "Check progress",
+  "내용을 다시 불러와 주세요": "Please load the content again",
+  "읽기 영역이 너무 작습니다. 글자 크기를 줄이거나 화면 높이를 늘려 주세요.":
+    "The reading area is too small. Reduce text size or use a taller screen.",
+  "페이지를 나누지 못했습니다.": "Could not paginate this content.",
+  "원문 읽기": "Read original",
+  "소개 읽기": "Read description",
+  "이전 화면으로 돌아가기": "Back to the previous screen",
+  돌아가기: "Back",
+  "보관 중": "Saving",
+  "기기에 보관": "Save on device",
+  원문: "Original",
+  소개: "Description",
+  번역문: "Translation",
+  "마음에 드는 속도로, 한 페이지씩.": "One page at a time, at your own pace.",
+  "읽은 위치가 이 기기에 기억됩니다.":
+    "Your reading position is remembered on this device.",
+  "글자 크기": "Text size",
+  "글자 작게": "Smaller text",
+  가: "Aa",
+  "글자 크게": "Larger text",
+  "책 페이지": "Book pages",
+  "이전 페이지": "Previous page",
+  "다음 페이지": "Next page",
+  "← → 키로 페이지 넘기기": "Use ← → to turn pages",
+  "번역기와 원문·대상 언어를 선택해 주세요.":
+    "Choose a provider and source and target languages.",
+  "이 번역기의 API 키를 입력해 주세요.": "Enter the API key for this provider.",
+  "번역 설정 닫기": "Close translation settings",
+  "번역 다시 시도": "Retry translation",
+  "번역 준비": "Prepare translation",
+  "번역 설정 항목": "Translation settings",
+  "번역기·언어": "Provider and languages",
+  "연결 설정": "Connection settings",
+  번역기: "Translation provider",
+  "원문 언어": "Source language",
+  "번역 언어": "Target language",
+  한국어: "한국어",
+  "연결 설정에서 API 키를 입력해 주세요.":
+    "Enter an API key in Connection settings.",
+  "서버에 준비된 번역기를 사용합니다.":
+    "Using the provider configured on your server.",
+  "선택한 번역기로 요청을 보냅니다.":
+    "The request will use your selected provider.",
+  "개 문단을 번역합니다.": "paragraphs will be translated.",
+  "API 키": "API key",
+  "(선택)": "(optional)",
+  "이번 번역에 사용할 키": "API key for this translation",
+  "이 번역기는 키가 필요하지 않습니다": "This provider does not need a key",
+  "서버 주소": "Endpoint",
+  "기본 주소 사용": "Use the default endpoint",
+  모델: "Model",
+  "기본 모델 사용": "Use the default model",
+  "API 키는 이번 작업을 위해 서버에 전달하며 이 기기에는 저장하지 않습니다.":
+    "The API key is sent to the server for this job and is not saved on this device.",
+  "번역 요청 중…": "Starting translation…",
+  "다시 번역하기": "Retry translation",
+  "번역 시작": "Start translation",
+  목록: "List",
+  "목록 페이지": "List pages",
+  "{0}, {1} 읽기": "Read {0}, {1}",
+  "{0} 이 기기에서 삭제": "Remove {0} from this device",
+  "{0}개의 번역본": "{0} translations",
+  "{0}의 기기 보관함": "{0}’s device library",
+  "{0}개 보관": "{0} saved",
+  "{0} 마지막으로 확인한 진행 상황입니다.":
+    "{0} Showing the last confirmed progress.",
+  " · 목록 {0}{1} 페이지": " · Catalog page {0}{1}",
+  "{0}개 회차": "{0} chapters",
+  "{0}번째 페이지": "Page {0}",
+  " 이전 작업의 설정과 용어집 {0}개를 유지해 이어서 번역합니다.":
+    " Resuming with the previous settings and {0} glossary entries.",
+  "계정 응답을 확인할 수 없습니다.":
+    "The account response could not be verified.",
+  "계정 이름은 영문 소문자·숫자·밑줄·점·하이픈으로 3~40자 입력해 주세요.":
+    "Use 3–40 lowercase letters, numbers, underscores, dots or hyphens for your username.",
+  "비밀번호는 10자 이상, UTF-8 72바이트 이내로 입력해 주세요. 제어문자는 사용할 수 없습니다.":
+    "Use at least 10 characters and at most 72 UTF-8 bytes for your password. Control characters are not allowed.",
+  "표시 이름은 1~80자로 입력해 주세요.":
+    "Use 1–80 characters for your display name.",
+  "올바른 언어 태그를 입력해 주세요. 번역 언어에는 auto를 사용할 수 없습니다.":
+    "Enter a valid language tag. The translation target cannot be auto.",
+  "요청이 취소되었습니다.": "The request was cancelled.",
+  "이미 사용 중인 계정 이름입니다.": "That username is already in use.",
+  "연결을 다시 확인한 뒤 시도해 주세요.":
+    "Check your connection and try again.",
+  "계정 정보를 처리하지 못했습니다. 입력 내용을 확인한 뒤 다시 시도해 주세요.":
+    "Could not process your account details. Check your entries and try again.",
+  "서버에 연결할 수 없습니다. 연결 상태를 확인해 주세요.":
+    "Cannot reach the server. Check your connection.",
+  "서버 응답을 확인할 수 없습니다. 다시 불러와 주세요.":
+    "Could not verify the server response. Load it again.",
+  "읽을 항목을 다시 선택해 주세요.": "Select the item you want to read again.",
+  "페이지를 다시 선택해 주세요.": "Select the page again.",
+  "웹소설의 http 또는 https 주소를 입력해 주세요.":
+    "Enter an http or https web novel URL.",
+  "계정 연결이 필요합니다. 다시 연결해 주세요.":
+    "Please reconnect your account.",
+  "요청 권한을 확인할 수 없습니다. 다시 연결해 주세요.":
+    "Could not verify permission. Reconnect your account.",
+  "항목을 찾을 수 없습니다. 목록을 다시 불러와 주세요.":
+    "This item was not found. Refresh the list.",
+  "작업 상태가 변경되었습니다. 진행 상황을 다시 확인해 주세요.":
+    "The job status changed. Check progress again.",
+  "주소와 번역 설정을 확인해 주세요.":
+    "Check the URL and translation settings.",
+  "불러오지 못했습니다. 잠시 후 다시 시도해 주세요.":
+    "Could not load this content. Please try again shortly.",
+  "응답이 늦어지고 있습니다. 다시 확인해 주세요.":
+    "The response is taking longer than expected. Check again.",
+  "번역기와 대상 언어를 선택해 주세요.":
+    "Choose a translation provider and target language.",
+  "기기 보관함 종류": "Device library type",
+  "번역 보관": "Saved translations",
+  "로컬 파일": "Local files",
+  "기기 보관함에 사용할 계정 이름을 입력해 주세요.":
+    "Enter an account name to identify your device library.",
+  "읽기 기록은 이 계정 이름으로 이 기기에만 저장됩니다.":
+    "Reading notes stay on this device under this account name.",
+  "로컬 파일 서재": "Local file library",
+  "가져온 파일": "Imported files",
+  "파일 가져오기": "Import a file",
+  "문서를 읽고 있습니다…": "Reading the document…",
+  "이 파일을 기기에서 삭제할까요?": "Remove this file from the device?",
+  "이 파일의 북마크, 메모, 읽은 위치도 함께 삭제됩니다. 원본 파일은 변경하지 않습니다.":
+    "Its bookmarks, notes and reading position will also be removed. The original file remains unchanged.",
+  삭제: "Delete",
+  "텍스트 인코딩": "Text encoding",
+  "자동: BOM 또는 UTF-8": "Automatic: BOM or UTF-8",
+  "32MB 이하 TXT·Markdown 파일을 이 기기에 보관합니다. 서버에 업로드하지 않습니다. 글자가 잘못 보이면 인코딩을 선택한 뒤 다시 가져오세요.":
+    "Import TXT or Markdown files up to 32 MB on this device. Files are not uploaded. If text looks wrong, select the encoding and import again.",
+  "손상된 로컬 문서 {0}개가 있습니다.": "{0} local documents need repair.",
+  "손상된 항목 삭제": "Remove damaged item",
+  "{0}개 문단": "{0} paragraphs",
+  읽기: "Read",
+  "가져온 로컬 파일이 없습니다.": "No local files imported yet.",
+  북마크: "Bookmarks",
+  메모: "Notes",
+  "현재 위치에 추가": "Add at this position",
+  목차: "Contents",
+  "읽기 도구": "Reading tools",
+  "본문으로 돌아가기": "Back to reading",
+  "이 기기에서 항목을 삭제할까요?": "Delete this item from the device?",
+  "삭제한 북마크와 메모는 복구할 수 없습니다.":
+    "Deleted bookmarks and notes cannot be restored.",
+  종류: "Type",
+  제목: "Title",
+  "메모 내용": "Note",
+  "현재 위치 저장": "Save this position",
+  이동: "Go",
+  "손상된 읽기 기록 {0}개가 있습니다.": "{0} reading notes need repair.",
+  "아직 북마크가 없습니다.": "No bookmarks yet.",
+  "아직 메모가 없습니다.": "No notes yet.",
+  "로컬 파일 읽기": "Read local file",
+  "문자 인코딩을 읽지 못했습니다. 파일의 인코딩을 선택한 뒤 다시 가져와 주세요.":
+    "Could not decode this file. Select its encoding and import again.",
+  "텍스트 파일에 잘못된 문자가 있습니다. 인코딩과 파일 형식을 확인해 주세요.":
+    "This text file contains invalid characters. Check its encoding and format.",
+  "파일 확인을 위해 HTTPS 또는 localhost에서 열어 주세요.":
+    "Open over HTTPS or localhost to verify files.",
+  "문서의 본문이 너무 큽니다. 더 작은 파일로 나누어 주세요.":
+    "The document is too large. Split it into smaller files.",
+  "읽을 수 있는 본문이 없습니다.": "No readable text was found.",
+  "문단이 너무 많습니다. 더 작은 파일로 나누어 주세요.":
+    "There are too many paragraphs. Split the document into smaller files.",
+  "비어 있지 않은 32MB 이하 파일을 선택해 주세요.":
+    "Choose a non-empty file up to 32 MB.",
+  "지원하는 문서 파일을 선택해 주세요.": "Choose a supported document file.",
+  "이 기기에 저장된 문서를 확인할 수 없습니다. 삭제 후 원본 파일을 다시 가져와 주세요.":
+    "This saved document could not be verified. Remove it and import the original again.",
+  "저장된 읽기 메모를 확인할 수 없습니다.":
+    "The saved reading note could not be verified.",
+  "메모 내용을 입력해 주세요.": "Enter a note.",
+  "저장된 읽기 위치를 확인할 수 없습니다.":
+    "The saved reading position could not be verified.",
+  "이 문서에 없는 읽기 위치입니다.":
+    "This reading position is not in the document.",
+  "이 브라우저에서는 기기 저장소를 사용할 수 없습니다.":
+    "Device storage is not available in this browser.",
+  "기기 저장소를 열지 못했습니다.": "Could not open device storage.",
+  "다른 창이 저장소를 사용 중입니다. 창을 닫고 다시 시도해 주세요.":
+    "Another window is using storage. Close it and try again.",
+  "기기 저장을 완료하지 못했습니다.": "Could not finish saving on this device.",
+  "기기 저장소를 사용할 수 없습니다.": "Device storage is unavailable.",
+};

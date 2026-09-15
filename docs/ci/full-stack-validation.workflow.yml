@@ -1,0 +1,109 @@
+name: App, Web, Server and Core CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: android-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  web-tests:
+    name: Web and API Contract
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - run: npm ci
+      - run: npm run verify
+
+  unit-tests:
+    name: Unit Tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Run unit tests
+        run: |
+          chmod +x gradlew
+          ./gradlew -PbuildTarget=app verifyModuleBoundaries :app:testDebugUnitTest :app:assembleDebug
+
+  core-tests:
+    name: Shared Core
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Verify core without Android or server
+        run: |
+          chmod +x gradlew
+          ./gradlew -PbuildTarget=core verifyModuleBoundaries :core-model:test :core-content:test :core-translation:test :core-backup:test :source-runtime:test :translation-runtime:test
+
+  server-tests:
+    name: Server and PostgreSQL
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Verify server against disposable PostgreSQL
+        run: |
+          chmod +x gradlew
+          ./gradlew -PbuildTarget=server verifyModuleBoundaries :server:test :server:bootJar
+
+  portable-exchange:
+    name: Kotlin and Web ZIP Interoperability
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - uses: gradle/actions/setup-gradle@v4
+      - run: npm ci --prefix web
+      - name: Export the Kotlin ZIP fixture
+        run: |
+          chmod +x gradlew
+          ./gradlew -PbuildTarget=core :core-backup:test
+      - name: Read and re-export with the browser codec
+        run: npm test --prefix web -- src/lib/libraryExchange.test.ts
+      - name: Verify the browser ZIP in Kotlin
+        env:
+          PAGETURNER_WEB_EXCHANGE_FIXTURE: ${{ github.workspace }}/.gradle-home/web-portable-roundtrip.zip
+        run: ./gradlew -PbuildTarget=core :core-backup:test
