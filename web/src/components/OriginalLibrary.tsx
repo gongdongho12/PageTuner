@@ -5,7 +5,8 @@ import { translate as t } from "../lib/locale";
 import type { ReadingAnchor } from "../lib/offline";
 import type { ReadingDocument } from "../lib/readingDocument";
 import { AdaptiveCollection } from "./AdaptiveCollection";
-import { PagedReader } from "./PagedReader";
+import { RollingTranslationReader } from "./RollingTranslationReader";
+import type { ReadingTranslationClient } from '../lib/readingTranslation';
 import { usePersonalLibrary } from "./usePersonalLibrary";
 import {
   getWorkflowPosition,
@@ -15,9 +16,13 @@ import {
 export function OriginalLibrary({
   username,
   onReadingChange,
+  client,
+  defaultTargetLanguage,
 }: {
   username: string;
   onReadingChange: (reading: boolean) => void;
+  client?: ReadingTranslationClient | null;
+  defaultTargetLanguage?: string;
 }) {
   const storage = usePersonalLibrary(username)!,
     notes = useMemo(() => createReadingNotes(username), [username]);
@@ -28,6 +33,7 @@ export function OriginalLibrary({
     [remove, setRemove] = useState<string>();
   const [reading, setReading] = useState<{
     document: ReadingDocument;
+    source: SavedOriginal['chapter'];
     anchor?: ReadingAnchor;
   }>();
   const refresh = async () => {
@@ -61,23 +67,28 @@ export function OriginalLibrary({
       chapterTitle: c.chapterTitle,
       language: c.sourceLanguage,
       paragraphs: c.paragraphs,
+      glossaryIdentity: { providerId: c.providerId, bookId: c.bookId },
     };
     try {
       setReading({
         document,
+        source: c,
         anchor:
           getWorkflowPosition(username, document) ??
           (await notes.getPosition(document)),
       });
     } catch (e) {
       setError(e instanceof Error ? e.message : "");
-      setReading({ document });
+      setReading({ document, source: c });
     }
   };
   if (reading)
     return (
-      <PagedReader
+      <RollingTranslationReader
         document={reading.document}
+        source={reading.source}
+        client={client}
+        settings={{ targetLanguage: defaultTargetLanguage }}
         anchor={reading.anchor}
         notesNamespace={username}
         onClose={() => setReading(undefined)}

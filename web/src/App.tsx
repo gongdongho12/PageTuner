@@ -995,6 +995,8 @@ export default function App() {
                   <OriginalLibrary
                     key={username}
                     username={username}
+                    client={workflowClient}
+                    defaultTargetLanguage={accountProfile?.targetLanguage ?? "ko"}
                     onReadingChange={setWorkflowReading}
                   />
                 ) : tab === "server" && !client ? (

@@ -29,6 +29,7 @@ import { AdaptiveCollection } from "./AdaptiveCollection";
 import { Icon } from "./Icon";
 import type { ReadingDocument } from "./PagedReader";
 import { TranslationComparisonReader } from './TranslationComparisonReader';
+import { RollingTranslationReader } from './RollingTranslationReader';
 import { TranslationSetup } from "./TranslationSetup";
 import { PersonalShelf } from "./PersonalShelf";
 import { CatalogFilterPanel } from "./CatalogFilterPanel";
@@ -466,11 +467,15 @@ export function NovelWorkspace({
         {catalogCache && <button className="button-outline" onClick={() => setCachedLibraryOpen(true)}>{t('저장된 목록')}</button>}
       </section>
     );
-  if (reader)
+  if (reader) {
+    const WorkspaceReader = reader.chapter ? RollingTranslationReader : TranslationComparisonReader;
     return (
-      <TranslationComparisonReader
+      <WorkspaceReader
         key={reader.document.id}
         document={reader.document}
+        source={reader.chapter}
+        client={client}
+        settings={{ targetLanguage: defaultTargetLanguage }}
         translation={reader.translation}
         workflowClient={client}
         sourceRecordId={reader.sourceRecordId}
@@ -532,6 +537,7 @@ export function NovelWorkspace({
         }}
       />
     );
+  }
   return (
     <section className="novel-workspace">
       <nav className="workflow-subtabs" aria-label={t("웹소설 메뉴")}>
@@ -607,6 +613,7 @@ export function NovelWorkspace({
           defaultTargetLanguage={defaultTargetLanguage}
           username={username}
           onSubmit={startTranslation}
+          onReadOriginal={() => openOriginal(chapter)}
           onBack={() =>
             retryJob ? showJob(retryJob) : navigate(originalView.current)
           }

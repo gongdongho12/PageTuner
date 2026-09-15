@@ -39,6 +39,9 @@ export type PagedReaderProps = {
     actionError?: string;
     onAnchorChange: (anchor: ReadingAnchor) => void;
     onPaginationChange?: (value: { documentId: string; pages: readonly (readonly CanonicalReaderRange[])[]; page: number }) => void;
+    onBoundaryPageTurn?: (direction: -1 | 1) => void;
+    hasPreviousBoundary?: boolean;
+    hasNextBoundary?: boolean;
 };
 function boundaries(text: string) {
     const result = [0];
@@ -113,7 +116,7 @@ function setMeasuredText(element: HTMLElement, text: string, start: number, emph
         const node = document.createElement('strong'); node.textContent = part.text; return node;
     }));
 }
-export function PagedReader({ document: readingDocument, anchor, preview = false, readOnly = false, editionLabel, readerLabel, contentKindLabel, saved, saving, onClose, onSave, actionLabel, onAction, positionNote, notesNamespace, actionError, onAnchorChange, onPaginationChange, }: PagedReaderProps) {
+export function PagedReader({ document: readingDocument, anchor, preview = false, readOnly = false, editionLabel, readerLabel, contentKindLabel, saved, saving, onClose, onSave, actionLabel, onAction, positionNote, notesNamespace, actionError, onAnchorChange, onPaginationChange, onBoundaryPageTurn, hasPreviousBoundary = false, hasNextBoundary = false, }: PagedReaderProps) {
     const root = useRef<HTMLElement>(null);
     const { preferences, update: updatePreferences, error: preferencesError } = useReaderPreferences(notesNamespace);
     const fullscreen = useReaderFullscreen(root);
@@ -225,15 +228,17 @@ export function PagedReader({ document: readingDocument, anchor, preview = false
     }, [projection, bounds, fontSize, preferences.fontFamily, preferences.lineHeight, preferences.pageMargin, toolsOpen, glossaryOpen]);
     const turnPage = useCallback((direction: -1 | 1) => {
         const next = turnReaderPage(pages, location.current, direction);
-        if (next === location.current)
+        if (next === location.current) {
+            if (pages.length && (direction < 0 ? hasPreviousBoundary : hasNextBoundary)) onBoundaryPageTurn?.(direction);
             return;
+        }
         const source = next.anchor ? projection.sourceAnchor(next.anchor) : undefined;
         location.current = { ...next, anchor: source };
         window.getSelection()?.removeAllRanges(); setSelection(undefined);
         setPage(next.page);
         if (source)
             onAnchorChange(source);
-    }, [pages, onAnchorChange, projection]);
+    }, [pages, onAnchorChange, projection, onBoundaryPageTurn, hasPreviousBoundary, hasNextBoundary]);
     useEffect(() => {
         onPaginationChange?.({ documentId: readingDocument.id, pages: canonicalPages, page });
     }, [readingDocument.id, canonicalPages, page, onPaginationChange]);
@@ -338,7 +343,7 @@ export function PagedReader({ document: readingDocument, anchor, preview = false
           </button>
         </div>
         <nav className="reader-navigation" aria-label={t("\uCC45 \uD398\uC774\uC9C0")}>
-          <button className="button-quiet" onClick={previous} aria-label={t("\uC774\uC804 \uD398\uC774\uC9C0")} disabled={page === 0}>
+          <button className="button-quiet" onClick={previous} aria-label={t("\uC774\uC804 \uD398\uC774\uC9C0")} disabled={!pages.length || (page === 0 && !(onBoundaryPageTurn && hasPreviousBoundary))}>
             <Icon name="back"/>
             <span>{t("\uC774\uC804")}</span>
           </button>
@@ -348,7 +353,7 @@ export function PagedReader({ document: readingDocument, anchor, preview = false
               / {pages.length ? String(pages.length).padStart(2, "0") : "—"}
             </span>
           </span>
-          <button className="button-quiet" onClick={next} aria-label={t("\uB2E4\uC74C \uD398\uC774\uC9C0")} disabled={!pages.length || page === pages.length - 1}>
+          <button className="button-quiet" onClick={next} aria-label={t("\uB2E4\uC74C \uD398\uC774\uC9C0")} disabled={!pages.length || (page === pages.length - 1 && !(onBoundaryPageTurn && hasNextBoundary))}>
             <span>{t("\uB2E4\uC74C")}</span>
             <Icon name="arrow"/>
           </button>
