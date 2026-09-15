@@ -32,7 +32,7 @@ object WtrLabDomScraper {
                 NovelSummaryItem(
                     novelId = id,
                     slug = novelSlugFromUrl(url),
-                    title = title,
+                    title = catalogDisplayText(title),
                     coverUrl = cover,
                 )
             }
@@ -97,14 +97,14 @@ object WtrLabDomScraper {
             return NovelDetailResponse(
                 novelId = resolvedId,
                 slug = firstNonBlank(serieData.optString("slug"), novelSlugFromUrl(url)),
-                title = title,
+                title = catalogDisplayText(title),
                 titleOriginal = firstNonBlank(raw?.optString("title"), serieData.optString("original_title")).takeIf { it.isNotBlank() },
                 author = firstNonBlank(data?.optString("author"), serieData.optString("author"), raw?.optString("author"), "WTR-LAB Author"),
                 status = statusName(serieData.opt("status")),
                 totalChapters = positiveInt(serieData, "chapter_count")
                     ?: positiveInt(serieData, "raw_chapter_count")
                     ?: 0,
-                summary = firstNonBlank(data?.optString("description"), serieData.optString("description")),
+                summary = catalogDisplayText(firstNonBlank(data?.optString("description"), serieData.optString("description"))),
                 tags = tagNames,
                 coverUrl = firstNonBlank(data?.optString("image"), serieData.optString("cover")).takeIf { it.isNotBlank() },
                 views = totalViews(serieData).toString(),
@@ -115,8 +115,8 @@ object WtrLabDomScraper {
         return NovelDetailResponse(
             novelId = novelId,
             slug = novelSlugFromUrl(url),
-            title = WebNovelTextExtractor.extractNovelTitle(html, "WTR-LAB Novel $novelId"),
-            summary = WebNovelTextExtractor.extractNovelSynopsis(html),
+            title = catalogDisplayText(WebNovelTextExtractor.extractNovelTitle(html, "WTR-LAB Novel $novelId")),
+            summary = catalogDisplayText(WebNovelTextExtractor.extractNovelSynopsis(html)),
         )
     }
 
@@ -346,7 +346,7 @@ object WtrLabDomScraper {
         return NovelSummaryItem(
             novelId = rawId,
             slug = slug,
-            title = title,
+            title = catalogDisplayText(title),
             coverUrl = cover,
             chapterCount = positiveInt(item, "chapter_count") ?: positiveInt(item, "raw_chapter_count") ?: 0,
             status = statusName(item.opt("status")),
@@ -355,7 +355,7 @@ object WtrLabDomScraper {
             author = firstNonBlank(data?.optString("author"), item.optString("author"))
                 .takeIf { it.isNotBlank() },
             description = firstNonBlank(data?.optString("description"), item.optString("description"))
-                .takeIf { it.isNotBlank() },
+                .takeIf { it.isNotBlank() }?.let(::catalogDisplayText),
         )
     }
 
@@ -450,6 +450,35 @@ object WtrLabDomScraper {
 
     private fun firstNonBlank(vararg values: String?): String =
         values.firstOrNull { !it.isNullOrBlank() }.orEmpty()
+
+    /** WTR catalog metadata encodes an alternate term as %{display label|opaque payload}. */
+    private fun catalogDisplayText(value: String): String {
+        if (!value.contains("%{")) return value
+        return buildString(value.length) {
+            var cursor = 0
+            while (cursor < value.length) {
+                val start = value.indexOf("%{", cursor)
+                if (start < 0) { append(value, cursor, value.length); break }
+                append(value, cursor, start)
+                var end = start + 2
+                var depth = 1
+                while (end < value.length && depth > 0) {
+                    when (value[end]) { '{' -> depth++; '}' -> depth-- }
+                    end++
+                }
+                if (depth != 0) { append(value, start, value.length); break }
+                val token = value.substring(start + 2, end - 1)
+                val separator = token.indexOf('|')
+                val unambiguous = separator > 0 && separator == token.lastIndexOf('|') &&
+                    token.none { it == '{' || it == '}' || it == '\r' || it == '\n' }
+                if (unambiguous && token.substring(0, separator).isNotBlank() && token.substring(separator + 1).isNotBlank()) {
+                    // Keep the label as plain text. Never decode, execute, render or follow the payload.
+                    append(token, 0, separator)
+                } else append(value, start, end)
+                cursor = end
+            }
+        }
+    }
 
     private val ReaderTermMarker = Regex("※(\\d+)⛬")
 }

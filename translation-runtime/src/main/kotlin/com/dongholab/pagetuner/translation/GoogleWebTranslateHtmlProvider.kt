@@ -2,6 +2,7 @@ package com.dongholab.pagetuner.translation
 
 import com.dongholab.pagetuner.document.DocumentIds
 import java.io.IOException
+import java.net.URI
 import java.net.URLEncoder
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -158,11 +159,19 @@ fun interface GoogleWebTranslateTextTransport {
             val body = parameters.entries.joinToString("&") { (name, value) ->
                 "${name.urlEncode()}=${value.urlEncode()}"
             }
-            ProviderHttpTransport(GoogleWebTranslateHtmlProvider.ProviderName, readTimeoutMillis = 30_000)
+            ProviderHttpTransport(GoogleWebTranslateHtmlProvider.ProviderName, readTimeoutMillis = 30_000,
+                isRateLimitRedirect = ::isGooglePublicRateLimitRedirect)
                 .post(endpoint, headers, body)
         }
     }
 }
+
+/** Google can return a 302 challenge instead of 429; classify it without following or reading it. */
+internal fun isGooglePublicRateLimitRedirect(source: URI, target: URI): Boolean =
+    source.scheme.equals("https", ignoreCase = true) && source.host.equals("translate.googleapis.com", ignoreCase = true) &&
+        source.path == "/translate_a/single" && source.port in setOf(-1, 443) && source.rawUserInfo == null &&
+        target.scheme.equals("https", ignoreCase = true) && target.host.equals("www.google.com", ignoreCase = true) &&
+        target.path == "/sorry/index" && target.port in setOf(-1, 443) && target.rawUserInfo == null
 
 object GoogleWebTranslateTextResponseParser {
     fun parse(response: String): Result<String> {

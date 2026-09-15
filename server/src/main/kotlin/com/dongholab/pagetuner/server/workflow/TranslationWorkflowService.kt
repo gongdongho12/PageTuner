@@ -4,6 +4,8 @@ import com.dongholab.pagetuner.core.content.StableContentHash
 import com.dongholab.pagetuner.server.translation.SaveTranslationRequest
 import com.dongholab.pagetuner.server.translation.TranslatedParagraphRequest
 import com.dongholab.pagetuner.server.translation.TranslationApplicationService
+import com.dongholab.pagetuner.translation.TranslationProviderErrorKind
+import com.dongholab.pagetuner.translation.TranslationProviderException
 import com.fasterxml.jackson.databind.ObjectMapper
 import jakarta.annotation.PreDestroy
 import java.util.UUID
@@ -131,9 +133,10 @@ class TranslationWorkflowService(
                 }
             } catch (_: CancellationException) {
                 // Cancel/restart status is committed by the caller or lease recovery; never publish partial artifacts.
-            } catch (_: Exception) {
-                // Provider responses and exception messages can contain credentials or private source text.
-                runCatching { jobs.fail(id, workerId, "TRANSLATION_FAILED", "번역 제공자 응답 또는 연결을 확인하지 못했습니다. 설정을 확인한 뒤 완료된 문단부터 다시 시도해 주세요.") }
+            } catch (error: Exception) {
+                // Classify only the typed kind. Provider names, details, messages and causes are untrusted.
+                val (code, message) = publicProviderError((error as? TranslationProviderException)?.failure?.kind)
+                runCatching { jobs.fail(id, workerId, code, message) }
             } finally { running.remove(id) }
         }
         running[id] = worker
@@ -145,4 +148,25 @@ class TranslationWorkflowService(
         runCatching { jobs.interruptOwned(workerId) }
         scope.cancel()
     }
+}
+
+private fun publicProviderError(kind: TranslationProviderErrorKind?): Pair<String, String> = when (kind) {
+    TranslationProviderErrorKind.RateLimited -> "TRANSLATION_RATE_LIMITED" to
+        "번역 제공자 요청이 일시적으로 제한되었습니다. 잠시 후 완료된 문단부터 다시 시도해 주세요."
+    TranslationProviderErrorKind.Authentication -> "TRANSLATION_AUTHENTICATION_FAILED" to
+        "번역 제공자 인증에 실패했습니다. API 키와 접근 권한을 확인한 뒤 완료된 문단부터 다시 시도해 주세요."
+    TranslationProviderErrorKind.Quota -> "TRANSLATION_QUOTA_EXCEEDED" to
+        "번역 제공자의 사용량 한도에 도달했습니다. 제공자 계정의 한도를 확인한 뒤 완료된 문단부터 다시 시도해 주세요."
+    TranslationProviderErrorKind.BadRequest -> "TRANSLATION_BAD_REQUEST" to
+        "번역 제공자가 요청을 처리할 수 없습니다. 언어와 번역 설정을 확인한 뒤 완료된 문단부터 다시 시도해 주세요."
+    TranslationProviderErrorKind.Server -> "TRANSLATION_SERVER_ERROR" to
+        "번역 제공자 서버에 일시적인 오류가 발생했습니다. 잠시 후 완료된 문단부터 다시 시도해 주세요."
+    TranslationProviderErrorKind.Network -> "TRANSLATION_NETWORK_ERROR" to
+        "번역 제공자에 연결하지 못했습니다. 연결 상태를 확인한 뒤 완료된 문단부터 다시 시도해 주세요."
+    TranslationProviderErrorKind.ResponseFormat -> "TRANSLATION_INVALID_RESPONSE" to
+        "번역 제공자가 올바른 형식의 결과를 보내지 않았습니다. 번역 설정을 확인한 뒤 완료된 문단부터 다시 시도해 주세요."
+    TranslationProviderErrorKind.Configuration -> "TRANSLATION_CONFIGURATION_ERROR" to
+        "번역 제공자 설정이 올바르지 않습니다. 서버 주소와 모델 설정을 확인한 뒤 완료된 문단부터 다시 시도해 주세요."
+    TranslationProviderErrorKind.Unknown, null -> "TRANSLATION_FAILED" to
+        "번역 제공자 응답 또는 연결을 확인하지 못했습니다. 설정을 확인한 뒤 완료된 문단부터 다시 시도해 주세요."
 }

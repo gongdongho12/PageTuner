@@ -23,6 +23,25 @@ flowchart LR
 서버는 공개 HTTPS/DNS 검증 HTTP 구현을 주입하고 WebView를 사용하지 않습니다.
 앱의 실제 WebView 구현과 기기 캐시는 Android 모듈에 남습니다.
 
+### WTR 웹 화면과 서버 호출 경로
+
+웹의 `NovelWorkspace`와 `workflowApi`는 아래 서버 API를 호출합니다. WTR의 Next.js
+데이터 해석, 목차 구성, reader POST와 원문 문단 생성은 서버가 주입한 HTTP transport와
+공통 `NovelSourceService` / `WtrLabSiteAdapter` / `WtrLabDomScraper`에서 처리합니다.
+브라우저에 WTR 전용 파서나 reader POST를 복제하지 않습니다.
+
+| 프론트 동작 | 호출 API | 서버 책임 |
+| --- | --- | --- |
+| WTR 선택·검색·필터 | `GET /api/v1/novels/catalog?sourceId=wtr-lab` | WTR 목록 요청과 구조화된 작품 정보 반환 |
+| 작품 선택·목차 넘기기 | `GET /api/v1/novels/detail` | 작품 정보와 목차 해석, 회차 페이지 반환 |
+| 회차 가져오기 | `POST /api/v1/chapters/import` | WTR reader 호출, 작품·회차 식별자 검증, 사용자별 원문 DB 저장 |
+| 전체 번역 시작 | `POST /api/v1/translation-jobs` | 저장 원문 조회, 공급자 실행과 문단 checkpoint 저장 |
+| 번역 진행·완료 보기 | `GET /api/v1/translation-jobs/{jobId}` | 작업 상태와 완성된 translationRecordId 반환 |
+| 번역 리더 열기 | `GET /api/v1/translations/{recordId}` | 검증된 완성 artifact 조회 |
+
+프론트의 목록 캐시는 서버에서 받은 구조화된 응답의 기기 사본입니다. 새로 받기를 누르면
+서버 조회를 다시 실행하며, 캐시 사용과 새 서버 응답을 화면에서 구분합니다.
+
 `translation-runtime`에는 Google Cloud, 키 없는 Google Web public POST/키 있는 HTML 경로,
 DeepSeek, OpenAI 호환 API와 기존 용어집 보호·한국어 조사 보정·배치·속도·비용 추정이 있습니다.
 기존 앱 클래스는 동일 package로 이동했으므로 앱과 서버가 다른 복사본을 실행하지 않습니다.
@@ -89,6 +108,15 @@ chunk ID는 안정적이지만 DB에는 원래 문단 ID만 저장합니다. chu
 별도 공유 공급자 기능으로 유지되며 서버 작업에 암묵적으로 섞지 않습니다.
 
 ## 취소·실패·재시작
+
+공급자의 분류된 오류는 요청 제한(`TRANSLATION_RATE_LIMITED`), 인증 실패, 사용량 한도,
+잘못된 요청·설정, 서버·연결 오류, 잘못된 응답으로 나누어 고정 코드와 안내를 반환합니다.
+프론트는 작업 API의 `errorMessage`를 현재 언어팩으로 표시합니다. 공급자의 원문 응답,
+예외 메시지·원인·공급자 이름은 오류 응답이나 로그에 포함하지 않습니다.
+요청 제한은 잠시 기다린 뒤 같은 설정과 `retryOf`로 재개하며 이미 완료된 문단을 재사용합니다.
+Google public 번역 endpoint가 `https://www.google.com/sorry/index`로 보내는 리다이렉트도
+요청 제한으로 분류합니다. 리다이렉트를 따라가거나 안내 페이지를 읽지 않으며, 목적지 URL의
+query를 오류에 포함하지 않습니다. 다른 목적지의 리다이렉트는 기존처럼 거부합니다.
 
 프로세스당 최대 2개 작업을 실행하며 사용자별 대기/실행 작업은 4개로 제한합니다.
 작업은 `QUEUED → RUNNING → COMPLETED`로 진행하고 실패 시 `FAILED`, 취소 시 `CANCELLED`가 됩니다.
@@ -161,6 +189,13 @@ $env:RUN_LIVE_WEB_NOVEL_TESTS = '1'
 WTR의 요청/응답 식별자 엄격 대조는 위 첫 실측 후 추가하여 최종 회귀 검증에 포함합니다.
 공유 엔진과 원문 수집 실호출의 성공은 전체 웹/앱 UI·실기기 검증을 대신하지 않습니다.
 
+2026-09-16 브라우저에서 WTR 선택 → `Sea Survival` 검색 → 작품·목차 → 1회차 가져오기 →
+원문 리더 → Google Web en→ko 전체 번역 → 실패 후 재시도를 실행했습니다.
+서버에 저장된 원문은 180문단/10,689자이며, 102문단 완료 후 작업이 실패했습니다.
+동일 공개 번역 endpoint에서 HTTP 429를 확인했습니다. 재시도 작업에는 완료된 102문단의
+ID와 번역문이 모두 동일하게 복사되었고 미완성 번역 artifact는 생성되지 않았습니다.
+이 실행은 WTR 전체 번역 완료 검증으로 기록하지 않습니다.
+
 ## 실제 서비스의 한계
 
 소설 사이트가 로그인·브라우저 확인·유료 접근을 요구하거나 구조를 바꾸면 서버 수집은 명확히 실패합니다.
@@ -169,6 +204,7 @@ Google Web의 키 없는 public endpoint는 외부 서비스의 가용성과 속
 다른 번역 공급자는 유효한 키·사용량·모델 접근 권한이 필요하고 실제 과금 호출은 별도 검증해야 합니다.
 공통 비용 추정은 기존의 일반 가정이며 실제 공급자 청구액을 보장하지 않습니다.
 
-현재 Basic 인증과 프로세스 내 실행 큐는 로컬/개발 배포를 위한 구성입니다.
-공개 서비스용 계정 관리, 사용자별 과금/할당량, 분산 실행, 운영 비밀 관리, Drive 실제 백업,
-Android/E-Ink 하드웨어 검증은 별도 범위입니다.
+현재 회원가입·BCrypt 비밀번호 저장·계정 언어 설정과 사용자별 소유권 검증은 구현되어 있습니다.
+계정 범위와 인증 운영 조건은 [서버 문서](../server/README.md)를 따릅니다.
+Basic 인증과 프로세스 내 실행 큐는 로컬/개발 배포를 위한 구성이며 사용자별 과금/할당량,
+분산 실행, 운영 비밀 관리, Drive 실제 백업과 Android/E-Ink 하드웨어 검증은 별도 범위입니다.
