@@ -93,3 +93,7 @@ RUN_LIVE_TRANSLATION_TESTS=1 ./gradlew :app:testDebugUnitTest \
 
 The live suite covers English-to-Korean, ordered Korean-to-English segments,
 and the common named-field service with a persisted cache file.
+
+## Server and web connection checks
+
+See [Provider connection settings and checks](PROVIDER_CONNECTION_CHECK.md) for shared server/web settings, the fixed-sample check API, and complete response validation.

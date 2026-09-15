@@ -612,6 +612,7 @@ export function NovelWorkspace({
           busy={!!busy}
           defaultTargetLanguage={defaultTargetLanguage}
           username={username}
+          onCheckProvider={client.checkProvider}
           onSubmit={startTranslation}
           onReadOriginal={() => openOriginal(chapter)}
           onBack={() =>

@@ -8,9 +8,10 @@ import { translate as t } from '../lib/locale'
 import { usePersonalLibrary } from './usePersonalLibrary'
 import { normalizeGlossary, type GlossaryEntry } from '../lib/glossary'
 import { TranslationSetup } from './TranslationSetup'
+import type { ProviderCheckHandler } from './ProviderCheckSession'
 import './rollingTranslation.css'
 
-type ReaderClient = ReadingTranslationClient & { providers?: (signal?: AbortSignal) => Promise<TranslationProvider[]> }
+type ReaderClient = ReadingTranslationClient & { providers?: (signal?: AbortSignal) => Promise<TranslationProvider[]>; checkProvider?: ProviderCheckHandler }
 export type RollingTranslationReaderProps = PagedReaderProps & { source?: StoredChapter; client?: ReaderClient | null; settings?: Partial<ReadingTranslationSettings> }
 export function RollingTranslationReader(props: RollingTranslationReaderProps) {
   if (!props.source || !props.client || props.preview || props.readOnly || props.document.kind !== 'original') return <PagedReader {...props}/>
@@ -107,6 +108,7 @@ function ActiveRollingReader(props: RollingTranslationReaderProps & { source: St
     [props.source.recordId, props.document.bookTitle, props.document.chapterTitle, snapshot.page, snapshot.items, target])
   if (settingsOpen) return <section className="rolling-reader" aria-label={t('읽기 번역 설정')}>
     {connectionOpen ? <TranslationSetup readingPreview chapter={props.source} providers={providers} username={props.notesNamespace ?? ''} busy={preparing}
+      onCheckProvider={props.client.checkProvider}
       defaultTargetLanguage={target} initialSettings={options} onBack={() => setConnectionOpen(false)} onSubmit={applyConnection}/> : <>
       <div className="rolling-controls"><button type="button" onClick={() => setSettingsOpen(false)}>{t('읽기로 돌아가기')}</button><strong>{t('읽기 번역 설정')}</strong></div>
       <div className="rolling-settings rolling-settings-page">

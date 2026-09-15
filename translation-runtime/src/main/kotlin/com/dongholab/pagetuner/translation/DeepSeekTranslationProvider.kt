@@ -20,6 +20,7 @@ class DeepSeekTranslationProvider(
         requestOptions = LlmChatRequestOptions(
             jsonResponse = true,
             thinkingEnabled = false,
+            maxTokens = 32_768,
         ),
         transport = transport,
         initialCharacterAliases = initialCharacterAliases,
@@ -38,5 +39,5 @@ class DeepSeekTranslationProvider(
 
 object DeepSeekDefaults {
     const val ApiUrl = "https://api.deepseek.com/chat/completions"
-    const val Model = "deepseek-v4-flash"
+    const val Model = "deepseek-flash"
 }

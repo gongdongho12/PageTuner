@@ -2,7 +2,6 @@ package com.dongholab.pagetuner.translation
 
 import com.dongholab.pagetuner.document.DocumentIds
 import com.dongholab.pagetuner.translation.glossary.CharacterAliasSuggestion
-import java.io.IOException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
@@ -36,12 +35,18 @@ class OpenAiCompatibleLlmTranslationProvider(
         append(DocumentIds.sha256(endpoint).take(12))
         append(':')
         append(model)
+        append(':').append(PromptRevision)
+        append(':').append(DocumentIds.sha256(listOf(requestOptions.jsonResponse,
+            requestOptions.thinkingEnabled, requestOptions.maxTokens).joinToString("\n")).take(12))
         if (characterAliasEnabled) append(":character-alias-v1")
     }
 
     override suspend fun translate(request: TranslationRequest): List<TranslatedSegment> {
         if (apiKey.isBlank()) {
             throw providerConfigurationException(providerName, "LLM API key is required.")
+        }
+        if (apiKey.length > 4096 || apiKey.any(Char::isISOControl)) {
+            throw providerConfigurationException(providerName, "LLM API key is invalid.")
         }
         if (endpoint.isBlank()) {
             throw providerConfigurationException(providerName, "LLM endpoint is required.")
@@ -78,6 +83,7 @@ class OpenAiCompatibleLlmTranslationProvider(
             put("model", model)
             put("temperature", 0)
             put("stream", false)
+            requestOptions.maxTokens?.let { put("max_tokens", it) }
             if (requestOptions.jsonResponse) {
                 put("response_format", JSONObject().put("type", "json_object"))
             }
@@ -140,33 +146,35 @@ class OpenAiCompatibleLlmTranslationProvider(
         response: String,
     ): List<TranslatedSegment> {
         val content = runCatching {
-            JSONObject(response)
-                .getJSONArray("choices")
-                .getJSONObject(0)
-                .getJSONObject("message")
-                .getString("content")
-        }.getOrElse { error ->
+            val root = translationJsonObject(response, providerName)
+            val choices = root.getJSONArray("choices")
+            require(choices.length() == 1)
+            val choice = choices.getJSONObject(0)
+            require(choice.opt("finish_reason") == "stop")
+            val message = choice.getJSONObject("message")
+            require(message.isNull("refusal") || message.opt("refusal") == "")
+            require(message.isNull("function_call"))
+            require(message.isNull("tool_calls") || message.optJSONArray("tool_calls")?.length() == 0)
+            (message.opt("content") as? String)?.takeIf(String::isNotBlank) ?: error("Missing text content")
+        }.getOrElse {
             throw providerResponseFormatException(
                 providerName = providerName,
-                detail = "LLM response did not contain a chat completion message.",
-                cause = error,
+                detail = "LLM response did not contain a complete, unrefused chat completion.",
             )
         }
 
-        val responseJson = runCatching { extractJsonObject(content) }.getOrElse { error ->
+        val responseJson = runCatching { extractJsonObject(content) }.getOrElse {
             throw providerResponseFormatException(
                 providerName = providerName,
                 detail = "LLM response did not contain translation JSON.",
-                cause = error,
             )
         }
         val translations = runCatching {
             responseJson.getJSONArray("translations")
-        }.getOrElse { error ->
+        }.getOrElse {
             throw providerResponseFormatException(
                 providerName = providerName,
                 detail = "LLM response did not contain translation JSON.",
-                cause = error,
             )
         }
         if (translations.length() != request.segments.size) {
@@ -179,7 +187,9 @@ class OpenAiCompatibleLlmTranslationProvider(
         val result = request.segments.mapIndexed { index, segment ->
             TranslatedSegment(
                 segmentId = segment.id,
-                translatedText = translations.getString(index),
+                translatedText = translations.opt(index) as? String ?: throw providerResponseFormatException(
+                    providerName, "LLM translations must contain only strings.",
+                ),
             )
         }
         validateTranslationResponse(request.segments, result, providerName)
@@ -216,24 +226,18 @@ class OpenAiCompatibleLlmTranslationProvider(
 
     private fun extractJsonObject(content: String): JSONObject {
         val trimmed = content.trim()
-            .removePrefix("```json")
-            .removePrefix("```")
-            .removeSuffix("```")
-            .trim()
-
-        return try {
-            JSONObject(trimmed)
-        } catch (error: Exception) {
-            val start = trimmed.indexOf('{')
-            val end = trimmed.lastIndexOf('}')
-            if (start < 0 || end <= start) throw IOException("LLM response did not contain JSON.", error)
-            JSONObject(trimmed.substring(start, end + 1))
-        }
+        // Keep compatibility with a single fenced JSON answer, without salvaging embedded or partial JSON.
+        val json = if (trimmed.startsWith("```json\n") || trimmed.startsWith("```json\r\n") ||
+            trimmed.startsWith("```\n") || trimmed.startsWith("```\r\n")) {
+            require(trimmed.endsWith("```"))
+            trimmed.substring(trimmed.indexOf('\n') + 1, trimmed.length - 3).trim()
+        } else trimmed
+        return translationJsonObject(json, providerName)
     }
 
     companion object {
         /** Bump when the fixed translation instructions or response contract change. */
-        const val PromptRevision = "paragraph-json-v1"
+        const val PromptRevision = "paragraph-json-v2"
         private const val DefaultProviderName = "LLM API"
         private const val MaxAliasesPerResponse = 24
         private const val MaxAliasCharacters = 80
@@ -243,7 +247,10 @@ class OpenAiCompatibleLlmTranslationProvider(
 data class LlmChatRequestOptions(
     val jsonResponse: Boolean = false,
     val thinkingEnabled: Boolean? = null,
-)
+    val maxTokens: Int? = null,
+) {
+    init { require(maxTokens == null || maxTokens in 1..393_216) { "Invalid LLM output token limit." } }
+}
 
 fun interface LlmHttpTransport {
     suspend fun post(

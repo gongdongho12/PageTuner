@@ -114,6 +114,19 @@ describe('reading translation windows and transport', () => {
     expect(headers.Authorization).toMatch(/^Basic /); expect(headers['X-CSRF-TOKEN']).toBe('test-csrf')
     expect(cancel.init.body).toBe('{}'); expect(cancel.path).not.toContain('test-password')
   })
+  it('stops reading prefetch and shows a typed provider authentication failure without adding results', async () => {
+    const { client, inputs } = immediateClient(); let latest!: RollingSnapshot
+    client.startReadingTranslation = async input => {
+      inputs.push(input)
+      return { ...await response(input, 'FAILED'), errorCode: 'TRANSLATION_AUTHENTICATION_FAILED' }
+    }
+    const session = new RollingTranslationSession(chapter, settings, client, state => { latest = state }, { uuid, sleep: async () => {} })
+    session.setPagination(pagination()); session.start()
+    await vi.waitFor(() => expect(latest.error).toBeTruthy())
+    expect(latest.error).toBe('번역 제공자 인증에 실패했습니다. API 키와 접근 권한을 확인해 주세요.')
+    expect(inputs).toHaveLength(1); expect(latest.items).toEqual([]); expect(latest.running).toBe(false)
+    await session.stop()
+  })
   it('defers prefetch at the memory budget instead of retranslating evicted pages forever', async () => {
     const { client, inputs } = immediateClient(); let latest!: RollingSnapshot
     const session = new RollingTranslationSession(chapter, settings, client, state => { latest = state }, { uuid, sleep: async () => {}, cacheCharacters: 80, cacheFragments: 2 })

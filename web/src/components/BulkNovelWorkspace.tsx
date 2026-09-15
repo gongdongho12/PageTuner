@@ -4,6 +4,8 @@ import { createBulkQueueStorage, collectBulkChapters, prepareBulkTranslation, ru
 import type { NovelDetail, StoredChapter, TranslationProvider, WorkflowClient } from '../lib/workflowApi';
 import { AdaptiveCollection } from './AdaptiveCollection';
 import { TranslationSetup } from './TranslationSetup';
+import { ProviderConnectionFields } from './ProviderConnectionFields';
+import { ProviderCheckPanel } from './ProviderCheckPanel';
 
 export type BulkNovelWorkspaceProps = {
   client: WorkflowClient; username: string; detail?: NovelDetail | null; defaultTargetLanguage: string;
@@ -26,6 +28,7 @@ export function BulkNovelWorkspace({ client, username, detail, defaultTargetLang
   const [prepared, setPrepared] = useState<StoredChapter | null>(null);
   const [providers, setProviders] = useState<TranslationProvider[]>([]);
   const [panel, setPanel] = useState<'progress' | 'select' | 'key'>('progress');
+  const [keySection, setKeySection] = useState<'connection' | 'check'>('connection');
   const mounted = useRef(false);
   const control = useRef<AbortController | null>(null);
   const current = () => mounted.current && currentSession.current === session;
@@ -59,6 +62,7 @@ export function BulkNovelWorkspace({ client, username, detail, defaultTargetLang
   if (prepared) return <section className="novel-workspace">
     <p className="workflow-help">{t('선택한 {0}회차에 같은 번역 설정을 적용합니다.', [queue?.items.length ?? 0])}</p>
     <TranslationSetup chapter={prepared} providers={providers} busy={busy} username={username} defaultTargetLanguage={defaultTargetLanguage}
+      onCheckProvider={client.checkProvider}
       onBack={() => setPrepared(null)} onSubmit={async input => {
         await work(async () => {
           accept(await storage.configure(input)); if (!current()) return;
@@ -77,7 +81,10 @@ export function BulkNovelWorkspace({ client, username, detail, defaultTargetLang
       <button aria-pressed={panel === 'progress'} onClick={() => setPanel('progress')}>{t('진행')}</button>
       <button aria-pressed={panel === 'select'} onClick={() => setPanel('select')}>{t('회차 선택')}</button>
       {queue?.settings && queue.settings.providerKind !== 'GOOGLE_WEB_TRANSLATE_HTML' &&
-        <button aria-pressed={panel === 'key'} onClick={() => setPanel('key')}>{t('API 키')}</button>}
+        <button aria-pressed={panel === 'key'} onClick={() => {
+          setPanel('key');
+          if (!providers.length) void work(async () => { const available = await client.providers(); if (current()) setProviders(available); });
+        }}>{t('API 키')}</button>}
     </div>
     {error && <p className="workflow-message" role="alert">{error}</p>}
     {loaded && error && !queue && <button className="button-outline" disabled={busy} onClick={() => void work(async () => {
@@ -98,8 +105,18 @@ export function BulkNovelWorkspace({ client, username, detail, defaultTargetLang
           accept(await storage.create(detail!, chapters)); if (current()) setPanel('progress');
         })}>{t('선택한 회차 보관')}</button></div>
     </div> : panel === 'key' ? <div className="workflow-form">
-      <div className="workflow-fields"><label>{t('API 키')}<input type="password" autoComplete="off" value={apiKey} onChange={event => setApiKey(event.target.value)} disabled={busy} /></label></div>
-      <p className="workflow-help">{t('키는 이 화면의 메모리에만 보관됩니다. 재방문 시 다시 입력하거나 서버에 설정된 키를 사용합니다.')}</p>
+      <div className="workflow-subtabs provider-settings-tabs">
+        <button type="button" aria-pressed={keySection === 'connection'} onClick={() => setKeySection('connection')}>{t('연결 설정')}</button>
+        <button type="button" aria-pressed={keySection === 'check'} onClick={() => setKeySection('check')}>{t('연결 확인')}</button>
+      </div>
+      <div className="workflow-fields">{queue?.settings && (keySection === 'connection' ?
+        <ProviderConnectionFields provider={providers.find(provider => provider.id === queue.settings?.providerKind)} kind={queue.settings.providerKind}
+          apiKey={apiKey} endpoint={queue.settings.endpoint ?? ''} model={queue.settings.model ?? ''}
+          onApiKey={setApiKey} onEndpoint={() => {}} onModel={() => {}} disabled={busy} locked/>
+        : <ProviderCheckPanel provider={providers.find(provider => provider.id === queue.settings?.providerKind)}
+          input={{ providerKind: queue.settings.providerKind, sourceLanguage: 'auto', targetLanguage: queue.settings.targetLanguage,
+            endpoint: queue.settings.endpoint ?? undefined, model: queue.settings.model ?? undefined, apiKey }} onCheck={client.checkProvider} disabled={busy}/>)}</div>
+      {keySection === 'connection' && <p className="workflow-help">{t('키는 이 화면의 메모리에만 보관됩니다. 재방문 시 다시 입력하거나 서버에 설정된 키를 사용합니다.')}</p>}
       <button className="button-outline" onClick={() => setPanel('progress')}>{t('진행 화면으로')}</button>
     </div> : !queue ? <p className="workflow-help">{t('목차에서 책을 선택하고 회차 범위를 보관해 주세요.')}</p> : <>
       <p className="workflow-book-name" title={queue.title}>{queue.title} · {queue.cursor}/{queue.items.length}</p>

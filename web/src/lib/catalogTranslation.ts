@@ -1,6 +1,7 @@
 import type { components } from '../generated/catalogTranslations';
 import type { NovelBook, ProviderKind } from './workflowTypes';
 import { ApiError } from './errors';
+import { providerFailureMessage } from './providerCheck';
 import { kotlinTrim, sha256, validRecordId, validTimestamp } from './validation';
 
 type Schemas = components['schemas'];
@@ -80,6 +81,6 @@ export function catalogFailureMessage(code: string | null) {
     case 'PROVIDER_NOT_CONFIGURED': return '제공자 API 키를 확인한 뒤 다시 번역해 주세요.';
     case 'ENDPOINT_NOT_ALLOWED': return '서버에서 허용한 제공자 주소를 사용해 주세요.';
     case 'CATALOG_TIMEOUT': return '목록 번역 시간이 초과되었습니다. 적은 항목으로 다시 시도해 주세요.';
-    default: return '목록 번역을 완료하지 못했습니다. 제공자 설정과 연결을 확인해 주세요.';
+    default: return providerFailureMessage(code, '목록 번역을 완료하지 못했습니다. 제공자 설정과 연결을 확인해 주세요.');
   }
 }

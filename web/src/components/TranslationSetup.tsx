@@ -11,6 +11,9 @@ import type {
   ProviderKind,
 } from "../lib/workflowTypes";
 import { Icon } from "./Icon";
+import { ProviderConnectionFields } from './ProviderConnectionFields';
+import { ProviderCheckPanel } from './ProviderCheckPanel';
+import type { ProviderCheckHandler } from './ProviderCheckSession';
 export function TranslationSetup({
   chapter,
   providers,
@@ -23,6 +26,7 @@ export function TranslationSetup({
   readingPreview = false,
   defaultTargetLanguage,
   username,
+  onCheckProvider,
 }: {
   chapter: StoredChapter;
   providers: TranslationProvider[];
@@ -35,8 +39,9 @@ export function TranslationSetup({
   readingPreview?: boolean;
   defaultTargetLanguage: string;
   username: string;
+  onCheckProvider?: ProviderCheckHandler;
 }) {
-  const [section, setSection] = useState<"basic" | "connection" | "glossary">(
+  const [section, setSection] = useState<"basic" | "connection" | "glossary" | "check">(
     "basic",
   );
   const personal = usePersonalLibrary(username)!;
@@ -73,8 +78,8 @@ export function TranslationSetup({
     retry?.settings.sourceLanguage ?? initialSettings?.sourceLanguage ?? chapter.sourceLanguage,
   );
   const [apiKey, setApiKey] = useState(initialSettings?.apiKey ?? "");
-  const [endpoint, setEndpoint] = useState(retry?.settings.endpoint ?? initialSettings?.endpoint ?? "");
-  const [model, setModel] = useState(retry?.settings.model ?? initialSettings?.model ?? "");
+  const [endpoint, setEndpoint] = useState(retry?.settings.endpoint ?? initialSettings?.endpoint ?? providers.find(provider => provider.id === kind)?.defaultEndpoint ?? "");
+  const [model, setModel] = useState(retry?.settings.model ?? initialSettings?.model ?? providers.find(provider => provider.id === kind)?.defaultModel ?? "");
   const [validation, setValidation] = useState("");
   const submitted = useRef<{
     signature: string;
@@ -82,7 +87,6 @@ export function TranslationSetup({
   } | null>(null);
   const selected = providers.find((p) => p.id === kind);
   const needsKey = selected?.requiresKey && !selected.configured;
-  const advanced = kind === "DEEPSEEK" || kind === "OPENAI_COMPATIBLE_LLM";
   const submit = async (event: FormEvent) => {
     event.preventDefault();
     if (busy || !glossaryReady) return;
@@ -167,10 +171,10 @@ export function TranslationSetup({
           <h2>{readingPreview ? t("읽기 번역 설정") : retry ? t("번역 다시 시도") : t("번역 준비")}</h2>
         </div>
       </div>
-      <p className="workflow-book-name" title={chapter.chapterTitle}>
+      {section !== 'check' && <p className="workflow-book-name" title={chapter.chapterTitle}>
         {chapter.chapterTitle}
-      </p>
-      <div className="workflow-subtabs" aria-label={t("번역 설정 항목")}>
+      </p>}
+      <div className="workflow-subtabs provider-settings-tabs" aria-label={t("번역 설정 항목")}>
         <button
           type="button"
           aria-pressed={section === "basic"}
@@ -184,6 +188,13 @@ export function TranslationSetup({
           onClick={() => setSection("connection")}
         >
           {t("연결 설정")}
+        </button>
+        <button
+          type="button"
+          aria-pressed={section === "check"}
+          onClick={() => setSection("check")}
+        >
+          {t("연결 확인")}
         </button>
         <button
           type="button"
@@ -203,10 +214,12 @@ export function TranslationSetup({
                 value={kind}
                 disabled={busy || !!retry}
                 onChange={(event) => {
-                  setKind(event.target.value as ProviderKind);
+                  const next = event.target.value as ProviderKind;
+                  const provider = providers.find(item => item.id === next);
+                  setKind(next);
                   setApiKey("");
-                  setEndpoint("");
-                  setModel("");
+                  setEndpoint(provider?.defaultEndpoint ?? "");
+                  setModel(provider?.defaultModel ?? "");
                   submitted.current = null;
                 }}
               >
@@ -224,7 +237,7 @@ export function TranslationSetup({
                   value={source}
                   onChange={(e) => setSource(e.target.value)}
                   placeholder="auto, en, zh"
-                  maxLength={16}
+                  maxLength={24}
                   disabled={busy || !!retry}
                 />
               </label>
@@ -261,56 +274,11 @@ export function TranslationSetup({
                 )}
             </p>
           </>
-        ) : (
-          <>
-            <label>
-              {t("API 키")}
-              {selected?.configured ? t("(선택)") : ""}
-              <input
-                type="password"
-                autoComplete="off"
-                value={apiKey}
-                onChange={(e) => setApiKey(e.target.value)}
-                disabled={busy || !selected?.requiresKey}
-                placeholder={
-                  selected?.requiresKey
-                    ? t("이번 번역에 사용할 키")
-                    : t("이 번역기는 키가 필요하지 않습니다")
-                }
-              />
-            </label>
-            {advanced && (
-              <div className="workflow-field-pair">
-                <label>
-                  {t("서버 주소")}
-                  <input
-                    type="url"
-                    value={endpoint}
-                    onChange={(e) => setEndpoint(e.target.value)}
-                    placeholder={
-                      selected?.defaultEndpoint || t("기본 주소 사용")
-                    }
-                    disabled={busy || !!retry}
-                  />
-                </label>
-                <label>
-                  {t("모델")}
-                  <input
-                    value={model}
-                    onChange={(e) => setModel(e.target.value)}
-                    placeholder={selected?.defaultModel || t("기본 모델 사용")}
-                    disabled={busy || !!retry}
-                  />
-                </label>
-              </div>
-            )}
-            <p className="workflow-help">
-              {t(
-                "API 키는 이번 작업을 위해 서버에 전달하며 이 기기에는 저장하지 않습니다.",
-              )}
-            </p>
-          </>
-        )}
+        ) : section === 'connection' ? (
+          <ProviderConnectionFields provider={selected} kind={kind} apiKey={apiKey} endpoint={endpoint} model={model}
+            onApiKey={setApiKey} onEndpoint={setEndpoint} onModel={setModel} disabled={busy} locked={!!retry}/>
+        ) : <ProviderCheckPanel input={{ providerKind: kind, targetLanguage: target, sourceLanguage: 'auto', apiKey, endpoint, model }}
+          provider={selected} onCheck={onCheckProvider} disabled={busy}/>}
       </div>
       {validation && (
         <p className="workflow-message" role="alert">
@@ -331,6 +299,7 @@ export function TranslationSetup({
         </p>
       )}
       <div className="workflow-form-actions">
+        {section === 'check' ? <button type="button" className="button-outline" onClick={() => setSection('basic')}>{t('번역 설정으로')}</button> : <>
         {onReadOriginal && <button type="button" className="button-outline" disabled={busy} onClick={onReadOriginal}>
           {t("원문 열고 읽으며 번역")}
         </button>}
@@ -347,6 +316,7 @@ export function TranslationSetup({
               : t("번역 시작")}
           <Icon name="arrow" />
         </button>
+        </>}
       </div>
     </form>
   );

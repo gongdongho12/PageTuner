@@ -64,6 +64,7 @@ DeepSeek, OpenAI 호환 API와 기존 용어집 보호·한국어 조사 보정�
 | `GET /api/v1/chapters?page=0&size=12` | 사용자별 원문 보관 목록 |
 | `GET /api/v1/chapters/{recordId}` | 원문 문단·원본 URL·revision 조회 |
 | `GET /api/v1/translation-providers` | 번역 공급자 목록, 서버 키 설정 여부, 기본 endpoint/model |
+| `POST /api/v1/translation-providers/check` | 고정 예문의 실제 공급자 연결·응답 검증, 본문·작업 저장 없음 |
 | `POST /api/v1/translation-jobs` | 원문 record ID와 번역 설정으로 비동기 작업 제출 |
 | `GET /api/v1/translation-jobs?page=0&size=12` | 사용자별 작업·진행·실패 상태 목록 |
 | `GET /api/v1/translation-jobs/{jobId}` | 현재 상태와 완료된 번역 record ID 조회 |

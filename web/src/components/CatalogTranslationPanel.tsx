@@ -3,6 +3,8 @@ import type { NovelBook, ProviderKind, TranslationProvider, WorkflowClient } fro
 import { ApiError } from '../lib/errors';
 import { catalogFailureMessage, createCatalogTranslationRequest, verifyCatalogTranslation, type CatalogTranslationResponse } from '../lib/catalogTranslation';
 import { translate as t } from '../lib/locale';
+import { ProviderConnectionFields } from './ProviderConnectionFields';
+import { ProviderCheckPanel } from './ProviderCheckPanel';
 
 type Operation = { id: string; controller: AbortController; cancelled: boolean; accepted: boolean; version: number };
 export function CatalogTranslationPanel({ books, client, defaultTargetLanguage, children }: {
@@ -14,7 +16,7 @@ export function CatalogTranslationPanel({ books, client, defaultTargetLanguage, 
   const [error, setError] = useState('');
   const [original, setOriginal] = useState(false);
   const [settings, setSettings] = useState(false);
-  const [connection, setConnection] = useState(false);
+  const [section, setSection] = useState<'basic' | 'connection' | 'check'>('basic');
   const [providers, setProviders] = useState<TranslationProvider[]>([]);
   const [kind, setKind] = useState<ProviderKind>('GOOGLE_WEB_TRANSLATE_HTML');
   const [target, setTarget] = useState(defaultTargetLanguage);
@@ -49,6 +51,10 @@ export function CatalogTranslationPanel({ books, client, defaultTargetLanguage, 
   };
   const start = async () => {
     if (busy) return;
+    const provider = providers.find(item => item.id === kind);
+    if (provider?.requiresKey && !provider.configured && !apiKey.trim()) {
+      setSettings(true); setSection('connection'); setError(t('이 번역기의 API 키를 입력해 주세요.')); return;
+    }
     let current: Operation | undefined;
     setError(''); setResult(null); setBusy(true); setOriginal(false);
     try {
@@ -103,20 +109,24 @@ export function CatalogTranslationPanel({ books, client, defaultTargetLanguage, 
     {busy && <p className="workflow-help" role="status">{t('목록 번역 중: {0}/{1}구간', [result?.completedSegments ?? 0, result?.totalSegments || '…'])}</p>}
     {truncated && !busy && <p className="workflow-help">{t('최대 24권과 설명 앞부분만 번역했습니다. 전체 내용은 원문으로 확인하세요.')}</p>}
     {settings ? <div className="workflow-form">
-      <div className="workflow-subtabs"><button aria-pressed={!connection} onClick={() => setConnection(false)}>{t('번역기·언어')}</button><button aria-pressed={connection} onClick={() => setConnection(true)}>{t('연결 설정')}</button></div>
-      <div className="workflow-fields">{!connection ? <>
-        <label>{t('번역기')}<select value={kind} onChange={event => { setKind(event.target.value as ProviderKind); setApiKey(''); setEndpoint(''); setModel(''); }}>
+      <div className="workflow-subtabs provider-settings-tabs">
+        <button aria-pressed={section === 'basic'} onClick={() => setSection('basic')}>{t('번역기·언어')}</button>
+        <button aria-pressed={section === 'connection'} onClick={() => setSection('connection')}>{t('연결 설정')}</button>
+        <button aria-pressed={section === 'check'} onClick={() => setSection('check')}>{t('연결 확인')}</button>
+      </div>
+      <div className="workflow-fields">{section === 'basic' ? <>
+        <label>{t('번역기')}<select value={kind} onChange={event => {
+          const next = event.target.value as ProviderKind; const provider = providers.find(item => item.id === next);
+          setKind(next); setApiKey(''); setEndpoint(provider?.defaultEndpoint ?? ''); setModel(provider?.defaultModel ?? '');
+        }}>
           {providers.length ? providers.map(provider => <option key={provider.id} value={provider.id}>{t(provider.displayName)}</option>) : <option value="GOOGLE_WEB_TRANSLATE_HTML">Google Web</option>}
         </select></label>
         <label>{t('번역 언어')}<input value={target} maxLength={24} onChange={event => setTarget(event.target.value)} /></label>
-      </> : <>
-        <label>{t('API 키')}<input type="password" autoComplete="off" value={apiKey} disabled={kind === 'GOOGLE_WEB_TRANSLATE_HTML'} onChange={event => setApiKey(event.target.value)} /></label>
-        {['DEEPSEEK', 'OPENAI_COMPATIBLE_LLM'].includes(kind) && <>
-          <label>{t('서버 주소')}<input type="url" value={endpoint} placeholder={selected?.defaultEndpoint} onChange={event => setEndpoint(event.target.value)} /></label>
-          <label>{t('모델')}<input value={model} placeholder={selected?.defaultModel} onChange={event => setModel(event.target.value)} /></label>
-        </>}
-      </>}</div>
-      <p className="workflow-help">{t('제목 400자, 설명 2,000자, 총 24,000자까지 처리합니다. 키와 결과는 디스크에 저장하지 않습니다.')}</p>
+      </> : section === 'connection' ? <ProviderConnectionFields provider={selected} kind={kind} apiKey={apiKey} endpoint={endpoint} model={model}
+        onApiKey={setApiKey} onEndpoint={setEndpoint} onModel={setModel} disabled={busy}/>
+        : <ProviderCheckPanel input={{ providerKind: kind, sourceLanguage: 'auto', targetLanguage: target, apiKey, endpoint, model }}
+          provider={selected} onCheck={client.checkProvider} disabled={busy}/>}</div>
+      {section !== 'check' && <p className="workflow-help">{t('제목 400자, 설명 2,000자, 총 24,000자까지 처리합니다. 키와 결과는 디스크에 저장하지 않습니다.')}</p>}
       <div className="workflow-form-actions"><button className="button-primary" onClick={() => { setSettings(false); void start(); }}>{t('목록 번역 시작')}</button></div>
     </div> : children(display)}
   </section>;

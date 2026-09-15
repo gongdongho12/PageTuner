@@ -88,8 +88,21 @@ class CatalogTranslationTest {
             val bad = CatalogTranslationRequest(UUID.randomUUID(), listOf(CatalogTranslationEntry("bad", "fail", null)))
             jobs.start("reader", bad)
             val failed = terminal(jobs, "reader", bad.requestId)
-            assertEquals("FAILED", failed.status); assertEquals("CATALOG_PROVIDER_FAILED", failed.errorCode)
+            assertEquals("FAILED", failed.status); assertEquals("TRANSLATION_FAILED", failed.errorCode)
             assertFalse(failed.toString().contains("provider-secret-value")); assertTrue(failed.items.isEmpty())
+        } finally { jobs.close() }
+    }
+
+    @Test fun typedProviderFailuresUseTheSharedCodeWithoutSecretDetails() = runBlocking {
+        val jobs = CatalogTranslationJobs { _, _ ->
+            throw com.dongholab.pagetuner.translation.TranslationProviderException(com.dongholab.pagetuner.translation.TranslationProviderFailure(
+                "private-provider", com.dongholab.pagetuner.translation.TranslationProviderErrorKind.Quota, "private-key"))
+        }
+        try {
+            val input = request(); jobs.start("reader", input)
+            val failed = terminal(jobs, "reader", input.requestId)
+            assertEquals("TRANSLATION_QUOTA_EXCEEDED", failed.errorCode)
+            assertTrue(failed.items.isEmpty()); assertFalse(failed.toString().contains("private-"))
         } finally { jobs.close() }
     }
 

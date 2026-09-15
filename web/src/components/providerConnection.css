@@ -1,0 +1,18 @@
+.provider-connection-fields { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+.provider-check-panel { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.provider-check-summary { display: flex; flex-direction: column; gap: 4px; padding: 10px; border: 1px solid var(--line); background: var(--panel); font-size: 12px; }
+.provider-check-summary span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.provider-check-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.provider-check-actions button { min-height: 44px; }
+.provider-check-panel p { margin: 0; }
+.provider-check-result { min-height: 54px; font-size: 12px; line-height: 1.6; overflow-wrap: anywhere; }
+.provider-check-result [role="alert"] { border-left: 3px solid var(--ink); padding-left: 8px; }
+.provider-check-result [role="status"] { font-weight: 600; }
+.workflow-subtabs.provider-settings-tabs { flex-wrap: nowrap; }
+.workflow-subtabs.provider-settings-tabs button { min-height: 44px; min-width: 0; flex: 1; padding-left: 5px; padding-right: 5px; }
+@media (max-width: 600px) {
+  .workflow-subtabs.provider-settings-tabs button { font-size: 10px; }
+  .provider-check-panel { gap: 8px; }
+  .provider-check-summary { font-size: 11px; padding: 8px; }
+  .provider-check-result { font-size: 11px; }
+}

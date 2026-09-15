@@ -15,6 +15,7 @@ import com.dongholab.pagetuner.translation.glossary.GlossaryTermKind
 import com.dongholab.pagetuner.server.account.LanguageCatalog
 import java.net.URI
 import org.springframework.stereotype.Component
+import org.springframework.beans.factory.annotation.Autowired
 
 interface WorkflowTranslator {
     suspend fun translate(chapter: ChapterContent, config: JobConfiguration, apiKey: String,
@@ -39,8 +40,10 @@ fun JobConfiguration.glossary(bookId: String): BookGlossary? = glossary.takeIf {
 }
 
 @Component
-class WorkflowProviders {
-    private fun env(name: String) = System.getenv(name).orEmpty().trim()
+class WorkflowProviders private constructor(private val environment: (String) -> String?) {
+    @Autowired constructor() : this(System::getenv)
+    constructor(environment: Map<String, String>) : this(environment::get)
+    private fun env(name: String) = environment(name).orEmpty().trim()
     private val defaultDeepSeekEndpoint = env("DEEPSEEK_API_URL").ifBlank { "https://api.deepseek.com/chat/completions" }
     private val defaultOpenAiEndpoint = env("OPENAI_API_URL").ifBlank { "https://api.openai.com/v1/chat/completions" }
     private val allowedEndpoints = (env("PAGETUNER_LLM_ENDPOINTS").split(',') + defaultDeepSeekEndpoint + defaultOpenAiEndpoint)

@@ -53,6 +53,7 @@ class DeepSeekTranslationProviderTest {
         assertEquals(DeepSeekDefaults.Model, body.getString("model"))
         assertEquals("json_object", body.getJSONObject("response_format").getString("type"))
         assertEquals("disabled", body.getJSONObject("thinking").getString("type"))
+        assertEquals(32_768, body.getInt("max_tokens"))
         assertEquals(false, body.getBoolean("stream"))
         assertEquals(sourceSegments.map { it.id }, translated.map { it.segmentId })
         assertEquals(listOf("안녕하세요", "비행기에서 읽습니다"), translated.map { it.translatedText })

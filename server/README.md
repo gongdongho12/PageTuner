@@ -46,6 +46,7 @@ Implemented endpoints:
 - `GET /api/v1/novel-sources`, `GET /api/v1/novels/catalog`, `GET /api/v1/novels/detail`
 - `POST /api/v1/chapters/import`, `POST /api/v1/chapters/upload`, `GET /api/v1/chapters`, `GET /api/v1/chapters/{recordId}`
 - `GET /api/v1/translation-providers`, `POST /api/v1/translation-jobs`, `GET /api/v1/translation-jobs`
+- `POST /api/v1/translation-providers/check`: 고정 예문으로 번역기 연결 확인. [공급자 설정과 API](../docs/PROVIDER_CONNECTION_CHECK.md)
 - `GET /api/v1/translation-jobs/{jobId}`, `POST /api/v1/translation-jobs/{jobId}/cancel`
 
 회원가입은 3–40자 영문 소문자 계정 이름과 표시 이름을 받습니다. 비밀번호는 Unicode
