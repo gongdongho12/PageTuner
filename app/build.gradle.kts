@@ -134,3 +134,13 @@ tasks.register<Test>("translationServerIntegrationTest") {
     }
     outputs.upToDateWhen { false }
 }
+
+// Optional browser/native bridge fixtures must invalidate Gradle's test cache.
+tasks.withType<Test>().configureEach {
+    val browserFixture = providers.environmentVariable("PAGETUNER_BROWSER_EXCHANGE_FIXTURE")
+    inputs.property("browserExchangeFixturePath", browserFixture.orElse(""))
+    if (browserFixture.isPresent) {
+        inputs.file(browserFixture)
+        environment("PAGETUNER_BROWSER_EXCHANGE_FIXTURE", browserFixture.get())
+    }
+}

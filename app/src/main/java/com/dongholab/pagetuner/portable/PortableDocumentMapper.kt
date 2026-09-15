@@ -8,6 +8,8 @@ import com.dongholab.pagetuner.translation.glossary.BookGlossary
 import com.dongholab.pagetuner.translation.sync.ServerLibraryDocument
 import java.text.SimpleDateFormat
 import java.util.Date
+import java.util.GregorianCalendar
+import java.util.Calendar
 import java.util.Locale
 import java.util.TimeZone
 import org.json.JSONArray
@@ -17,7 +19,18 @@ internal fun portableTimestamp(millis: Long = System.currentTimeMillis()): Strin
     SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", Locale.ROOT).apply { timeZone = TimeZone.getTimeZone("UTC") }.format(Date(millis))
 
 internal fun portableMillis(value: String): Long = runCatching {
-    SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", Locale.ROOT).apply { timeZone = TimeZone.getTimeZone("UTC") }.parse(value)?.time ?: 0L
+    val match = requireNotNull(Regex("(\\d{4})-(\\d{2})-(\\d{2})T(\\d{2}):(\\d{2}):(\\d{2})(?:\\.(\\d{1,9}))?(Z|[+-]\\d{2}:\\d{2})").matchEntire(value))
+    val parts = match.groupValues
+    val calendar = GregorianCalendar(TimeZone.getTimeZone("UTC"), Locale.ROOT).apply {
+        gregorianChange = Date(Long.MIN_VALUE)
+        isLenient = false
+        clear()
+        set(parts[1].toInt(), parts[2].toInt() - 1, parts[3].toInt(), parts[4].toInt(), parts[5].toInt(), parts[6].toInt())
+        set(Calendar.MILLISECOND, parts[7].padEnd(3, '0').take(3).toInt())
+    }
+    val zone = parts[8]
+    val offsetMinutes = if (zone == "Z") 0 else (zone.substring(1, 3).toInt() * 60 + zone.substring(4, 6).toInt()) * if (zone[0] == '-') -1 else 1
+    calendar.timeInMillis - offsetMinutes * 60_000L
 }.getOrDefault(0L)
 
 data class PortablePageAnchor(val paragraphId: String, val startOffset: Int)
@@ -149,7 +162,7 @@ object PortableDocumentMapper {
             else mapping.anchorFor(note.pageIndex)?.let { ExchangeNote(note.id, if (note.type == ReaderAnnotationType.Highlight) "highlight" else "note", "", note.text,
                 if (note.type == ReaderAnnotationType.Highlight) note.text else "", it, createdAt = portableTimestamp(note.createdAtMillis)) }
         } + value.notes.filter { it.kind != "bookmark" && it.id !in initialAnnotations }
-        val position = value.position?.takeIf { mapping.pageFor(it) == pageIndex } ?: mapping.anchorFor(pageIndex)
+        val position = value.position?.takeIf { mapping.pageFor(it) == pageIndex } ?: mapping.anchorFor(pageIndex) ?: value.position
         val byId = notes.associateBy { it.id }
         val orderedNotes = value.notes.mapNotNull { byId[it.id] } + notes.filter { it.id !in originals }
         return value.copy(position = position, notes = orderedNotes)
