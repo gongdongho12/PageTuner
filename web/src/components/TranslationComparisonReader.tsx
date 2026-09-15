@@ -28,6 +28,7 @@ function MatchingReader(props: TranslationComparisonReaderProps & { translation:
   const [busy, setBusy] = useState(false), [error, setError] = useState(''), [savedOriginal, setSavedOriginal] = useState(false), [savingOriginal, setSavingOriginal] = useState(false)
   const positions = useRef<Partial<Record<ComparisonMode, ReadingAnchor>>>({ translation: props.anchor })
   const [viewAnchor, setViewAnchor] = useState(props.anchor)
+  const [anchorIsNavigation, setAnchorIsNavigation] = useState(false)
   const request = useRef<AbortController | undefined>(undefined)
   const modeRef = useRef(mode); modeRef.current = mode
   useEffect(() => () => request.current?.abort(), [])
@@ -39,7 +40,7 @@ function MatchingReader(props: TranslationComparisonReaderProps & { translation:
     const anchor = comparisonSwitchAnchor(verified, next, paragraphId, positions.current[next])
     positions.current[next] = anchor
     window.getSelection()?.removeAllRanges()
-    setViewAnchor(anchor); setMode(next)
+    setAnchorIsNavigation(true); setViewAnchor(anchor); setMode(next)
   }
 
   async function open(next: ComparisonMode) {
@@ -88,7 +89,7 @@ function MatchingReader(props: TranslationComparisonReaderProps & { translation:
     </nav>
     {busy && <div className="comparison-notice" role="status">{t('대응 원문을 확인하고 있습니다…')} <button className="button-text" onClick={() => { request.current?.abort(); setBusy(false) }}>{t('취소')}</button></div>}
     {error && <div className="comparison-notice" role="alert"><span>{t(error)}</span><button className="button-text" onClick={() => setError('')}>{t('닫기')}</button></div>}
-    <PagedReader {...props} key={mode} document={document} anchor={viewAnchor} onAnchorChange={moved}
+    <PagedReader {...props} key={mode} document={document} anchor={viewAnchor} anchorIsNavigation={anchorIsNavigation} onAnchorChange={moved}
       readOnly={mode === 'comparison'}
       saved={mode === 'original' ? savedOriginal : props.saved} saving={mode === 'original' ? savingOriginal : props.saving}
       onSave={mode === 'translation' ? props.onSave : mode === 'original' ? () => void saveOriginal() : undefined}

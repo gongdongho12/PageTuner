@@ -49,7 +49,8 @@ data class ServerLibraryState(
 )
 data class ServerLibraryMessage(val resource: Int, val arguments: List<Any> = emptyList())
 sealed interface ServerLibraryEvent {
-    data class Open(val document: ServerLibraryDocument, val saveToDevice: Boolean, val accountKey: String) : ServerLibraryEvent
+    data class Open(val document: ServerLibraryDocument, val saveToDevice: Boolean, val accountKey: String,
+        val readingAccountKey: String = accountKey) : ServerLibraryEvent
 }
 
 class ServerLibraryViewModel(
@@ -63,6 +64,11 @@ class ServerLibraryViewModel(
     private var operation: Job? = null
     private var jobPolling: Job? = null
     private var generation = 0
+
+    fun readingConnection(): ServerReadingConnection? = store?.takeIf { state.value.connected }?.let { client ->
+        ServerReadingConnection(serverReadingAccountKey(state.value.connection.endpoint,
+            state.value.profile?.username ?: state.value.connection.username), client)
+    }
 
     fun updateEndpoint(value: String) = updateInput(value, state.value.connection.username, state.value.connection.password)
     fun updateUsername(value: String) = updateInput(state.value.connection.endpoint, value, state.value.connection.password)
@@ -257,7 +263,7 @@ class ServerLibraryViewModel(
         mutableState.update { it.copy(selected = document, status = ServerLibraryMessage(R.string.server_status_verified)) }
         val input = state.value.connection
         val accountKey = com.dongholab.pagetuner.core.content.StableContentHash.sha256(input.endpoint.trim() + "\n" + input.username).take(24)
-        mutableEvents.emit(ServerLibraryEvent.Open(document, false, accountKey))
+        mutableEvents.emit(ServerLibraryEvent.Open(document, false, accountKey, requireNotNull(readingConnection()).accountKey))
     }
 
     private suspend fun refreshJobs(page: Int) {
@@ -297,7 +303,7 @@ class ServerLibraryViewModel(
         mutableState.update { it.copy(selected = document, status = ServerLibraryMessage(R.string.server_status_verified)) }
         val input = state.value.connection
         val accountKey = com.dongholab.pagetuner.core.content.StableContentHash.sha256(input.endpoint.trim() + "\n" + input.username).take(24)
-        mutableEvents.emit(ServerLibraryEvent.Open(document, saveToDevice, accountKey))
+        mutableEvents.emit(ServerLibraryEvent.Open(document, saveToDevice, accountKey, requireNotNull(readingConnection()).accountKey))
     }
 
     fun publish(document: ReaderDocument, settings: TranslationSettings, glossary: BookGlossary?, cacheProviderId: String, cache: TranslationCache) =

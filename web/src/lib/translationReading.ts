@@ -26,6 +26,7 @@ export function translationReadingDocument(
   return {
     id: translation.recordId,
     kind: "translation",
+    serverProgress: { kind: 'TRANSLATION', recordId: translation.recordId },
     bookTitle: translation.bookTitle || translation.bookId,
     chapterTitle: translation.chapterTitle || translation.chapterId,
     language: translation.targetLanguage,

@@ -22,6 +22,7 @@ export async function matchTranslationSource(rawTranslation: TranslationResponse
     source.paragraphs.some((paragraph, index) => paragraph.paragraphId !== translation.paragraphs[index].paragraphId)) throw mismatch()
   return { translation, source, translated: translationReadingDocument(translation), original: {
     id: `original:${source.recordId}:${source.sourceRevision}`, kind: 'original', bookTitle: source.bookTitle, chapterTitle: source.chapterTitle,
+    serverProgress: { kind: 'ORIGINAL', recordId: source.recordId },
     language: source.sourceLanguage, paragraphs: source.paragraphs.map(({ paragraphId, text }) => ({ paragraphId, text })),
     glossaryIdentity: { providerId: source.providerId, bookId: source.bookId },
   } }

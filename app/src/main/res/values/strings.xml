@@ -357,4 +357,18 @@
     <string name="portable_error_write">Unable to save the library package.</string>
     <string name="portable_error_asset">Original PDF or image bytes are unavailable.</string>
     <string name="portable_error_incomplete">The selected translation is incomplete. Finish every paragraph before exporting with translation.</string>
+    <string name="reading_progress_loading">Checking account reading position…</string>
+    <string name="reading_progress_synced">Reading position synced</string>
+    <string name="reading_progress_pending">Saving reading position…</string>
+    <string name="reading_progress_offline">Position kept on this device. Retrying sync.</string>
+    <string name="reading_progress_conflict">Reading positions differ</string>
+    <string name="reading_progress_unavailable">Sync unavailable. Sign in or retry.</string>
+    <string name="reading_progress_device_error">Device position could not be saved. Reopen this book.</string>
+    <string name="reading_progress_choose">Choose</string>
+    <string name="reading_progress_retry">Retry</string>
+    <string name="reading_progress_conflict_detail">This device: page %1$d. Account: page %2$d (in this layout). Both positions are kept until you choose which one to use.</string>
+    <string name="reading_progress_use_local">Use device position</string>
+    <string name="reading_progress_use_server">Use account position</string>
+    <string name="reading_progress_outbox">%1$d reading positions pending sync. Open the books in the server library to check their status.</string>
+    <string name="reading_progress_rate_limited">Server requested a pause. Position kept for automatic retry.</string>
 </resources>

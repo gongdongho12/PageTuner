@@ -309,6 +309,7 @@ export function NovelWorkspace({
     const document: ReadingDocument = {
       id: `original:${value.recordId}:${value.sourceRevision}`,
       kind: "original",
+      serverProgress: { kind: 'ORIGINAL', recordId: value.recordId },
       bookTitle: value.bookTitle,
       chapterTitle: value.chapterTitle,
       language: value.sourceLanguage,

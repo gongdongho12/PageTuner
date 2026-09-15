@@ -1716,6 +1716,12 @@ input:disabled {
 .reader-bottom-rule > span:last-child {
   font-variant-numeric: tabular-nums;
 }
+.reader-bottom-rule.reader-progress-rule { min-height: 46px; padding-top: 0; align-items: center; }
+.reader-progress-status { min-height: 44px; text-align: left; font-size: 11px; color: var(--ink); }
+.reading-progress-position { height: 142px; display: flex; flex-direction: column; gap: 5px; padding: 8px; border-bottom: 1px solid var(--line); overflow: hidden; }
+.reading-progress-position > span { color: var(--muted); font-size: 11px; }
+.reading-progress-position > p { margin: 0; font-size: 12px; line-height: 1.5; overflow: hidden; flex: 1; }
+.reading-progress-position > button { flex-shrink: 0; min-height: 44px; }
 .reader-footer {
   min-height: 74px;
   flex: 0 0 74px;

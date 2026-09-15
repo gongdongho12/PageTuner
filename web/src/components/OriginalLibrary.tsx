@@ -63,6 +63,7 @@ export function OriginalLibrary({
     const document: ReadingDocument = {
       id: `original:${c.recordId}:${c.sourceRevision}`,
       kind: "original",
+      serverProgress: { kind: 'ORIGINAL', recordId: c.recordId },
       bookTitle: c.bookTitle,
       chapterTitle: c.chapterTitle,
       language: c.sourceLanguage,

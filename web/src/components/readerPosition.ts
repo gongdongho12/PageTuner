@@ -37,6 +37,11 @@ export function reflowReaderLocation(
       ),
     );
     if (page >= 0) return { page, anchor };
+    // The shared API permits an insertion point at the end of a paragraph.
+    // Interior page boundaries matched above; only a terminal edge reaches here.
+    const endPage = pages.findIndex(fragments => fragments.some(fragment =>
+      fragment.paragraphId === anchor.paragraphId && fragment.end === anchor.characterOffset));
+    if (endPage >= 0) return { page: endPage, anchor };
   }
   return { page: 0, anchor: firstAnchor(pages, 0) };
 }
