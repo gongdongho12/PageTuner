@@ -1,0 +1,83 @@
+{
+  "id": "fixture:original",
+  "bookTitle": "Portable Book",
+  "chapterTitle": "Chapter 1",
+  "language": "en",
+  "kind": "original",
+  "paragraphs": [
+    {
+      "paragraphId": "p-1",
+      "text": "Hello 🌏.\nSecond line."
+    },
+    {
+      "paragraphId": "p-2",
+      "text": "원문과 번역을 함께 보관합니다."
+    }
+  ],
+  "outline": [
+    {
+      "title": "Chapter 1",
+      "paragraphId": "p-1"
+    }
+  ],
+  "position": {
+    "paragraphId": "p-1",
+    "characterOffset": 8
+  },
+  "notes": [
+    {
+      "id": "note-1",
+      "kind": "highlight",
+      "title": "Greeting",
+      "text": "Across devices",
+      "excerpt": "Hello",
+      "anchor": {
+        "paragraphId": "p-1",
+        "characterOffset": 0
+      },
+      "range": {
+        "start": {
+          "paragraphId": "p-1",
+          "characterOffset": 0
+        },
+        "end": {
+          "paragraphId": "p-1",
+          "characterOffset": 5
+        }
+      },
+      "createdAt": "2026-09-15T00:00:00Z"
+    }
+  ],
+  "organization": {
+    "folder": "Reading",
+    "tags": [
+      "fixture"
+    ],
+    "favorite": true
+  },
+  "glossary": [
+    {
+      "source": "Hello",
+      "target": "안녕",
+      "kind": "TERM",
+      "displayTerm": "안녕",
+      "caseSensitive": false,
+      "enabled": true
+    }
+  ],
+  "assets": [
+    {
+      "path": "assets/e878950f8091ec010cf5cc723bdea027a8539cf7147cfea199c2f666232dcd4e",
+      "role": "image",
+      "paragraphId": "p-1",
+      "alt": "Synthetic white pixel"
+    }
+  ],
+  "extensions": {
+    "origin": {
+      "providerId": "fixture",
+      "bookId": "book-1",
+      "chapterId": "chapter-1"
+    }
+  }
+}
