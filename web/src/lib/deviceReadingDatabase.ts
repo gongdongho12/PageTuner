@@ -1,4 +1,4 @@
-export type DeviceStore = 'documents' | 'notes' | 'positions' | 'exchanges'
+export type DeviceStore = 'documents' | 'notes' | 'positions' | 'exchanges' | 'noteSync' | 'noteSyncDocuments'
 export type DeviceDatabaseOptions = { indexedDB?: IDBFactory; dbName?: string }
 
 export function readingNamespace(username: string): string {
@@ -16,7 +16,7 @@ export async function readingTransaction<T>(
   const factory = options.indexedDB ?? globalThis.indexedDB
   if (!factory) throw new Error('이 브라우저에서는 기기 저장소를 사용할 수 없습니다.')
   const db = await new Promise<IDBDatabase>((resolve, reject) => {
-    const request = factory.open(options.dbName ?? 'pageturner-device-reading', 2)
+    const request = factory.open(options.dbName ?? 'pageturner-device-reading', 3)
     let settled = false
     request.onupgradeneeded = () => {
       const database = request.result
@@ -31,6 +31,16 @@ export async function readingTransaction<T>(
       if (!database.objectStoreNames.contains('exchanges')) {
         const exchanges = database.createObjectStore('exchanges', { keyPath: ['username', 'id'] })
         exchanges.createIndex('username', 'username')
+      }
+      if (!database.objectStoreNames.contains('noteSync')) {
+        const sync = database.createObjectStore('noteSync', { keyPath: ['username', 'kind', 'recordId', 'noteId'] })
+        sync.createIndex('document', ['username', 'kind', 'recordId'])
+        sync.createIndex('username', 'username')
+      }
+      if (!database.objectStoreNames.contains('noteSyncDocuments')) {
+        const documents = database.createObjectStore('noteSyncDocuments', { keyPath: ['username', 'kind', 'recordId'] })
+        documents.createIndex('localDocument', ['username', 'documentId'], { unique: true })
+        documents.createIndex('username', 'username')
       }
     }
     request.onerror = () => { settled = true; reject(request.error ?? new Error('기기 저장소를 열지 못했습니다.')) }
