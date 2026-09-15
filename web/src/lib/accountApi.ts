@@ -1,6 +1,7 @@
 import type { components } from "../generated/accounts";
 import { ApiError } from "./errors";
 import { validRecordId } from "./validation";
+import { passwordChangeError, validatePassword, validatePasswordChange, type ChangePassword } from "./accountPassword";
 export type AccountProfile = components["schemas"]["AccountProfile"];
 export type AccountPreferences = components["schemas"]["AccountPreferences"];
 export type RegisterAccount = components["schemas"]["RegisterAccountRequest"];
@@ -61,15 +62,7 @@ export function validateRegistration(input: RegisterAccount) {
       "invalid-request",
       "계정 이름은 영문 소문자·숫자·밑줄·점·하이픈으로 3~40자 입력해 주세요.",
     );
-  if (
-    Array.from(input.password).length < 10 ||
-    new TextEncoder().encode(input.password).length > 72 ||
-    /[\u0000-\u001f\u007f-\u009f]/.test(input.password)
-  )
-    throw new ApiError(
-      "invalid-request",
-      "비밀번호는 10자 이상, UTF-8 72바이트 이내로 입력해 주세요. 제어문자는 사용할 수 없습니다.",
-    );
+  validatePassword(input.password);
   return { ...validatePreferences(input), username, password: input.password };
 }
 export function validatePreferences(
@@ -111,6 +104,7 @@ export function createAccountClient(
     method = "GET",
     body?: unknown,
     csrf?: { headerName: string; token: string },
+    noContent = false,
   ): Promise<T> {
     if (closed || signal?.aborted)
       throw new ApiError("aborted", "요청이 취소되었습니다.");
@@ -118,7 +112,8 @@ export function createAccountClient(
     controllers.add(controller);
     const abort = () => controller.abort();
     signal?.addEventListener("abort", abort, { once: true });
-    const timer = setTimeout(abort, 20_000);
+    let timedOut = false;
+    const timer = setTimeout(() => { timedOut = true; abort(); }, 20_000);
     try {
       const headers: Record<string, string> = {
         Accept: "application/json",
@@ -138,6 +133,11 @@ export function createAccountClient(
         cache: "no-store",
       });
       if (!response.ok) {
+        if (noContent && ![401, 403].includes(response.status)) {
+          let code: unknown;
+          try { code = object(await readJson(response, 4096)).code; } catch { /* Keep fixed public messages. */ }
+          throw passwordChangeError(code, response.status);
+        }
         if (response.status === 409)
           throw new ApiError(
             "conflict",
@@ -162,41 +162,25 @@ export function createAccountClient(
           response.status,
         );
       }
+      if (closed || controller.signal.aborted)
+        throw new ApiError("aborted", "요청이 취소되었습니다.");
+      if (noContent) {
+        if (response.redirected || response.status !== 204) throw invalid();
+        return parse(undefined);
+      }
       if (
         response.redirected ||
         !response.headers.get("content-type")?.includes("application/json")
       )
         throw invalid();
-      const reader = response.body?.getReader();
-      if (!reader) throw invalid();
-      let size = 0,
-        value = "";
-      const decoder = new TextDecoder("utf-8", { fatal: true });
-      try {
-        while (true) {
-          const part = await reader.read();
-          if (part.done) break;
-          size += part.value.length;
-          if (size > 128 * 1024) throw invalid();
-          value += decoder.decode(part.value, { stream: true });
-        }
-        value += decoder.decode();
-      } finally {
-        await reader.cancel().catch(() => undefined);
-        reader.releaseLock();
-      }
+      const parsed = await readJson(response, 128 * 1024);
       if (closed || controller.signal.aborted)
         throw new ApiError("aborted", "요청이 취소되었습니다.");
-      let parsed: unknown;
-      try {
-        parsed = JSON.parse(value);
-      } catch {
-        throw invalid();
-      }
       return parse(parsed);
     } catch (error) {
-      if (closed || controller.signal.aborted)
+      if (closed || signal?.aborted)
         throw new ApiError("aborted", "요청이 취소되었습니다.");
+      if (timedOut) throw new ApiError('timeout', '서버 응답 시간이 초과되었습니다.');
       if (error instanceof ApiError) throw error;
       throw new ApiError(
         "network",
@@ -208,13 +192,8 @@ export function createAccountClient(
       controllers.delete(controller);
     }
   }
-  async function write(
-    path: string,
-    body: unknown,
-    method: "POST" | "PATCH",
-    signal?: AbortSignal,
-  ) {
-    const csrf = await request(
+  async function csrfToken(signal?: AbortSignal) {
+    return request(
       authorization ? "/api/v1/csrf" : "/api/v1/accounts/csrf",
       (v) => {
         const o = object(v),
@@ -232,6 +211,14 @@ export function createAccountClient(
       },
       signal,
     );
+  }
+  async function write(
+    path: string,
+    body: unknown,
+    method: "POST" | "PATCH",
+    signal?: AbortSignal,
+  ) {
+    const csrf = await csrfToken(signal);
     return request(path, profile, signal, method, body, csrf);
   }
   return {
@@ -254,6 +241,32 @@ export function createAccountClient(
       ),
     update: (input: AccountPreferences, signal?: AbortSignal) =>
       write("/api/v1/accounts/me", validatePreferences(input), "PATCH", signal),
+    async changePassword(input: ChangePassword, signal?: AbortSignal): Promise<void> {
+      const body = validatePasswordChange(input);
+      const csrf = await csrfToken(signal);
+      return request('/api/v1/accounts/me/password', () => undefined, signal, 'POST', body, csrf, true);
+    },
   };
 }
 export type AccountClient = ReturnType<typeof createAccountClient>;
+
+async function readJson(response: Response, limit: number): Promise<unknown> {
+  const reader = response.body?.getReader();
+  if (!reader) throw invalid();
+  let size = 0, value = '';
+  const decoder = new TextDecoder('utf-8', { fatal: true });
+  try {
+    while (true) {
+      const part = await reader.read();
+      if (part.done) break;
+      size += part.value.length;
+      if (size > limit) throw invalid();
+      value += decoder.decode(part.value, { stream: true });
+    }
+    value += decoder.decode();
+    try { return JSON.parse(value); } catch { throw invalid(); }
+  } finally {
+    await reader.cancel().catch(() => undefined);
+    reader.releaseLock();
+  }
+}
