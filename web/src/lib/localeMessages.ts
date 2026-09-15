@@ -1,5 +1,14 @@
 /** Korean source keys keep existing copy readable. Add packs through registerLanguagePack. */
 export const englishMessages: Record<string, string> = {
+  '번역 제공자 요청이 일시적으로 제한되었습니다. 잠시 후 완료된 문단부터 다시 시도해 주세요.': 'The translation provider is temporarily limiting requests. Wait before retrying; completed paragraphs will be reused.',
+  '번역 제공자 인증에 실패했습니다. API 키와 접근 권한을 확인한 뒤 완료된 문단부터 다시 시도해 주세요.': 'The translation provider could not authenticate the request. Check the API key and access permissions, then retry from the saved progress.',
+  '번역 제공자의 사용량 한도에 도달했습니다. 제공자 계정의 한도를 확인한 뒤 완료된 문단부터 다시 시도해 주세요.': 'The translation provider usage limit has been reached. Check the provider account limits, then retry from the saved progress.',
+  '번역 제공자가 요청을 처리할 수 없습니다. 언어와 번역 설정을 확인한 뒤 완료된 문단부터 다시 시도해 주세요.': 'The translation provider could not process the request. Check the language and translation settings, then retry from the saved progress.',
+  '번역 제공자 서버에 일시적인 오류가 발생했습니다. 잠시 후 완료된 문단부터 다시 시도해 주세요.': 'The translation provider has a temporary server error. Wait before retrying; completed paragraphs will be reused.',
+  '번역 제공자에 연결하지 못했습니다. 연결 상태를 확인한 뒤 완료된 문단부터 다시 시도해 주세요.': 'Could not connect to the translation provider. Check the connection, then retry from the saved progress.',
+  '번역 제공자가 올바른 형식의 결과를 보내지 않았습니다. 번역 설정을 확인한 뒤 완료된 문단부터 다시 시도해 주세요.': 'The translation provider returned an invalid result. Check the translation settings, then retry from the saved progress.',
+  '번역 제공자 설정이 올바르지 않습니다. 서버 주소와 모델 설정을 확인한 뒤 완료된 문단부터 다시 시도해 주세요.': 'The translation provider configuration is invalid. Check the server address and model settings, then retry from the saved progress.',
+  '번역 제공자 응답 또는 연결을 확인하지 못했습니다. 설정을 확인한 뒤 완료된 문단부터 다시 시도해 주세요.': 'The translation provider response or connection could not be verified. Check the settings, then retry from the saved progress.',
   '서버에서 받은 목록': 'Catalog from the server',
   '목록 새로 받기': 'Refresh catalog',
   '원문 보기': 'View original',

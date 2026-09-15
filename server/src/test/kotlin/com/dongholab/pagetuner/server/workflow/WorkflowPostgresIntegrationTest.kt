@@ -5,6 +5,9 @@ import com.dongholab.pagetuner.core.translation.TranslatedParagraph
 import com.dongholab.pagetuner.server.translation.ExternalPostgresTestDatabase
 import com.dongholab.pagetuner.server.translation.TranslationApplicationService
 import com.dongholab.pagetuner.source.service.SourceChapterDraft
+import com.dongholab.pagetuner.translation.TranslationProviderErrorKind
+import com.dongholab.pagetuner.translation.TranslationProviderException
+import com.dongholab.pagetuner.translation.TranslationProviderFailure
 import java.util.UUID
 import java.util.concurrent.CopyOnWriteArrayList
 import kotlinx.coroutines.CompletableDeferred
@@ -44,6 +47,7 @@ class WorkflowPostgresIntegrationTest {
     }
     class TestTranslator : WorkflowTranslator {
         @Volatile var failAfter: Int? = null
+        @Volatile var failureKind: TranslationProviderErrorKind? = null
         @Volatile var gate: CompletableDeferred<Unit>? = null
         val translated = CopyOnWriteArrayList<String>()
         override suspend fun translate(chapter: ChapterContent, config: JobConfiguration, apiKey: String,
@@ -51,7 +55,15 @@ class WorkflowPostgresIntegrationTest {
             val output = completed.toMutableMap()
             for (paragraph in chapter.paragraphs) {
                 if (paragraph.paragraphId in output) continue
-                if (failAfter != null && output.size >= failAfter!!) throw IllegalStateException("must not expose secret $apiKey")
+                if (failAfter != null && output.size >= failAfter!!) {
+                    failureKind?.let { kind ->
+                        throw TranslationProviderException(
+                            TranslationProviderFailure("private-provider-$apiKey", kind, "private-detail-$apiKey"),
+                            IllegalStateException("private-cause-$apiKey"),
+                        )
+                    }
+                    throw IllegalStateException("must not expose secret $apiKey")
+                }
                 gate?.await()
                 translated += paragraph.paragraphId
                 val text = "번역: ${paragraph.text}"
@@ -73,7 +85,7 @@ class WorkflowPostgresIntegrationTest {
     private val user = "workflow-reader"
 
     @BeforeEach fun reset() {
-        translator.failAfter = null; translator.gate = null; translator.translated.clear()
+        translator.failAfter = null; translator.failureKind = null; translator.gate = null; translator.translated.clear()
         jdbc.update("delete from translation_job_paragraph")
         jdbc.update("delete from translation_job")
         jdbc.update("delete from source_chapter")
@@ -85,8 +97,8 @@ class WorkflowPostgresIntegrationTest {
         "https://example.org/book/chapter", "en", paragraphs,
     )
     private fun request(chapter: StoredChapter, id: UUID = UUID.randomUUID(), retry: UUID? = null,
-        target: String = "ko", glossary: List<WorkflowGlossaryEntry> = emptyList()) = CreateTranslationJobRequest(
-        chapter.recordId, "GOOGLE_CLOUD", target, id, apiKey = "PRIVATE-TEST-CREDENTIAL", glossary = glossary, retryOf = retry,
+        target: String = "ko", glossary: List<WorkflowGlossaryEntry> = emptyList(), providerKind: String = "GOOGLE_CLOUD") = CreateTranslationJobRequest(
+        chapter.recordId, providerKind, target, id, apiKey = "PRIVATE-TEST-CREDENTIAL", glossary = glossary, retryOf = retry,
     )
     private fun awaitJob(id: UUID, status: String): TranslationJobView {
         val until = System.nanoTime() + 10_000_000_000L
@@ -138,6 +150,7 @@ class WorkflowPostgresIntegrationTest {
         val failed = awaitJob(workflow.submit(user, request(chapter)).jobId, "FAILED")
         assertEquals(1, failed.completedParagraphs)
         assertNull(failed.translationRecordId)
+        assertEquals("TRANSLATION_FAILED", failed.errorCode)
         assertFalse(failed.errorMessage.orEmpty().contains("PRIVATE-TEST-CREDENTIAL"))
         assertEquals(0L, translations.list(user, 0, 12).totalItems)
         translator.failAfter = null
@@ -145,6 +158,77 @@ class WorkflowPostgresIntegrationTest {
         assertNotEquals(failed.jobId, retried.jobId)
         assertEquals(3, translator.translated.size)
         assertEquals(3, translator.translated.distinct().size)
+    }
+
+    @Test fun `rate limit exposes safe guidance and retry copies committed work without publishing partial artifacts`() {
+        val chapter = chapters.save(user, draft())
+        translator.failAfter = 1
+        translator.failureKind = TranslationProviderErrorKind.RateLimited
+        val failed = awaitJob(workflow.submit(user, request(chapter, providerKind = "GOOGLE_WEB_TRANSLATE_HTML")).jobId, "FAILED")
+        assertEquals("TRANSLATION_RATE_LIMITED", failed.errorCode)
+        assertEquals("번역 제공자 요청이 일시적으로 제한되었습니다. 잠시 후 완료된 문단부터 다시 시도해 주세요.", failed.errorMessage)
+        assertEquals(1, failed.completedParagraphs)
+        assertTrue(failed.canRetry)
+        assertNull(failed.translationRecordId)
+        assertEquals(0L, translations.list(user, 0, 12).totalItems)
+        val committed = jobs.checkpoints(failed.jobId)
+        assertEquals(setOf(chapter.paragraphs.first().paragraphId), committed.keys)
+        assertSafeFailure(failed)
+
+        val gate = CompletableDeferred<Unit>()
+        translator.failAfter = null
+        translator.failureKind = null
+        translator.gate = gate
+        try {
+            val resumed = workflow.submit(user, request(chapter, retry = failed.jobId, providerKind = "GOOGLE_WEB_TRANSLATE_HTML"))
+            assertNotEquals(failed.jobId, resumed.jobId)
+            assertEquals(1, resumed.completedParagraphs)
+            assertEquals(committed, jobs.checkpoints(resumed.jobId))
+            assertNull(resumed.translationRecordId)
+            assertEquals(0L, translations.list(user, 0, 12).totalItems)
+            gate.complete(Unit)
+            val completed = awaitJob(resumed.jobId, "COMPLETED")
+            assertEquals(3, completed.completedParagraphs)
+            assertEquals(3, translator.translated.size)
+            assertEquals(3, translator.translated.distinct().size)
+            assertEquals(chapter.paragraphs.map { it.paragraphId },
+                translations.get(user, requireNotNull(completed.translationRecordId)).paragraphs.map { it.paragraphId })
+        } finally { gate.complete(Unit) }
+    }
+
+    @Test fun `typed provider failures persist stable codes without provider detail name or cause`() {
+        val chapter = chapters.save(user, draft())
+        translator.failAfter = 0
+        val codes = mapOf(
+            TranslationProviderErrorKind.Authentication to "TRANSLATION_AUTHENTICATION_FAILED",
+            TranslationProviderErrorKind.RateLimited to "TRANSLATION_RATE_LIMITED",
+            TranslationProviderErrorKind.Quota to "TRANSLATION_QUOTA_EXCEEDED",
+            TranslationProviderErrorKind.BadRequest to "TRANSLATION_BAD_REQUEST",
+            TranslationProviderErrorKind.Server to "TRANSLATION_SERVER_ERROR",
+            TranslationProviderErrorKind.Network to "TRANSLATION_NETWORK_ERROR",
+            TranslationProviderErrorKind.ResponseFormat to "TRANSLATION_INVALID_RESPONSE",
+            TranslationProviderErrorKind.Configuration to "TRANSLATION_CONFIGURATION_ERROR",
+            TranslationProviderErrorKind.Unknown to "TRANSLATION_FAILED",
+        )
+        codes.forEach { (kind, code) ->
+            translator.failureKind = kind
+            val failed = awaitJob(workflow.submit(user, request(chapter)).jobId, "FAILED")
+            assertEquals(code, failed.errorCode)
+            assertTrue(failed.errorMessage.orEmpty().contains("완료된 문단부터 다시 시도해 주세요."))
+            assertEquals(0, failed.completedParagraphs)
+            assertNull(failed.translationRecordId)
+            assertSafeFailure(failed)
+        }
+        assertEquals(0L, translations.list(user, 0, 12).totalItems)
+    }
+
+    private fun assertSafeFailure(view: TranslationJobView) {
+        val stored = jdbc.queryForObject("select concat(error_code,error_message,settings_json) from translation_job where id=?", String::class.java, view.jobId).orEmpty()
+        listOf(view.toString(), stored).forEach { text ->
+            listOf("PRIVATE-TEST-CREDENTIAL", "private-provider-", "private-detail-", "private-cause-").forEach {
+                assertFalse(text.contains(it), "Provider data must not be stored or returned")
+            }
+        }
     }
 
     @Test fun `cancelling a provider call is owner scoped and cannot publish after cancellation`() {
