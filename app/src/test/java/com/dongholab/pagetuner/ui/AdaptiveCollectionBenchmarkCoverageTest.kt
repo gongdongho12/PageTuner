@@ -26,15 +26,18 @@ class AdaptiveCollectionBenchmarkCoverageTest {
             .toMap()
 
         assertEquals(ExpectedCallSites, actual)
-        assertEquals(11, actual.values.sum())
+        assertEquals(19, actual.values.sum())
     }
 
     private companion object {
         val AdaptiveCollectionCall = Regex("""\bAdaptiveCollection\s*\(""")
         val ExpectedCallSites = mapOf(
+            "com/dongholab/pagetuner/portable/PortableLibraryPanel.kt" to 1,
             "com/dongholab/pagetuner/ui/library/LocalDirectoryBrowserPanel.kt" to 1,
             "com/dongholab/pagetuner/ui/library/LocalLibraryPanel.kt" to 1,
             "com/dongholab/pagetuner/ui/reader/ReaderUi.kt" to 2,
+            "com/dongholab/pagetuner/ui/screen/ServerLibraryScreen.kt" to 5,
+            "com/dongholab/pagetuner/ui/screen/ServerTranslationJobsPanel.kt" to 2,
             "com/dongholab/pagetuner/ui/source/FavoritesPanel.kt" to 1,
             "com/dongholab/pagetuner/ui/source/RemoteSourcesTodoPanel.kt" to 2,
             "com/dongholab/pagetuner/ui/source/WebCatalogPagePanel.kt" to 1,

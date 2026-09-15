@@ -123,6 +123,9 @@ tasks.register<Test>("translationServerIntegrationTest") {
     classpath = unitTest.get().classpath
     include("**/TranslationServerIntegrationTest.class")
     useJUnit()
+    if (System.getenv("PAGETUNER_LIVE_JOB_CREATE") != "1") {
+        filter.excludeTestsMatching("*.TranslationServerIntegrationTest.realGoogleJobCreatedByAndroidAdapterCompletesAndIsReadable")
+    }
     // The additional real-provider read check is included only when explicitly supplied records exist.
     // Supplying only one ID still runs the test and fails with the missing environment name.
     if (System.getenv("PAGETUNER_LIVE_TRANSLATION_RECORD_ID").isNullOrBlank() &&

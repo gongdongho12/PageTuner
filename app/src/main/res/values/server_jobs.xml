@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="server_job_panel">Translation</string>
+    <string name="server_job_new">Translate on server</string>
+    <string name="server_job_form">New translation</string>
+    <string name="server_job_list">Progress</string>
+    <string name="server_job_choose_original">Choose an original chapter in the server library first.</string>
+    <string name="server_job_preparing">Loading the original and translation providers…</string>
+    <string name="server_job_ready">Check the translation settings before starting.</string>
+    <string name="server_job_source_language">Original language</string>
+    <string name="server_job_provider_endpoint">Provider HTTPS endpoint</string>
+    <string name="server_job_model">Model</string>
+    <string name="server_job_api_key">API key (memory only)</string>
+    <string name="server_job_glossary">Glossary: source=translation, one per line</string>
+    <string name="server_job_key_hint">The key is sent to your server for this job and kept in memory only. A configured server key can be used when blank.</string>
+    <string name="server_job_free_hint">Google Web needs no key. Public-service limits or changes may interrupt a job.</string>
+    <string name="server_job_retry_hint">Retry uses the exact previous settings and completed paragraphs. Re-enter the API key if needed.</string>
+    <string name="server_job_start">Start server translation</string>
+    <string name="server_job_submitting">Submitting the translation job…</string>
+    <string name="server_job_submitted">Submitted. Completed paragraphs are saved on the server.</string>
+    <string name="server_job_loading">Loading translation jobs…</string>
+    <string name="server_job_loaded">Translation jobs loaded. Active jobs refresh automatically.</string>
+    <string name="server_job_empty">No translation jobs. Select an original chapter to begin.</string>
+    <string name="server_job_cancel">Cancel job</string>
+    <string name="server_job_cancelling">Requesting job cancellation…</string>
+    <string name="server_job_cancelled">Cancellation requested. Completed paragraphs remain available for retry.</string>
+    <string name="server_job_retry">Prepare retry</string>
+    <string name="server_job_retry_submit">Retry with previous settings</string>
+    <string name="server_job_preparing_retry">Restoring the previous job settings…</string>
+    <string name="server_job_retry_ready">Previous settings restored. Enter a key if needed and submit.</string>
+    <string name="server_job_poll_failed">Automatic refresh stopped. Refresh to reconnect.</string>
+    <string name="server_job_progress">%1$s · %2$d/%3$d paragraphs</string>
+    <string name="server_job_queued">Queued</string>
+    <string name="server_job_running">Translating</string>
+    <string name="server_job_completed">Complete</string>
+    <string name="server_job_failed">Failed</string>
+    <string name="server_job_cancelled_status">Cancelled</string>
+    <string name="server_job_interrupted">Interrupted</string>
+    <string name="server_job_error_credentials">Check the provider key, then retry. Changed settings require a new translation.</string>
+    <string name="server_job_error_limit">Check the provider quota or wait before retrying.</string>
+    <string name="server_job_error_interrupted">The server stopped. Retry to continue from completed paragraphs.</string>
+    <string name="server_job_error_provider">Check provider settings and connection. For different settings, start a new translation.</string>
+</resources>
