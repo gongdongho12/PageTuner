@@ -80,6 +80,7 @@ dependencies {
     implementation(project(":core-model"))
     implementation(project(":core-translation"))
     implementation(project(":core-backup"))
+    implementation(project(":backup-runtime"))
     implementation(project(":source-runtime"))
     implementation(project(":translation-runtime"))
     implementation(platform(libs.androidx.compose.bom))
