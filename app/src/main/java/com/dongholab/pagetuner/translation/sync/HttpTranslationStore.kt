@@ -233,6 +233,20 @@ class HttpTranslationStore(
         decode { require(response.status == 204 && response.body.isEmpty()) }
     }
 
+    suspend fun readingProgress(kind: String, recordId: String): ServerReadingProgress = withContext(Dispatchers.IO) {
+        ServerReadingProgressJson.validateTarget(kind, recordId)
+        val response = execute("/api/v1/reading-progress/$kind/$recordId", "GET")
+        decode { ServerReadingProgressJson.decode(JSONObject(response.body), kind, recordId) }
+    }
+
+    suspend fun saveReadingProgress(kind: String, recordId: String, mutation: ServerReadingMutation): ServerReadingProgress = withContext(Dispatchers.IO) {
+        ServerReadingProgressJson.validateTarget(kind, recordId)
+        val response = writeWithCsrf("/api/v1/reading-progress/$kind/$recordId", "PUT", ServerReadingProgressJson.encode(mutation), true)
+        decode { ServerReadingProgressJson.decode(JSONObject(response.body), kind, recordId).also {
+            require(it.version == mutation.expectedVersion + 1 && it.anchor == mutation.anchor)
+        } }
+    }
+
     private suspend fun writeWithCsrf(path: String, method: String, body: JSONObject, authenticated: Boolean): TranslationStoreHttpResponse {
         val csrfPath = if (path.startsWith("/api/v1/accounts/")) "/api/v1/accounts/csrf" else "/api/v1/csrf"
         val csrfResponse = execute(csrfPath, "GET", authenticated = authenticated)
@@ -275,6 +289,20 @@ class HttpTranslationStore(
         }
         currentCoroutineContext().ensureActive()
         if (response.status !in 200..299) {
+            if (path.startsWith("/api/v1/reading-progress/") && response.status == 429) {
+                val seconds = response.headers.entries.firstOrNull { it.key.equals("Retry-After", true) }?.value?.firstOrNull()
+                    ?.toLongOrNull()?.takeIf { it in 1..86_400 } ?: 60L
+                throw ServerReadingProgressRateLimited(seconds)
+            }
+            if (path.startsWith("/api/v1/reading-progress/") && method == "PUT" && response.status == 409) {
+                val current = decode {
+                    val json = JSONObject(response.body)
+                    require(json.get("code") == "READING_PROGRESS_CONFLICT")
+                    val parts = path.split('/')
+                    ServerReadingProgressJson.decode(json.getJSONObject("current"), parts[4], parts[5])
+                }
+                throw ServerReadingProgressConflict(current)
+            }
             if (path == "/api/v1/accounts/me/password" && method == "POST") {
                 passwordChangeFailure(response)?.let { throw ServerPasswordChangeException(it) }
             }

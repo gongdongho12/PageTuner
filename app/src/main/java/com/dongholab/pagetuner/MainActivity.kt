@@ -84,6 +84,9 @@ import com.dongholab.pagetuner.translation.TranslationStatus
 import com.dongholab.pagetuner.translation.TranslationViewModel
 import com.dongholab.pagetuner.translation.sync.ServerLibraryViewModel
 import com.dongholab.pagetuner.translation.sync.ServerLibraryEvent
+import com.dongholab.pagetuner.translation.sync.ServerReadingDocument
+import com.dongholab.pagetuner.translation.sync.ServerReadingProgressViewModel
+import com.dongholab.pagetuner.translation.sync.FileServerReadingProgressStore
 import com.dongholab.pagetuner.translation.sync.ServerLibraryKind
 import com.dongholab.pagetuner.translation.glossary.BookGlossaryStore
 import com.dongholab.pagetuner.translation.glossary.BookGlossaryViewModel
@@ -192,6 +195,8 @@ fun PageTurnerApp() {
     )
     val translationViewModel: TranslationViewModel = viewModel()
     val serverLibraryViewModel: ServerLibraryViewModel = viewModel()
+    val serverProgressStore = remember(context) { FileServerReadingProgressStore(context.filesDir.resolve("server-reading-progress")) }
+    val serverProgressViewModel: ServerReadingProgressViewModel = viewModel(factory = ServerReadingProgressViewModel.Factory(serverProgressStore))
     val glossaryViewModel: BookGlossaryViewModel = viewModel(
         factory = BookGlossaryViewModel.Factory(glossaryStore),
     )
@@ -204,6 +209,8 @@ fun PageTurnerApp() {
     val webCatalogState by webCatalogViewModel.uiState.collectAsState()
     val translationState by translationViewModel.uiState.collectAsState()
     val serverLibraryState by serverLibraryViewModel.state.collectAsState()
+    val serverProgressState by serverProgressViewModel.sync.state.collectAsState()
+    val serverReadingDocument by serverProgressViewModel.document.collectAsState()
     val glossaryState by glossaryViewModel.uiState.collectAsState()
 
     // — UI state
@@ -566,9 +573,11 @@ fun PageTurnerApp() {
                             ), downloaded.text.toByteArray(Charsets.UTF_8),
                         )
                     } else {
-                        val parsed = withContext(Dispatchers.Default) {
-                            com.dongholab.pagetuner.document.PlainTextDocumentParser.parse(downloaded.entry.title, downloaded.text)
+                        val reading = withContext(Dispatchers.Default) {
+                            ServerReadingDocument.create(event.readingAccountKey, downloaded)
                         }
+                        val parsed = reading.mapping.document
+                        serverProgressViewModel.retainDocument(reading)
                         serverPreviewTranslatedDocumentId = parsed.id.takeIf { downloaded.entry.kind == ServerLibraryKind.Translations }
                         pdfPageBitmap = null
                         pdfPageCache = emptyMap()
@@ -577,6 +586,24 @@ fun PageTurnerApp() {
                 }
             }
         }
+    }
+
+    val serverReadingConnection = serverLibraryViewModel.readingConnection()
+    LaunchedEffect(serverReadingConnection) { serverProgressViewModel.sync.connect(serverReadingConnection) }
+    LaunchedEffect(serverReadingDocument, serverReadingConnection, document.id) {
+        val reading = serverReadingDocument
+        if (reading != null && reading.readerId == document.id && serverReadingConnection?.accountKey == reading.accountKey) {
+            serverProgressViewModel.sync.open(reading, serverReadingConnection, pageIndex, readerState.pageChangeRevision)
+        } else serverProgressViewModel.sync.close()
+    }
+    LaunchedEffect(serverProgressState.restore) {
+        serverProgressState.restore?.takeIf { it.readerId == readerViewModel.uiState.value.document.id &&
+            serverReadingConnection?.accountKey == serverReadingDocument?.accountKey }?.let {
+            com.dongholab.pagetuner.translation.sync.applyServerReadingProgressRestore(readerViewModel, serverProgressViewModel.sync, it)
+        }
+    }
+    LaunchedEffect(document.id, pageIndex, readerState.pageChangeRevision) {
+        serverProgressViewModel.sync.pageChanged(document.id, pageIndex, readerState.pageChangeRevision)
     }
 
     LaunchedEffect(currentBookId, pageIndex, document.id) {
@@ -927,10 +954,16 @@ fun PageTurnerApp() {
                     }
                 }
 
-                StatusStrip(statusText = statusText, progress = progress, busy = busy)
+                StatusStrip(statusText = if (!busy && serverProgressState.pendingDocuments > 0)
+                    stringResource(R.string.reading_progress_outbox, serverProgressState.pendingDocuments) else statusText,
+                    progress = progress, busy = busy)
             } else {
                 // Reader Mode: Sub-Page Navigation with History Tracking
                 if (viewportPolicy.showChrome) {
+                    if (serverProgressState.readerId == document.id) {
+                        com.dongholab.pagetuner.ui.reader.ServerReadingProgressPanel(serverProgressState,
+                            serverProgressViewModel.sync::retry, serverProgressViewModel.sync::chooseLocal, serverProgressViewModel.sync::chooseServer)
+                    }
                     com.dongholab.pagetuner.ui.reader.ReaderSubPageSelector(
                         selectedPage = readerSubPage,
                         busy = busy,

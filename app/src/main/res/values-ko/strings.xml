@@ -357,4 +357,18 @@
     <string name="portable_error_write">서재 패키지를 저장할 수 없습니다.</string>
     <string name="portable_error_asset">PDF 원본 또는 이미지 파일을 찾을 수 없습니다.</string>
     <string name="portable_error_incomplete">선택한 번역이 미완료 상태입니다. 모든 문단을 번역한 후 번역 포함으로 내보내세요.</string>
+    <string name="reading_progress_loading">계정의 읽던 위치 확인 중…</string>
+    <string name="reading_progress_synced">읽던 위치 동기화됨</string>
+    <string name="reading_progress_pending">읽던 위치 저장 중…</string>
+    <string name="reading_progress_offline">기기에 위치를 보관했습니다. 동기화 재시도 중.</string>
+    <string name="reading_progress_conflict">읽던 위치가 서로 다릅니다</string>
+    <string name="reading_progress_unavailable">동기화할 수 없습니다. 로그인 또는 재시도해 주세요.</string>
+    <string name="reading_progress_device_error">기기에 위치를 저장하지 못했습니다. 책을 다시 열어 주세요.</string>
+    <string name="reading_progress_choose">위치 선택</string>
+    <string name="reading_progress_retry">재시도</string>
+    <string name="reading_progress_conflict_detail">이 기기: %1$d쪽. 계정: %2$d쪽(현재 화면 기준). 사용할 위치를 선택할 때까지 두 위치를 보관합니다.</string>
+    <string name="reading_progress_use_local">기기 위치 사용</string>
+    <string name="reading_progress_use_server">계정 위치 사용</string>
+    <string name="reading_progress_outbox">동기화 대기 위치 %1$d개 · 서버 서재에서 해당 책을 열어 상태를 확인하세요.</string>
+    <string name="reading_progress_rate_limited">서버 요청 대기 중 · 위치를 보관하고 자동 재시도합니다.</string>
 </resources>

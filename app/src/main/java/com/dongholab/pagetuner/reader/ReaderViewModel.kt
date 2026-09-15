@@ -13,6 +13,7 @@ import kotlinx.coroutines.flow.update
 data class ReaderUiState(
     val document: ReaderDocument,
     val pageIndex: Int = 0,
+    val pageChangeRevision: Long = 0,
     val pdfSourceUri: String? = null,
     val currentBookId: String? = null,
     val controlsVisible: Boolean = true,
@@ -124,7 +125,7 @@ class ReaderViewModel(
         }
     }
 
-    fun changePage(targetIndex: Int): ReaderPageMoveResult {
+    fun changePage(targetIndex: Int, userInitiated: Boolean = true): ReaderPageMoveResult {
         val current = _uiState.value
         val boundedIndex = targetIndex.coerceIn(0, current.document.pageCount - 1)
         if (boundedIndex == current.pageIndex) {
@@ -138,6 +139,7 @@ class ReaderViewModel(
         _uiState.update { state ->
             state.copy(
                 pageIndex = boundedIndex,
+                pageChangeRevision = state.pageChangeRevision + if (userInitiated) 1 else 0,
                 selectedSearchResultIndex = -1,
             )
         }
@@ -201,6 +203,7 @@ class ReaderViewModel(
         _uiState.update { state ->
             state.copy(
                 pageIndex = bookmark.pageIndex.coerceIn(0, state.document.pageCount - 1),
+                pageChangeRevision = state.pageChangeRevision + 1,
                 selectedSearchResultIndex = -1,
             )
         }
@@ -247,6 +250,7 @@ class ReaderViewModel(
         _uiState.update { state ->
             state.copy(
                 pageIndex = annotation.pageIndex.coerceIn(0, state.document.pageCount - 1),
+                pageChangeRevision = state.pageChangeRevision + 1,
                 selectedSearchResultIndex = -1,
             )
         }
@@ -303,6 +307,7 @@ class ReaderViewModel(
         _uiState.update { state ->
             state.copy(
                 pageIndex = match.pageIndex,
+                pageChangeRevision = state.pageChangeRevision + 1,
                 selectedSearchResultIndex = targetIndex,
             )
         }
