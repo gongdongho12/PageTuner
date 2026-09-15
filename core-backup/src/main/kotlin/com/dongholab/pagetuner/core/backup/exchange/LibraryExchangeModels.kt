@@ -79,5 +79,6 @@ object LibraryExchangeLimits {
     val ASSET_MIME_TYPES = setOf("application/pdf", "image/png", "image/jpeg", "image/webp", "image/gif")
 }
 
-internal fun exchangeSha256(bytes: ByteArray): String =
+/** Canonical lowercase content digest shared by models and archive runtimes. */
+fun exchangeSha256(bytes: ByteArray): String =
     MessageDigest.getInstance("SHA-256").digest(bytes).joinToString("") { "%02x".format(it) }

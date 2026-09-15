@@ -35,6 +35,7 @@ gradle.projectsEvaluated {
         )
         val errors = mutableListOf<String>()
         val allowedRuntimeDependencies = mapOf(
+            ":backup-runtime" to setOf(":core-backup"),
             ":source-runtime" to setOf(":core-model", ":core-content"),
             ":translation-runtime" to setOf(":core-content", ":core-translation"),
         )

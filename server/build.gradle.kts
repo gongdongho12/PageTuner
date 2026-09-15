@@ -14,6 +14,7 @@ dependencies {
     implementation(project(":core-content"))
     implementation(project(":core-translation"))
     implementation(project(":core-backup"))
+    implementation(project(":backup-runtime"))
     implementation(project(":source-runtime"))
     implementation(project(":translation-runtime"))
     implementation(libs.org.json)

@@ -64,7 +64,7 @@ jobs:
       - name: Verify core without Android or server
         run: |
           chmod +x gradlew
-          ./gradlew -PbuildTarget=core verifyModuleBoundaries :core-model:test :core-content:test :core-translation:test :core-backup:test :source-runtime:test :translation-runtime:test
+          ./gradlew -PbuildTarget=core verifyModuleBoundaries :core-model:test :core-content:test :core-translation:test :core-backup:test :backup-runtime:test :source-runtime:test :translation-runtime:test
 
   server-tests:
     name: Server and PostgreSQL
@@ -100,10 +100,10 @@ jobs:
       - name: Export the Kotlin ZIP fixture
         run: |
           chmod +x gradlew
-          ./gradlew -PbuildTarget=core :core-backup:test
+          ./gradlew -PbuildTarget=core :backup-runtime:test
       - name: Read and re-export with the browser codec
         run: npm test --prefix web -- src/lib/libraryExchange.test.ts
       - name: Verify the browser ZIP in Kotlin
         env:
           PAGETURNER_WEB_EXCHANGE_FIXTURE: ${{ github.workspace }}/.gradle-home/web-portable-roundtrip.zip
-        run: ./gradlew -PbuildTarget=core :core-backup:test
+        run: ./gradlew -PbuildTarget=core :backup-runtime:test
