@@ -23,6 +23,25 @@ flowchart LR
 서버는 공개 HTTPS/DNS 검증 HTTP 구현을 주입하고 WebView를 사용하지 않습니다.
 앱의 실제 WebView 구현과 기기 캐시는 Android 모듈에 남습니다.
 
+### WTR 웹 화면과 서버 호출 경로
+
+웹의 `NovelWorkspace`와 `workflowApi`는 아래 서버 API를 호출합니다. WTR의 Next.js
+데이터 해석, 목차 구성, reader POST와 원문 문단 생성은 서버가 주입한 HTTP transport와
+공통 `NovelSourceService` / `WtrLabSiteAdapter` / `WtrLabDomScraper`에서 처리합니다.
+브라우저에 WTR 전용 파서나 reader POST를 복제하지 않습니다.
+
+| 프론트 동작 | 호출 API | 서버 책임 |
+| --- | --- | --- |
+| WTR 선택·검색·필터 | `GET /api/v1/novels/catalog?sourceId=wtr-lab` | WTR 목록 요청과 구조화된 작품 정보 반환 |
+| 작품 선택·목차 넘기기 | `GET /api/v1/novels/detail` | 작품 정보와 목차 해석, 회차 페이지 반환 |
+| 회차 가져오기 | `POST /api/v1/chapters/import` | WTR reader 호출, 작품·회차 식별자 검증, 사용자별 원문 DB 저장 |
+| 전체 번역 시작 | `POST /api/v1/translation-jobs` | 저장 원문 조회, 공급자 실행과 문단 checkpoint 저장 |
+| 번역 진행·완료 보기 | `GET /api/v1/translation-jobs/{jobId}` | 작업 상태와 완성된 translationRecordId 반환 |
+| 번역 리더 열기 | `GET /api/v1/translations/{recordId}` | 검증된 완성 artifact 조회 |
+
+프론트의 목록 캐시는 서버에서 받은 구조화된 응답의 기기 사본입니다. 새로 받기를 누르면
+서버 조회를 다시 실행하며, 캐시 사용과 새 서버 응답을 화면에서 구분합니다.
+
 `translation-runtime`에는 Google Cloud, 키 없는 Google Web public POST/키 있는 HTML 경로,
 DeepSeek, OpenAI 호환 API와 기존 용어집 보호·한국어 조사 보정·배치·속도·비용 추정이 있습니다.
 기존 앱 클래스는 동일 package로 이동했으므로 앱과 서버가 다른 복사본을 실행하지 않습니다.
