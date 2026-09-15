@@ -1,6 +1,7 @@
 package com.dongholab.pagetuner.server.catalogTranslation
 
 import com.dongholab.pagetuner.server.workflow.WorkflowFailure
+import com.dongholab.pagetuner.server.workflow.publicProviderError
 import jakarta.annotation.PreDestroy
 import java.time.Instant
 import java.util.UUID
@@ -58,7 +59,7 @@ class CatalogTranslationJobs(private val translator: CatalogTextTranslator) {
                         update(key, entry) { it.copy(status = "CANCELLED", errorCode = null, items = emptyList()) }
                         throw error
                     } catch (error: Exception) {
-                        val safeCode = if (error is WorkflowFailure && error.code in setOf("PROVIDER_NOT_CONFIGURED", "ENDPOINT_NOT_ALLOWED", "INVALID_PROVIDER")) error.code else "CATALOG_PROVIDER_FAILED"
+                        val safeCode = if (error is WorkflowFailure && error.code in setOf("PROVIDER_NOT_CONFIGURED", "ENDPOINT_NOT_ALLOWED", "INVALID_PROVIDER")) error.code else publicProviderError(error).first
                         update(key, entry) { it.copy(status = "FAILED", errorCode = safeCode, items = emptyList()) }
                     } finally {
                         synchronized(lock) { if (entries[key] === entry) entry.task = null }

@@ -150,7 +150,7 @@ class TranslationWorkflowService(
     }
 }
 
-private fun publicProviderError(kind: TranslationProviderErrorKind?): Pair<String, String> = when (kind) {
+fun publicProviderError(kind: TranslationProviderErrorKind?, resumeCompleted: Boolean = true): Pair<String, String> = (when (kind) {
     TranslationProviderErrorKind.RateLimited -> "TRANSLATION_RATE_LIMITED" to
         "번역 제공자 요청이 일시적으로 제한되었습니다. 잠시 후 완료된 문단부터 다시 시도해 주세요."
     TranslationProviderErrorKind.Authentication -> "TRANSLATION_AUTHENTICATION_FAILED" to
@@ -169,4 +169,8 @@ private fun publicProviderError(kind: TranslationProviderErrorKind?): Pair<Strin
         "번역 제공자 설정이 올바르지 않습니다. 서버 주소와 모델 설정을 확인한 뒤 완료된 문단부터 다시 시도해 주세요."
     TranslationProviderErrorKind.Unknown, null -> "TRANSLATION_FAILED" to
         "번역 제공자 응답 또는 연결을 확인하지 못했습니다. 설정을 확인한 뒤 완료된 문단부터 다시 시도해 주세요."
-}
+}).let { (code, message) -> code to if (resumeCompleted) message else message.replace("완료된 문단부터 ", "") }
+
+/** Never expose a provider's message, body, endpoint, model, name or nested cause. */
+fun publicProviderError(error: Exception, resumeCompleted: Boolean = true): Pair<String, String> =
+    publicProviderError((error as? TranslationProviderException)?.failure?.kind, resumeCompleted)

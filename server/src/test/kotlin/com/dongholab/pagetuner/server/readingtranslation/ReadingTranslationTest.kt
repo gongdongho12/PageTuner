@@ -113,9 +113,22 @@ class ReadingTranslationTest {
             assertEquals(1, done.items.size)
             fail = true; val next = request(chapter); jobs.start("reader", next)
             val failed = terminal(jobs, next.requestId)
-            assertEquals("READING_PROVIDER_FAILED", failed.errorCode); assertTrue(failed.items.isEmpty())
+            assertEquals("TRANSLATION_FAILED", failed.errorCode); assertTrue(failed.items.isEmpty())
             assertFalse(failed.toString().contains("do-not-leak-provider-secret"))
             assertFalse(ReadingTranslationRequest(next.requestId, chapter.recordId, chapter.sourceRevision, next.fragments, apiKey = "do-not-leak-provider-secret").toString().contains("do-not-leak-provider-secret"))
+        } finally { jobs.close() }
+    }
+
+    @Test fun typedProviderFailuresUseTheSharedCodeWithoutSecretDetails() = runBlocking {
+        val chapter = chapter()
+        val jobs = ReadingTranslationJobs(ReadingSource { _, _ -> chapter }, WorkflowProviders(emptyMap())) { _, _, _, _, _ ->
+            throw TranslationProviderException(TranslationProviderFailure("private-provider", TranslationProviderErrorKind.Authentication, "private-key"))
+        }
+        try {
+            val input = request(chapter); jobs.start("reader", input)
+            val failed = terminal(jobs, input.requestId)
+            assertEquals("TRANSLATION_AUTHENTICATION_FAILED", failed.errorCode)
+            assertTrue(failed.items.isEmpty()); assertFalse(failed.toString().contains("private-"))
         } finally { jobs.close() }
     }
 

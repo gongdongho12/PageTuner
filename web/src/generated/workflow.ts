@@ -1,5 +1,22 @@
 // Generated from contracts/workflow-v1.openapi.json. Do not edit.
 export interface paths {
+    "/api/v1/translation-providers/check": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Authenticated CSRF-protected check of one fixed short English sample using the shared translation runtime. The default source language is auto. No chapter, job, checkpoint, translated text or credential is saved. Paid providers may charge for this sample. At most one live worker per account and four globally; starts for an account are separated by ten seconds. Cooldown tracking is limited to 512 accounts. A 20-second deadline returns a FAILED timeout and cancels the worker, whose slot remains reserved until cleanup completes. Explicit cancellation of the controller future reaches the worker; HTTP disconnect detection depends on the servlet container, so a disconnected check may continue until its deadline. Every response is non-cacheable. */
+        post: operations["checkTranslationProvider"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/novel-sources": {
         parameters: {
             query?: never;
@@ -189,6 +206,34 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        TranslationProviderCheckRequest: {
+            providerKind: components["schemas"]["ProviderKind"];
+            /**
+             * @description auto is recommended because the check uses a fixed English sample; it does not change the reader's source-language setting.
+             * @default auto
+             */
+            sourceLanguage: string;
+            /** @default ko */
+            targetLanguage: string;
+            /** @description Optional transient override of the configured server key. CR/LF are forbidden. */
+            apiKey?: string;
+            /** @description LLM endpoint only; must match the existing server allowlist exactly after trailing-slash normalization. */
+            endpoint?: string;
+            model?: string;
+        };
+        TranslationProviderCheckResponse: {
+            /** @enum {string} */
+            status: "SUCCESS" | "FAILED";
+            /** @enum {string} */
+            code: "PROVIDER_CHECK_OK" | "PROVIDER_CHECK_TIMEOUT" | "PROVIDER_CHECK_CANCELLED" | "TRANSLATION_AUTHENTICATION_FAILED" | "TRANSLATION_RATE_LIMITED" | "TRANSLATION_QUOTA_EXCEEDED" | "TRANSLATION_BAD_REQUEST" | "TRANSLATION_SERVER_ERROR" | "TRANSLATION_NETWORK_ERROR" | "TRANSLATION_INVALID_RESPONSE" | "TRANSLATION_CONFIGURATION_ERROR" | "TRANSLATION_FAILED";
+            /** @description A fixed safe Korean message chosen from the public code; never raw provider details. */
+            message: string;
+            providerKind: components["schemas"]["ProviderKind"];
+            sourceLanguage: string;
+            targetLanguage: string;
+            /** @description Resolved model identity from the shared translation runtime, which may be non-empty even for a provider without a configurable model. */
+            model: string;
+        };
         /** @description Zero-based server pagination. totalPages=ceil(totalItems/size); hasNext=(page+1<totalPages). */
         Pagination: {
             /** Format: int32 */
@@ -486,6 +531,73 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    checkTranslationProvider: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Use the token/header name from GET /api/v1/csrf. */
+                "X-CSRF-TOKEN": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TranslationProviderCheckRequest"];
+            };
+        };
+        responses: {
+            /** @description A successful check or a safely classified provider failure. No provider response body, translated sample, key or endpoint is exposed. */
+            200: {
+                headers: {
+                    "Cache-Control"?: "no-store";
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TranslationProviderCheckResponse"];
+                };
+            };
+            /** @description Invalid settings. Known problem codes: INVALID_PROVIDER, PROVIDER_NOT_CONFIGURED, ENDPOINT_NOT_ALLOWED. Other input validation problems have no code. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["WorkflowProblem"];
+                };
+            };
+            /** @description Authentication required. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description CSRF token or permission missing. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The JSON request exceeds 16 KiB. */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description PROVIDER_CHECK_BUSY: concurrent worker or cooldown limit reached. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["WorkflowProblem"];
+                };
+            };
+        };
+    };
     listNovelSources: {
         parameters: {
             query?: never;

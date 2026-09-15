@@ -4,6 +4,7 @@ import com.dongholab.pagetuner.core.content.StableContentHash
 import com.dongholab.pagetuner.server.workflow.CreateTranslationJobRequest
 import com.dongholab.pagetuner.server.workflow.WorkflowFailure
 import com.dongholab.pagetuner.server.workflow.WorkflowProviders
+import com.dongholab.pagetuner.server.workflow.publicProviderError
 import jakarta.annotation.PreDestroy
 import java.time.Instant
 import java.util.UUID
@@ -55,7 +56,7 @@ import org.springframework.stereotype.Service
                         update(key, entry) { it.copy(status = "COMPLETED", completedFragments = it.totalFragments, items = result) }
                     } catch (_: TimeoutCancellationException) { update(key, entry) { it.copy(status = "FAILED", errorCode = "READING_TIMEOUT", items = emptyList()) } }
                     catch (error: CancellationException) { update(key, entry) { it.copy(status = "CANCELLED", items = emptyList()) }; throw error }
-                    catch (_: Exception) { update(key, entry) { it.copy(status = "FAILED", errorCode = "READING_PROVIDER_FAILED", items = emptyList()) } }
+                    catch (error: Exception) { update(key, entry) { it.copy(status = "FAILED", errorCode = publicProviderError(error).first, items = emptyList()) } }
                 }
                 entry.task = task
                 // A lazy task cancelled before it starts never enters a coroutine-body finally block.

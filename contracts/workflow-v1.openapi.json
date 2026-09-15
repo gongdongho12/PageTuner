@@ -17,6 +17,22 @@
     }
   ],
   "paths": {
+    "/api/v1/translation-providers/check": {
+      "post": {
+        "operationId": "checkTranslationProvider",
+        "description": "Authenticated CSRF-protected check of one fixed short English sample using the shared translation runtime. The default source language is auto. No chapter, job, checkpoint, translated text or credential is saved. Paid providers may charge for this sample. At most one live worker per account and four globally; starts for an account are separated by ten seconds. Cooldown tracking is limited to 512 accounts. A 20-second deadline returns a FAILED timeout and cancels the worker, whose slot remains reserved until cleanup completes. Explicit cancellation of the controller future reaches the worker; HTTP disconnect detection depends on the servlet container, so a disconnected check may continue until its deadline. Every response is non-cacheable.",
+        "parameters": [{ "name": "X-CSRF-TOKEN", "in": "header", "required": true, "schema": { "type": "string" }, "description": "Use the token/header name from GET /api/v1/csrf." }],
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/TranslationProviderCheckRequest" } } } },
+        "responses": {
+          "200": { "description": "A successful check or a safely classified provider failure. No provider response body, translated sample, key or endpoint is exposed.", "headers": { "Cache-Control": { "schema": { "type": "string", "enum": ["no-store"] } } }, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/TranslationProviderCheckResponse" } } } },
+          "400": { "description": "Invalid settings. Known problem codes: INVALID_PROVIDER, PROVIDER_NOT_CONFIGURED, ENDPOINT_NOT_ALLOWED. Other input validation problems have no code.", "content": { "application/problem+json": { "schema": { "$ref": "#/components/schemas/WorkflowProblem" } } } },
+          "401": { "description": "Authentication required." },
+          "403": { "description": "CSRF token or permission missing." },
+          "413": { "description": "The JSON request exceeds 16 KiB." },
+          "429": { "description": "PROVIDER_CHECK_BUSY: concurrent worker or cooldown limit reached.", "content": { "application/problem+json": { "schema": { "$ref": "#/components/schemas/WorkflowProblem" } } } }
+        }
+      }
+    },
     "/api/v1/novel-sources": {
       "get": {
         "operationId": "listNovelSources",
@@ -1119,6 +1135,29 @@
       }
     },
     "schemas": {
+      "TranslationProviderCheckRequest": {
+        "type": "object", "required": ["providerKind"],
+        "properties": {
+          "providerKind": { "$ref": "#/components/schemas/ProviderKind" },
+          "sourceLanguage": { "type": "string", "maxLength": 24, "default": "auto", "description": "auto is recommended because the check uses a fixed English sample; it does not change the reader's source-language setting." },
+          "targetLanguage": { "type": "string", "minLength": 1, "maxLength": 24, "default": "ko" },
+          "apiKey": { "type": "string", "maxLength": 4096, "writeOnly": true, "description": "Optional transient override of the configured server key. CR/LF are forbidden." },
+          "endpoint": { "type": "string", "maxLength": 2000, "description": "LLM endpoint only; must match the existing server allowlist exactly after trailing-slash normalization." },
+          "model": { "type": "string", "maxLength": 200 }
+        }
+      },
+      "TranslationProviderCheckResponse": {
+        "type": "object", "required": ["status", "code", "message", "providerKind", "sourceLanguage", "targetLanguage", "model"],
+        "properties": {
+          "status": { "type": "string", "enum": ["SUCCESS", "FAILED"] },
+          "code": { "type": "string", "enum": ["PROVIDER_CHECK_OK", "PROVIDER_CHECK_TIMEOUT", "PROVIDER_CHECK_CANCELLED", "TRANSLATION_AUTHENTICATION_FAILED", "TRANSLATION_RATE_LIMITED", "TRANSLATION_QUOTA_EXCEEDED", "TRANSLATION_BAD_REQUEST", "TRANSLATION_SERVER_ERROR", "TRANSLATION_NETWORK_ERROR", "TRANSLATION_INVALID_RESPONSE", "TRANSLATION_CONFIGURATION_ERROR", "TRANSLATION_FAILED"] },
+          "message": { "type": "string", "maxLength": 300, "description": "A fixed safe Korean message chosen from the public code; never raw provider details." },
+          "providerKind": { "$ref": "#/components/schemas/ProviderKind" },
+          "sourceLanguage": { "type": "string", "maxLength": 24 },
+          "targetLanguage": { "type": "string", "maxLength": 24 },
+          "model": { "type": "string", "maxLength": 200, "description": "Resolved model identity from the shared translation runtime, which may be non-empty even for a provider without a configurable model." }
+        }
+      },
       "Pagination": {
         "type": "object",
         "description": "Zero-based server pagination. totalPages=ceil(totalItems/size); hasNext=(page+1<totalPages).",
