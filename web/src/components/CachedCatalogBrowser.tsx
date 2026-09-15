@@ -21,6 +21,7 @@ export function CachedCatalogBrowser({ cache, onClose, onConnect }: { cache: Cat
     {error && <div role="alert" className="workflow-message">{error}</div>}
     {selected ? <><div role="status" className="workflow-message">{t('저장 목록 · {0}페이지 · {1}', [selected.catalog.currentPage, new Date(selected.savedAt).toLocaleString()])} {selected.stale && t('오래된 목록')}{selected.request.query && ` · ${selected.request.query}`}</div>
       <AdaptiveCollection key={catalogCacheKey(selected.request)} items={selected.catalog.items} itemKey={book => book.bookId} rowHeight={110}
+        countLabel={t('현재 목록')}
         onPreviousBatch={previous ? () => setSelected(previous) : undefined} onNextBatch={next ? () => setSelected(next) : undefined}
         renderItem={book => <article className="workflow-row"><span className="workflow-row-copy"><span>{book.authors.join(' · ') || book.sourceLanguage}</span><strong>{book.title}</strong><span>{book.description ?? t('목차 보기')}</span></span></article>}/></>
     : loading ? <div role="status" className="empty-state">{t('저장된 목록을 확인하고 있습니다…')}</div>

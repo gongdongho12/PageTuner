@@ -764,6 +764,11 @@ export function NovelWorkspace({
               </span>
               <h2>{selectedSource.displayName}</h2>
             </div>
+            <button className="button-outline" disabled={!catalog?.hasNextPage}
+              aria-label={t('사이트의 다음 목록 불러오기')}
+              onClick={() => catalog && loadCatalog(selectedSource, catalog.currentPage + 1)}>
+              {t('다음 목록')}
+            </button>
           </div>
           <form
             className="workflow-search"
@@ -835,6 +840,7 @@ export function NovelWorkspace({
               itemKey={(b) => b.bookId}
               rowHeight={110}
               total={catalog.items.length}
+              countLabel={t('현재 목록')}
               onPreviousBatch={
                 catalog.hasPreviousPage
                   ? () =>

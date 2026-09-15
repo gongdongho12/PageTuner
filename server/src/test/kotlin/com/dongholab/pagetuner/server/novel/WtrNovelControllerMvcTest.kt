@@ -23,6 +23,22 @@ import org.springframework.test.web.servlet.result.MockMvcResultMatchers.status
 class WtrNovelControllerMvcTest {
     @Autowired lateinit var mvc: MockMvc
 
+    @Test fun `ten books are one remote page and the next request returns another ten`() {
+        for (page in 1..2) {
+            mvc.perform(get("/api/v1/novels/catalog").param("sourceId", "wtr-lab").param("page", page.toString())
+                .with(httpBasic("reader", "test-password")))
+                .andExpect(status().isOk)
+                .andExpect(jsonPath("$.currentPage").value(page))
+                .andExpect(jsonPath("$.items.length()").value(10))
+                .andExpect(jsonPath("$.items[0].bookId").value("https://wtr-lab.com/en/novel/${42 + (page - 1) * 10}/provider-original-slug"))
+                .andExpect(jsonPath("$.items[9].bookId").value("https://wtr-lab.com/en/novel/${51 + (page - 1) * 10}/provider-original-slug"))
+                .andExpect(jsonPath("$.totalItems").value(20))
+                .andExpect(jsonPath("$.totalPages").value(2))
+                .andExpect(jsonPath("$.hasPreviousPage").value(page == 2))
+                .andExpect(jsonPath("$.hasNextPage").value(page == 1))
+        }
+    }
+
     @Test fun `real WTR service and adapter normalize metadata before API serialization`() {
         mvc.perform(get("/api/v1/novels/catalog").param("sourceId", "wtr-lab")
             .with(httpBasic("reader", "test-password")))
@@ -49,7 +65,11 @@ class WtrNovelControllerMvcTest {
     @TestConfiguration class SourceConfig {
         @Bean fun novelSourceService() = NovelSourceService(object : NovelHttpTransport {
             override suspend fun fetchText(url: String): String = when (URI(url).path) {
-                "/en/novel-list" -> nextData("""{"series":[$SERIES]}""")
+                "/en/novel-list" -> {
+                    val page = URI(url).query.orEmpty().split('&').find { it.startsWith("page=") }?.substringAfter('=')?.toInt() ?: 1
+                    val series = (0..9).joinToString(",") { SERIES.replace("\"raw_id\":42", "\"raw_id\":${42 + (page - 1) * 10 + it}") }
+                    nextData("""{"count":20,"series":[$series]}""")
+                }
                 "/en/novel/42/provider-original-slug" -> nextData("""{"serie":{"serie_data":$SERIES,"chapters":[{"order":1,"title":"Chapter One"}]}}""")
                 else -> error("Unexpected fixture request: $url")
             }

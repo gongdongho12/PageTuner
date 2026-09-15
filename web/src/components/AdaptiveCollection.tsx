@@ -16,6 +16,7 @@ type Props<T> = {
   rowHeight: number;
   total?: number;
   offset?: number;
+  countLabel?: string;
   initialPage?: "first" | "last";
   onPreviousBatch?: () => void;
   onNextBatch?: () => void;
@@ -30,6 +31,7 @@ export function AdaptiveCollection<T>({
   rowHeight,
   total = items.length,
   offset = 0,
+  countLabel,
   initialPage = "first",
   onPreviousBatch,
   onNextBatch,
@@ -108,6 +110,8 @@ export function AdaptiveCollection<T>({
   }, [current, last, size, onNextBatch, layout, rowHeight]);
   usePageKeys(previous, next, keyboardEnabled, preferences.pageKeys);
   const start = layout === 'scroll' ? scrollStart : current * size;
+  const atStart = layout === 'scroll' ? scrollAtTop : current === 0;
+  const atEnd = layout === 'scroll' ? scrollAtEnd : current === last;
   return (
     <div className="adaptive-collection">
       <div
@@ -133,21 +137,22 @@ export function AdaptiveCollection<T>({
         <button
           className="button-quiet"
           onClick={previous}
-          disabled={(layout === 'scroll' ? scrollAtTop : current === 0) && !onPreviousBatch}
+          disabled={atStart && !onPreviousBatch}
         >
           <Icon name="back" />
-          <span>{t("이전")}</span>
+          <span>{t(atStart && onPreviousBatch ? "이전 목록" : "이전")}</span>
         </button>
         <span className="page-count" aria-live="polite">
+          {countLabel && <span className="collection-count-label">{countLabel}</span>}
           {items.length ? offset + start + 1 : 0}–{offset + Math.min(start + size, items.length)}{" "}
           <span className="muted">/ {total}</span>
         </span>
         <button
           className="button-quiet"
           onClick={next}
-          disabled={(layout === 'scroll' ? scrollAtEnd : current === last) && !onNextBatch}
+          disabled={atEnd && !onNextBatch}
         >
-          <span>{t("다음")}</span>
+          <span>{t(atEnd && onNextBatch ? "다음 목록" : "다음")}</span>
           <Icon name="arrow" />
         </button>
       </nav>
