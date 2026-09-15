@@ -21,6 +21,7 @@ import com.dongholab.pagetuner.ui.common.EinkSegmentedControl
 private enum class LocalSection(val title: String) {
     Library("Library"),
     Files("Device files"),
+    Transfer("ZIP"),
 }
 
 @Composable
@@ -32,6 +33,7 @@ fun LocalScreen(
     onDeleteBook: (LocalBook) -> Unit,
     onUpdateBookOrganization: (com.dongholab.pagetuner.library.LocalBook, String, String) -> Unit,
     onImportFile: (java.io.File) -> Unit,
+    transferContent: @Composable () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     var selectedSection by remember { mutableStateOf(LocalSection.Library) }
@@ -60,6 +62,7 @@ fun LocalScreen(
                 busy = busy,
                 onImportFile = onImportFile,
             )
+            LocalSection.Transfer -> transferContent()
         }
     }
 }

@@ -13,9 +13,11 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Scaffold
@@ -59,6 +61,9 @@ import com.dongholab.pagetuner.library.toLocalBookBookmark
 import com.dongholab.pagetuner.library.toReaderAnnotation
 import com.dongholab.pagetuner.library.toReaderBookmark
 import com.dongholab.pagetuner.reader.ReaderViewModel
+import com.dongholab.pagetuner.portable.PortableLibraryViewModel
+import com.dongholab.pagetuner.portable.PortableLibraryPanel
+import com.dongholab.pagetuner.portable.PortableOpened
 import com.dongholab.pagetuner.settings.ReaderSettings
 import com.dongholab.pagetuner.settings.ReaderSettingsStore
 import com.dongholab.pagetuner.settings.SettingsViewModel
@@ -77,6 +82,9 @@ import com.dongholab.pagetuner.translation.TranslationRuntimeSecrets
 import com.dongholab.pagetuner.translation.TranslationSettings
 import com.dongholab.pagetuner.translation.TranslationStatus
 import com.dongholab.pagetuner.translation.TranslationViewModel
+import com.dongholab.pagetuner.translation.sync.ServerLibraryViewModel
+import com.dongholab.pagetuner.translation.sync.ServerLibraryEvent
+import com.dongholab.pagetuner.translation.sync.ServerLibraryKind
 import com.dongholab.pagetuner.translation.glossary.BookGlossaryStore
 import com.dongholab.pagetuner.translation.glossary.BookGlossaryViewModel
 import com.dongholab.pagetuner.translation.glossary.GlossaryTranslationProvider
@@ -86,6 +94,7 @@ import com.dongholab.pagetuner.ui.common.AppTabNavigation
 import com.dongholab.pagetuner.ui.common.ComingSoonPanel
 import com.dongholab.pagetuner.ui.common.LocalListLayoutMode
 import com.dongholab.pagetuner.ui.common.StatusStrip
+import com.dongholab.pagetuner.ui.common.EinkSegmentedControl
 import com.dongholab.pagetuner.ui.reader.DocumentDetailsDialog
 import com.dongholab.pagetuner.ui.reader.ReaderAnnotationPanel
 import com.dongholab.pagetuner.ui.reader.ReaderBookmarkPanel
@@ -102,6 +111,7 @@ import com.dongholab.pagetuner.ui.screen.LocalScreen
 import com.dongholab.pagetuner.ui.screen.ReaderActions
 import com.dongholab.pagetuner.ui.screen.SettingsScreen
 import com.dongholab.pagetuner.ui.screen.WebNovelScreen
+import com.dongholab.pagetuner.ui.screen.ServerLibraryScreen
 import com.dongholab.pagetuner.ui.screen.buildReaderActions
 import com.dongholab.pagetuner.ui.text.localizedMessage
 import com.dongholab.pagetuner.ui.text.readableMessage
@@ -120,8 +130,12 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         setContent {
-            PageTurnerTheme(darkTheme = false, dynamicColor = false) {
-                PageTurnerApp()
+            val accountViewModel: ServerLibraryViewModel = viewModel()
+            val accountState by accountViewModel.state.collectAsState()
+            com.dongholab.pagetuner.ui.common.AccountLocale(accountState.uiLocale) {
+                PageTurnerTheme(darkTheme = false, dynamicColor = false) {
+                    PageTurnerApp()
+                }
             }
         }
     }
@@ -172,10 +186,12 @@ fun PageTurnerApp() {
     val settingsViewModel: SettingsViewModel = viewModel(factory = SettingsViewModel.Factory(settingsStore))
     val readerViewModel: ReaderViewModel = viewModel(factory = ReaderViewModel.Factory(context.sampleDocument()))
     val libraryViewModel: LibraryViewModel = viewModel(factory = LibraryViewModel.Factory(localLibraryStore))
+    val portableViewModel: PortableLibraryViewModel = viewModel(factory = PortableLibraryViewModel.Factory(context, localLibraryStore))
     val webCatalogViewModel: WebCatalogViewModel = viewModel(
         factory = WebCatalogViewModel.Factory(cache = remoteCatalogCache, accountStore = remoteSourceAccountStore),
     )
     val translationViewModel: TranslationViewModel = viewModel()
+    val serverLibraryViewModel: ServerLibraryViewModel = viewModel()
     val glossaryViewModel: BookGlossaryViewModel = viewModel(
         factory = BookGlossaryViewModel.Factory(glossaryStore),
     )
@@ -184,8 +200,10 @@ fun PageTurnerApp() {
     val readerSettings by settingsViewModel.settings.collectAsState(initial = ReaderSettings())
     val readerState by readerViewModel.uiState.collectAsState()
     val libraryState by libraryViewModel.uiState.collectAsState()
+    val portableState by portableViewModel.state.collectAsState()
     val webCatalogState by webCatalogViewModel.uiState.collectAsState()
     val translationState by translationViewModel.uiState.collectAsState()
+    val serverLibraryState by serverLibraryViewModel.state.collectAsState()
     val glossaryState by glossaryViewModel.uiState.collectAsState()
 
     // — UI state
@@ -206,6 +224,9 @@ fun PageTurnerApp() {
     var webCatalogRoute by remember { mutableStateOf<RemoteCatalogRoute>(RemoteCatalogRoute.SourceSystems) }
     var readerFullscreen by rememberSaveable { mutableStateOf(false) }
     var revealReaderCacheLookup by remember { mutableStateOf(false) }
+    var webNovelSection by remember { mutableStateOf("웹소설") }
+    var serverPreviewTranslatedDocumentId by remember { mutableStateOf<String?>(null) }
+    var portableOpened by remember { mutableStateOf<PortableOpened?>(null) }
 
     // — Derived reader state
     val localBooks = libraryState.books
@@ -215,7 +236,8 @@ fun PageTurnerApp() {
     val pdfSourceUri = readerState.pdfSourceUri
     val currentBookId = readerState.currentBookId
     val currentBook = localBooks.firstOrNull { it.id == currentBookId }
-    val currentContentAlreadyTranslated = currentBook?.contentIsTranslated == true
+    val currentContentAlreadyTranslated = currentBook?.contentIsTranslated == true || serverPreviewTranslatedDocumentId == document.id ||
+        (portableOpened?.let { it.entry.readerId == document.id && it.entry.document.kind == "translation" } == true)
     val controlsVisible = readerState.controlsVisible
     val showDocumentDetails = readerState.showDocumentDetails
     val bookmarks = readerState.bookmarks
@@ -303,7 +325,7 @@ fun PageTurnerApp() {
         paceMode = readerSettings.paceMode,
     )
     val activeGlossary = glossaryState.glossary
-    val repository = remember(settings, cache, activeGlossary?.translationFingerprint) {
+    val activeTranslationProvider = remember(settings, cache, activeGlossary?.bookId, activeGlossary?.translationFingerprint) {
         val provider = TranslationProviderFactory.create(
             settings = settings,
             initialCharacterAliases = activeGlossary?.characterAliases.orEmpty(),
@@ -311,13 +333,13 @@ fun PageTurnerApp() {
                 { suggestions -> glossaryViewModel.mergeLlmCharacterAliases(suggestions) }
             },
         )
-        TranslationRepository(
-            provider = activeGlossary
+        activeGlossary
                 ?.takeIf { it.activeEntries.isNotEmpty() }
                 ?.let { GlossaryTranslationProvider(provider, it) }
-                ?: provider,
-            cache = cache,
-        )
+                ?: provider
+    }
+    val repository = remember(activeTranslationProvider, cache) {
+        TranslationRepository(provider = activeTranslationProvider, cache = cache)
     }
     val tableOfContents = document.tableOfContents
     val currentChapterIndex = tableOfContents.indexOfLast { it.pageIndex <= currentPage.index }
@@ -484,6 +506,74 @@ fun PageTurnerApp() {
                     readerReturnTab = AppTab.WebNovel
                     appStatusText = resources.getString(R.string.status_web_catalog_downloaded, event.item.title)
                     libraryViewModel.importRemoteBook(event.item, event.bytes)
+                }
+            }
+        }
+    }
+    val portableImportLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri: Uri? ->
+        uri?.let(portableViewModel::importArchive)
+    }
+    val portableExportLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/zip")) { uri: Uri? ->
+        portableViewModel.writeExport(uri)
+    }
+    LaunchedEffect(portableViewModel) {
+        launch { portableViewModel.exportReady.collect { portableExportLauncher.launch(it) } }
+        launch { portableViewModel.opened.collect { opened ->
+            portableOpened = opened
+            readerReturnTab = AppTab.Local
+            readerSubPage = com.dongholab.pagetuner.ui.reader.ReaderSubPage.READER
+            navHistoryStack.clear()
+            pendingReadAndTranslate = false
+            pendingTranslationDocumentId = null
+            translationViewModel.resetForDocument()
+            pdfPageBitmap = null; pdfPageCache = emptyMap()
+            readerViewModel.applyLoadedDocument(opened.loaded, null, opened.pageIndex, opened.bookmarks, opened.annotations)
+        } }
+    }
+    LaunchedEffect(document.id, pageIndex, bookmarks, annotations) {
+        portableOpened?.takeIf { it.entry.readerId == document.id }?.let {
+            portableViewModel.persistReader(it, pageIndex, bookmarks, annotations)
+        }
+    }
+
+    LaunchedEffect(serverLibraryViewModel) {
+        serverLibraryViewModel.events.collect { event ->
+            when (event) {
+                is ServerLibraryEvent.Open -> {
+                    val downloaded = event.document
+                    readerReturnTab = AppTab.WebNovel
+                    readerSubPage = com.dongholab.pagetuner.ui.reader.ReaderSubPage.READER
+                    pendingReadAndTranslate = false
+                    pendingTranslationDocumentId = null
+                    navHistoryStack.clear()
+                    translationViewModel.resetForDocument()
+                    if (event.saveToDevice) {
+                        try { portableViewModel.retainServerDownload(downloaded) }
+                        catch (cancelled: kotlinx.coroutines.CancellationException) { throw cancelled }
+                        catch (error: Exception) { appErrorText = error.message ?: resources.getString(R.string.portable_error_write) }
+                        libraryViewModel.importRemoteBook(
+                            com.dongholab.pagetuner.source.RemoteBookItem(
+                                identity = com.dongholab.pagetuner.source.RemoteBookIdentity(
+                                    com.dongholab.pagetuner.source.RemoteSourceType.PageTurnerWebCatalog,
+                                    event.accountKey, downloaded.entry.recordId),
+                                title = downloaded.entry.title, format = DocumentFormat.TEXT,
+                                language = downloaded.entry.language, downloadUrl = "server-library:${downloaded.entry.recordId}",
+                                seriesId = "server-${downloaded.entry.recordId}-${downloaded.entry.kind.name}",
+                                seriesTitle = downloaded.entry.title, chapterNumber = 1,
+                                contentVariant = if (downloaded.entry.kind == ServerLibraryKind.Translations)
+                                    com.dongholab.pagetuner.source.RemoteBookContentVariant.Translated
+                                else com.dongholab.pagetuner.source.RemoteBookContentVariant.Original,
+                            ), downloaded.text.toByteArray(Charsets.UTF_8),
+                        )
+                    } else {
+                        val parsed = withContext(Dispatchers.Default) {
+                            com.dongholab.pagetuner.document.PlainTextDocumentParser.parse(downloaded.entry.title, downloaded.text)
+                        }
+                        serverPreviewTranslatedDocumentId = parsed.id.takeIf { downloaded.entry.kind == ServerLibraryKind.Translations }
+                        pdfPageBitmap = null
+                        pdfPageCache = emptyMap()
+                        readerViewModel.applyLoadedDocument(LoadedReaderDocument(parsed), null, 0)
+                    }
                 }
             }
         }
@@ -666,12 +756,22 @@ fun PageTurnerApp() {
                                 readerReturnTab = AppTab.Local
                                 libraryViewModel.importBook(Uri.fromFile(file))
                             },
+                            transferContent = {
+                                PortableLibraryPanel(localBooks, currentBookId, portableState,
+                                    onImport = { portableImportLauncher.launch(arrayOf("application/zip", "application/octet-stream", "application/x-zip-compressed")) },
+                                    onNativeExport = { book, includeTranslation ->
+                                        portableViewModel.prepareNativeExport(book, includeTranslation, settings, activeTranslationProvider.id, activeGlossary)
+                                    },
+                                    onExport = portableViewModel::prepareExport,
+                                    onOpen = portableViewModel::open)
+                            },
                         )
                         AppTab.Favorites -> FavoritesScreen(
                             favorites = favoritesList,
                             displayMode = displayMode,
                             busy = busy,
                             onOpenNovelDetail = { novel ->
+                                webNovelSection = "웹소설"
                                 navHistoryStack.add(NavigationHistoryFrame.TabFrame(selectedTab))
                                 val parentCatalogUrl = webCatalogState.sourceAccounts
                                     .firstOrNull { it.id == novel.identity.accountId }
@@ -684,7 +784,46 @@ fun PageTurnerApp() {
                             },
                             onRemoveFavorite = { novel -> favoritesList = favoriteStore.toggleFavorite(novel) },
                         )
-                        AppTab.WebNovel -> WebNovelScreen(
+                        AppTab.WebNovel -> Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                            EinkSegmentedControl(listOf("웹소설", "서버 서재"), webNovelSection,
+                                { webNovelSection = it }, label = { it })
+                            if (webNovelSection == "서버 서재") {
+                                ServerLibraryScreen(
+                                    state = serverLibraryState, documentTitle = document.title, externalBusy = busy,
+                                    onEndpoint = serverLibraryViewModel::updateEndpoint,
+                                    onUsername = serverLibraryViewModel::updateUsername,
+                                    onPassword = serverLibraryViewModel::updatePassword,
+                                    onConnect = serverLibraryViewModel::connect,
+                                    onDisconnect = serverLibraryViewModel::disconnect,
+                                    onRegister = serverLibraryViewModel::register,
+                                    onProfileDraft = serverLibraryViewModel::updateProfileDraft,
+                                    onSaveProfile = serverLibraryViewModel::saveProfile,
+                                    onLanguages = serverLibraryViewModel::loadLanguages,
+                                    onApplyTargetLanguage = settingsViewModel::updateTargetLanguage,
+                                    onPage = serverLibraryViewModel::loadPage,
+                                    onRead = serverLibraryViewModel::read,
+                                    onPrepareTranslation = serverLibraryViewModel::prepareTranslation,
+                                    onJobDraft = serverLibraryViewModel::updateJobDraft,
+                                    onJobProvider = serverLibraryViewModel::selectJobProvider,
+                                    onSubmitJob = serverLibraryViewModel::submitTranslationJob,
+                                    onJobsPage = serverLibraryViewModel::loadJobs,
+                                    onCancelJob = serverLibraryViewModel::cancelServerJob,
+                                    onRetryJob = serverLibraryViewModel::prepareRetry,
+                                    onReadJob = serverLibraryViewModel::readCompletedJob,
+                                    onPublish = { serverLibraryViewModel.publish(document, settings, activeGlossary, activeTranslationProvider.id, cache) },
+                                    onRestore = { serverLibraryViewModel.restore(document, settings, activeGlossary, activeTranslationProvider.id, cache) },
+                                    onCancel = serverLibraryViewModel::cancel,
+                                    modifier = Modifier.weight(1f),
+                                )
+                            } else {
+                                if (webCatalogState.busy) {
+                                    TextButton(onClick = {
+                                        webCatalogViewModel.cancelCatalogTranslation()
+                                        webCatalogViewModel.cancelOfflineDownload()
+                                    }, modifier = Modifier.fillMaxWidth().height(44.dp)) { Text("목록 번역 / 오프라인 다운로드 취소") }
+                                }
+                                Box(Modifier.weight(1f)) {
+                                    WebNovelScreen(
                             state = webCatalogState,
                             route = webCatalogRoute,
                             onRouteChange = { route -> webCatalogRoute = route },
@@ -728,7 +867,10 @@ fun PageTurnerApp() {
                                     includeTranslation = settings.isProviderConfigured,
                                 )
                             },
-                        )
+                                    )
+                                }
+                            }
+                        }
                         AppTab.RemoteDrive -> ComingSoonPanel(
                             title = "Drive",
                             description = "Google Drive / FTP 연동 기능은 준비중입니다.",

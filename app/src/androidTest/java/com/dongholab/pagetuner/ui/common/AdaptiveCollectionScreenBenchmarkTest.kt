@@ -75,7 +75,7 @@ class AdaptiveCollectionScreenBenchmarkTest {
 
     @Test
     fun benchmarkPagedAndTouchScrollForEveryAdaptiveCollectionScreen() {
-        assertEquals(11, ScreenFixtures.size)
+        assertEquals(19, ScreenFixtures.size)
 
         val activeScenario = mutableStateOf(
             BenchmarkScenario(ScreenFixtures.first(), ListLayoutMode.Paged, runId = 0),
@@ -238,6 +238,7 @@ private data class ScreenFixture(
 )
 
 private val ScreenFixtures = listOf(
+    ScreenFixture("portable_library", "Local · ZIP exchange", "PortableLibraryPanel", 124, 3, 48, 3, 3),
     ScreenFixture("local_library", "Local · Library", "LocalLibraryPanel", 124, 3, 48, 4, 2),
     ScreenFixture("local_directory", "Local · Device files", "LocalDirectoryBrowserPanel", 64, 5, 48, 1, 0),
     ScreenFixture("favorites", "Favorites", "FavoritesPanel", 116, 3, 48, 3, 1),
@@ -249,6 +250,13 @@ private val ScreenFixtures = listOf(
     ScreenFixture("book_glossary", "Reader · Book dictionary", "BookGlossaryPanel", 92, 4, 60, 2, 2),
     ScreenFixture("reader_bookmarks", "Reader · Bookmarks", "ReaderBookmarkPanel", 64, 5, 48, 2, 1),
     ScreenFixture("reader_annotations", "Reader · Notes", "ReaderAnnotationPanel", 76, 4, 48, 2, 1),
+    ScreenFixture("server_connection", "Server · Connection", "ServerLibraryScreen/connection", 76, 3, 48, 1, 0),
+    ScreenFixture("server_profile", "Server · Account profile", "ServerLibraryScreen/profile", 76, 3, 48, 1, 0),
+    ScreenFixture("server_languages", "Server · UI languages", "ServerLibraryScreen/languages", 108, 3, 14, 3, 1),
+    ScreenFixture("server_library", "Server · Library", "ServerLibraryScreen/library", 160, 2, 12, 3, 3),
+    ScreenFixture("server_document", "Server · This document", "ServerLibraryScreen/document", 154, 2, 24, 4, 1),
+    ScreenFixture("server_job_form", "Server · Translation form", "ServerTranslationJobsPanel/form", 76, 3, 8, 1, 0),
+    ScreenFixture("server_job_list", "Server · Translation jobs", "ServerTranslationJobsPanel/jobs", 176, 2, 12, 5, 1),
 )
 
 @Composable

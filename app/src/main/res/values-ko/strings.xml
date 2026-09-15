@@ -341,4 +341,20 @@
     <string name="web_catalog_no_filter_matches">조건에 맞는 웹소설이 없습니다.</string>
     <string name="web_catalog_language_filter">언어 필터</string>
     <string name="web_catalog_all_languages">모든 언어</string>
+    <string name="portable_import">ZIP 가져오기</string>
+    <string name="portable_export">ZIP 내보내기</string>
+    <string name="portable_summary">PC 웹과 책을 주고받습니다. 독서 기록과 보관된 이미지를 포함합니다. ZIP 최대 32 MiB.</string>
+    <string name="portable_imported_library">가져온 ZIP</string>
+    <string name="portable_native_library">기기 서재</string>
+    <string name="portable_with_translation">번역 포함</string>
+    <string name="portable_open">읽기</string>
+    <string name="portable_empty">이 구역에 책이 없습니다.</string>
+    <string name="portable_busy">책 데이터를 검증하고 준비하고 있습니다…</string>
+    <string name="portable_duplicate">이미 가져온 패키지입니다. 저장된 변경 사항을 유지했습니다.</string>
+    <string name="portable_imported">패키지를 가져왔습니다. 기존 책은 유지했습니다.</string>
+    <string name="portable_exported">ZIP을 저장했습니다.</string>
+    <string name="portable_error_read">서재 패키지를 읽을 수 없습니다.</string>
+    <string name="portable_error_write">서재 패키지를 저장할 수 없습니다.</string>
+    <string name="portable_error_asset">PDF 원본 또는 이미지 파일을 찾을 수 없습니다.</string>
+    <string name="portable_error_incomplete">선택한 번역이 미완료 상태입니다. 모든 문단을 번역한 후 번역 포함으로 내보내세요.</string>
 </resources>
