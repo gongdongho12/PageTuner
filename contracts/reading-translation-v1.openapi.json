@@ -1,0 +1,687 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "PageTurner Reading Translation Previews",
+    "version": "1.0.0",
+    "description": "Authenticated, bounded page-range translation. See reading-translation-v1.md for hash, pacing, cancellation and TTL semantics."
+  },
+  "paths": {
+    "/api/v1/reading-translations": {
+      "post": {
+        "operationId": "startReadingTranslation",
+        "security": [
+          {
+            "basicAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "header",
+            "name": "X-CSRF-TOKEN",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Fetch /api/v1/csrf and send its token with the same-session cookie."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReadingTranslationRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Temporary reading state, never a full-chapter artifact.",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReadingTranslationResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Authentication, source/range validation, request conflict or capacity error.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkflowProblem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication, source/range validation, request conflict or capacity error.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkflowProblem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Authentication, source/range validation, request conflict or capacity error.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkflowProblem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Authentication, source/range validation, request conflict or capacity error.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkflowProblem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Authentication, source/range validation, request conflict or capacity error.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkflowProblem"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Authentication, source/range validation, request conflict or capacity error.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkflowProblem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Authentication, source/range validation, request conflict or capacity error.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkflowProblem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/reading-translations/{requestId}": {
+      "parameters": [
+        {
+          "in": "path",
+          "name": "requestId",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
+      ],
+      "get": {
+        "operationId": "getReadingTranslation",
+        "security": [
+          {
+            "basicAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Temporary reading state, never a full-chapter artifact.",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReadingTranslationResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Authentication, source/range validation, request conflict or capacity error.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkflowProblem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication, source/range validation, request conflict or capacity error.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkflowProblem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Authentication, source/range validation, request conflict or capacity error.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkflowProblem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Authentication, source/range validation, request conflict or capacity error.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkflowProblem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Authentication, source/range validation, request conflict or capacity error.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkflowProblem"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Authentication, source/range validation, request conflict or capacity error.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkflowProblem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Authentication, source/range validation, request conflict or capacity error.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkflowProblem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/reading-translations/{requestId}/cancel": {
+      "parameters": [
+        {
+          "in": "path",
+          "name": "requestId",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
+      ],
+      "post": {
+        "operationId": "cancelReadingTranslation",
+        "security": [
+          {
+            "basicAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "header",
+            "name": "X-CSRF-TOKEN",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Fetch /api/v1/csrf and send its token with the same-session cookie."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Temporary reading state, never a full-chapter artifact.",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReadingTranslationResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Authentication, source/range validation, request conflict or capacity error.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkflowProblem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication, source/range validation, request conflict or capacity error.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkflowProblem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Authentication, source/range validation, request conflict or capacity error.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkflowProblem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Authentication, source/range validation, request conflict or capacity error.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkflowProblem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Authentication, source/range validation, request conflict or capacity error.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkflowProblem"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Authentication, source/range validation, request conflict or capacity error.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkflowProblem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Authentication, source/range validation, request conflict or capacity error.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkflowProblem"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "basicAuth": {
+        "type": "http",
+        "scheme": "basic"
+      }
+    },
+    "schemas": {
+      "ProviderKind": {
+        "type": "string",
+        "enum": [
+          "GOOGLE_CLOUD",
+          "GOOGLE_WEB_TRANSLATE_HTML",
+          "DEEPSEEK",
+          "OPENAI_COMPATIBLE_LLM"
+        ]
+      },
+      "GlossaryEntry": {
+        "type": "object",
+        "description": "Defaults preserve the original source/target contract. Kind and display aliases affect only reader display, while enabled and caseSensitive also affect the shared translation fingerprint. Display options never rewrite a stored translation artifact.",
+        "required": [
+          "source",
+          "target"
+        ],
+        "properties": {
+          "source": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "target": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "Character",
+              "Place",
+              "Term"
+            ],
+            "description": "Omitted means Character."
+          },
+          "displayTerm": {
+            "type": "string",
+            "maxLength": 200,
+            "description": "Omitted means no display alias."
+          },
+          "caseSensitive": {
+            "type": "boolean",
+            "description": "Omitted means false."
+          },
+          "enabled": {
+            "type": "boolean",
+            "description": "Omitted means true."
+          }
+        }
+      },
+      "WorkflowProblem": {
+        "type": "object",
+        "description": "RFC 9457 problem response. Display safe messages; never echo provider exception details or credentials.",
+        "properties": {
+          "type": {
+            "type": "string",
+            "format": "uri"
+          },
+          "title": {
+            "type": "string"
+          },
+          "status": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "detail": {
+            "type": "string"
+          },
+          "instance": {
+            "type": "string",
+            "format": "uri"
+          },
+          "code": {
+            "type": "string"
+          }
+        }
+      },
+      "ReadingFragment": {
+        "type": "object",
+        "required": [
+          "paragraphId",
+          "start",
+          "end"
+        ],
+        "properties": {
+          "paragraphId": {
+            "type": "string",
+            "maxLength": 200,
+            "minLength": 1
+          },
+          "start": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "end": {
+            "type": "integer",
+            "minimum": 1
+          }
+        },
+        "description": "Nonempty half-open UTF-16 range in the owned immutable source, without splitting surrogate pairs."
+      },
+      "ReadingTranslationItem": {
+        "type": "object",
+        "required": [
+          "paragraphId",
+          "start",
+          "end",
+          "text"
+        ],
+        "properties": {
+          "paragraphId": {
+            "type": "string",
+            "maxLength": 200,
+            "minLength": 1
+          },
+          "start": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "end": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "text": {
+            "type": "string",
+            "maxLength": 96000,
+            "minLength": 1
+          }
+        },
+        "description": "Nonempty half-open UTF-16 range in the owned immutable source, without splitting surrogate pairs."
+      },
+      "ReadingTranslationRequest": {
+        "type": "object",
+        "required": [
+          "requestId",
+          "chapterRecordId",
+          "sourceRevision",
+          "fragments"
+        ],
+        "properties": {
+          "requestId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "chapterRecordId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "sourceRevision": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          },
+          "fragments": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 64,
+            "items": {
+              "$ref": "#/components/schemas/ReadingFragment"
+            },
+            "description": "At most 24000 total source characters. Source text is extracted by the server."
+          },
+          "providerKind": {
+            "$ref": "#/components/schemas/ProviderKind",
+            "default": "GOOGLE_WEB_TRANSLATE_HTML"
+          },
+          "targetLanguage": {
+            "type": "string",
+            "pattern": "^[A-Za-z][A-Za-z0-9-]{0,23}$",
+            "description": "Target language must differ from source and must not be auto.",
+            "default": "ko"
+          },
+          "sourceLanguage": {
+            "type": "string",
+            "nullable": true,
+            "description": "Defaults to the imported chapter language."
+          },
+          "endpoint": {
+            "type": "string",
+            "nullable": true,
+            "description": "LLM endpoint; must be allowed by server configuration. Never fetched by the browser."
+          },
+          "model": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 200
+          },
+          "apiKey": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 4096,
+            "writeOnly": true,
+            "description": "Memory-only credential for this execution. Must never be logged or written to job records, offline storage, URLs or response bodies."
+          },
+          "glossary": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/GlossaryEntry"
+            },
+            "maxItems": 200,
+            "description": "Source terms must be unique after case folding and trimming."
+          },
+          "readingWordsPerMinute": {
+            "type": "integer",
+            "minimum": 120,
+            "maximum": 420,
+            "default": 210
+          },
+          "paceMode": {
+            "type": "string",
+            "enum": [
+              "READING",
+              "FAST",
+              "OFFLINE_PREFETCH"
+            ],
+            "default": "READING"
+          }
+        }
+      },
+      "ReadingTranslationResponse": {
+        "type": "object",
+        "required": [
+          "requestId",
+          "status",
+          "chapterRecordId",
+          "sourceRevision",
+          "sourceHash",
+          "providerKind",
+          "targetLanguage",
+          "completedFragments",
+          "totalFragments",
+          "items",
+          "errorCode",
+          "updatedAt",
+          "scope"
+        ],
+        "properties": {
+          "requestId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "QUEUED",
+              "RUNNING",
+              "COMPLETED",
+              "FAILED",
+              "CANCELLED"
+            ]
+          },
+          "chapterRecordId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "sourceRevision": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          },
+          "sourceHash": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          },
+          "providerKind": {
+            "$ref": "#/components/schemas/ProviderKind"
+          },
+          "targetLanguage": {
+            "type": "string",
+            "pattern": "^[A-Za-z][A-Za-z0-9-]{0,23}$",
+            "description": "Target language must differ from source and must not be auto."
+          },
+          "completedFragments": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 64
+          },
+          "totalFragments": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 64
+          },
+          "items": {
+            "type": "array",
+            "maxItems": 64,
+            "items": {
+              "$ref": "#/components/schemas/ReadingTranslationItem"
+            },
+            "description": "Empty unless completed. Exact requested range order; maximum 96000 translated characters in total."
+          },
+          "errorCode": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 100
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "scope": {
+            "type": "string",
+            "enum": [
+              "READING_PREVIEW"
+            ]
+          }
+        }
+      }
+    }
+  }
+}
