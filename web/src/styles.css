@@ -81,6 +81,8 @@
 .account-actions .button-primary {
   flex: 1;
 }
+.account-password-card .account-fields { gap: 10px; }
+.account-password-card h3, .account-password-card .workflow-help, .account-password-card .account-error { margin: 0; }
 .account-error {
   font-size: 11px;
   line-height: 1.7;

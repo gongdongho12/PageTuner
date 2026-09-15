@@ -35,7 +35,7 @@ class ApiRequestBodyLimitTest {
     }
 
     @Test fun `exact boundary is accepted and job and chapter budgets are separate`() {
-        for ((path, budget) in listOf("/api/v1/accounts/me" to 16 * 1024, "/api/v1/translation-jobs" to 512 * 1024, "/api/v1/catalog-translations" to 512 * 1024, "/api/v1/chapters/upload" to 8 * 1024 * 1024)) {
+        for ((path, budget) in listOf("/api/v1/accounts/me/password" to 4 * 1024, "/api/v1/accounts/me" to 16 * 1024, "/api/v1/translation-jobs" to 512 * 1024, "/api/v1/catalog-translations" to 512 * 1024, "/api/v1/chapters/upload" to 8 * 1024 * 1024)) {
             var invoked = false
             ApiRequestBodyLimit().doFilter(request(path, ByteArray(budget), true), MockHttpServletResponse()) { wrapped, _ ->
                 invoked = true

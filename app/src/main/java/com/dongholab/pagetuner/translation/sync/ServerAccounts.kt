@@ -19,7 +19,7 @@ data class ServerAccountDraft(val displayName: String = "", val locale: String =
 data class ServerAccountLanguage(val tag: String, val nativeName: String, val displayName: String, val available: Boolean, val fallbackTag: String)
 data class ServerAccountLanguages(val items: List<ServerAccountLanguage>, val defaultTag: String)
 
-enum class ServerAccountInputField { Username, Password, DisplayName, Locale, TargetLanguage }
+enum class ServerAccountInputField { Username, Password, CurrentPassword, PasswordUnchanged, PasswordConfirmation, DisplayName, Locale, TargetLanguage }
 class ServerAccountInputException(val field: ServerAccountInputField) : IllegalArgumentException("Invalid account field: $field")
 
 internal object ServerAccountJson {

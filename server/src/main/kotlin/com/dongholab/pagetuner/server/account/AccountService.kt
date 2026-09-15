@@ -31,7 +31,7 @@ class AccountService(
         val username = request.username.trim().lowercase(java.util.Locale.ROOT)
         require(username.length in 3..40 && username.matches(Regex("[a-z0-9][a-z0-9_.-]*"))) { "Username must be 3–40 lowercase letters, numbers, dots, underscores or hyphens." }
         val profile = validateProfile(UpdateAccountRequest(request.displayName, request.locale, request.targetLanguage))
-        require(request.password.codePointCount(0, request.password.length) >= 10 && request.password.toByteArray(Charsets.UTF_8).size <= 72 && request.password.none(Char::isISOControl)) {
+        require(validPassword(request.password)) {
             "Password must contain at least 10 characters, fit 72 UTF-8 bytes, and contain no control characters."
         }
         if (bootstrapPassword.isNotBlank() && username == bootstrapUsername.lowercase(java.util.Locale.ROOT)) duplicate()
@@ -67,6 +67,27 @@ class AccountService(
         if (changed != 1) throw AccountFailure("ACCOUNT_NOT_FOUND", 404, "Account not found.")
         return profile(username)
     }
+
+    @Transactional
+    fun changePassword(username: String, request: ChangePasswordRequest) {
+        val stored = find(username) ?: throw AccountFailure("ACCOUNT_NOT_FOUND", 404, "Account not found.")
+        // BCrypt accepts at most 72 UTF-8 bytes. Never trim either password or expose it in an error.
+        val matches = request.currentPassword.isNotEmpty() && request.currentPassword.none(Char::isISOControl) &&
+            request.currentPassword.toByteArray(Charsets.UTF_8).size <= 72 &&
+            stored.passwordHash.startsWith("{bcrypt}") &&
+            encoder.matches(request.currentPassword, stored.passwordHash.removePrefix("{bcrypt}"))
+        if (!matches) throw AccountFailure("CURRENT_PASSWORD_INCORRECT", 400, "The current password is incorrect.")
+        if (request.newPassword == request.currentPassword) throw AccountFailure("PASSWORD_UNCHANGED", 400, "Choose a different password.")
+        if (!validPassword(request.newPassword)) throw AccountFailure("INVALID_PASSWORD", 400,
+            "Password must contain at least 10 characters, fit 72 UTF-8 bytes, and contain no control characters.")
+        val hash = "{bcrypt}" + encoder.encode(request.newPassword)
+        val changed = jdbc.update("update reader_account set password_hash=?,updated_at=now() where id=? and password_hash=?",
+            hash, stored.profile.accountId, stored.passwordHash)
+        if (changed != 1) throw AccountFailure("PASSWORD_CHANGE_CONFLICT", 409, "The password changed during this request. Sign in again.")
+    }
+
+    private fun validPassword(password: String) = password.codePointCount(0, password.length) >= 10 &&
+        password.toByteArray(Charsets.UTF_8).size <= 72 && password.none(Char::isISOControl)
 
     private fun validateProfile(request: UpdateAccountRequest): UpdateAccountRequest {
         val name = request.displayName.trim()

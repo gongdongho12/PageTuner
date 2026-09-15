@@ -48,6 +48,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/accounts/me/password": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Change the authenticated account password after checking currentPassword. Passwords are never trimmed. Maximum request body: 4096 UTF-8 bytes. Five attempts per account per 15-minute window, with a bounded process-local limiter. Every subsequent request revalidates Basic credentials; existing session cookies carry CSRF tokens only and cannot authenticate the old password. On success discard the old credentials and sign in with the new password. Account identity, profile and library ownership remain unchanged. */
+        post: operations["changeMyPassword"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/accounts/me": {
         parameters: {
             query?: never;
@@ -69,6 +86,20 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        ChangePasswordRequest: {
+            /** @description Exact current password; whitespace is preserved. Never persisted or logged in plaintext. */
+            currentPassword: string;
+            /** @description At least 10 Unicode code points, at most 72 UTF-8 bytes, no ISO control characters, and different from currentPassword. Whitespace is preserved. */
+            newPassword: string;
+        };
+        AccountProblem: {
+            type: string;
+            title: string;
+            status: number;
+            detail: string;
+            /** @description Stable account error code when supplied. Never contains credentials. */
+            code?: string;
+        };
         AccountProfile: {
             /** Format: uuid */
             accountId: string;
@@ -268,6 +299,84 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+        };
+    };
+    changeMyPassword: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ChangePasswordRequest"];
+            };
+        };
+        responses: {
+            /** @description Password changed; empty response body. */
+            204: {
+                headers: {
+                    "Cache-Control"?: "no-store";
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description CURRENT_PASSWORD_INCORRECT, PASSWORD_UNCHANGED or INVALID_PASSWORD. Malformed JSON also returns 400. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["AccountProblem"];
+                };
+            };
+            /** @description Current Basic credentials are required. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Missing or invalid CSRF token. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Account no longer exists. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description PASSWORD_CHANGE_CONFLICT: another request replaced the password before this update committed. Sign in again. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["AccountProblem"];
+                };
+            };
+            /** @description Request body exceeds 4096 bytes, including chunked requests. */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description PASSWORD_CHANGE_LIMIT: five attempts in this account's 15-minute window. The existing LOGIN_LIMIT can also reject repeated failed Basic authentication. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["AccountProblem"];
+                };
             };
         };
     };

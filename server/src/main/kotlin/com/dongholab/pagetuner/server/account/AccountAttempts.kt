@@ -8,7 +8,9 @@ class AccountAttempts {
     private data class Window(val until: Long, var count: Int)
     private val registrations = mutableMapOf<String, Window>()
     private val failures = mutableMapOf<String, Window>()
+    private val passwordChanges = mutableMapOf<String, Window>()
     @Synchronized fun register(address: String): Boolean = increment(registrations, address, 10, 30 * 60_000L)
+    @Synchronized fun changePassword(username: String): Boolean = increment(passwordChanges, username, 5, 15 * 60_000L)
     @Synchronized fun canAuthenticate(address: String): Boolean {
         purge(failures)
         return (failures[address]?.count ?: 0) < 20

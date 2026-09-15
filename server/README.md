@@ -43,6 +43,7 @@ Implemented endpoints:
 - `GET /api/v1/accounts/csrf`, `GET /api/v1/accounts/languages` (public)
 - `POST /api/v1/accounts/register` (public, CSRF required)
 - `GET /api/v1/accounts/me`, `PATCH /api/v1/accounts/me`
+- `POST /api/v1/accounts/me/password` (authenticated, CSRF required, empty 204 response)
 - `GET /api/v1/novel-sources`, `GET /api/v1/novels/catalog`, `GET /api/v1/novels/detail`
 - `POST /api/v1/chapters/import`, `POST /api/v1/chapters/upload`, `GET /api/v1/chapters`, `GET /api/v1/chapters/{recordId}`
 - `GET /api/v1/translation-providers`, `POST /api/v1/translation-jobs`, `GET /api/v1/translation-jobs`
@@ -55,6 +56,15 @@ Implemented endpoints:
 보관하므로 후속 언어팩을 위해 계정 마이그레이션이 필요하지 않습니다. 현재 한국어·영어
 팩을 제공하고 나머지는 `effectiveLocale=en`으로 안내합니다. API 키는 작업 실행 메모리에만
 두고 계정/번역 작업 테이블에는 저장하지 않습니다.
+
+비밀번호 변경은 `currentPassword`, `newPassword`를 받고 현재 비밀번호를 다시 확인합니다.
+새 비밀번호에는 가입과 같은 길이·UTF-8 바이트·제어문자 규칙을 적용하며 공백은 보존합니다.
+요청 본문은 4 KiB, 시도는 계정별 15분에 5회로 제한합니다. 저장된 해시를 조건으로 원자적
+갱신하여 동시 요청이 먼저 변경한 비밀번호를 덮어쓰지 못하게 합니다. 성공 시 204와
+`Cache-Control: no-store`를 반환하며 이후 새 비밀번호로 로그인해야 합니다. 계정 ID,
+언어 설정과 서재 소유권은 유지됩니다. 세션 쿠키는 CSRF 검증에만 사용하고 Basic 인증은
+매 요청 다시 확인하므로 기존 쿠키로 변경 전 비밀번호를 계속 사용할 수 없습니다.
+기존 로컬 계정의 초기 환경변수 비밀번호 역시 변경 후 다시 덮어쓰지 않습니다.
 
 단일 프로세스 기준 등록은 IP별 30분에 10회, 실패한 Basic 로그인은 15분에 20회 제한합니다.
 프록시 헤더를 임의로 신뢰하지 않습니다. 이메일 없는 사용자 이름 계정이므로 메일 인증,

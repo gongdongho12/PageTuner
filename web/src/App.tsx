@@ -968,6 +968,16 @@ export default function App() {
                     onLogin={connect}
                     onProfile={setAccountProfile}
                     onDisconnect={disconnect}
+                    onPasswordChanged={() => {
+                      if (accountClientRef.current !== accountClient) return;
+                      disconnect();
+                      setNotice(t('비밀번호를 변경했습니다. 새 비밀번호로 다시 로그인해 주세요.'));
+                    }}
+                    onPasswordUncertain={() => {
+                      if (accountClientRef.current !== accountClient) return;
+                      disconnect();
+                      setNotice(t('비밀번호 변경 결과를 확인하지 못했습니다. 새 비밀번호로 로그인을 확인해 주세요.'));
+                    }}
                     onBrowse={() => selectTab("novels")}
                   />
                 ) : tab === 'device' && deviceView === 'exchange' && username ? (

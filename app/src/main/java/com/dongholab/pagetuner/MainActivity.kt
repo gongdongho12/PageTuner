@@ -798,6 +798,8 @@ fun PageTurnerApp() {
                                     onRegister = serverLibraryViewModel::register,
                                     onProfileDraft = serverLibraryViewModel::updateProfileDraft,
                                     onSaveProfile = serverLibraryViewModel::saveProfile,
+                                    onPasswordDraft = serverLibraryViewModel::updatePasswordDraft,
+                                    onChangePassword = serverLibraryViewModel::changePassword,
                                     onLanguages = serverLibraryViewModel::loadLanguages,
                                     onApplyTargetLanguage = settingsViewModel::updateTargetLanguage,
                                     onPage = serverLibraryViewModel::loadPage,

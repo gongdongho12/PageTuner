@@ -2,6 +2,7 @@ package com.dongholab.pagetuner.translation.sync
 
 import java.io.ByteArrayOutputStream
 import java.io.IOException
+import java.net.URI
 import java.util.concurrent.TimeUnit
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.suspendCancellableCoroutine
@@ -13,20 +14,37 @@ import okhttp3.RequestBody.Companion.toRequestBody
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 
-/** HttpURLConnection does not support PATCH on every supported JVM. Keep its existing GET/POST path. */
+/** PATCH and password mutations use bounded, non-retrying HTTP calls. */
 class DefaultTranslationStoreHttpTransport(
     private val standard: TranslationStoreHttpTransport = UrlConnectionTranslationStoreTransport(),
     private val patch: TranslationStoreHttpTransport = PatchTranslationStoreHttpTransport(),
+    private val passwordChange: TranslationStoreHttpTransport = PasswordChangeTranslationStoreHttpTransport(),
 ) : TranslationStoreHttpTransport {
-    override suspend fun execute(request: TranslationStoreHttpRequest): TranslationStoreHttpResponse =
-        if (request.method == "PATCH") patch.execute(request) else standard.execute(request)
+    override suspend fun execute(request: TranslationStoreHttpRequest): TranslationStoreHttpResponse = when {
+        request.method == "PATCH" -> patch.execute(request)
+        request.method == "POST" && URI(request.url).rawPath == "/api/v1/accounts/me/password" -> passwordChange.execute(request)
+        else -> standard.execute(request)
+    }
 }
 
 class PatchTranslationStoreHttpTransport : TranslationStoreHttpTransport {
-    override suspend fun execute(request: TranslationStoreHttpRequest): TranslationStoreHttpResponse = withContext(Dispatchers.IO) {
+    override suspend fun execute(request: TranslationStoreHttpRequest): TranslationStoreHttpResponse {
         require(request.method == "PATCH")
+        return NonRetryingAccountHttpTransport.execute(request)
+    }
+}
+
+class PasswordChangeTranslationStoreHttpTransport : TranslationStoreHttpTransport {
+    override suspend fun execute(request: TranslationStoreHttpRequest): TranslationStoreHttpResponse {
+        require(request.method == "POST" && URI(request.url).rawPath == "/api/v1/accounts/me/password")
+        return NonRetryingAccountHttpTransport.execute(request)
+    }
+}
+
+private object NonRetryingAccountHttpTransport : TranslationStoreHttpTransport {
+    override suspend fun execute(request: TranslationStoreHttpRequest): TranslationStoreHttpResponse = withContext(Dispatchers.IO) {
         val body = requireNotNull(request.body).toRequestBody("application/json; charset=utf-8".toMediaType())
-        val builder = Request.Builder().url(request.url).patch(body)
+        val builder = Request.Builder().url(request.url).method(request.method, body)
         request.headers.forEach { (name, value) -> builder.header(name, value) }
         val call = client.newCall(builder.build())
         suspendCancellableCoroutine { continuation ->
@@ -53,9 +71,7 @@ class PatchTranslationStoreHttpTransport : TranslationStoreHttpTransport {
             }
         }
     }
-    private companion object {
-        val client = OkHttpClient.Builder().followRedirects(false).followSslRedirects(false)
+    private val client = OkHttpClient.Builder().followRedirects(false).followSslRedirects(false)
             .retryOnConnectionFailure(false).connectTimeout(15, TimeUnit.SECONDS)
             .readTimeout(30, TimeUnit.SECONDS).writeTimeout(15, TimeUnit.SECONDS).callTimeout(45, TimeUnit.SECONDS).build()
-    }
 }

@@ -9,6 +9,7 @@ import {
 import { ApiError } from "../lib/errors";
 import { useLocale, effectiveLocale } from "../lib/locale";
 import { Icon } from "./Icon";
+import { AccountPasswordForm } from './AccountPasswordForm';
 
 function LanguageField({
   label,
@@ -81,6 +82,8 @@ export function AccountPanel({
   onLogin,
   onProfile,
   onDisconnect,
+  onPasswordChanged,
+  onPasswordUncertain,
   onBrowse,
 }: {
   client: AccountClient | null;
@@ -94,9 +97,12 @@ export function AccountPanel({
   }) => Promise<boolean>;
   onProfile: (profile: AccountProfile) => void;
   onDisconnect: () => void;
+  onPasswordChanged: () => void;
+  onPasswordUncertain: () => void;
   onBrowse: () => void;
 }) {
   const { t, locale, setLocale } = useLocale();
+  const [passwordOpen, setPasswordOpen] = useState(false);
   const [mode, setMode] = useState<"login" | "register">("login"),
     [step, setStep] = useState(0);
   const [username, setUsername] = useState(initialUsername),
@@ -213,6 +219,9 @@ export function AccountPanel({
     }
   };
   const disabled = busy || connecting;
+  if (profile && client && passwordOpen) return <AccountPasswordForm key={profile.accountId} client={client} username={profile.username}
+    onBack={() => setPasswordOpen(false)} onChanged={() => { setPasswordOpen(false); onPasswordChanged(); }}
+    onUncertain={() => { setPasswordOpen(false); onPasswordUncertain(); }}/>;
   return (
     <section className="account-view">
       <div className="account-intro">
@@ -229,6 +238,7 @@ export function AccountPanel({
         <p>{t("화면 언어와 번역 결과의 언어는 별도로 설정합니다.")}</p>
       </div>
       <div className="account-card">
+        {profile && <nav className="workflow-subtabs"><button disabled={disabled} onClick={() => setPasswordOpen(true)}>{t('비밀번호 변경')}</button></nav>}
         {!profile && (
           <nav className="workflow-subtabs" aria-label={t("계정 설정")}>
             <button
