@@ -1,6 +1,5 @@
 package com.dongholab.pagetuner.translation
 
-import java.net.URLEncoder
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
@@ -19,6 +18,9 @@ class GoogleCloudTranslationProvider(
                 detail = "Google Cloud Translation API key is required.",
             )
         }
+        if (apiKey.length > 4096 || apiKey.any(Char::isISOControl)) {
+            throw providerConfigurationException(ProviderName, "Google Cloud Translation API key is invalid.")
+        }
         if (request.segments.isEmpty()) return emptyList()
 
         return withContext(Dispatchers.IO) {
@@ -32,8 +34,7 @@ class GoogleCloudTranslationProvider(
     }
 
     private suspend fun executeRequest(request: TranslationRequest): String {
-        val encodedKey = URLEncoder.encode(apiKey.trim(), Charsets.UTF_8.name())
-        val endpoint = "https://translation.googleapis.com/language/translate/v2?key=$encodedKey"
+        val endpoint = "https://translation.googleapis.com/language/translate/v2"
 
         val body = JSONObject().apply {
             put("q", JSONArray().apply {
@@ -46,7 +47,8 @@ class GoogleCloudTranslationProvider(
             }
         }.toString()
 
-        return transport.post(endpoint, mapOf("Content-Type" to "application/json; charset=utf-8", "Accept" to "application/json"), body)
+        return transport.post(endpoint, mapOf("x-goog-api-key" to apiKey.trim(),
+            "Content-Type" to "application/json; charset=utf-8", "Accept" to "application/json"), body)
     }
 
     private fun parseResponse(
@@ -54,14 +56,13 @@ class GoogleCloudTranslationProvider(
         response: String,
     ): List<TranslatedSegment> {
         val translations = runCatching {
-            JSONObject(response)
+            translationJsonObject(response, ProviderName)
                 .getJSONObject("data")
                 .getJSONArray("translations")
-        }.getOrElse { error ->
+        }.getOrElse {
             throw providerResponseFormatException(
                 providerName = ProviderName,
                 detail = "Google Cloud response did not contain translated text.",
-                cause = error,
             )
         }
 
@@ -75,7 +76,8 @@ class GoogleCloudTranslationProvider(
         return request.segments.mapIndexed { index, segment ->
             TranslatedSegment(
                 segmentId = segment.id,
-                translatedText = translations.getJSONObject(index).getString("translatedText"),
+                translatedText = translations.optJSONObject(index)?.opt("translatedText") as? String
+                    ?: throw providerResponseFormatException(ProviderName, "Google Cloud translations must contain text strings."),
             )
         }
     }
