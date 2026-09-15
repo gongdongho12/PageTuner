@@ -7,6 +7,9 @@ class RegisterAccountRequest(val username: String, val password: String, val dis
     val locale: String = "ko", val targetLanguage: String = "ko") {
     override fun toString() = "RegisterAccountRequest(credentials=REDACTED)"
 }
+class ChangePasswordRequest(val currentPassword: String, val newPassword: String) {
+    override fun toString() = "ChangePasswordRequest(credentials=REDACTED)"
+}
 data class UpdateAccountRequest(val displayName: String, val locale: String, val targetLanguage: String)
 data class AccountProfile(val accountId: UUID, val username: String, val displayName: String,
     val locale: String, val targetLanguage: String) {

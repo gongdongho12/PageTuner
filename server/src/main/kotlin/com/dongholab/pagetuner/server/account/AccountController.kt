@@ -22,6 +22,13 @@ class AccountController(private val accounts: AccountService, private val attemp
     fun me(principal: Principal) = noStore(accounts.profile(principal.name))
     @PatchMapping("/me")
     fun update(principal: Principal, @RequestBody request: UpdateAccountRequest) = noStore(accounts.update(principal.name, request))
+    @PostMapping("/me/password")
+    fun changePassword(principal: Principal, @RequestBody request: ChangePasswordRequest): ResponseEntity<Void> {
+        if (!attempts.changePassword(principal.name)) throw AccountFailure("PASSWORD_CHANGE_LIMIT", 429,
+            "Too many password change attempts. Try again in 15 minutes.")
+        accounts.changePassword(principal.name, request)
+        return ResponseEntity.noContent().cacheControl(CacheControl.noStore()).build()
+    }
     private fun <T> noStore(body: T) = ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(body)
 }
 

@@ -116,6 +116,41 @@
         }
       }
     },
+    "/api/v1/accounts/me/password": {
+      "post": {
+        "operationId": "changeMyPassword",
+        "description": "Change the authenticated account password after checking currentPassword. Passwords are never trimmed. Maximum request body: 4096 UTF-8 bytes. Five attempts per account per 15-minute window, with a bounded process-local limiter. Every subsequent request revalidates Basic credentials; existing session cookies carry CSRF tokens only and cannot authenticate the old password. On success discard the old credentials and sign in with the new password. Account identity, profile and library ownership remain unchanged.",
+        "security": [{ "basicAuth": [], "csrfHeader": [], "sessionCookie": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": { "schema": { "$ref": "#/components/schemas/ChangePasswordRequest" } }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "Password changed; empty response body.",
+            "headers": { "Cache-Control": { "schema": { "type": "string", "enum": ["no-store"] } } }
+          },
+          "400": {
+            "description": "CURRENT_PASSWORD_INCORRECT, PASSWORD_UNCHANGED or INVALID_PASSWORD. Malformed JSON also returns 400.",
+            "content": { "application/problem+json": { "schema": { "$ref": "#/components/schemas/AccountProblem" } } }
+          },
+          "401": { "description": "Current Basic credentials are required." },
+          "403": { "description": "Missing or invalid CSRF token." },
+          "404": { "description": "Account no longer exists." },
+          "409": {
+            "description": "PASSWORD_CHANGE_CONFLICT: another request replaced the password before this update committed. Sign in again.",
+            "content": { "application/problem+json": { "schema": { "$ref": "#/components/schemas/AccountProblem" } } }
+          },
+          "413": { "description": "Request body exceeds 4096 bytes, including chunked requests." },
+          "429": {
+            "description": "PASSWORD_CHANGE_LIMIT: five attempts in this account's 15-minute window. The existing LOGIN_LIMIT can also reject repeated failed Basic authentication.",
+            "content": { "application/problem+json": { "schema": { "$ref": "#/components/schemas/AccountProblem" } } }
+          }
+        }
+      }
+    },
     "/api/v1/accounts/me": {
       "get": {
         "operationId": "getMyAccount",
@@ -209,6 +244,34 @@
       }
     },
     "schemas": {
+      "ChangePasswordRequest": {
+        "type": "object",
+        "required": ["currentPassword", "newPassword"],
+        "properties": {
+          "currentPassword": {
+            "type": "string",
+            "writeOnly": true,
+            "description": "Exact current password; whitespace is preserved. Never persisted or logged in plaintext."
+          },
+          "newPassword": {
+            "type": "string",
+            "minLength": 10,
+            "writeOnly": true,
+            "description": "At least 10 Unicode code points, at most 72 UTF-8 bytes, no ISO control characters, and different from currentPassword. Whitespace is preserved."
+          }
+        }
+      },
+      "AccountProblem": {
+        "type": "object",
+        "required": ["type", "title", "status", "detail"],
+        "properties": {
+          "type": { "type": "string" },
+          "title": { "type": "string" },
+          "status": { "type": "integer" },
+          "detail": { "type": "string" },
+          "code": { "type": "string", "description": "Stable account error code when supplied. Never contains credentials." }
+        }
+      },
       "AccountProfile": {
         "type": "object",
         "required": [
