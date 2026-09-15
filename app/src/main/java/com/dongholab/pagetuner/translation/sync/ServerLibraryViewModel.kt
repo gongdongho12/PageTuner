@@ -37,6 +37,8 @@ data class ServerLibraryState(
     val selected: ServerLibraryDocument? = null,
     val profile: ServerAccountProfile? = null,
     val profileDraft: ServerAccountDraft = ServerAccountDraft(),
+    val passwordDraft: ServerPasswordChangeDraft = ServerPasswordChangeDraft(),
+    val passwordChanging: Boolean = false,
     val languages: ServerAccountLanguages? = null,
     val uiLocale: String? = null,
     val jobSource: ServerLibraryDocument? = null,
@@ -71,6 +73,7 @@ class ServerLibraryViewModel(
         store = null
         mutableState.update { it.copy(connection = ServerConnectionInput(endpoint, username, password), connected = false,
             page = null, selected = null, profile = null, jobSource = null, jobDraft = ServerJobDraft(),
+            passwordDraft = ServerPasswordChangeDraft(),
             providers = emptyList(), jobs = null, latestJob = null, error = null) }
     }
 
@@ -86,11 +89,13 @@ class ServerLibraryViewModel(
     }
 
     fun disconnect() {
+        val passwordMayHaveChanged = state.value.passwordChanging
         jobPolling?.cancel()
         cancel()
         store = null
         mutableState.value = ServerLibraryState(connection = ServerConnectionInput(state.value.connection.endpoint, state.value.connection.username),
-            uiLocale = state.value.uiLocale, status = ServerLibraryMessage(R.string.server_status_disconnected))
+            uiLocale = state.value.uiLocale, status = ServerLibraryMessage(
+                if (passwordMayHaveChanged) R.string.server_password_change_cancelled else R.string.server_status_disconnected))
     }
 
     fun updateProfileDraft(value: ServerAccountDraft) {
@@ -115,6 +120,52 @@ class ServerLibraryViewModel(
         currentCoroutineContext().ensureActive()
         mutableState.update { it.copy(profile = result, profileDraft = result.draft(), uiLocale = result.effectiveLocale,
             status = ServerLibraryMessage(R.string.server_status_profile_saved)) }
+    }
+
+    fun updatePasswordDraft(value: ServerPasswordChangeDraft) {
+        if (!state.value.busy && state.value.connected) mutableState.update { it.copy(passwordDraft = value, error = null) }
+    }
+
+    fun changePassword() = start(R.string.server_password_changing) {
+        check(state.value.connected)
+        val draft = state.value.passwordDraft
+        draft.validate()
+        mutableState.update { it.copy(passwordChanging = true) }
+        try {
+            client().changeAccountPassword(draft.currentPassword, draft.newPassword)
+        } catch (error: TranslationStoreException) {
+            if (error.failure == TranslationStoreFailure.AUTHENTICATION) {
+                clearPasswordSession(R.string.server_password_sign_in_again)
+                return@start
+            }
+            if (error.failure in setOf(TranslationStoreFailure.NETWORK, TranslationStoreFailure.TIMEOUT,
+                    TranslationStoreFailure.SERVER, TranslationStoreFailure.INVALID_RESPONSE)) {
+                clearPasswordSession(R.string.server_password_change_uncertain)
+                return@start
+            }
+            throw error
+        } catch (error: ServerPasswordChangeException) {
+            if (error.failure == ServerPasswordChangeFailure.PASSWORD_CHANGE_CONFLICT) {
+                clearPasswordSession(R.string.server_error_password_conflict)
+                return@start
+            }
+            throw error
+        }
+        currentCoroutineContext().ensureActive()
+        clearPasswordSession(R.string.server_password_changed)
+    }
+
+    private fun clearPasswordSession(message: Int) {
+        jobPolling?.cancel()
+        store = null
+        val previous = state.value
+        mutableState.value = ServerLibraryState(
+            connection = ServerConnectionInput(previous.connection.endpoint, previous.connection.username),
+            profileDraft = previous.profileDraft,
+            languages = previous.languages,
+            uiLocale = previous.uiLocale,
+            status = ServerLibraryMessage(message),
+        )
     }
 
     fun loadLanguages() = start(R.string.server_status_languages_loading) {
@@ -270,10 +321,14 @@ class ServerLibraryViewModel(
         }
 
     fun cancel() {
+        val passwordMayHaveChanged = state.value.passwordChanging
         generation += 1
         operation?.cancel()
         operation = null
-        mutableState.update { it.copy(busy = false, status = ServerLibraryMessage(R.string.server_status_cancelled), error = null) }
+        if (passwordMayHaveChanged) {
+            // Cancelling transport cannot undo a password already committed by the server.
+            clearPasswordSession(R.string.server_password_change_cancelled)
+        } else mutableState.update { it.copy(busy = false, status = ServerLibraryMessage(R.string.server_status_cancelled), error = null) }
     }
 
     private fun client() = requireNotNull(store) { "먼저 서버에 연결해 주세요." }
@@ -290,7 +345,8 @@ class ServerLibraryViewModel(
                 if (ticket == generation) mutableState.update { it.copy(error = serverLibraryError(error), status = ServerLibraryMessage(R.string.server_status_failed)) }
             } finally {
                 if (ticket == generation) {
-                    mutableState.update { it.copy(busy = false) }
+                    mutableState.update { it.copy(busy = false, passwordChanging = false,
+                        passwordDraft = if (it.passwordChanging) ServerPasswordChangeDraft() else it.passwordDraft) }
                     startJobPolling()
                 }
             }
@@ -302,9 +358,19 @@ internal fun serverLibraryError(error: Exception): ServerLibraryMessage = Server
     is ServerAccountInputException -> when (error.field) {
         ServerAccountInputField.Username -> R.string.server_error_username
         ServerAccountInputField.Password -> R.string.server_error_password
+        ServerAccountInputField.CurrentPassword -> R.string.server_error_current_password
+        ServerAccountInputField.PasswordUnchanged -> R.string.server_error_password_unchanged
+        ServerAccountInputField.PasswordConfirmation -> R.string.server_error_password_confirmation
         ServerAccountInputField.DisplayName -> R.string.server_error_display_name
         ServerAccountInputField.Locale -> R.string.server_error_locale
         ServerAccountInputField.TargetLanguage -> R.string.server_error_target
+    }
+    is ServerPasswordChangeException -> when (error.failure) {
+        ServerPasswordChangeFailure.CURRENT_PASSWORD_INCORRECT -> R.string.server_error_current_password_incorrect
+        ServerPasswordChangeFailure.PASSWORD_UNCHANGED -> R.string.server_error_password_unchanged
+        ServerPasswordChangeFailure.INVALID_PASSWORD -> R.string.server_error_password
+        ServerPasswordChangeFailure.PASSWORD_CHANGE_LIMIT -> R.string.server_error_password_limit
+        ServerPasswordChangeFailure.PASSWORD_CHANGE_CONFLICT -> R.string.server_error_password_conflict
     }
     is TranslationStoreException -> when (error.failure) {
         TranslationStoreFailure.AUTHENTICATION -> R.string.server_error_authentication

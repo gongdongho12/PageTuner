@@ -2,6 +2,7 @@ package com.dongholab.pagetuner.ui.screen
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
@@ -12,6 +13,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -28,7 +30,9 @@ private enum class ServerPanel(val label: Int) {
     Connection(R.string.server_panel_connection), Account(R.string.server_panel_account),
     Library(R.string.server_panel_library), Jobs(R.string.server_job_panel), Document(R.string.server_panel_document),
 }
-private enum class AccountPanel(val label: Int) { Form(R.string.server_account_form), Languages(R.string.server_account_languages) }
+private enum class AccountPanel(val label: Int) {
+    Form(R.string.server_account_form), Languages(R.string.server_account_languages), Password(R.string.server_account_password),
+}
 
 @Composable
 fun ServerLibraryScreen(
@@ -43,6 +47,8 @@ fun ServerLibraryScreen(
     onRegister: () -> Unit,
     onProfileDraft: (ServerAccountDraft) -> Unit,
     onSaveProfile: () -> Unit,
+    onPasswordDraft: (ServerPasswordChangeDraft) -> Unit,
+    onChangePassword: () -> Unit,
     onLanguages: () -> Unit,
     onApplyTargetLanguage: (String) -> Unit,
     onPage: (Int, ServerLibraryKind) -> Unit,
@@ -65,7 +71,9 @@ fun ServerLibraryScreen(
     val strings = LocalResources.current
     val busy = state.busy || externalBusy
     Column(modifier.fillMaxSize().clipToBounds(), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        EinkChoiceStepper(ServerPanel.entries, panel, { panel = it
+        EinkChoiceStepper(ServerPanel.entries, panel, {
+            if (it != ServerPanel.Account && accountPanel == AccountPanel.Password) onPasswordDraft(ServerPasswordChangeDraft())
+            panel = it
             if (it == ServerPanel.Library && state.connected && state.page == null && !busy) onPage(0, state.kind)
             if (it == ServerPanel.Jobs && state.connected && state.jobs == null && !busy) onJobsPage(0)
         }, label = { strings.getString(it.label) })
@@ -92,7 +100,10 @@ fun ServerLibraryScreen(
                 }
             }
             ServerPanel.Account -> {
-                EinkSegmentedControl(AccountPanel.entries, accountPanel, { accountPanel = it }, label = { strings.getString(it.label) })
+                EinkSegmentedControl(AccountPanel.entries, accountPanel, {
+                    if (it != AccountPanel.Password) onPasswordDraft(ServerPasswordChangeDraft())
+                    accountPanel = it
+                }, label = { strings.getString(it.label) })
                 if (accountPanel == AccountPanel.Form) {
                     Text(if (state.profile == null) strings.getString(R.string.server_account_hint)
                         else strings.getString(R.string.server_profile_hint, state.profile.username),
@@ -123,7 +134,7 @@ fun ServerLibraryScreen(
                                 modifier = Modifier.weight(1f).height(48.dp)) { Text(strings.getString(R.string.server_apply_target), maxLines = 2) }
                         }
                     }
-                } else {
+                } else if (accountPanel == AccountPanel.Languages) {
                     AdaptiveCollection(items = state.languages?.items.orEmpty(), estimatedPagedItemHeight = 108.dp,
                         modifier = Modifier.weight(1f), busy = busy, itemKey = { it.tag }) { language ->
                         OutlinedButton(onClick = { onProfileDraft(state.profileDraft.copy(locale = language.tag)); accountPanel = AccountPanel.Form },
@@ -140,6 +151,28 @@ fun ServerLibraryScreen(
                     OutlinedButton(onClick = onLanguages, enabled = !busy, modifier = Modifier.fillMaxWidth().height(48.dp)) {
                         Text(strings.getString(R.string.server_load_languages))
                     }
+                } else {
+                    Text(strings.getString(if (state.connected) R.string.server_password_change_hint else R.string.server_connect_first),
+                        style = MaterialTheme.typography.bodySmall, maxLines = 3, overflow = TextOverflow.Ellipsis)
+                    AdaptiveCollection(items = listOf(0, 1, 2), estimatedPagedItemHeight = 76.dp,
+                        modifier = Modifier.weight(1f), busy = busy) { field ->
+                        val draft = state.passwordDraft
+                        val value = when (field) { 0 -> draft.currentPassword; 1 -> draft.newPassword; else -> draft.confirmation }
+                        OutlinedTextField(value, { changed -> onPasswordDraft(when (field) {
+                            0 -> draft.copy(currentPassword = changed)
+                            1 -> draft.copy(newPassword = changed)
+                            else -> draft.copy(confirmation = changed)
+                        }) }, enabled = state.connected && !busy, singleLine = true,
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                            visualTransformation = PasswordVisualTransformation(),
+                            label = { Text(strings.getString(when (field) {
+                                0 -> R.string.server_current_password
+                                1 -> R.string.server_new_password
+                                else -> R.string.server_confirm_password
+                            })) }, modifier = Modifier.fillMaxWidth().height(76.dp))
+                    }
+                    OutlinedButton(onClick = onChangePassword, enabled = state.connected && !busy,
+                        modifier = Modifier.fillMaxWidth().height(48.dp)) { Text(strings.getString(R.string.server_change_password)) }
                 }
             }
             ServerPanel.Library -> {

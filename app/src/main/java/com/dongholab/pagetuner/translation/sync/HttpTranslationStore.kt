@@ -223,6 +223,16 @@ class HttpTranslationStore(
         }
     }
 
+    suspend fun changeAccountPassword(currentPassword: String, newPassword: String) = withContext(Dispatchers.IO) {
+        validateCurrentPassword(currentPassword)
+        ServerAccountJson.validatePassword(newPassword)
+        if (currentPassword == newPassword) throw ServerAccountInputException(ServerAccountInputField.PasswordUnchanged)
+        val body = JSONObject().put("currentPassword", currentPassword).put("newPassword", newPassword)
+        val response = writeWithCsrf("/api/v1/accounts/me/password", "POST", body, authenticated = true)
+        // The old Basic credential is invalid immediately after this response. Do not fetch a profile here.
+        decode { require(response.status == 204 && response.body.isEmpty()) }
+    }
+
     private suspend fun writeWithCsrf(path: String, method: String, body: JSONObject, authenticated: Boolean): TranslationStoreHttpResponse {
         val csrfPath = if (path.startsWith("/api/v1/accounts/")) "/api/v1/accounts/csrf" else "/api/v1/csrf"
         val csrfResponse = execute(csrfPath, "GET", authenticated = authenticated)
@@ -265,6 +275,9 @@ class HttpTranslationStore(
         }
         currentCoroutineContext().ensureActive()
         if (response.status !in 200..299) {
+            if (path == "/api/v1/accounts/me/password" && method == "POST") {
+                passwordChangeFailure(response)?.let { throw ServerPasswordChangeException(it) }
+            }
             val failure = when (response.status) {
                 401 -> TranslationStoreFailure.AUTHENTICATION
                 403 -> TranslationStoreFailure.FORBIDDEN

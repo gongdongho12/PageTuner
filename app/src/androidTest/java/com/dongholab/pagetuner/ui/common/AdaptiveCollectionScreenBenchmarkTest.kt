@@ -252,6 +252,7 @@ private val ScreenFixtures = listOf(
     ScreenFixture("reader_annotations", "Reader · Notes", "ReaderAnnotationPanel", 76, 4, 48, 2, 1),
     ScreenFixture("server_connection", "Server · Connection", "ServerLibraryScreen/connection", 76, 3, 48, 1, 0),
     ScreenFixture("server_profile", "Server · Account profile", "ServerLibraryScreen/profile", 76, 3, 48, 1, 0),
+    ScreenFixture("server_password", "Server · Password", "ServerLibraryScreen/password", 76, 3, 3, 1, 0),
     ScreenFixture("server_languages", "Server · UI languages", "ServerLibraryScreen/languages", 108, 3, 14, 3, 1),
     ScreenFixture("server_library", "Server · Library", "ServerLibraryScreen/library", 160, 2, 12, 3, 3),
     ScreenFixture("server_document", "Server · This document", "ServerLibraryScreen/document", 154, 2, 24, 4, 1),
