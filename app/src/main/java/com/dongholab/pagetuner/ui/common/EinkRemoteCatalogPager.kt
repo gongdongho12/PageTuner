@@ -16,6 +16,8 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
@@ -25,9 +27,11 @@ import com.dongholab.pagetuner.R
 import com.dongholab.pagetuner.source.RemoteCatalogPagingState
 import com.dongholab.pagetuner.ui.theme.EinkInk
 import com.dongholab.pagetuner.ui.theme.EinkLine
+import com.dongholab.pagetuner.ui.theme.EinkMuted
 import com.dongholab.pagetuner.ui.theme.EinkPanel
+import com.dongholab.pagetuner.ui.theme.EinkPaper
 
-val EinkRemoteCatalogPagerHeight = 86.dp
+val EinkRemoteCatalogPagerHeight = 48.dp
 
 /** Keeps the server-pager slot stable before, during, and after a remote refresh. */
 @Composable
@@ -53,7 +57,7 @@ fun EinkRemoteCatalogPagerSlot(
     }
 }
 
-/** Server-page navigation kept separate from viewport paging inside the catalog list. */
+/** Server-page navigation with compact E-Ink controls and quick page jump. */
 @Composable
 fun EinkRemoteCatalogPager(
     paging: RemoteCatalogPagingState,
@@ -61,68 +65,91 @@ fun EinkRemoteCatalogPager(
     onPageSelected: (Int) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val totalItems = paging.totalItems
+    var showJumpDialog by androidx.compose.runtime.saveable.rememberSaveable { androidx.compose.runtime.mutableStateOf(false) }
+    val totalPages = paging.totalPages ?: paging.currentPage
+
+    if (showJumpDialog) {
+        com.dongholab.pagetuner.ui.source.CatalogPageJumpDialog(
+            currentPage = paging.currentPage,
+            totalPages = totalPages,
+            onJumpToPage = { targetPage ->
+                onPageSelected(targetPage)
+                showJumpDialog = false
+            },
+            onDismiss = { showJumpDialog = false },
+        )
+    }
+
     Surface(
         modifier = modifier.fillMaxWidth(),
         color = EinkPanel,
         shape = RoundedCornerShape(4.dp),
         border = BorderStroke(1.dp, EinkLine),
     ) {
-        Column(
-            modifier = Modifier.padding(8.dp),
-            verticalArrangement = Arrangement.spacedBy(6.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 4.dp, vertical = 2.dp),
+            horizontalArrangement = Arrangement.spacedBy(4.dp),
+            verticalAlignment = Alignment.CenterVertically,
         ) {
-            Text(
-                text = if (totalItems != null) {
-                    stringResource(
-                        R.string.web_catalog_remote_page_summary,
-                        paging.currentPage,
-                        paging.totalPages ?: paging.currentPage,
-                        paging.pageItemCount,
-                        totalItems,
-                    )
-                } else {
-                    stringResource(
-                        R.string.web_catalog_remote_page_summary_without_total,
-                        paging.currentPage,
-                        paging.totalPages ?: paging.currentPage,
-                        paging.pageItemCount,
-                    )
-                },
-                style = MaterialTheme.typography.labelMedium,
-                fontWeight = FontWeight.Bold,
-                color = EinkInk,
+            PagerButton(
+                text = "◀ 10",
+                enabled = !busy && paging.currentPage > 1,
+                onClick = { onPageSelected((paging.currentPage - 10).coerceAtLeast(1)) },
+                modifier = Modifier.weight(0.18f),
             )
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(4.dp),
+            PagerButton(
+                text = "◀",
+                enabled = !busy && paging.hasPreviousPage,
+                onClick = { onPageSelected(paging.currentPage - 1) },
+                modifier = Modifier.weight(0.16f),
+            )
+            OutlinedButton(
+                onClick = { showJumpDialog = true },
+                enabled = !busy,
+                modifier = Modifier
+                    .weight(0.32f)
+                    .heightIn(min = 42.dp),
+                shape = RoundedCornerShape(2.dp),
+                border = BorderStroke(1.dp, EinkInk),
+                colors = androidx.compose.material3.ButtonDefaults.outlinedButtonColors(
+                    containerColor = EinkPaper,
+                    contentColor = EinkInk,
+                ),
+                contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 2.dp, vertical = 0.dp),
             ) {
-                PagerButton(
-                    text = stringResource(R.string.action_first_page),
-                    enabled = !busy && paging.hasPreviousPage,
-                    onClick = { onPageSelected(1) },
-                    modifier = Modifier.weight(1f),
-                )
-                PagerButton(
-                    text = stringResource(R.string.action_previous_page),
-                    enabled = !busy && paging.hasPreviousPage,
-                    onClick = { onPageSelected(paging.currentPage - 1) },
-                    modifier = Modifier.weight(1f),
-                )
-                PagerButton(
-                    text = stringResource(R.string.action_next_page),
-                    enabled = !busy && paging.hasNextPage,
-                    onClick = { onPageSelected(paging.currentPage + 1) },
-                    modifier = Modifier.weight(1f),
-                )
-                PagerButton(
-                    text = stringResource(R.string.action_last_page),
-                    enabled = !busy && paging.hasNextPage && paging.totalPages != null,
-                    onClick = { paging.totalPages?.let(onPageSelected) },
-                    modifier = Modifier.weight(1f),
-                )
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center,
+                ) {
+                    Text(
+                        text = "${paging.currentPage} / ${paging.totalPages ?: "?"} ▾",
+                        maxLines = 1,
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = EinkInk,
+                    )
+                    Text(
+                        text = stringResource(R.string.catalog_jump_hint),
+                        maxLines = 1,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = EinkMuted,
+                    )
+                }
             }
+            PagerButton(
+                text = "▶",
+                enabled = !busy && paging.hasNextPage,
+                onClick = { onPageSelected(paging.currentPage + 1) },
+                modifier = Modifier.weight(0.16f),
+            )
+            PagerButton(
+                text = "10 ▶",
+                enabled = !busy && (paging.totalPages == null || paging.currentPage < totalPages),
+                onClick = { onPageSelected((paging.currentPage + 10).coerceAtMost(totalPages)) },
+                modifier = Modifier.weight(0.18f),
+            )
         }
     }
 }
@@ -141,6 +168,6 @@ private fun PagerButton(
         shape = RoundedCornerShape(2.dp),
         contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 2.dp),
     ) {
-        Text(text = text, maxLines = 1, style = MaterialTheme.typography.labelSmall)
+        Text(text = text, maxLines = 1, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
     }
 }

@@ -116,8 +116,44 @@ class EinkPagingState internal constructor(initialPageIndex: Int = 0) {
     var currentPageIndex by mutableIntStateOf(initialPageIndex.coerceAtLeast(0))
         internal set
 
+    var pageCount by mutableIntStateOf(1)
+        internal set
+
+    var canBoundaryPrevious: Boolean = false
+        internal set
+
+    var canBoundaryNext: Boolean = false
+        internal set
+
+    internal var boundaryPreviousAction: (() -> Unit)? = null
+    internal var boundaryNextAction: (() -> Unit)? = null
+
     fun reset() {
         currentPageIndex = 0
+    }
+
+    fun nextPage(): Boolean {
+        return if (currentPageIndex < pageCount - 1) {
+            currentPageIndex++
+            true
+        } else if (canBoundaryNext && boundaryNextAction != null) {
+            boundaryNextAction?.invoke()
+            true
+        } else {
+            false
+        }
+    }
+
+    fun previousPage(): Boolean {
+        return if (currentPageIndex > 0) {
+            currentPageIndex--
+            true
+        } else if (canBoundaryPrevious && boundaryPreviousAction != null) {
+            boundaryPreviousAction?.invoke()
+            true
+        } else {
+            false
+        }
     }
 
     internal companion object {
@@ -145,6 +181,12 @@ fun <T> EinkAutoFitPagingContainer(
     fallbackPageSize: Int = 3,
     busy: Boolean = false,
     state: EinkPagingState = rememberEinkPagingState(),
+    onPageBoundaryPrevious: (() -> Unit)? = null,
+    onPageBoundaryNext: (() -> Unit)? = null,
+    onFastBoundaryPrevious: (() -> Unit)? = null,
+    onFastBoundaryNext: (() -> Unit)? = null,
+    pageInfoPrefix: String? = null,
+    onPageInfoClick: (() -> Unit)? = null,
     emptyContent: @Composable () -> Unit = {},
     itemContent: @Composable (T) -> Unit,
 ) {
@@ -175,10 +217,18 @@ fun <T> EinkAutoFitPagingContainer(
         val safePageIndex = listPage.pageIndex
         SideEffect {
             if (state.currentPageIndex != safePageIndex) state.currentPageIndex = safePageIndex
+            state.pageCount = totalPages
+            state.canBoundaryPrevious = onPageBoundaryPrevious != null
+            state.canBoundaryNext = onPageBoundaryNext != null
+            state.boundaryPreviousAction = onPageBoundaryPrevious
+            state.boundaryNextAction = onPageBoundaryNext
         }
         val currentPageItems = listPage.items
         val startIndex = listPage.startItemNumber
         val endIndex = listPage.endItemNumber
+
+        val hasBoundaryPrevious = onPageBoundaryPrevious != null
+        val hasBoundaryNext = onPageBoundaryNext != null
 
         val navigation: @Composable () -> Unit = {
             EinkPageNavigation(
@@ -188,8 +238,26 @@ fun <T> EinkAutoFitPagingContainer(
                 pageIndex = safePageIndex,
                 pageCount = totalPages,
                 busy = busy,
-                onPrevious = { state.currentPageIndex = (safePageIndex - 1).coerceAtLeast(0) },
-                onNext = { state.currentPageIndex = (safePageIndex + 1).coerceAtMost(totalPages - 1) },
+                canPrevious = (safePageIndex > 0 || hasBoundaryPrevious) && !busy,
+                canNext = (safePageIndex < totalPages - 1 || hasBoundaryNext) && !busy,
+                infoPrefix = pageInfoPrefix,
+                onInfoClick = onPageInfoClick,
+                onFastPrevious = onFastBoundaryPrevious,
+                onFastNext = onFastBoundaryNext,
+                onPrevious = {
+                    if (safePageIndex > 0) {
+                        state.currentPageIndex = safePageIndex - 1
+                    } else if (hasBoundaryPrevious) {
+                        onPageBoundaryPrevious?.invoke()
+                    }
+                },
+                onNext = {
+                    if (safePageIndex < totalPages - 1) {
+                        state.currentPageIndex = safePageIndex + 1
+                    } else if (hasBoundaryNext) {
+                        onPageBoundaryNext?.invoke()
+                    }
+                },
             )
         }
 

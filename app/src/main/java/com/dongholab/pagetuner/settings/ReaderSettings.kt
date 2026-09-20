@@ -15,6 +15,7 @@ data class ReaderSettings(
     val readerFontSizeSp: Int = 18,
     val readerLineSpacing: Float = 1.35f,
     val readerPageMarginDp: Int = 18,
+    val readerFontFamily: ReaderFontFamily = ReaderFontFamily.DEFAULT,
     val sourceLanguage: String = "auto",
     val targetLanguage: String = "ko",
     val providerKind: TranslationProviderKind = TranslationProviderKind.GOOGLE_WEB_TRANSLATE_HTML,

@@ -62,6 +62,17 @@
     <string name="reader_font_size">글자 %1$d sp</string>
     <string name="reader_line_spacing">줄간격 %1$.2fx</string>
     <string name="reader_page_margin">여백 %1$d dp</string>
+    <string name="font_family_default">기본</string>
+    <string name="font_family_serif">명조 (Serif)</string>
+    <string name="font_family_sans_serif">고딕 (Sans)</string>
+    <string name="font_family_monospace">고정폭 (Mono)</string>
+    <string name="reader_font_family">글꼴 서체</string>
+    <string name="reader_typography_title">텍스트 및 레이아웃 설정</string>
+    <string name="action_reader_typography">글꼴 및 간격 설정</string>
+    <string name="typography_font_size">글자 크기</string>
+    <string name="typography_line_spacing">줄간격</string>
+    <string name="typography_page_margin">페이지 여백</string>
+    <string name="typography_reset_defaults">기본값 복원</string>
     <string name="display_settings_title">표시</string>
     <string name="display_mode_color">컬러</string>
     <string name="display_mode_grayscale">그레이스케일</string>
@@ -341,4 +352,11 @@
     <string name="web_catalog_no_filter_matches">조건에 맞는 웹소설이 없습니다.</string>
     <string name="web_catalog_language_filter">언어 필터</string>
     <string name="web_catalog_all_languages">모든 언어</string>
+    <string name="catalog_jump_title">페이지 바로 이동</string>
+    <string name="catalog_jump_hint">빠른 이동</string>
+    <string name="catalog_jump_button">이동</string>
+    <string name="catalog_jump_first">처음</string>
+    <string name="catalog_jump_last">마지막</string>
+    <string name="catalog_jump_input_label">페이지 번호 (1 ~ %1$d)</string>
+    <string name="catalog_jump_current">현재 페이지: %1$d / %2$d 쪽</string>
 </resources>

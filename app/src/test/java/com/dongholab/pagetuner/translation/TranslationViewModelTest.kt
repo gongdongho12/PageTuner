@@ -278,6 +278,47 @@ class TranslationViewModelTest {
             assertNull(viewModel.uiState.value.rolling.flagFor(10))
         }
 
+    @Test
+    fun rollingPrefetchPopulatesMemoryCacheForAllWindowPages() = runTest(mainDispatcherRule.dispatcher) {
+        val provider = RecordingRollingProvider()
+        val document = rollingDocument(pageCount = 10)
+        val repository = TranslationRepository(provider, ViewModelMemoryCache())
+        val settings = webTranslationSettings()
+        val viewModel = TranslationViewModel()
+
+        viewModel.startRollingPrefetch(document, 0, settings, repository)
+        advanceUntilIdle()
+
+        val state = viewModel.uiState.value
+        assertEquals(10, state.pageTranslations.size)
+        for (i in 0 until 10) {
+            assertEquals("ko:Page ${i + 1}", state.pageTranslationFor(i)?.text)
+        }
+    }
+
+    @Test
+    fun loadCachedPageResolvesImmediatelyWhenMemoryCacheHits() = runTest(mainDispatcherRule.dispatcher) {
+        val document = rollingDocument(pageCount = 3)
+        val repository = TranslationRepository(ViewModelFakeProvider(), ViewModelMemoryCache())
+        val settings = webTranslationSettings()
+        val viewModel = TranslationViewModel()
+
+        repository.translatePage(document, document.pages[0], settings)
+        repository.translatePage(document, document.pages[1], settings)
+
+        // Load page 0 so it loads into memory and prefetches page 1
+        viewModel.loadCachedPage(document, document.pages[0], settings, repository, false)
+        advanceUntilIdle()
+
+        // Page 1 should be prefetched into memory cache
+        assertTrue(viewModel.uiState.value.pageTranslations.containsKey(1))
+
+        // Switching to page 1 resolves immediately
+        viewModel.loadCachedPage(document, document.pages[1], settings, repository, false)
+        assertEquals(ReaderTranslationLoadStage.Ready, viewModel.uiState.value.readerLoad.stage)
+        assertEquals("ko:Page 2", viewModel.uiState.value.pageTranslationFor(1)?.text)
+    }
+
     private fun webTranslationSettings() = TranslationSettings(
         providerKind = TranslationProviderKind.GOOGLE_WEB_TRANSLATE_HTML,
         apiKey = "",

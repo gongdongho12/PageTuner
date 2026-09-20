@@ -33,8 +33,9 @@ import com.dongholab.pagetuner.ui.theme.EinkSoft
 import com.dongholab.pagetuner.display.DisplayMode
 import com.dongholab.pagetuner.reader.PageTurnMode
 import com.dongholab.pagetuner.reader.PdfFitMode
-import com.dongholab.pagetuner.settings.ReaderSettings
 import com.dongholab.pagetuner.settings.ListLayoutMode
+import com.dongholab.pagetuner.settings.ReaderFontFamily
+import com.dongholab.pagetuner.settings.ReaderSettings
 import com.dongholab.pagetuner.translation.TranslationDisplayMode
 import com.dongholab.pagetuner.translation.TranslationPaceMode
 import com.dongholab.pagetuner.translation.TranslationProviderKind
@@ -86,6 +87,7 @@ fun SettingsScreen(
     onFontSizeChange: (Int) -> Unit,
     onLineSpacingChange: (Float) -> Unit,
     onPageMarginChange: (Int) -> Unit,
+    onFontFamilyChange: (ReaderFontFamily) -> Unit = {},
     onProviderKindChange: (TranslationProviderKind) -> Unit,
     onApiKeyChange: (String) -> Unit,
     onLlmEndpointChange: (String) -> Unit,
@@ -152,11 +154,13 @@ fun SettingsScreen(
                     fontSizeSp = readerSettings.readerFontSizeSp,
                     lineSpacing = readerSettings.readerLineSpacing,
                     pageMarginDp = readerSettings.readerPageMarginDp,
+                    fontFamily = readerSettings.readerFontFamily,
                     busy = busy,
                     onPdfFitModeChange = onPdfFitModeChange,
                     onFontSizeChange = onFontSizeChange,
                     onLineSpacingChange = onLineSpacingChange,
                     onPageMarginChange = onPageMarginChange,
+                    onFontFamilyChange = onFontFamilyChange,
                 )
             }
             SettingsCategoryTab.AI_TRANSLATION -> {

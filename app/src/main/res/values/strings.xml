@@ -62,6 +62,17 @@
     <string name="reader_font_size">Font %1$d sp</string>
     <string name="reader_line_spacing">Line %1$.2fx</string>
     <string name="reader_page_margin">Margin %1$d dp</string>
+    <string name="font_family_default">Default</string>
+    <string name="font_family_serif">Serif</string>
+    <string name="font_family_sans_serif">Sans-serif</string>
+    <string name="font_family_monospace">Monospace</string>
+    <string name="reader_font_family">Font family</string>
+    <string name="reader_typography_title">Typography &amp; Layout</string>
+    <string name="action_reader_typography">Typography settings</string>
+    <string name="typography_font_size">Font size</string>
+    <string name="typography_line_spacing">Line spacing</string>
+    <string name="typography_page_margin">Page margin</string>
+    <string name="typography_reset_defaults">Reset to defaults</string>
     <string name="display_settings_title">Display</string>
     <string name="display_mode_color">Color</string>
     <string name="display_mode_grayscale">Grayscale</string>
@@ -341,4 +352,11 @@
     <string name="web_catalog_no_filter_matches">No novels match this filter.</string>
     <string name="web_catalog_language_filter">Language filter</string>
     <string name="web_catalog_all_languages">All languages</string>
+    <string name="catalog_jump_title">Jump to Page</string>
+    <string name="catalog_jump_hint">Jump</string>
+    <string name="catalog_jump_button">Go</string>
+    <string name="catalog_jump_first">First</string>
+    <string name="catalog_jump_last">Last</string>
+    <string name="catalog_jump_input_label">Page number (1 to %1$d)</string>
+    <string name="catalog_jump_current">Current page: %1$d / %2$d</string>
 </resources>

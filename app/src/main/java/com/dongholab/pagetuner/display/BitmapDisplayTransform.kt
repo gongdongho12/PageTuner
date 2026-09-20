@@ -46,3 +46,46 @@ private fun Int.luminance(): Int {
 private fun blendOnWhite(channel: Int, alpha: Int): Int {
     return ((channel * alpha) + (255 * (255 - alpha))) / 255
 }
+
+/**
+ * Decodes a downsampled, mutable bitmap from raw bytes.
+ * Prevents allocating multi-megabyte uncompressed bitmaps for small thumbnails on E-Ink.
+ */
+fun decodeSampledBitmapFromByteArray(
+    bytes: ByteArray,
+    reqWidth: Int,
+    reqHeight: Int,
+    config: Bitmap.Config = Bitmap.Config.ARGB_8888,
+): Bitmap? {
+    if (bytes.isEmpty()) return null
+    return runCatching {
+        val options = android.graphics.BitmapFactory.Options().apply {
+            inJustDecodeBounds = true
+        }
+        android.graphics.BitmapFactory.decodeByteArray(bytes, 0, bytes.size, options)
+        options.inSampleSize = calculateInSampleSize(options, reqWidth, reqHeight)
+        options.inJustDecodeBounds = false
+        options.inPreferredConfig = config
+        options.inMutable = true
+        android.graphics.BitmapFactory.decodeByteArray(bytes, 0, bytes.size, options)
+    }.getOrNull()
+}
+
+fun calculateInSampleSize(
+    options: android.graphics.BitmapFactory.Options,
+    reqWidth: Int,
+    reqHeight: Int,
+): Int {
+    val height = options.outHeight
+    val width = options.outWidth
+    var inSampleSize = 1
+
+    if (height > reqHeight || width > reqWidth) {
+        val halfHeight = height / 2
+        val halfWidth = width / 2
+        while ((halfHeight / inSampleSize) >= reqHeight && (halfWidth / inSampleSize) >= reqWidth) {
+            inSampleSize *= 2
+        }
+    }
+    return inSampleSize.coerceAtLeast(1)
+}

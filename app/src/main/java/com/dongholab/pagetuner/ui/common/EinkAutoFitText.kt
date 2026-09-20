@@ -11,6 +11,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Constraints
@@ -25,6 +26,7 @@ fun EinkAutoFitText(
     requestedFontSizeSp: Int,
     lineSpacing: Float,
     modifier: Modifier = Modifier,
+    fontFamily: FontFamily = FontFamily.Default,
     color: Color = EinkInk,
     minimumFontSizeSp: Int = 11,
 ) = EinkAutoFitText(
@@ -32,6 +34,7 @@ fun EinkAutoFitText(
     requestedFontSizeSp = requestedFontSizeSp,
     lineSpacing = lineSpacing,
     modifier = modifier,
+    fontFamily = fontFamily,
     color = color,
     minimumFontSizeSp = minimumFontSizeSp,
 )
@@ -43,6 +46,7 @@ fun EinkAutoFitText(
     requestedFontSizeSp: Int,
     lineSpacing: Float,
     modifier: Modifier = Modifier,
+    fontFamily: FontFamily = FontFamily.Default,
     color: Color = EinkInk,
     minimumFontSizeSp: Int = 11,
 ) {
@@ -50,7 +54,7 @@ fun EinkAutoFitText(
         val textMeasurer = rememberTextMeasurer(cacheSize = 16)
         val density = LocalDensity.current
         val layoutDirection = LocalLayoutDirection.current
-        val textStyle = MaterialTheme.typography.bodyLarge
+        val textStyle = MaterialTheme.typography.bodyLarge.copy(fontFamily = fontFamily)
         val availableSize = IntSize(
             width = constraints.maxWidth.coerceAtLeast(1),
             height = constraints.maxHeight.coerceAtLeast(1),
@@ -66,14 +70,41 @@ fun EinkAutoFitText(
             density,
             layoutDirection,
         ) {
-            var lower = minimumFontSizeSp.coerceAtMost(requestedFontSizeSp)
+            val lower = minimumFontSizeSp.coerceAtMost(requestedFontSizeSp)
             var upper = requestedFontSizeSp.coerceAtLeast(lower)
+
+            // Fast path: test requested font size first (fits ~90% of pages without binary search loops)
+            val testRequested = textMeasurer.measure(
+                text = text,
+                style = textStyle.copy(
+                    fontSize = upper.sp,
+                    lineHeight = (upper * lineSpacing).sp,
+                ),
+                overflow = TextOverflow.Clip,
+                softWrap = true,
+                maxLines = Int.MAX_VALUE,
+                constraints = Constraints(
+                    maxWidth = availableSize.width,
+                    maxHeight = availableSize.height,
+                ),
+                layoutDirection = layoutDirection,
+                density = density,
+            )
+            if (!testRequested.hasVisualOverflow) {
+                return@remember upper
+            }
+
             var best = lower
-            while (lower <= upper) {
-                val candidate = (lower + upper) / 2
+            var searchLower = lower
+            upper -= 1
+            while (searchLower <= upper) {
+                val candidate = (searchLower + upper) / 2
                 val measured = textMeasurer.measure(
                     text = text,
-                    style = textStyle.copy(fontSize = candidate.sp),
+                    style = textStyle.copy(
+                        fontSize = candidate.sp,
+                        lineHeight = (candidate * lineSpacing).sp,
+                    ),
                     overflow = TextOverflow.Clip,
                     softWrap = true,
                     maxLines = Int.MAX_VALUE,
@@ -88,7 +119,7 @@ fun EinkAutoFitText(
                     upper = candidate - 1
                 } else {
                     best = candidate
-                    lower = candidate + 1
+                    searchLower = candidate + 1
                 }
             }
             best

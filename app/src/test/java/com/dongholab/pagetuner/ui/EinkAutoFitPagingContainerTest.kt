@@ -103,4 +103,50 @@ class EinkAutoFitPagingContainerTest {
         val renderedHeight = 60f + plan.pageSize * (104f + 6f)
         assertTrue(renderedHeight <= viewportHeight)
     }
+
+    @Test
+    fun einkPagingState_nextPageAndPreviousPage_withinBounds() {
+        val state = com.dongholab.pagetuner.ui.common.EinkPagingState(initialPageIndex = 0)
+        state.pageCount = 3
+
+        assertTrue(state.nextPage())
+        assertEquals(1, state.currentPageIndex)
+
+        assertTrue(state.nextPage())
+        assertEquals(2, state.currentPageIndex)
+
+        // At end without boundary action
+        assertEquals(false, state.nextPage())
+        assertEquals(2, state.currentPageIndex)
+
+        assertTrue(state.previousPage())
+        assertEquals(1, state.currentPageIndex)
+
+        assertTrue(state.previousPage())
+        assertEquals(0, state.currentPageIndex)
+
+        // At start without boundary action
+        assertEquals(false, state.previousPage())
+        assertEquals(0, state.currentPageIndex)
+    }
+
+    @Test
+    fun einkPagingState_boundaryTransitions_triggerActions() {
+        val state = com.dongholab.pagetuner.ui.common.EinkPagingState(initialPageIndex = 1)
+        state.pageCount = 2
+        var boundaryNextCalled = false
+        var boundaryPrevCalled = false
+        state.canBoundaryNext = true
+        state.canBoundaryPrevious = true
+        state.boundaryNextAction = { boundaryNextCalled = true }
+        state.boundaryPreviousAction = { boundaryPrevCalled = true }
+
+        // Currently on page 1 of 2 (last page)
+        assertTrue(state.nextPage())
+        assertTrue("Boundary next action should be called at last page", boundaryNextCalled)
+
+        state.currentPageIndex = 0
+        assertTrue(state.previousPage())
+        assertTrue("Boundary prev action should be called at first page", boundaryPrevCalled)
+    }
 }

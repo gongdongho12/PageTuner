@@ -1,0 +1,38 @@
+spring:
+  application:
+    name: pagetuner-server
+  security:
+    user:
+      name: ${PAGETUNER_LOCAL_USER:local-reader}
+      password: ${PAGETUNER_LOCAL_PASSWORD}
+  datasource:
+    url: ${PAGETUNER_DATABASE_URL:jdbc:postgresql://localhost:5432/pagetuner}
+    username: ${PAGETUNER_DATABASE_USER:pagetuner}
+    password: ${PAGETUNER_DATABASE_PASSWORD:pagetuner}
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
+  flyway:
+    enabled: true
+  lifecycle:
+    timeout-per-shutdown-phase: 20s
+server:
+  address: ${PAGETUNER_SERVER_ADDRESS:127.0.0.1}
+  servlet:
+    session:
+      timeout: 12h
+      cookie:
+        http-only: true
+        secure: ${PAGETUNER_COOKIE_SECURE:false}
+        same-site: lax
+  shutdown: graceful
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+
+pagetuner:
+  web:
+    allowed-origins: ${PAGETUNER_FRONTEND_ORIGINS:http://localhost:3000,http://127.0.0.1:3000,http://localhost:5173,http://127.0.0.1:5173}

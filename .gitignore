@@ -1,6 +1,7 @@
 *.iml
 .gradle
 .gradle-home/
+.kotlin/
 /local.properties
 /.idea/
 /.idea/caches
@@ -20,3 +21,7 @@ local.properties
 .env
 .env.*
 !.env.example
+
+/.local/
+
+**/__pycache__/

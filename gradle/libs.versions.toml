@@ -9,6 +9,8 @@ lifecycleViewModelCompose = "2.6.1"
 lifecycleViewModelKtx = "2.6.1"
 activityCompose = "1.8.0"
 kotlin = "2.2.10"
+springBoot = "3.5.16"
+springDependencyManagement = "1.1.7"
 composeBom = "2026.02.01"
 coroutines = "1.10.2"
 datastore = "1.2.1"
@@ -43,3 +45,7 @@ org-json = { group = "org.json", name = "json", version.ref = "json" }
 android-application = { id = "com.android.application", version.ref = "agp" }
 kotlin-compose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
 kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
+kotlin-spring = { id = "org.jetbrains.kotlin.plugin.spring", version.ref = "kotlin" }
+kotlin-jpa = { id = "org.jetbrains.kotlin.plugin.jpa", version.ref = "kotlin" }
+spring-boot = { id = "org.springframework.boot", version.ref = "springBoot" }
+spring-dependency-management = { id = "io.spring.dependency-management", version.ref = "springDependencyManagement" }
