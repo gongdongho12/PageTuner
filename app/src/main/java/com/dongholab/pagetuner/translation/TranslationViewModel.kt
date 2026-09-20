@@ -16,6 +16,7 @@ import kotlinx.coroutines.launch
 data class TranslationUiState(
     val apiKey: String = "",
     val translation: PageTranslation? = null,
+    val pageTranslations: Map<Int, PageTranslation> = emptyMap(),
     val cacheStatus: TranslationCacheStatus? = null,
     val providerHealth: ProviderHealthCheck = ProviderHealthCheck(),
     val queue: TranslationQueueState = TranslationQueueState(),
@@ -24,7 +25,13 @@ data class TranslationUiState(
     val status: TranslationStatus = TranslationStatus.Ready,
     val progress: Float = 0f,
     val busy: Boolean = false,
-)
+) {
+    fun pageTranslationFor(page: ReaderPage): PageTranslation? =
+        pageTranslations[page.index] ?: translation?.takeIf { it.page.index == page.index }
+
+    fun pageTranslationFor(pageIndex: Int): PageTranslation? =
+        pageTranslations[pageIndex] ?: translation?.takeIf { it.page.index == pageIndex }
+}
 
 sealed interface TranslationStatus {
     data object Ready : TranslationStatus
@@ -125,6 +132,7 @@ class TranslationViewModel : ViewModel() {
         _uiState.update { state ->
             state.copy(
                 translation = null,
+                pageTranslations = emptyMap(),
                 progress = 0f,
                 busy = false,
                 status = TranslationStatus.Ready,
@@ -148,6 +156,7 @@ class TranslationViewModel : ViewModel() {
         _uiState.update { state ->
             TranslationUiState(
                 apiKey = state.apiKey,
+                pageTranslations = emptyMap(),
                 providerHealth = state.providerHealth,
                 readerLoad = if (documentId == null) {
                     ReaderTranslationLoadState()
@@ -191,6 +200,26 @@ class TranslationViewModel : ViewModel() {
         val revision = documentRevision
         val requestId = ++pageContentRequestId
         pageContentJob?.cancel()
+
+        val memoryHit = _uiState.value.pageTranslations[page.index]
+        if (memoryHit != null) {
+            _uiState.update { state ->
+                state.copy(
+                    busy = false,
+                    progress = 1f,
+                    translation = memoryHit,
+                    status = if (showMissingStatus) TranslationStatus.LoadedCached else TranslationStatus.Ready,
+                    readerLoad = ReaderTranslationLoadState(
+                        documentId = document.id,
+                        pageIndex = page.index,
+                        stage = ReaderTranslationLoadStage.Ready,
+                    ),
+                )
+            }
+            prefetchAdjacentCachedPages(document, page.index, settings, repository)
+            return
+        }
+
         _uiState.update { state ->
             state.copy(
                 busy = false,
@@ -204,15 +233,17 @@ class TranslationViewModel : ViewModel() {
         }
         pageContentJob = viewModelScope.launch {
             runCatching {
-                val cached = repository.loadCachedPage(document, page, settings)
-                val cacheStatus = repository.cacheStatus(document, settings)
-                cached to cacheStatus
-            }.onSuccess { (cached, cacheStatus) ->
+                repository.loadCachedPage(document, page, settings)
+            }.onSuccess { cached ->
                 if (revision != documentRevision || requestId != pageContentRequestId) return@onSuccess
                 _uiState.update { state ->
                     state.copy(
                         translation = cached,
-                        cacheStatus = cacheStatus,
+                        pageTranslations = if (cached != null) {
+                            state.pageTranslations + (page.index to cached)
+                        } else {
+                            state.pageTranslations
+                        },
                         progress = if (cached != null) 1f else 0f,
                         status = when {
                             cached != null && showMissingStatus -> TranslationStatus.LoadedCached
@@ -230,6 +261,17 @@ class TranslationViewModel : ViewModel() {
                         ),
                     )
                 }
+                if (cached != null) {
+                    prefetchAdjacentCachedPages(document, page.index, settings, repository)
+                }
+                viewModelScope.launch {
+                    runCatching { repository.cacheStatus(document, settings) }
+                        .onSuccess { status ->
+                            if (revision == documentRevision) {
+                                _uiState.update { it.copy(cacheStatus = status) }
+                            }
+                        }
+                }
             }.onFailure { error ->
                 if (
                     error is CancellationException ||
@@ -245,6 +287,36 @@ class TranslationViewModel : ViewModel() {
                             stage = ReaderTranslationLoadStage.Failed,
                         ),
                     )
+                }
+            }
+        }
+    }
+
+    private fun prefetchAdjacentCachedPages(
+        document: ReaderDocument,
+        currentPageIndex: Int,
+        settings: TranslationSettings,
+        repository: TranslationRepository,
+    ) {
+        val revision = documentRevision
+        val currentTranslations = _uiState.value.pageTranslations
+        val targets = listOf(currentPageIndex + 1, currentPageIndex + 2, currentPageIndex - 1)
+            .filter { it in 0 until document.pageCount && it !in currentTranslations && document.pages[it].hasText }
+
+        if (targets.isEmpty()) return
+
+        viewModelScope.launch {
+            for (targetIndex in targets) {
+                if (revision != documentRevision) break
+                val targetPage = document.pages[targetIndex]
+                val cached = runCatching { repository.loadCachedPage(document, targetPage, settings) }.getOrNull()
+                if (cached != null && revision == documentRevision) {
+                    _uiState.update { state ->
+                        state.copy(
+                            pageTranslations = (state.pageTranslations + (targetIndex to cached))
+                                .filterKeys { kotlin.math.abs(it - currentPageIndex) <= 10 }
+                        )
+                    }
                 }
             }
         }
@@ -297,6 +369,7 @@ class TranslationViewModel : ViewModel() {
                 _uiState.update { state ->
                     state.copy(
                         translation = result,
+                        pageTranslations = state.pageTranslations + (page.index to result),
                         cacheStatus = cacheStatus,
                         progress = 1f,
                         busy = false,
@@ -312,6 +385,7 @@ class TranslationViewModel : ViewModel() {
                         ),
                     )
                 }
+                prefetchAdjacentCachedPages(document, page.index, settings, repository)
             }.onFailure { error ->
                 if (
                     error is CancellationException ||
@@ -510,6 +584,7 @@ class TranslationViewModel : ViewModel() {
                             }
                             state.copy(
                                 translation = visibleResult ?: state.translation,
+                                pageTranslations = state.pageTranslations + resultsByPageIndex,
                                 progress = if (visibleResult != null) 1f else state.progress,
                                 status = if (visibleResult != null) {
                                     TranslationStatus.TranslatedSavedPage(rollingVisiblePageIndex + 1)
@@ -957,6 +1032,7 @@ class TranslationViewModel : ViewModel() {
                 _uiState.update { state ->
                     state.copy(
                         translation = null,
+                        pageTranslations = emptyMap(),
                         cacheStatus = cacheStatus,
                         progress = 0f,
                         busy = false,
