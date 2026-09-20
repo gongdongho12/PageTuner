@@ -51,6 +51,10 @@ class SettingsViewModel(
         update { settingsStore.updateReaderPageMargin(pageMarginDp) }
     }
 
+    fun updateReaderFontFamily(fontFamily: ReaderFontFamily) {
+        update { settingsStore.updateReaderFontFamily(fontFamily) }
+    }
+
     fun updateSourceLanguage(sourceLanguage: String) {
         update { settingsStore.updateSourceLanguage(sourceLanguage) }
     }

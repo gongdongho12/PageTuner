@@ -26,7 +26,9 @@ import com.dongholab.pagetuner.display.DisplayMode
 import com.dongholab.pagetuner.reader.PageTurnMode
 import com.dongholab.pagetuner.reader.PdfFitMode
 import com.dongholab.pagetuner.settings.ListLayoutMode
+import com.dongholab.pagetuner.settings.ReaderFontFamily
 import com.dongholab.pagetuner.ui.common.EinkSegmentedControl
+import com.dongholab.pagetuner.ui.reader.toComposeFontFamily
 import com.dongholab.pagetuner.ui.text.localizedLabel
 import com.dongholab.pagetuner.ui.theme.EinkInk
 import com.dongholab.pagetuner.ui.theme.EinkLine
@@ -176,11 +178,13 @@ fun ReaderPreferencesPanel(
     fontSizeSp: Int,
     lineSpacing: Float,
     pageMarginDp: Int,
+    fontFamily: ReaderFontFamily = ReaderFontFamily.DEFAULT,
     busy: Boolean,
     onPdfFitModeChange: (PdfFitMode) -> Unit,
     onFontSizeChange: (Int) -> Unit,
     onLineSpacingChange: (Float) -> Unit,
     onPageMarginChange: (Int) -> Unit,
+    onFontFamilyChange: (ReaderFontFamily) -> Unit = {},
 ) {
     Surface(
         modifier = Modifier.fillMaxWidth(),
@@ -210,6 +214,30 @@ fun ReaderPreferencesPanel(
                         onClick = { onPdfFitModeChange(mode) },
                         enabled = !busy,
                         label = { Text(stringResource(mode.labelRes)) },
+                    )
+                }
+            }
+            Text(
+                text = stringResource(R.string.reader_font_family),
+                style = MaterialTheme.typography.bodySmall,
+                color = EinkInk,
+            )
+            FlowRow(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(4.dp),
+            ) {
+                ReaderFontFamily.entries.forEach { family ->
+                    FilterChip(
+                        selected = fontFamily == family,
+                        onClick = { onFontFamilyChange(family) },
+                        enabled = !busy,
+                        label = {
+                            Text(
+                                text = stringResource(family.labelRes),
+                                fontFamily = family.toComposeFontFamily(),
+                            )
+                        },
                     )
                 }
             }
