@@ -199,3 +199,17 @@ app/build/outputs/apk/debug/app-debug.apk
 3. EPUB embedded image 렌더링과 display mode 처리 추가.
 4. FTP와 Google Drive connector 추가.
 5. 배포 전 프로젝트 라이선스 선택 및 추가.
+
+## 웹 프런트엔드
+
+웹은 [`frontend/`](frontend/README.md)에 Next.js + React + TypeScript로 분리했습니다.
+기존 Android `app/`와 Spring `server/`는 유지합니다. 서재, 문서 읽기, 번역 대기열,
+백업·복원, 웹 카탈로그 및 서버 연동을 제공하며 상세 지원 범위는 프런트엔드 README를 확인하세요.
+
+```bash
+cd frontend
+npm ci
+npm run dev
+```
+
+접속 주소: `http://127.0.0.1:3000`

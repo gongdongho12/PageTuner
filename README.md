@@ -215,6 +215,22 @@ not as source-code bases.
 - The LLM provider expects OpenAI-compatible chat completions JSON.
 - No product license has been selected yet.
 
+## Web Frontend
+
+The independent [frontend](frontend/README.md) uses Next.js, React and TypeScript
+for browser reading, translation, local backups and Spring API integration.
+Android stays in `app/`, Spring stays in `server/`, and all web code lives in
+`frontend/`.
+
+```bash
+cd frontend
+npm ci
+npm run dev
+```
+
+Open `http://127.0.0.1:3000`. See the frontend README for production builds,
+offline behavior, format limitations and test commands.
+
 ## Build
 
 ```bash

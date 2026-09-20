@@ -14,6 +14,9 @@ import com.fasterxml.jackson.databind.ObjectMapper
 import java.time.Instant
 import java.util.UUID
 import org.springframework.jdbc.core.JdbcTemplate
+import org.springframework.data.domain.PageRequest
+import org.springframework.data.domain.Sort
+import com.dongholab.pagetuner.server.library.PageResponse
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 
@@ -41,9 +44,47 @@ class TranslationApplicationService(
     }
 
     @Transactional(readOnly = true)
+    fun list(userId: String, page: Int, size: Int, contentProviderId: String?, bookId: String?,
+        chapterId: String?, sourceRevision: String?, targetLanguage: String?): PageResponse<TranslationSummary> {
+        require(page >= 0 && size in 1..100) { "page must be nonnegative and size must be between 1 and 100." }
+        require((contentProviderId == null) == (bookId == null)) { "contentProviderId and bookId must be supplied together." }
+        val providerBookId = if (contentProviderId != null && bookId != null) BookIdentity(contentProviderId, bookId).canonicalId else null
+        val result = artifacts.search(userId, providerBookId, chapterId, sourceRevision, targetLanguage,
+            PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt", "id")))
+        return PageResponse(result.content.map { a -> TranslationSummary(requireNotNull(a.id),
+            a.providerBookId.substringBefore(':'), a.providerBookId.substringAfter(':'), a.chapterId,
+            a.sourceRevision, a.sourceLanguage, a.targetLanguage, a.translationProviderId, a.modelId,
+            a.promptRevision, a.glossaryRevision, a.artifactId, a.revision, a.payloadHash, a.createdAt) }, page, size, result.totalElements)
+    }
+
+    @Transactional(readOnly = true)
     fun get(userId: String, recordId: UUID): TranslationResponse =
         (artifacts.findByIdAndUserId(recordId, userId) ?: throw TranslationNotFound())
             .toResponse(created = false)
+
+    @Transactional(readOnly = true)
+    fun exportBackup(userId: String, recordId: UUID): TranslationBackupDocument {
+        val entity = artifacts.findByIdAndUserId(recordId, userId) ?: throw TranslationNotFound()
+        return TranslationBackupDocument(
+            schemaVersion = 1,
+            artifactId = entity.artifactId,
+            revision = entity.revision,
+            payloadHash = entity.payloadHash,
+            translation = SaveTranslationRequest(
+                contentProviderId = entity.providerBookId.substringBefore(':'),
+                bookId = entity.providerBookId.substringAfter(':'),
+                chapterId = entity.chapterId,
+                sourceRevision = entity.sourceRevision,
+                sourceLanguage = entity.sourceLanguage,
+                targetLanguage = entity.targetLanguage,
+                translationProviderId = entity.translationProviderId,
+                modelId = entity.modelId,
+                promptRevision = entity.promptRevision,
+                glossaryRevision = entity.glossaryRevision,
+                paragraphs = entity.readParagraphs().map { TranslatedParagraphRequest(it.paragraphId, it.text) },
+            ),
+        ).also { it.verifiedRequest() }
+    }
 
     @Transactional
     fun planBackup(
