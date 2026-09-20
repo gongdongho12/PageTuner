@@ -218,13 +218,28 @@ fun RemoteSourcesTodoPanel(
                 return@Column
             }
 
-            // SourceSystems is the root route, so it opens the source chooser by default.
-            var activeSubTab by rememberSaveable { mutableStateOf(1) } // 0: Catalog, 1: Sources & Filters
+            // SourceSystems is the root route, so it opens the source chooser by default unless books are already loaded.
+            var activeSubTab by rememberSaveable(items.isNotEmpty()) {
+                mutableStateOf(if (items.isNotEmpty()) 0 else 1)
+            } // 0: Catalog, 1: Sources & Filters
             var selectedLanguageFilter by rememberSaveable { mutableStateOf("All") }
             var selectedOrderByFilter by rememberSaveable { mutableStateOf("addition_date") }
             var selectedStatusFilter by rememberSaveable { mutableStateOf("all") }
             var sourceManagerSection by rememberSaveable { mutableStateOf(0) }
             var catalogFilterSection by rememberSaveable { mutableStateOf(0) }
+            var showJumpDialog by rememberSaveable { mutableStateOf(false) }
+
+            if (showJumpDialog && remotePaging != null) {
+                CatalogPageJumpDialog(
+                    currentPage = remotePaging.currentPage,
+                    totalPages = remotePaging.totalPages ?: remotePaging.currentPage,
+                    onJumpToPage = { targetPage ->
+                        onRemoteCatalogPageSelected(targetPage)
+                        showJumpDialog = false
+                    },
+                    onDismiss = { showJumpDialog = false },
+                )
+            }
 
             val filteredCatalogItems = remember(items, selectedLanguageFilter) {
                 items.filter { item ->
@@ -362,6 +377,25 @@ fun RemoteSourcesTodoPanel(
                                 fallbackPageSize = 3,
                                 busy = busy,
                                 pagingState = rootCatalogPagingState,
+                                onPageBoundaryPrevious = if (remotePaging?.hasPreviousPage == true) {
+                                    { onRemoteCatalogPageSelected(remotePaging.currentPage - 1) }
+                                } else null,
+                                onPageBoundaryNext = if (remotePaging?.hasNextPage == true) {
+                                    { onRemoteCatalogPageSelected(remotePaging.currentPage + 1) }
+                                } else null,
+                                onFastBoundaryPrevious = if (remotePaging != null && remotePaging.currentPage > 1) {
+                                    { onRemoteCatalogPageSelected((remotePaging.currentPage - 10).coerceAtLeast(1)) }
+                                } else null,
+                                onFastBoundaryNext = remotePaging?.let { paging ->
+                                    val total = paging.totalPages
+                                    if (total == null || paging.currentPage < total) {
+                                        { onRemoteCatalogPageSelected((paging.currentPage + 10).coerceAtMost(total ?: (paging.currentPage + 10))) }
+                                    } else null
+                                },
+                                pageInfoPrefix = remotePaging?.let { "P.${it.currentPage}/${it.totalPages ?: "?"} · " },
+                                onPageInfoClick = if (remotePaging != null) {
+                                    { showJumpDialog = true }
+                                } else null,
                                 modifier = Modifier.weight(1f),
                                 emptyContent = {
                                     Text(
@@ -385,6 +419,13 @@ fun RemoteSourcesTodoPanel(
                                         onRouteChange(RemoteCatalogRoute.Book(catalogUrl, bookItem))
                                         onImportItem(bookItem)
                                     },
+                                )
+                            }
+                            if (com.dongholab.pagetuner.ui.common.LocalListLayoutMode.current == com.dongholab.pagetuner.settings.ListLayoutMode.Scroll) {
+                                EinkRemoteCatalogPagerSlot(
+                                    paging = remotePaging,
+                                    busy = busy,
+                                    onPageSelected = onRemoteCatalogPageSelected,
                                 )
                             }
                         }
@@ -842,13 +883,13 @@ fun RemoteCoverThumbnail(
 ) {
     val bitmap = remember(coverBytes, displayMode) {
         coverBytes?.let { bytes ->
-            runCatching {
-                BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
-                    ?.copy(Bitmap.Config.ARGB_8888, true)
-                    ?.also { bitmap ->
-                        bitmap.applyDisplayMode(displayMode)
-                    }
-            }.getOrNull()
+            com.dongholab.pagetuner.display.decodeSampledBitmapFromByteArray(
+                bytes = bytes,
+                reqWidth = 100,
+                reqHeight = 150,
+            )?.also { bitmap ->
+                bitmap.applyDisplayMode(displayMode)
+            }
         }
     }
 

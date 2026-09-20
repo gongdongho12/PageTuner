@@ -23,11 +23,14 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 private const val DefaultCatalogUrl = "https://wtr-lab.com/en/novel-list"
 private const val MaxThumbnailBytes = 2 * 1024 * 1024
+private const val MaxCachedThumbnails = 60
 
 data class CatalogTranslationProgress(
     val completedItems: Int,
@@ -264,6 +267,26 @@ class WebCatalogViewModel(
             page = targetPage,
             forceRefresh = false,
         )
+    }
+
+    fun loadNextCatalogPage(): Boolean {
+        val state = _uiState.value
+        val paging = state.remotePaging ?: return false
+        if (paging.hasNextPage && !state.busy && state.catalogLoading == null) {
+            loadRemoteCatalogPage(paging.currentPage + 1)
+            return true
+        }
+        return false
+    }
+
+    fun loadPreviousCatalogPage(): Boolean {
+        val state = _uiState.value
+        val paging = state.remotePaging ?: return false
+        if (paging.hasPreviousPage && !state.busy && state.catalogLoading == null) {
+            loadRemoteCatalogPage(paging.currentPage - 1)
+            return true
+        }
+        return false
     }
 
     /** Warms the default WTR-Lab catalog without requiring the Web Novel tab to be opened. */
@@ -855,6 +878,24 @@ class WebCatalogViewModel(
             )
         }
         prefetchCoverThumbnails(visible)
+        if (loaded.paging.hasNextPage) {
+            prefetchNextCatalogPage(currentState.catalogUrl, loaded.paging.currentPage + 1)
+        }
+    }
+
+    private fun prefetchNextCatalogPage(url: String, pageNumber: Int) {
+        viewModelScope.launch(Dispatchers.IO) {
+            runCatching {
+                pageService.load(
+                    WebCatalogPageRequest(
+                        url = url,
+                        accountId = accountIdForCatalog(url),
+                        pageNumber = pageNumber,
+                        forceRefresh = false,
+                    ),
+                )
+            }
+        }
     }
 
     private fun accountIdForCatalog(url: String): String {
@@ -879,33 +920,46 @@ class WebCatalogViewModel(
 
     private fun prefetchCoverThumbnails(items: List<RemoteBookItem>) {
         val urls = items
-            .take(5)
+            .take(12)
             .mapNotNull { it.coverUrl }
             .filter { url -> url !in _uiState.value.coverThumbnails }
             .distinct()
         if (urls.isEmpty()) return
 
         coverThumbnailJob?.cancel()
-        coverThumbnailJob = viewModelScope.launch {
-            val loadedThumbnails = linkedMapOf<String, ByteArray>()
-            urls.forEach { url ->
-                DiagnosticLogger.log("[COVER STEP 1: FETCH START]", "Requesting thumbnail: $url")
-                runCatching {
-                    PageTurnerWebCatalogNetwork.fetchBytes(
-                        url = url,
-                        maxBytes = MaxThumbnailBytes,
+        coverThumbnailJob = viewModelScope.launch(Dispatchers.IO) {
+            val deferred = urls.map { url ->
+                async {
+                    DiagnosticLogger.log("[COVER STEP 1: FETCH START]", "Requesting thumbnail: $url")
+                    runCatching {
+                        PageTurnerWebCatalogNetwork.fetchBytes(
+                            url = url,
+                            maxBytes = MaxThumbnailBytes,
+                        )
+                    }.fold(
+                        onSuccess = { bytes ->
+                            DiagnosticLogger.log("[COVER STEP 2: FETCH OK]", "Downloaded ${bytes.size} bytes from $url")
+                            url to bytes
+                        },
+                        onFailure = { error ->
+                            if (error is CancellationException) throw error
+                            DiagnosticLogger.log("[COVER STEP 2: FETCH FAIL]", "$url → ${error.javaClass.simpleName}: ${error.message}")
+                            null
+                        },
                     )
-                }.onSuccess { bytes ->
-                    DiagnosticLogger.log("[COVER STEP 2: FETCH OK]", "Downloaded ${bytes.size} bytes from $url")
-                    loadedThumbnails[url] = bytes
-                }.onFailure { error ->
-                    if (error is CancellationException) throw error
-                    DiagnosticLogger.log("[COVER STEP 2: FETCH FAIL]", "$url → ${error.javaClass.simpleName}: ${error.message}")
                 }
             }
-            if (loadedThumbnails.isNotEmpty()) {
+            val loadedPairs = deferred.awaitAll().filterNotNull()
+            if (loadedPairs.isNotEmpty()) {
+                val loadedThumbnails = loadedPairs.toMap()
                 _uiState.update { state ->
-                    state.copy(coverThumbnails = state.coverThumbnails + loadedThumbnails)
+                    val merged = state.coverThumbnails + loadedThumbnails
+                    val pruned = if (merged.size > MaxCachedThumbnails) {
+                        merged.entries.toList().takeLast(MaxCachedThumbnails).associate { it.key to it.value }
+                    } else {
+                        merged
+                    }
+                    state.copy(coverThumbnails = pruned)
                 }
             }
         }
