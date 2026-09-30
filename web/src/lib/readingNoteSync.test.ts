@@ -47,6 +47,38 @@ function setup(options: { factory?: IDBFactory; username?: string; api?: Reading
 const add = (notes: ReturnType<typeof createReadingNotes>, title = 'Bookmark') => notes.add(document, { kind: 'bookmark', title, anchor })
 
 describe('atomic note synchronization', () => {
+  it('retries a failed initial binding on explicit refresh before claiming synchronization', async () => {
+    const { controller, store, notes, remote } = setup()
+    const input: ReadingNoteInput = { kind: 'NOTE', title: 'Remote only', text: 'Recovered after database unblock', anchor, range: null, createdAt: time }
+    await remote.api.put(identity, crypto.randomUUID(), { expectedVersion: 0, mutationId: crypto.randomUUID(), deleted: false, note: input })
+    const bind = vi.spyOn(store, 'bind').mockRejectedValueOnce(new Error('Database blocked')).mockRejectedValueOnce(new Error('Database still blocked'))
+    const statuses: string[] = [], unsubscribe = controller.subscribe(state => statuses.push(state.status))
+    await controller.start(document)
+    expect(controller.snapshot()).toMatchObject({ status: 'error', errorCode: 'storage' })
+    await controller.refresh()
+    expect(controller.snapshot()).toMatchObject({ status: 'error', errorCode: 'storage' })
+    expect(statuses).not.toContain('synced')
+    expect((await store.snapshot(identity)).document).toBeNull()
+    expect(remote.api.list).not.toHaveBeenCalled()
+    await controller.refresh()
+    expect(bind).toHaveBeenCalledTimes(3)
+    expect(remote.api.list).toHaveBeenCalledTimes(1)
+    expect(controller.snapshot()).toMatchObject({ status: 'synced' })
+    expect((await notes.list(document)).items[0].title).toBe('Remote only')
+    unsubscribe()
+  })
+  it('does not report an unbound controller as synchronized', async () => {
+    const { controller, store, remote } = setup()
+    await controller.flush()
+    expect(controller.snapshot().status).toBe('loading')
+    vi.spyOn(store, 'bind').mockResolvedValueOnce(undefined)
+    await controller.start(document)
+    expect(controller.snapshot()).toMatchObject({ status: 'error', errorCode: 'storage' })
+    expect(remote.api.list).not.toHaveBeenCalled()
+    await controller.refresh()
+    expect(controller.snapshot().status).toBe('synced')
+    expect(remote.api.list).toHaveBeenCalledTimes(1)
+  })
   it('commits visible adds, edits and deletes together with immutable pending and queued operations', async () => {
     const { notes, store } = setup({ api: null }), note = await add(notes)
     const first = (await store.snapshot(identity)).rows[0].pending!

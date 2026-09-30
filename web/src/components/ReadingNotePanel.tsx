@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { translate as t } from '../lib/locale'
 import { ReadingNoteError, type ReadingNoteInput } from '../lib/readingNoteApi'
 import type { ReadingDocument } from '../lib/readingDocument'
+import { readingRangeText } from '../lib/readingSelection'
 import type { useReadingNoteSync } from './ReadingNoteProvider'
 import { AdaptiveCollection } from './AdaptiveCollection'
 import { PagedReader } from './PagedReader'
@@ -24,11 +25,16 @@ export function ReadingNotePanel({ document, sync, onClose }: {
   const state = sync.state
   const conflicts = state?.conflicts ?? []
   const selected = conflicts.find(item => item.noteId === selectedId)
+  let quote = preview ? document.paragraphs.find(p => p.paragraphId === preview.anchor.paragraphId)?.text : undefined
+  if (preview?.range) {
+    try { quote = readingRangeText(document, preview.range) }
+    catch { quote = undefined }
+  }
   if (preview) return <PagedReader readOnly document={{ id: 'reading-note-conflict-preview', kind: 'introduction', bookTitle: document.bookTitle,
     chapterTitle: preview.title, language: document.language, paragraphs: [
       { paragraphId: 'title', text: preview.title },
       ...(preview.text ? [{ paragraphId: 'text', text: preview.text }] : []),
-      { paragraphId: 'anchor', text: document.paragraphs.find(p => p.paragraphId === preview.anchor.paragraphId)?.text || t('이 문서에서 확인할 수 없는 위치') },
+      { paragraphId: 'anchor', text: quote || t('이 문서에서 확인할 수 없는 위치') },
     ] }} onClose={() => setPreview(undefined)} onAnchorChange={() => {}}/>
   return <section className="reading-workspace" aria-label={t('읽기 기록 동기화')}>
     <header className="reading-tools-header"><button className="button-quiet" onClick={selected ? () => setSelectedId(undefined) : onClose}>{t(selected ? '충돌 목록으로' : '읽기 도구로')}</button><strong>{t('읽기 기록 동기화')}</strong></header>

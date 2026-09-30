@@ -15,6 +15,7 @@ type Options = { api: ReadingNoteClient | null; store: ReadingNoteStore; identit
 /** A controller survives reader closure; the visible notes and every pending mutation share one database transaction. */
 export function createReadingNoteController({ api, store, identity, onChange, debounceMs = 800 }: Options) {
   let closed = false, started = false, terminalError: ReadingNoteErrorCode | undefined, lastError: ReadingNoteErrorCode | undefined
+  let bindingDocument: ReadingDocument | undefined, bound = false
   let state: ReadingNoteState = { status: 'loading', pendingCount: 0, pullPending: false, unsupportedCount: 0, conflicts: [] }
   let snapshot: Awaited<ReturnType<ReadingNoteStore['snapshot']>> = { document: null, rows: [] }
   let starting: Promise<void> | null = null, flushing: Promise<void> | null = null, refreshing: Promise<void> | null = null
@@ -26,7 +27,7 @@ export function createReadingNoteController({ api, store, identity, onChange, de
     const pending = snapshot.rows.filter(row => row.pending), conflicts = pending.flatMap(row => row.conflict ? [{ noteId: row.noteId,
       local: structuredClone({ deleted: (row.queued ?? row.pending!).deleted, note: (row.queued ?? row.pending!).note }), remote: structuredClone(row.conflict) }] : [])
     const errorCode = terminalError ?? lastError
-    state = { status: errorCode ? 'error' : conflicts.length ? 'conflict' : pending.length || snapshot.document?.watermark !== null && snapshot.document?.watermark !== undefined ? 'pending' : 'synced',
+    state = { status: errorCode ? 'error' : conflicts.length ? 'conflict' : pending.length || snapshot.document?.watermark !== null && snapshot.document?.watermark !== undefined ? 'pending' : !snapshot.document ? 'loading' : 'synced',
       pendingCount: pending.length, pullPending: snapshot.document?.watermark != null, unsupportedCount: snapshot.document?.unsupportedIds.length ?? 0, conflicts, ...(errorCode ? { errorCode } : {}) }
     listeners.forEach(listener => listener(structuredClone(state)))
   }
@@ -93,6 +94,16 @@ export function createReadingNoteController({ api, store, identity, onChange, de
     terminalError = undefined; lastError = undefined
     refreshing = (async () => {
       try {
+        if (bindingDocument && !bound) {
+          // A blocked/failed initial database open must be recoverable by explicit refresh.
+          await store.bind(bindingDocument)
+          if (closed) return
+          await load()
+          if (closed) return
+          if (!snapshot.document) throw new ReadingNoteError('storage')
+          bound = true
+          publish()
+        }
         await flush()
         if (closed || terminalError || lastError) return
         if (!api) { lastError = 'network'; publish(); return }
@@ -115,9 +126,8 @@ export function createReadingNoteController({ api, store, identity, onChange, de
     if (started) return starting ?? Promise.resolve()
     if (document.serverProgress?.kind !== identity.kind || document.serverProgress.recordId !== identity.recordId) throw new ReadingNoteError('invalid-request')
     started = true
-    starting = (async () => {
-      try { await store.bind(document); if (closed) return; await load(); publish(); await refresh() } catch (error) { fail(error) }
-    })().finally(() => { starting = null })
+    bindingDocument = document
+    starting = refresh().finally(() => { starting = null })
     return starting
   }
   async function resolve(noteId: string, choice: 'local' | 'server', expected: ReadingNoteChoice): Promise<void> {

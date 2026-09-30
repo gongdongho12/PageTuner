@@ -127,7 +127,10 @@ async function readJson(response: Response, signal: AbortSignal, maximum: number
   try {
     while (true) {
       if (signal.aborted) throw new ReadingNoteError('aborted')
-      const part = await reader.read(); if (part.done) break
+      const part = await reader.read().catch(() => {
+        // A disconnected response body is retryable; malformed JSON/UTF-8 below is not.
+        throw new ReadingNoteError(signal.aborted ? 'aborted' : 'network')
+      }); if (part.done) break
       bytes += part.value.byteLength; if (bytes > maximum) return invalid()
       body += decoder.decode(part.value, { stream: true })
     }

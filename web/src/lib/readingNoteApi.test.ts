@@ -61,4 +61,22 @@ describe('reading notes transport contract', () => {
     await expect(request).rejects.toMatchObject({ code: 'aborted' })
     expect(fetch.mock.calls[0][1]?.signal?.aborted).toBe(true)
   })
+  it('classifies a disconnected response stream as retryable and allows the next read', async () => {
+    let reads = 0
+    const interrupted = new Response(new ReadableStream<Uint8Array>({
+      pull(controller) {
+        if (reads++ === 0) controller.enqueue(new TextEncoder().encode('{"kind":"ORIGINAL",'))
+        else controller.error(new TypeError('Network connection lost'))
+      },
+    }), { headers: { 'content-type': 'application/json' } })
+    const fetch = vi.fn<typeof globalThis.fetch>().mockResolvedValueOnce(interrupted).mockResolvedValueOnce(json(page)), api = client(fetch)
+    await expect(api.list(identity, { afterRevision: 0 })).rejects.toMatchObject({ code: 'network' })
+    await expect(api.list(identity, { afterRevision: 0 })).resolves.toEqual(page)
+  })
+  it('keeps malformed JSON and invalid UTF-8 as invalid responses', async () => {
+    for (const body of ['{"kind":', new Uint8Array([0xc3, 0x28])]) {
+      const fetch = vi.fn<typeof globalThis.fetch>().mockResolvedValue(new Response(body, { headers: { 'content-type': 'application/json' } }))
+      await expect(client(fetch).list(identity, { afterRevision: 0 })).rejects.toMatchObject({ code: 'invalid-response' })
+    }
+  })
 })
