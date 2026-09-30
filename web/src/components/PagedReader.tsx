@@ -6,11 +6,12 @@ import { usePageKeys } from "./usePageKeys";
 import { ReaderTools } from './ReaderTools';
 import { firstAnchor, type ReadingDocument } from '../lib/readingDocument';
 import { useReadingProgress } from './ReadingProgressProvider';
+import { useReadingNoteSync } from './ReadingNoteProvider';
 import { ReadingProgressPanel, readingProgressStatus } from './ReadingProgressPanel';
 import { useReaderPreferences } from './ReaderPreferences';
 import { readerFontFamilies } from '../lib/readerPreferences';
 import { useReaderFullscreen, useReaderTouch } from './useReaderControls';
-import { createReadingNotes, type ReadingNote } from '../lib/readingNotes';
+import { createReadingNotes, subscribeReadingNotes, type ReadingNote } from '../lib/readingNotes';
 import { captureReadingSelection, highlightedReaderParts, type ReadingSelection } from '../lib/readingSelection';
 import { deviceStorageMessage } from '../lib/deviceReadingDatabase';
 import { usePersonalLibrary } from './usePersonalLibrary';
@@ -137,6 +138,7 @@ export function PagedReader({ document: readingDocument, anchor, anchorIsNavigat
     const [glossaryOpen, setGlossaryOpen] = useState(false);
     const [progressOpen, setProgressOpen] = useState(false);
     const progress = useReadingProgress(readingDocument, notesNamespace, anchor, !preview && !readOnly, anchorIsNavigation);
+    useReadingNoteSync(readingDocument, notesNamespace, !preview && !readOnly);
     const personal = usePersonalLibrary(preview || readOnly ? '' : notesNamespace ?? '');
     const glossaryIdentity = readingDocument.glossaryIdentity ?? (readingDocument.kind === 'local' && readingDocument.local
         ? { providerId: 'uploaded-document', bookId: `local:${readingDocument.local.contentHash}` } : undefined);
@@ -167,10 +169,12 @@ export function PagedReader({ document: readingDocument, anchor, anchorIsNavigat
     useEffect(() => {
         let active = true;
         setHighlights([]); setSelection(undefined); setHighlightError(''); setHighlightMessage('');
-        notes?.list(readingDocument).then(snapshot => {
+        const refresh = () => notes?.list(readingDocument).then(snapshot => {
             if (active) setHighlights(snapshot.items.filter(item => item.kind === 'highlight'));
         }).catch(error => { if (active) setHighlightError(deviceStorageMessage(error)); });
-        return () => { active = false; };
+        void refresh();
+        const unsubscribe = notesNamespace ? subscribeReadingNotes(notesNamespace, readingDocument.id, () => { void refresh(); }) : undefined;
+        return () => { active = false; unsubscribe?.(); };
     }, [notes, readingDocument, toolsOpen]);
     useEffect(() => {
         if (!notes || toolsOpen || glossaryOpen || preview) return;
@@ -187,7 +191,7 @@ export function PagedReader({ document: readingDocument, anchor, anchorIsNavigat
         try {
             const saved = await notes.add(readingDocument, { kind: 'highlight', title: Array.from(selection.quote.trim()).slice(0, 60).join(''),
                 anchor: selection.range.start, range: selection.range });
-            setHighlights(value => [...value, saved]); window.getSelection()?.removeAllRanges(); setSelection(undefined);
+            setHighlights(value => [...value.filter(note => note.id !== saved.id), saved]); window.getSelection()?.removeAllRanges(); setSelection(undefined);
             setHighlightMessage('선택한 내용을 강조했습니다. 읽기 도구에서 삭제하거나 내보낼 수 있습니다.');
         } catch (error) { setHighlightError(deviceStorageMessage(error)); }
         finally { setHighlightBusy(false); }

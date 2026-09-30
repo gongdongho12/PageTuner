@@ -33,6 +33,8 @@ import { NovelWorkspace } from "./components/NovelWorkspace";
 import { AccountPanel } from "./components/AccountPanel";
 import { ReadingProgressProvider } from './components/ReadingProgressProvider';
 import { createReadingProgressClient, type ReadingProgressClient } from './lib/readingProgressApi';
+import { ReadingNoteProvider } from './components/ReadingNoteProvider';
+import { createReadingNoteClient, type ReadingNoteClient } from './lib/readingNoteApi';
 import { LocalWorkspace } from "./components/LocalWorkspace";
 import { LibraryExchangeWorkspace } from "./components/LibraryExchangeWorkspace";
 import { OriginalLibrary } from "./components/OriginalLibrary";
@@ -241,6 +243,8 @@ export default function App() {
   const accountClientRef = useRef<AccountClient | null>(null);
   const [progressClient, setProgressClient] = useState<ReadingProgressClient | null>(null);
   const progressClientRef = useRef<ReadingProgressClient | null>(null);
+  const [noteClient, setNoteClient] = useState<ReadingNoteClient | null>(null);
+  const noteClientRef = useRef<ReadingNoteClient | null>(null);
   const [workflowClient, setWorkflowClient] = useState<WorkflowClient | null>(
     null,
   );
@@ -408,6 +412,7 @@ export default function App() {
       workflowClientRef.current?.close();
       accountClientRef.current?.close();
       progressClientRef.current?.close();
+      noteClientRef.current?.close();
       session.current += 1;
     },
     [],
@@ -424,6 +429,9 @@ export default function App() {
     progressClientRef.current?.close();
     progressClientRef.current = null;
     setProgressClient(null);
+    noteClientRef.current?.close();
+    noteClientRef.current = null;
+    setNoteClient(null);
     setAccountClient(null);
     setAccountProfile(null);
     workflowClientRef.current?.close();
@@ -471,6 +479,9 @@ export default function App() {
       const nextProgressClient = createReadingProgressClient({ username: profile.username, password: details.password });
       progressClientRef.current = nextProgressClient;
       setProgressClient(nextProgressClient);
+      const nextNoteClient = createReadingNoteClient({ username: profile.username, password: details.password });
+      noteClientRef.current = nextNoteClient;
+      setNoteClient(nextNoteClient);
       setLocale(profile.locale);
       setUsername(profile.username);
       setFormUsername(profile.username);
@@ -752,6 +763,7 @@ export default function App() {
   return (
     <ReaderPreferencesProvider namespace={username}>
     <ReadingProgressProvider username={username} client={progressClient}>
+    <ReadingNoteProvider username={username} client={noteClient}>
       <div className="app-shell">
         <header className="app-header">
           <a
@@ -1421,6 +1433,7 @@ export default function App() {
           </div>
         )}
       </div>
+    </ReadingNoteProvider>
     </ReadingProgressProvider>
     </ReaderPreferencesProvider>
   );

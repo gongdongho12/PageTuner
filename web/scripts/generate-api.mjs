@@ -9,3 +9,4 @@ await generateContract('catalog-translations-v1.openapi.json', 'catalogTranslati
 await generateContract('json-catalog-v1.openapi.json', 'jsonCatalog.ts', check);
 await generateContract('reading-translation-v1.openapi.json', 'readingTranslations.ts', check);
 await generateContract('reading-progress-v1.openapi.json', 'readingProgress.ts', check);
+await generateContract('reading-notes-v1.openapi.json', 'readingNotes.ts', check);

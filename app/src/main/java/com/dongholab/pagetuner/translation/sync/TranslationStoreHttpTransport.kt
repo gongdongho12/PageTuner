@@ -31,7 +31,7 @@ fun interface TranslationStoreHttpTransport {
 class UrlConnectionTranslationStoreTransport(
     private val connectTimeoutMillis: Int = 15_000,
     private val readTimeoutMillis: Int = 30_000,
-    private val maxResponseBytes: Int = 4 * 1024 * 1024,
+    private val maxResponseBytes: Int = 8 * 1024 * 1024,
     private val connectionFactory: (URL) -> HttpURLConnection = { it.openConnection() as HttpURLConnection },
 ) : TranslationStoreHttpTransport {
     init {
