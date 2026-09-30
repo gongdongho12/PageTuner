@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -45,6 +46,11 @@ import com.dongholab.pagetuner.ui.settings.DisplaySettingsPanel
 import com.dongholab.pagetuner.ui.settings.ListLayoutSettingsPanel
 import com.dongholab.pagetuner.ui.settings.PageTurnSettingsPanel
 import com.dongholab.pagetuner.ui.settings.ReaderPreferencesPanel
+import com.dongholab.pagetuner.ui.settings.ServerReaderPreferencesPanel
+import com.dongholab.pagetuner.translation.sync.ReaderPreferencesUiState
+import com.dongholab.pagetuner.translation.sync.ServerReaderPreferencesSync
+import androidx.compose.ui.res.stringResource
+import com.dongholab.pagetuner.R
 import com.dongholab.pagetuner.ui.theme.EinkInk
 import com.dongholab.pagetuner.ui.theme.EinkLine
 import com.dongholab.pagetuner.ui.theme.EinkPaper
@@ -57,6 +63,7 @@ private enum class SettingsCategoryTab(val title: String) {
     READER_DEFAULTS("Reader Preferences"),
     AI_TRANSLATION("AI Translation"),
     DIAGNOSTICS("Diagnostics Log"),
+    ACCOUNT_READER("Account reader settings"),
 }
 
 /**
@@ -66,6 +73,8 @@ private enum class SettingsCategoryTab(val title: String) {
 @Composable
 fun SettingsScreen(
     readerSettings: ReaderSettings,
+    readerPreferencesState: ReaderPreferencesUiState,
+    readerPreferencesSync: ServerReaderPreferencesSync,
     translationState: TranslationUiState,
     providerKind: TranslationProviderKind,
     apiKey: String,
@@ -110,9 +119,10 @@ fun SettingsScreen(
     modifier: Modifier = Modifier,
 ) {
     var selectedCategory by remember { mutableStateOf(SettingsCategoryTab.DISPLAY_PAGING) }
+    val accountReaderTitle = stringResource(R.string.reader_preferences_sync_title)
 
     Column(
-        modifier = modifier.fillMaxWidth(),
+        modifier = modifier.fillMaxSize(),
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         // E-Ink Sub-Tab Navigation Bar with Active Tab Indicator
@@ -122,11 +132,14 @@ fun SettingsScreen(
             onSelect = { selectedCategory = it },
             enabled = !busy,
             itemHeight = 54.dp,
-            label = SettingsCategoryTab::title,
+            label = { if (it == SettingsCategoryTab.ACCOUNT_READER) accountReaderTitle else it.title },
         )
 
         // Active Category Panel Rendering (Discrete Non-Overflowing View)
         when (selectedCategory) {
+            SettingsCategoryTab.ACCOUNT_READER -> Box(Modifier.weight(1f)) {
+                ServerReaderPreferencesPanel(readerPreferencesState, readerPreferencesSync)
+            }
             SettingsCategoryTab.DISPLAY_PAGING -> {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     DisplaySettingsPanel(

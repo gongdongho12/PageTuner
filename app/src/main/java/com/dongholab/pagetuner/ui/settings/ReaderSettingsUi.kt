@@ -216,24 +216,24 @@ fun ReaderPreferencesPanel(
             ReaderPreferenceSlider(
                 label = stringResource(R.string.reader_font_size, fontSizeSp),
                 value = fontSizeSp.toFloat(),
-                valueRange = 14f..28f,
-                steps = 13,
+                valueRange = 14f..36f,
+                steps = 21,
                 busy = busy,
                 onValueChange = { onFontSizeChange(it.roundToInt()) },
             )
             ReaderPreferenceSlider(
                 label = stringResource(R.string.reader_line_spacing, lineSpacing),
                 value = lineSpacing,
-                valueRange = 1.1f..1.8f,
-                steps = 6,
+                valueRange = 1.1f..2.4f,
+                steps = 25,
                 busy = busy,
                 onValueChange = { onLineSpacingChange((it * 100f).roundToInt() / 100f) },
             )
             ReaderPreferenceSlider(
                 label = stringResource(R.string.reader_page_margin, pageMarginDp),
                 value = pageMarginDp.toFloat(),
-                valueRange = 8f..36f,
-                steps = 13,
+                valueRange = 0f..48f,
+                steps = 23,
                 busy = busy,
                 onValueChange = { onPageMarginChange(it.roundToInt()) },
             )

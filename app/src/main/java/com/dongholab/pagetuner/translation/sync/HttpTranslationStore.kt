@@ -233,6 +233,18 @@ class HttpTranslationStore(
         decode { require(response.status == 204 && response.body.isEmpty()) }
     }
 
+    suspend fun readerPreferences(): ServerReaderPreferences = withContext(Dispatchers.IO) {
+        val response = execute("/api/v1/reader-preferences", "GET")
+        decode { ServerReaderPreferencesJson.view(JSONObject(response.body)) }
+    }
+
+    suspend fun saveReaderPreferences(mutation: ReaderPreferencesMutation): ServerReaderPreferences = withContext(Dispatchers.IO) {
+        val response = writeWithCsrf("/api/v1/reader-preferences", "PUT", ServerReaderPreferencesJson.encode(mutation), true)
+        decode { ServerReaderPreferencesJson.view(JSONObject(response.body)).also {
+            require(it.version == mutation.expectedVersion + 1 && it.preferences == mutation.preferences)
+        } }
+    }
+
     suspend fun readingProgress(kind: String, recordId: String): ServerReadingProgress = withContext(Dispatchers.IO) {
         ServerReadingProgressJson.validateTarget(kind, recordId)
         val response = execute("/api/v1/reading-progress/$kind/$recordId", "GET")
@@ -306,6 +318,18 @@ class HttpTranslationStore(
         }
         currentCoroutineContext().ensureActive()
         if (response.status !in 200..299) {
+            if (path == "/api/v1/reader-preferences" && response.status == 429) {
+                val seconds = response.headers.entries.firstOrNull { it.key.equals("Retry-After", true) }?.value?.firstOrNull()
+                    ?.toLongOrNull()?.takeIf { it in 1..86_400 } ?: 60L
+                throw ReaderPreferencesRateLimited(seconds)
+            }
+            if (path == "/api/v1/reader-preferences" && method == "PUT" && response.status == 409) {
+                val value = decode { JSONObject(response.body) }
+                if (value.optString("code") == "READER_PREFERENCES_CONFLICT") {
+                    throw ReaderPreferencesConflict(decode { ServerReaderPreferencesJson.view(value.getJSONObject("current")) })
+                }
+                // EXHAUSTED has no current snapshot and is terminal, rather than a recoverable conflict.
+            }
             if (path.startsWith("/api/v1/reading-notes/") && response.status == 429) {
                 val seconds = response.headers.entries.firstOrNull { it.key.equals("Retry-After", true) }?.value?.firstOrNull()
                     ?.toLongOrNull()?.takeIf { it in 1..86_400 } ?: 60L
