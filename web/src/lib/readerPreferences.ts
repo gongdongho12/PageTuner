@@ -14,7 +14,7 @@ export const readerPreferencesKey = (namespace: string) => `pageturner.reader-pr
 export function validateReaderPreferences(value: unknown): ReaderPreferences {
   const input = value as ReaderPreferences
   if (!input || !Number.isInteger(input.fontSize) || input.fontSize < 14 || input.fontSize > 36 ||
-      !['serif', 'sans', 'mono'].includes(input.fontFamily) || !Number.isFinite(input.lineHeight) || input.lineHeight < 1.2 || input.lineHeight > 2.4 ||
+      !['serif', 'sans', 'mono'].includes(input.fontFamily) || !Number.isFinite(input.lineHeight) || input.lineHeight < 1.1 || input.lineHeight > 2.4 ||
       !Number.isInteger(input.pageMargin) || input.pageMargin < 0 || input.pageMargin > 48 ||
       !['normal', 'reversed', 'disabled'].includes(input.pageKeys) || !['left-previous', 'left-next', 'buttons-only'].includes(input.touchDirection) ||
       !['paged', 'scroll'].includes(input.listMode)) throw new Error('저장된 독서 설정을 확인할 수 없습니다. 기본값으로 초기화해 주세요.')
