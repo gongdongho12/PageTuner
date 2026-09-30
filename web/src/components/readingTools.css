@@ -32,6 +32,10 @@
 .reading-note-row.reading-checkbox > input { grid-column:1; grid-row:1 / 3; width:24px; height:24px; }
 .reading-note-row.reading-checkbox > strong,.reading-note-row.reading-checkbox > span { grid-column:2; }
 .reading-tools-caption { margin:8px 12px; font-size:12px; color:#606060; flex:none; }
+.reader-preference-sync-entry { flex:none; min-height:44px; }
+.reader-preference-choice { height:100%; min-height:0; padding:8px 12px; display:flex; flex-direction:column; justify-content:center; gap:4px; overflow:hidden; }
+.reader-preference-choice p { margin:0; font-size:14px; line-height:1.35; }
+.reader-preference-choice button { flex:none; min-height:44px; }
 .reading-confirm { padding:24px; max-width:640px; align-self:center; }
 .reading-confirm > div { display:flex; gap:12px; margin-top:20px; }
 .reading-confirm button { min-height:48px; }

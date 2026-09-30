@@ -395,4 +395,27 @@
     <string name="server_notes_delete_detail">This deletion will sync to the other devices on your account.</string>
     <string name="server_notes_legacy">Earlier device notes</string>
     <string name="server_notes_stale_action">This note changed. Review the latest content before trying again.</string>
+    <string name="reader_preferences_sync_title">Account reader settings</string>
+    <string name="reader_preferences_sync_connect">Connect an account in Server to share reader settings.</string>
+    <string name="reader_preferences_sync_loading">Checking account reader settings…</string>
+    <string name="reader_preferences_sync_synced">Reader settings synchronized</string>
+    <string name="reader_preferences_sync_pending">Reader settings saved on this device; waiting to sync</string>
+    <string name="reader_preferences_sync_offline">Reader settings waiting for a connection</string>
+    <string name="reader_preferences_sync_rate_limited">The server asked us to wait before retrying.</string>
+    <string name="reader_preferences_sync_conflict">Reader settings changed on another device. Choose a version.</string>
+    <string name="reader_preferences_sync_unavailable">Account settings are unavailable. Check the connection and retry.</string>
+    <string name="reader_preferences_sync_device_error">Could not save account settings on this device. Retry to recover.</string>
+    <string name="reader_preferences_sync_initial">Choose which settings to start sharing. Nothing has been uploaded.</string>
+    <string name="reader_preferences_sync_stale">Settings changed while choosing. Review the latest values and choose again.</string>
+    <string name="reader_preferences_sync_description">These five values apply while this account is connected. Device defaults and other settings stay on this device.</string>
+    <string name="reader_preferences_sync_use_device">Use device values</string>
+    <string name="reader_preferences_sync_use_account">Use account values</string>
+    <string name="reader_preferences_sync_font">Text size</string>
+    <string name="reader_preferences_sync_line">Line height</string>
+    <string name="reader_preferences_sync_margin">Page margin</string>
+    <string name="reader_preferences_sync_touch">Page touch direction</string>
+    <string name="reader_preferences_sync_list">Collection navigation</string>
+    <string name="reader_preferences_sync_device_value">Device: %1$s</string>
+    <string name="reader_preferences_sync_account_value">Account: %1$s</string>
+    <string name="reader_preferences_sync_none">Not set</string>
 </resources>

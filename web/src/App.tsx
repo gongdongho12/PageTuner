@@ -35,6 +35,7 @@ import { ReadingProgressProvider } from './components/ReadingProgressProvider';
 import { createReadingProgressClient, type ReadingProgressClient } from './lib/readingProgressApi';
 import { ReadingNoteProvider } from './components/ReadingNoteProvider';
 import { createReadingNoteClient, type ReadingNoteClient } from './lib/readingNoteApi';
+import { createReaderPreferenceClient, type ReaderPreferenceClient } from './lib/readerPreferenceApi';
 import { LocalWorkspace } from "./components/LocalWorkspace";
 import { LibraryExchangeWorkspace } from "./components/LibraryExchangeWorkspace";
 import { OriginalLibrary } from "./components/OriginalLibrary";
@@ -245,6 +246,8 @@ export default function App() {
   const progressClientRef = useRef<ReadingProgressClient | null>(null);
   const [noteClient, setNoteClient] = useState<ReadingNoteClient | null>(null);
   const noteClientRef = useRef<ReadingNoteClient | null>(null);
+  const [preferenceClient, setPreferenceClient] = useState<ReaderPreferenceClient | null>(null);
+  const preferenceClientRef = useRef<ReaderPreferenceClient | null>(null);
   const [workflowClient, setWorkflowClient] = useState<WorkflowClient | null>(
     null,
   );
@@ -413,6 +416,7 @@ export default function App() {
       accountClientRef.current?.close();
       progressClientRef.current?.close();
       noteClientRef.current?.close();
+      preferenceClientRef.current?.close();
       session.current += 1;
     },
     [],
@@ -432,6 +436,9 @@ export default function App() {
     noteClientRef.current?.close();
     noteClientRef.current = null;
     setNoteClient(null);
+    preferenceClientRef.current?.close();
+    preferenceClientRef.current = null;
+    setPreferenceClient(null);
     setAccountClient(null);
     setAccountProfile(null);
     workflowClientRef.current?.close();
@@ -482,6 +489,9 @@ export default function App() {
       const nextNoteClient = createReadingNoteClient({ username: profile.username, password: details.password });
       noteClientRef.current = nextNoteClient;
       setNoteClient(nextNoteClient);
+      const nextPreferenceClient = createReaderPreferenceClient({ username: profile.username, password: details.password });
+      preferenceClientRef.current = nextPreferenceClient;
+      setPreferenceClient(nextPreferenceClient);
       setLocale(profile.locale);
       setUsername(profile.username);
       setFormUsername(profile.username);
@@ -761,7 +771,7 @@ export default function App() {
           ? t("오프라인 화면 준비 실패 \u00B7 온라인에서 다시 열어 주세요")
           : t("현재 화면에서 오프라인 읽기 가능");
   return (
-    <ReaderPreferencesProvider namespace={username}>
+    <ReaderPreferencesProvider namespace={username} client={preferenceClient}>
     <ReadingProgressProvider username={username} client={progressClient}>
     <ReadingNoteProvider username={username} client={noteClient}>
       <div className="app-shell">

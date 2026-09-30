@@ -90,6 +90,9 @@ import com.dongholab.pagetuner.translation.sync.ServerReadingProgressViewModel
 import com.dongholab.pagetuner.translation.sync.FileServerReadingProgressStore
 import com.dongholab.pagetuner.translation.sync.FileServerReadingNotesStore
 import com.dongholab.pagetuner.translation.sync.ServerReadingNotesViewModel
+import com.dongholab.pagetuner.translation.sync.FileServerReaderPreferencesStore
+import com.dongholab.pagetuner.translation.sync.ServerReaderPreferencesViewModel
+import com.dongholab.pagetuner.translation.sync.ReaderPreferencesPatch
 import com.dongholab.pagetuner.ui.reader.ServerReadingNotesPanel
 import com.dongholab.pagetuner.translation.sync.ServerLibraryKind
 import com.dongholab.pagetuner.translation.glossary.BookGlossaryStore
@@ -203,18 +206,33 @@ fun PageTurnerApp() {
     val serverProgressViewModel: ServerReadingProgressViewModel = viewModel(factory = ServerReadingProgressViewModel.Factory(serverProgressStore))
     val serverNotesStore = remember(context) { FileServerReadingNotesStore(context.filesDir.resolve("server-reading-notes")) }
     val serverNotesViewModel: ServerReadingNotesViewModel = viewModel(factory = ServerReadingNotesViewModel.Factory(serverNotesStore))
+    val serverReaderPreferencesStore = remember(context) { FileServerReaderPreferencesStore(context.filesDir.resolve("server-reader-preferences")) }
+    val serverReaderPreferencesViewModel: ServerReaderPreferencesViewModel = viewModel(
+        factory = ServerReaderPreferencesViewModel.Factory(serverReaderPreferencesStore, settingsStore))
     val glossaryViewModel: BookGlossaryViewModel = viewModel(
         factory = BookGlossaryViewModel.Factory(glossaryStore),
     )
 
     // — State observation
-    val readerSettings by settingsViewModel.settings.collectAsState(initial = ReaderSettings())
+    val deviceReaderSettings by settingsViewModel.settings.collectAsState(initial = ReaderSettings())
     val readerState by readerViewModel.uiState.collectAsState()
     val libraryState by libraryViewModel.uiState.collectAsState()
     val portableState by portableViewModel.state.collectAsState()
     val webCatalogState by webCatalogViewModel.uiState.collectAsState()
     val translationState by translationViewModel.uiState.collectAsState()
     val serverLibraryState by serverLibraryViewModel.state.collectAsState()
+    val observedServerReaderPreferencesState by serverReaderPreferencesViewModel.sync.state.collectAsState()
+    val serverReadingConnection = serverLibraryViewModel.readingConnection()
+    // Compose can observe a switched server before the actor handles Connect. Hide the previous
+    // account immediately and reject controls from that intermediate frame using an invalid ticket.
+    val serverReaderPreferencesState = observedServerReaderPreferencesState.takeIf {
+        it.accountKey == serverReadingConnection?.accountKey
+    } ?: com.dongholab.pagetuner.translation.sync.ReaderPreferencesUiState(session = -1,
+        phase = if (serverReadingConnection == null) com.dongholab.pagetuner.translation.sync.ReadingProgressPhase.Inactive
+            else com.dongholab.pagetuner.translation.sync.ReadingProgressPhase.Loading)
+    val readerSettings = serverReaderPreferencesState.overlay?.takeIf {
+        serverReaderPreferencesState.accountKey == serverReadingConnection?.accountKey
+    }?.overlay(deviceReaderSettings) ?: deviceReaderSettings
     val serverProgressState by serverProgressViewModel.sync.state.collectAsState()
     val serverNotesState by serverNotesViewModel.sync.state.collectAsState()
     val serverReadingDocument by serverProgressViewModel.document.collectAsState()
@@ -595,11 +613,11 @@ fun PageTurnerApp() {
         }
     }
 
-    val serverReadingConnection = serverLibraryViewModel.readingConnection()
     val activeServerReading = serverReadingDocument?.takeIf { it.readerId == document.id && it.accountKey == serverReadingConnection?.accountKey }
     LaunchedEffect(serverReadingConnection) {
         serverProgressViewModel.sync.connect(serverReadingConnection)
         serverNotesViewModel.sync.connect(serverReadingConnection)
+        serverReaderPreferencesViewModel.sync.connect(serverReadingConnection)
     }
     LaunchedEffect(serverReadingDocument, serverReadingConnection, document.id) {
         val reading = serverReadingDocument
@@ -921,6 +939,8 @@ fun PageTurnerApp() {
                         )
                         AppTab.Settings -> SettingsScreen(
                             readerSettings = readerSettings,
+                            readerPreferencesState = serverReaderPreferencesState,
+                            readerPreferencesSync = serverReaderPreferencesViewModel.sync,
                             translationState = translationState,
                             providerKind = providerKind,
                             apiKey = manualApiKey,
@@ -934,12 +954,18 @@ fun PageTurnerApp() {
                             translationCacheStatusText = translationCacheStatusText,
                             translationQueueStatusText = translationQueueStatusText,
                             onDisplayModeChange = { pdfPageBitmap = null; pdfPageCache = emptyMap(); settingsViewModel.updateDisplayMode(it) },
-                            onListLayoutModeChange = settingsViewModel::updateListLayoutMode,
-                            onPageTurnModeChange = settingsViewModel::updatePageTurnMode,
+                            onListLayoutModeChange = { serverReaderPreferencesViewModel.sync.edit(serverReaderPreferencesState.session,
+                                ReaderPreferencesPatch(listMode = if (it == com.dongholab.pagetuner.settings.ListLayoutMode.Scroll) "scroll" else "paged")) },
+                            onPageTurnModeChange = { serverReaderPreferencesViewModel.sync.edit(serverReaderPreferencesState.session,
+                                ReaderPreferencesPatch(touchDirection = when (it) {
+                                    com.dongholab.pagetuner.reader.PageTurnMode.LeftPreviousRightNext -> "left-previous"
+                                    com.dongholab.pagetuner.reader.PageTurnMode.LeftNextRightPrevious -> "left-next"
+                                    com.dongholab.pagetuner.reader.PageTurnMode.ButtonsOnly -> "buttons-only"
+                                })) },
                             onPdfFitModeChange = settingsViewModel::updatePdfFitMode,
-                            onFontSizeChange = settingsViewModel::updateReaderFontSize,
-                            onLineSpacingChange = settingsViewModel::updateReaderLineSpacing,
-                            onPageMarginChange = settingsViewModel::updateReaderPageMargin,
+                            onFontSizeChange = { serverReaderPreferencesViewModel.sync.edit(serverReaderPreferencesState.session, ReaderPreferencesPatch(fontSize = it)) },
+                            onLineSpacingChange = { serverReaderPreferencesViewModel.sync.edit(serverReaderPreferencesState.session, ReaderPreferencesPatch(lineHeightPercent = (it * 100).roundToInt())) },
+                            onPageMarginChange = { serverReaderPreferencesViewModel.sync.edit(serverReaderPreferencesState.session, ReaderPreferencesPatch(pageMargin = it)) },
                             onProviderKindChange = settingsViewModel::updateProviderKind,
                             onApiKeyChange = translationViewModel::updateApiKey,
                             onLlmEndpointChange = settingsViewModel::updateLlmEndpoint,

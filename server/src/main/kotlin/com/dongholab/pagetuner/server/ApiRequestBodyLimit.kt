@@ -18,6 +18,7 @@ class ApiRequestBodyLimit : OncePerRequestFilter() {
 
     override fun doFilterInternal(request: HttpServletRequest, response: HttpServletResponse, filterChain: FilterChain) {
         val limit = when {
+            request.servletPath == "/api/v1/reader-preferences" -> 8 * 1024
             request.servletPath.startsWith("/api/v1/reading-notes/") -> 32 * 1024
             request.servletPath.startsWith("/api/v1/reading-progress/") -> 8 * 1024
             request.servletPath == "/api/v1/accounts/me/password" -> 4 * 1024
