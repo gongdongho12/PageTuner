@@ -39,3 +39,4 @@
 - 2026-09-30 최종 빌드로 재로그인 후 기존 서버 원문을 열어 북마크 내용, 정확한 본문 강조와 동기화 완료 상태를 다시 확인했다. 검증 이미지: 로컬 `.gradle-home/reading-notes-synced-20260930.jpg`.
 - 독립 검토 후 수정: 웹 응답 본문 수신 중 단절을 재시도 가능한 연결 오류로 구분하고, 첫 IndexedDB 연결 실패 후 명시적 재시도가 정상 연결을 복구하도록 했다. Android는 서버 version이 같아도 기기의 대기 내용이 바뀌면 오래된 편집·삭제·충돌 선택을 거부한다. 기존 기기 기록의 마지막 항목을 삭제한 후 계정 기록으로 돌아오는 전환도 유지한다.
 - 구현 커밋: 서버 `baf4682`, 웹 `abda54b`, 웹 복구 보완 `bb06f12`, Android `219ccab`. lint에서 발견한 기존 ZIP 저장의 API 23 호환성 수정은 별도 `c991dd0`이다.
+- Draft PR [#25](https://github.com/gongdongho12/PageTuner/pull/25): base `codex/reading-progress-sync`, head `codex/reading-notes-sync`. 원격 Android CI와 로컬 서버·웹 검증 범위를 구분한다.

@@ -57,6 +57,7 @@ WTR/NovelBuddy 수집·서버 번역·원문/번역 서재·Google 웹 번역 �
 - 2026-09-16 02:38 KST 자동 실행: PR #24 최종 `f75375d` CI 통과 확인(3m11s), 작업 트리 깨끗함. `codex/reading-notes-sync`를 PR #24 기반으로 생성하고 S2를 시작했다. 서버·Android·웹 저장소를 나눠 진행한다. 기존 비UUID ZIP/로컬 메모는 그대로 보존하며 서버 문서 식별자 매칭은 S4로 유지한다.
 - 2026-09-30 자동 실행: 중단돼 있던 S2 미완성 변경을 이어서 완료했다. PR #24 CI 성공 상태 재확인. 공통/서버 `baf4682`, 웹 `abda54b`, 웹 복구 보완 `bb06f12`, Android `219ccab`, 기존 ZIP 저장 API 23 호환성 `c991dd0`으로 분리했다.
 - S2 검증: 서버 115개(2026-09-16 이후 코드 변경 없음), 웹 276개·8개 생성 계약·프로덕션 빌드, Android 337개 통과/기존 opt-in 15개 제외·APK·lint·instrumentation 소스 컴파일 성공. lint 오류 0/경고 75/힌트 4. 실제 웹/서버 양방향 변경·삭제·정확한 강조·원문/번역 격리·오프라인 충돌 유지와 복구·390×844 화면을 확인했다. 앱 실기기와 서버 기록의 ZIP 통합은 완료로 세지 않는다. [상세 근거](READING_NOTES_SYNC.md).
+- S2 draft PR: [#25](https://github.com/gongdongho12/PageTuner/pull/25), head `codex/reading-notes-sync`, base `codex/reading-progress-sync`(PR #24). 최초 생성 후 Android CI가 실행 중인 것을 확인했다. 최종 CI 결과는 PR checks가 기준이며 다음 실행에서 최신 head와 함께 확인한다.
 - 다음 실행은 S2 PR의 최신 CI와 작업 트리를 확인하고 **S3 폴더·태그·즐겨찾기·용어집·읽기 설정**을 진행한다. 서버 문서 기준 공통 계정 모델과 충돌/삭제 정책부터 정의하고 플랫폼별 기존 설정·용어집 표현 범위를 대조한다. 독립 작업을 분담하며 같은 파일·Gradle 빌드를 조정한다. 별도 진행 승인을 묻지 않는다.
 
 ## 검증 환경
