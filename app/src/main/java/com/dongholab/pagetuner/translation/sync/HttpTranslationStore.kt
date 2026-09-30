@@ -247,6 +247,23 @@ class HttpTranslationStore(
         } }
     }
 
+    suspend fun readingNotes(kind: String, recordId: String, afterRevision: Long = 0, limit: Int = 50, untilRevision: Long? = null): ServerReadingNotesPage = withContext(Dispatchers.IO) {
+        ServerReadingProgressJson.validateTarget(kind, recordId)
+        require(afterRevision in 0..MaxReadingVersion && limit in 1..100 && (untilRevision == null || untilRevision in afterRevision..MaxReadingVersion))
+        val path = "/api/v1/reading-notes/$kind/$recordId?afterRevision=$afterRevision&limit=$limit" + (untilRevision?.let { "&untilRevision=$it" } ?: "")
+        val response = execute(path, "GET")
+        decode { ServerReadingNotesJson.page(JSONObject(response.body), kind, recordId, afterRevision, limit, untilRevision) }
+    }
+
+    suspend fun saveReadingNote(kind: String, recordId: String, noteId: String, mutation: ServerReadingNoteMutation): ServerReadingNote = withContext(Dispatchers.IO) {
+        ServerReadingProgressJson.validateTarget(kind, recordId); ServerReadingNotesJson.uuid(noteId)
+        val response = writeWithCsrf("/api/v1/reading-notes/$kind/$recordId/$noteId", "PUT", ServerReadingNotesJson.encode(mutation), true)
+        decode { ServerReadingNotesJson.item(JSONObject(response.body), noteId).also {
+            require(it.version == mutation.expectedVersion + 1 && it.deleted == mutation.deleted &&
+                comparable(it.note) == comparable(mutation.note))
+        } }
+    }
+
     private suspend fun writeWithCsrf(path: String, method: String, body: JSONObject, authenticated: Boolean): TranslationStoreHttpResponse {
         val csrfPath = if (path.startsWith("/api/v1/accounts/")) "/api/v1/accounts/csrf" else "/api/v1/csrf"
         val csrfResponse = execute(csrfPath, "GET", authenticated = authenticated)
@@ -289,6 +306,18 @@ class HttpTranslationStore(
         }
         currentCoroutineContext().ensureActive()
         if (response.status !in 200..299) {
+            if (path.startsWith("/api/v1/reading-notes/") && response.status == 429) {
+                val seconds = response.headers.entries.firstOrNull { it.key.equals("Retry-After", true) }?.value?.firstOrNull()
+                    ?.toLongOrNull()?.takeIf { it in 1..86_400 } ?: 60L
+                throw ServerReadingNotesRateLimited(seconds)
+            }
+            if (path.startsWith("/api/v1/reading-notes/") && method == "PUT" && response.status == 409) {
+                val current = decode {
+                    val json = JSONObject(response.body); require(json.get("code") == "READING_NOTE_CONFLICT")
+                    ServerReadingNotesJson.item(json.getJSONObject("current"), path.substringAfterLast('/'))
+                }
+                throw ServerReadingNoteConflict(current)
+            }
             if (path.startsWith("/api/v1/reading-progress/") && response.status == 429) {
                 val seconds = response.headers.entries.firstOrNull { it.key.equals("Retry-After", true) }?.value?.firstOrNull()
                     ?.toLongOrNull()?.takeIf { it in 1..86_400 } ?: 60L

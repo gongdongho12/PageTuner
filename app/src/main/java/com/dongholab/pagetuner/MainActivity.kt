@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.AlertDialog
@@ -87,6 +88,9 @@ import com.dongholab.pagetuner.translation.sync.ServerLibraryEvent
 import com.dongholab.pagetuner.translation.sync.ServerReadingDocument
 import com.dongholab.pagetuner.translation.sync.ServerReadingProgressViewModel
 import com.dongholab.pagetuner.translation.sync.FileServerReadingProgressStore
+import com.dongholab.pagetuner.translation.sync.FileServerReadingNotesStore
+import com.dongholab.pagetuner.translation.sync.ServerReadingNotesViewModel
+import com.dongholab.pagetuner.ui.reader.ServerReadingNotesPanel
 import com.dongholab.pagetuner.translation.sync.ServerLibraryKind
 import com.dongholab.pagetuner.translation.glossary.BookGlossaryStore
 import com.dongholab.pagetuner.translation.glossary.BookGlossaryViewModel
@@ -197,6 +201,8 @@ fun PageTurnerApp() {
     val serverLibraryViewModel: ServerLibraryViewModel = viewModel()
     val serverProgressStore = remember(context) { FileServerReadingProgressStore(context.filesDir.resolve("server-reading-progress")) }
     val serverProgressViewModel: ServerReadingProgressViewModel = viewModel(factory = ServerReadingProgressViewModel.Factory(serverProgressStore))
+    val serverNotesStore = remember(context) { FileServerReadingNotesStore(context.filesDir.resolve("server-reading-notes")) }
+    val serverNotesViewModel: ServerReadingNotesViewModel = viewModel(factory = ServerReadingNotesViewModel.Factory(serverNotesStore))
     val glossaryViewModel: BookGlossaryViewModel = viewModel(
         factory = BookGlossaryViewModel.Factory(glossaryStore),
     )
@@ -210,6 +216,7 @@ fun PageTurnerApp() {
     val translationState by translationViewModel.uiState.collectAsState()
     val serverLibraryState by serverLibraryViewModel.state.collectAsState()
     val serverProgressState by serverProgressViewModel.sync.state.collectAsState()
+    val serverNotesState by serverNotesViewModel.sync.state.collectAsState()
     val serverReadingDocument by serverProgressViewModel.document.collectAsState()
     val glossaryState by glossaryViewModel.uiState.collectAsState()
 
@@ -589,12 +596,20 @@ fun PageTurnerApp() {
     }
 
     val serverReadingConnection = serverLibraryViewModel.readingConnection()
-    LaunchedEffect(serverReadingConnection) { serverProgressViewModel.sync.connect(serverReadingConnection) }
+    val activeServerReading = serverReadingDocument?.takeIf { it.readerId == document.id && it.accountKey == serverReadingConnection?.accountKey }
+    LaunchedEffect(serverReadingConnection) {
+        serverProgressViewModel.sync.connect(serverReadingConnection)
+        serverNotesViewModel.sync.connect(serverReadingConnection)
+    }
     LaunchedEffect(serverReadingDocument, serverReadingConnection, document.id) {
         val reading = serverReadingDocument
         if (reading != null && reading.readerId == document.id && serverReadingConnection?.accountKey == reading.accountKey) {
             serverProgressViewModel.sync.open(reading, serverReadingConnection, pageIndex, readerState.pageChangeRevision)
-        } else serverProgressViewModel.sync.close()
+            serverNotesViewModel.sync.open(reading, serverReadingConnection)
+        } else {
+            serverProgressViewModel.sync.close()
+            serverNotesViewModel.sync.close()
+        }
     }
     LaunchedEffect(serverProgressState.restore) {
         serverProgressState.restore?.takeIf { it.readerId == readerViewModel.uiState.value.document.id &&
@@ -1134,7 +1149,19 @@ fun PageTurnerApp() {
                                 .fillMaxWidth()
                                 .weight(1f),
                         ) {
-                            ReaderBookmarkPanel(
+                            var showLegacyNotes by remember(document.id) { mutableStateOf(false) }
+                            if (activeServerReading != null && (showLegacyNotes || bookmarks.isNotEmpty())) {
+                                androidx.compose.material3.TextButton(onClick = { showLegacyNotes = !showLegacyNotes }, modifier = Modifier.heightIn(min = 44.dp)) {
+                                    androidx.compose.material3.Text(stringResource(if (showLegacyNotes) R.string.server_notes_account else R.string.server_notes_legacy))
+                                }
+                            }
+                            if (activeServerReading != null && !showLegacyNotes) ServerReadingNotesPanel(serverNotesState, activeServerReading,
+                                bookmarksOnly = true, pageIndex = pageIndex, sync = serverNotesViewModel.sync, onOpen = { anchor ->
+                                    navHistoryStack.add(NavigationHistoryFrame.PageJumpFrame(pageIndex))
+                                    navHistoryStack.add(NavigationHistoryFrame.ReaderSubPageFrame(readerSubPage))
+                                    readerViewModel.changePage(activeServerReading.page(anchor))
+                                    readerSubPage = com.dongholab.pagetuner.ui.reader.ReaderSubPage.READER
+                                }) else ReaderBookmarkPanel(
                                 draftLabel = readerState.bookmarkDraftLabel,
                                 bookmarks = bookmarks,
                                 currentPageIndex = pageIndex,
@@ -1157,7 +1184,19 @@ fun PageTurnerApp() {
                                 .fillMaxWidth()
                                 .weight(1f),
                         ) {
-                            ReaderAnnotationPanel(
+                            var showLegacyNotes by remember(document.id) { mutableStateOf(false) }
+                            if (activeServerReading != null && (showLegacyNotes || annotations.isNotEmpty())) {
+                                androidx.compose.material3.TextButton(onClick = { showLegacyNotes = !showLegacyNotes }, modifier = Modifier.heightIn(min = 44.dp)) {
+                                    androidx.compose.material3.Text(stringResource(if (showLegacyNotes) R.string.server_notes_account else R.string.server_notes_legacy))
+                                }
+                            }
+                            if (activeServerReading != null && !showLegacyNotes) ServerReadingNotesPanel(serverNotesState, activeServerReading,
+                                bookmarksOnly = false, pageIndex = pageIndex, sync = serverNotesViewModel.sync, onOpen = { anchor ->
+                                    navHistoryStack.add(NavigationHistoryFrame.PageJumpFrame(pageIndex))
+                                    navHistoryStack.add(NavigationHistoryFrame.ReaderSubPageFrame(readerSubPage))
+                                    readerViewModel.changePage(activeServerReading.page(anchor))
+                                    readerSubPage = com.dongholab.pagetuner.ui.reader.ReaderSubPage.READER
+                                }) else ReaderAnnotationPanel(
                                 noteDraft = readerState.noteDraftText,
                                 annotations = annotations,
                                 currentPageIndex = pageIndex,
