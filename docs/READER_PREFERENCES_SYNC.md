@@ -39,3 +39,5 @@
 - 미리보기 실행 중 JAR가 갱신되어 클래스 로딩 오류가 발생했으나, DB를 읽기 전용으로 확인해 활성 번역 작업 0건을 확인한 뒤 해당 프로세스만 재시작해 복구했다. 로컬 시작 스크립트를 별도 실행용 JAR 사본을 사용하도록 바꿨다. 테스트 DB 정리 작업을 미리보기 DB에서 실행하지 않았다.
 
 구현 커밋: 서버 `592149e`, 웹 `c46965b`, Android `f2c6321`.
+
+Draft PR [#26](https://github.com/gongdongho12/PageTuner/pull/26), base `codex/reading-notes-sync`(PR #25). 원격 Android CI는 PR의 최신 head에서 확인하며 서버·웹 검사는 위 로컬 근거와 구분한다.
