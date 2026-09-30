@@ -137,7 +137,7 @@ class PortableLibraryViewModel(private val context: Context, private val local: 
 
     fun persistReader(opened: PortableOpened, pageIndex: Int, bookmarks: List<ReaderBookmark>, annotations: List<ReaderAnnotation>) {
         val generation = synchronized(readerGenerations) {
-            (readerGenerations.getOrDefault(opened.entry.key, 0L) + 1L).also { readerGenerations[opened.entry.key] = it }
+            ((readerGenerations[opened.entry.key] ?: 0L) + 1L).also { readerGenerations[opened.entry.key] = it }
         }
         val write = viewModelScope.async {
             try {
