@@ -27,6 +27,8 @@ import {
 } from "./lib/serviceWorker";
 import { previewTranslation, demoTitle } from "./demo";
 import { AdaptiveCollection } from "./components/AdaptiveCollection";
+import { LibraryFilterBar, LibraryFilterPanel } from './components/LibraryFilterPanel';
+import { hasLibraryFilter, libraryFilterQuery, type LibraryFilter } from './lib/libraryFilter';
 import { Icon, type IconName } from "./components/Icon";
 import { TranslationComparisonReader } from "./components/TranslationComparisonReader";
 import { NovelWorkspace } from "./components/NovelWorkspace";
@@ -264,6 +266,8 @@ export default function App() {
   const [serverState, setServerState] = useState<LoadState>("idle");
   const [serverError, setServerError] = useState("");
   const [requestedPage, setRequestedPage] = useState(0);
+  const [serverFilter, setServerFilter] = useState<LibraryFilter>({});
+  const [serverFilterOpen, setServerFilterOpen] = useState(false);
   const [batchStart, setBatchStart] = useState<"first" | "last">("first");
   const [localBooks, setLocalBooks] = useState<StoredBook[]>([]);
   const [corruptRecords, setCorruptRecords] = useState<CorruptOfflineRecord[]>(
@@ -460,6 +464,9 @@ export default function App() {
     setDeleteBook(null);
     setServerPage(null);
     setServerState("idle");
+    setRequestedPage(0);
+    setServerFilter({});
+    setServerFilterOpen(false);
     setServerError("");
     setNotice("");
   };
@@ -548,19 +555,20 @@ export default function App() {
     );
   };
   const loadServer = useCallback(
-    async (page: number, start: "first" | "last" = "first") => {
+    async (page: number, start: "first" | "last" = "first", filter = serverFilter) => {
       if (!client) return;
       request.current?.abort();
       const controller = new AbortController();
       request.current = controller;
       const version = session.current;
       setRequestedPage(page);
+      setServerFilter(filter);
       setBatchStart(start);
       setServerPage(null);
       setServerState("loading");
       setServerError("");
       try {
-        const response = await client.list(page, controller.signal);
+        const response = await client.list(page, controller.signal, filter);
         if (version === session.current && !controller.signal.aborted) {
           setServerPage(response);
           setServerState("ready");
@@ -577,7 +585,7 @@ export default function App() {
         }
       }
     },
-    [client],
+    [client, serverFilter],
   );
   const refreshLocal = useCallback(async () => {
     const storage = library.current;
@@ -1131,6 +1139,7 @@ export default function App() {
                   </section>
                 ) : tab === "server" ? (
                   <section className="library-panel">
+                    {serverFilterOpen ? <LibraryFilterPanel value={serverFilter} onBack={() => setServerFilterOpen(false)} onApply={filter => { setServerFilterOpen(false); void loadServer(0, 'first', filter); }} /> : <>
                     <div className="library-caption">
                       <span>{t("저장한 이야기들")}</span>
                       <span>
@@ -1139,6 +1148,7 @@ export default function App() {
                           : t("서버 서재")}
                       </span>
                     </div>
+                    <LibraryFilterBar value={serverFilter} onEdit={() => setServerFilterOpen(true)} />
                     {serverState === "loading" ? (
                       <EmptyState title={t("서재를 불러오고 있습니다")}>
                         {t("잠시만 기다려 주세요.")}
@@ -1154,7 +1164,7 @@ export default function App() {
                       </EmptyState>
                     ) : serverPage?.items.length ? (
                       <AdaptiveCollection
-                        key={`${username}:${serverPage.page}`}
+                        key={`${username}:${serverPage.page}:${libraryFilterQuery(serverFilter)}`}
                         items={serverPage.items}
                         itemKey={(book) => book.recordId}
                         rowHeight={112}
@@ -1185,15 +1195,16 @@ export default function App() {
                       />
                     ) : (
                       <EmptyState
-                        title={t("첫 이야기를 기다리는 서재")}
-                        action={openPreview}
-                        actionLabel={t("미리보기 읽기")}
+                        title={t(hasLibraryFilter(serverFilter) ? '조건에 맞는 문서가 없습니다' : "첫 이야기를 기다리는 서재")}
+                        action={hasLibraryFilter(serverFilter) ? () => setServerFilterOpen(true) : openPreview}
+                        actionLabel={t(hasLibraryFilter(serverFilter) ? '필터 변경' : "미리보기 읽기")}
                       >
                         {t(
-                          "앱에서 번역본을 저장하면 이곳에서 이어 읽을 수 있어요.",
+                          hasLibraryFilter(serverFilter) ? '다른 검색 조건을 적용하거나 전체 보기로 초기화해 주세요.' : "앱에서 번역본을 저장하면 이곳에서 이어 읽을 수 있어요.",
                         )}
                       </EmptyState>
                     )}
+                    </>}
                   </section>
                 ) : (
                   <section className="library-panel">

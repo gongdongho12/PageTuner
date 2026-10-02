@@ -26,6 +26,8 @@ import type {
 } from "../lib/workflowApi";
 import type { ReadingAnchor } from "../lib/offline";
 import { AdaptiveCollection } from "./AdaptiveCollection";
+import { LibraryFilterBar, LibraryFilterPanel } from './LibraryFilterPanel';
+import { hasLibraryFilter, libraryFilterQuery, type LibraryFilter } from '../lib/libraryFilter';
 import { Icon } from "./Icon";
 import type { ReadingDocument } from "./PagedReader";
 import { TranslationComparisonReader } from './TranslationComparisonReader';
@@ -47,6 +49,8 @@ type View =
   | "catalog"
   | "detail"
   | "chapters"
+  | "chapter-filters"
+  | "chapter-import"
   | "jobs"
   | "job"
   | "settings";
@@ -164,6 +168,7 @@ export function NovelWorkspace({
   const [url, setUrl] = useState("");
   const [directUrl, setDirectUrl] = useState("");
   const [chapters, setChapters] = useState<Page<ChapterSummary> | null>(null);
+  const [chapterFilter, setChapterFilter] = useState<LibraryFilter>({});
   const [jobs, setJobs] = useState<Page<TranslationJob> | null>(null);
   const [job, setJob] = useState<TranslationJob | null>(null);
   const [chapter, setChapter] = useState<StoredChapter | null>(null);
@@ -281,14 +286,15 @@ export function NovelWorkspace({
       setDetail,
     );
   };
-  const loadChapters = (n = 0, start: "first" | "last" = "first") => {
+  const loadChapters = (n = 0, start: "first" | "last" = "first", filter = chapterFilter) => {
     if (!client) return;
     navigate("chapters");
     setChapters(null);
+    setChapterFilter(filter);
     setBatchStart(start);
     void run(
       t("보관한 원문을 불러오고 있습니다"),
-      (signal) => client.chapters(n, signal),
+      (signal) => client.chapters(n, signal, filter),
       setChapters,
     );
   };
@@ -565,7 +571,7 @@ export function NovelWorkspace({
           {t("즐겨찾기")}
         </button>
         <button
-          aria-pressed={view === "chapters"}
+          aria-pressed={["chapters", "chapter-filters", "chapter-import"].includes(view)}
           onClick={() => loadChapters()}
         >
           {t("보관 원문")}
@@ -1040,6 +1046,16 @@ export function NovelWorkspace({
             </Feedback>
           )}
         </>
+      ) : view === 'chapter-filters' ? (
+        <LibraryFilterPanel value={chapterFilter} onApply={filter => loadChapters(0, 'first', filter)} onBack={() => navigate('chapters')} />
+      ) : view === 'chapter-import' ? (
+        <>
+          <div className="workflow-heading"><button className="button-quiet" onClick={() => navigate('chapters')}>{t('목록으로')}</button><h2>{t('주소로 원문 불러오기')}</h2></div>
+          <form className="workflow-search" onSubmit={event => { event.preventDefault(); importOriginal(directUrl); }}>
+            <input type="url" aria-label={t('읽을 회차 주소')} placeholder={t('회차 주소로 원문 불러오기')} required value={directUrl} onChange={event => setDirectUrl(event.target.value)} />
+            <button className="button-outline">{t('불러오기')}</button>
+          </form>
+        </>
       ) : view === "chapters" ? (
         <>
           <div className="workflow-heading">
@@ -1055,26 +1071,12 @@ export function NovelWorkspace({
               <Icon name="refresh" />
             </button>
           </div>
-          <form
-            className="workflow-search"
-            onSubmit={(event) => {
-              event.preventDefault();
-              importOriginal(directUrl);
-            }}
-          >
-            <input
-              type="url"
-              aria-label={t("읽을 회차 주소")}
-              placeholder={t("회차 주소로 원문 불러오기")}
-              required
-              value={directUrl}
-              onChange={(e) => setDirectUrl(e.target.value)}
-            />
-            <button className="button-outline">{t("불러오기")}</button>
-          </form>
+          <LibraryFilterBar value={chapterFilter} onEdit={() => navigate('chapter-filters')}>
+            <button className="button-quiet" onClick={() => navigate('chapter-import')}>{t('주소로 불러오기')}</button>
+          </LibraryFilterBar>
           {chapters?.items.length ? (
             <AdaptiveCollection
-              key={`chapters:${chapters.page}`}
+              key={`chapters:${chapters.page}:${libraryFilterQuery(chapterFilter)}`}
               initialPage={batchStart}
               items={chapters.items}
               itemKey={(c) => c.recordId}
@@ -1115,8 +1117,8 @@ export function NovelWorkspace({
             />
           ) : (
             !error && (
-              <Feedback title={t("아직 보관한 원문이 없습니다")}>
-                {t("목차에서 읽을 회차를 선택하거나 회차 주소를 입력하세요.")}
+              <Feedback title={t(hasLibraryFilter(chapterFilter) ? '조건에 맞는 문서가 없습니다' : "아직 보관한 원문이 없습니다")}>
+                {t(hasLibraryFilter(chapterFilter) ? '다른 검색 조건을 적용하거나 전체 보기로 초기화해 주세요.' : "목차에서 읽을 회차를 선택하거나 회차 주소를 입력하세요.")}
               </Feedback>
             )
           )}

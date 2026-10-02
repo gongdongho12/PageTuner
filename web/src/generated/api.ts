@@ -24,7 +24,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** @description Lists only the authenticated user's saved revisions whose original contentProviderId and bookId are available. Legacy rows missing those fields are omitted from both items and totals. Items are ordered by createdAt DESC, recordId DESC. The zero-based page defaults to 0 and size defaults to 12. Size must be 1..50 and page*size must not exceed 2147483647. Pages beyond the end return empty items with unchanged totals. Paragraph bodies are excluded. Each saved revision remains a separate entry. */
+        /** @description Lists only the authenticated user's saved revisions whose original contentProviderId and bookId are available. Legacy rows missing those fields are omitted from both items and totals. Items are ordered by createdAt DESC, recordId DESC. The zero-based page defaults to 0 and size defaults to 12. Size must be 1..50 and page*size must not exceed 2147483647. Pages beyond the end return empty items with unchanged totals. Paragraph bodies are excluded. Each saved revision remains a separate entry. All supplied search/organization predicates are ANDed before paging and totals, scoped to the authenticated account and document kind. q, folder and tag must be canonical ECMAScript-trimmed strings without C0/C1 controls or unpaired UTF-16 surrogates; invalid filters return 400. Folder/tag matching preserves exact Unicode and case. */
         get: operations["listTranslations"];
         put?: never;
         /** @description Repeated saves of the same authenticated user's artifact/revision reuse one record. A fully specified repeat POST can repair missing original book metadata on a legacy record. No source content is fetched or translated. */
@@ -285,6 +285,14 @@ export interface operations {
     listTranslations: {
         parameters: {
             query?: {
+                /** @description Optional case-insensitive literal substring of bookTitle or chapterTitle only (not IDs or paragraph text). Empty means no search. Percent, underscore, backslash, quotes and punctuation are literal characters. At most 200 UTF-16 code units. */
+                q?: string;
+                /** @description Exact case-sensitive folder match. Absent means any folder; explicitly empty means unfiled, including documents with no organization and versioned resets. At most 200 UTF-16 code units. */
+                folder?: string;
+                /** @description One exact case-sensitive tag, including commas as literal characters. No Unicode normalization. Absent means any tags. At most 60 UTF-16 code units. */
+                tag?: string;
+                /** @description Optional favorite predicate. Only literal true or false is accepted. False includes documents without organization. Absent means either. */
+                favorite?: boolean;
                 page?: number;
                 size?: number;
             };
