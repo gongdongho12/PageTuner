@@ -23,6 +23,55 @@ class ServerReadingProgressTest {
     private val id = "11111111-1111-4111-8111-111111111111"
     private val timestamp = "2026-09-16T00:00:00Z"
 
+    @Test fun displayMovementWithinSameCanonicalPagePublishesExactOffsetAndRestoresIt() = runTest {
+        val store = MemoryStore()
+        val connection = connection { request ->
+            if (request.method == "GET") response(progress(1, "p1", 3)) else {
+                val mutation = ServerReadingProgressJson.mutation(JSONObject(request.body!!))
+                assertEquals(ServerReadingAnchor("p1", 7), mutation.anchor)
+                response(progress(2, "p1", 7))
+            }
+        }
+        val document = document()
+        val reader = com.dongholab.pagetuner.reader.ReaderViewModel(document.mapping.document)
+        val sync = ServerReadingProgressSync(backgroundScope, store)
+        sync.open(document, connection, 0)
+        val restored = sync.state.first { it.phase == ReadingProgressPhase.Synced }.restore!!
+        assertEquals(3, restored.characterOffset)
+        assertTrue(applyServerReadingProgressRestore(reader, sync, restored))
+        assertEquals(3, reader.uiState.value.characterOffset)
+        sync.pageChanged(document.readerId, 0, 0, 3)
+        reader.changeDisplayPosition(com.dongholab.pagetuner.reader.ReaderDisplayPosition(0, 7))
+        sync.pageChanged(document.readerId, 0, reader.uiState.value.pageChangeRevision, 7)
+        store.await { it.pending?.anchor == ServerReadingAnchor("p1", 7) }
+        advanceTimeBy(701); runCurrent()
+        store.await { it.remote?.version == 2L }
+        assertEquals(ServerReadingAnchor("p1", 7), store.records[document.key]!!.remote!!.anchor)
+    }
+
+    @Test fun sourceAnchorMapsCanonicalSplitOffsetsWithoutChangingParagraphIdentity() {
+        val document = document(texts = listOf("a".repeat(1100) + "😀 text"))
+        val anchor = document.anchor(1, 2)!!
+        assertEquals(ServerReadingAnchor("p1", 1102), anchor)
+        assertEquals(1, document.page(anchor))
+        assertEquals(2, document.characterOffset(anchor))
+        assertThrows(IllegalArgumentException::class.java) { document.anchor(1, 1) }
+    }
+
+    @Test fun unresolvedBackwardPageCannotPublishTemporaryOffsetThroughLateRestoreGuard() = runTest {
+        val store = MemoryStore()
+        val document = document()
+        val sync = ServerReadingProgressSync(backgroundScope, store)
+        val connection = connection { response(progress(2, "p4")) }
+        val reader = com.dongholab.pagetuner.reader.ReaderViewModel(document.mapping.document)
+        sync.open(document, connection, 2)
+        val restored = sync.state.first { it.phase == ReadingProgressPhase.Synced }.restore!!
+        reader.changeDisplayPosition(com.dongholab.pagetuner.reader.ReaderDisplayPosition(1, fromEnd = true))
+        assertFalse(applyServerReadingProgressRestore(reader, sync, restored))
+        advanceTimeBy(1000); runCurrent()
+        assertNull(store.records[document.key]!!.pending)
+    }
+
     @Test fun getRestoresExactParagraphWithoutPublishingTheInitialOrRestoredPage() = runTest {
         val store = MemoryStore()
         var writes = 0

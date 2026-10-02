@@ -10,7 +10,32 @@ data class ProtectedGlossaryText(
 data class GlossaryDisplayText(
     val text: String,
     val emphasizedRanges: List<IntRange> = emptyList(),
-)
+    val replacements: List<GlossaryDisplayReplacement> = emptyList(),
+) {
+    /** Aliases have no character alignment inside the replaced term: retain its source start. */
+    fun sourceOffsetAt(displayOffset: Int): Int {
+        val offset = displayOffset.coerceIn(0, text.length)
+        var delta = 0
+        replacements.forEach { range ->
+            if (offset < range.displayStart) return offset + delta
+            if (offset < range.displayEnd) return range.sourceStart
+            delta = range.sourceEnd - range.displayEnd
+        }
+        return offset + delta
+    }
+
+    fun displayOffsetAt(sourceOffset: Int): Int {
+        var delta = 0
+        replacements.forEach { range ->
+            if (sourceOffset < range.sourceStart) return (sourceOffset + delta).coerceIn(0, text.length)
+            if (sourceOffset < range.sourceEnd) return range.displayStart
+            delta = range.displayEnd - range.sourceEnd
+        }
+        return (sourceOffset + delta).coerceIn(0, text.length)
+    }
+}
+
+data class GlossaryDisplayReplacement(val sourceStart: Int, val sourceEnd: Int, val displayStart: Int, val displayEnd: Int)
 
 /** Pure shared pre/post processor used by every translation provider. */
 object GlossaryTextProcessor {
@@ -132,6 +157,7 @@ object GlossaryTextProcessor {
 
         val output = StringBuilder(text.length)
         val emphasized = mutableListOf<IntRange>()
+        val replacements = mutableListOf<GlossaryDisplayReplacement>()
         var sourceOffset = 0
         selected.forEach { match ->
             if (match.start < sourceOffset) return@forEach
@@ -152,9 +178,10 @@ object GlossaryTextProcessor {
             } else {
                 sourceOffset = match.endExclusive
             }
+            replacements += GlossaryDisplayReplacement(match.start, sourceOffset, replacementStart, output.length)
         }
         output.append(text, sourceOffset, text.length)
-        return GlossaryDisplayText(output.toString(), emphasized)
+        return GlossaryDisplayText(output.toString(), emphasized, replacements)
     }
 
     private fun replaceTerm(

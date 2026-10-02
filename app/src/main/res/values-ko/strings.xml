@@ -446,4 +446,7 @@
     <string name="library_organization_device_error">분류를 기기에 저장하지 못했습니다. 새로고침하여 복구하세요.</string>
     <string name="library_organization_stale">기기에 저장된 값이 변경됐습니다. 초안은 유지됩니다. 새로고침 후 다시 편집하세요.</string>
     <string name="library_organization_invalid">폴더 길이와 최대 32개 태그를 확인하세요. 빈 태그·중복·제어문자는 허용되지 않습니다. 새 태그를 추가하거나 비운 후 저장하세요.</string>
+    <string name="collection_more_space_required">목록을 표시할 공간이 부족합니다.</string>
+    <string name="reader_viewport_too_small">현재 글꼴 크기의 한 줄을 표시할 공간이 없습니다. 전체 화면을 사용하거나 대조 보기를 끄세요.</string>
+    <string name="reader_source_position">문서 위치 %1$d / %2$d</string>
 </resources>

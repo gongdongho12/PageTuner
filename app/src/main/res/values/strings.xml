@@ -446,4 +446,7 @@
     <string name="library_organization_device_error">Could not save classification on this device. Reload to recover.</string>
     <string name="library_organization_stale">Saved device values changed. Your draft is kept; reload before editing again.</string>
     <string name="library_organization_invalid">Check folder length and up to 32 distinct nonempty tags. Add or clear the new tag before saving. Control characters are not allowed.</string>
+    <string name="collection_more_space_required">More room is needed to show this list.</string>
+    <string name="reader_viewport_too_small">The reading area cannot fit one line at this font size. Use full screen or turn off comparison view.</string>
+    <string name="reader_source_position">Document position %1$d / %2$d</string>
 </resources>

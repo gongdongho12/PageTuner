@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { translate as t } from '../lib/locale'
 import { catalogFileAllowed, filterJsonCatalog, parseCatalogFile, type JsonCatalog, type JsonCatalogEntry } from '../lib/jsonCatalog'
 import type { JsonCatalogClient } from '../lib/jsonCatalogApi'
@@ -28,7 +28,7 @@ export function JsonCatalogWorkspace({ username, client, onReadingChange, onTran
     generation.current++; pending.current?.abort(); setCatalog(undefined); setReading(undefined); setSaved(undefined); setError(''); setBusy(false); setTab('address')
     return () => { generation.current++; pending.current?.abort() }
   }, [storage, client])
-  useEffect(() => { onReadingChange?.(!!reading); return () => onReadingChange?.(false) }, [!!reading, onReadingChange])
+  useLayoutEffect(() => { onReadingChange?.(!!reading); return () => onReadingChange?.(false) }, [!!reading, onReadingChange])
   const items = useMemo(() => filterJsonCatalog(catalog?.items ?? [], query), [catalog, query])
   const previous = catalog?.links.find(link => ['prev', 'previous'].includes(link.rel.toLowerCase()))?.href
   const next = catalog?.links.find(link => link.rel.toLowerCase() === 'next')?.href

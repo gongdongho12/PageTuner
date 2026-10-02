@@ -40,8 +40,9 @@ Modifier.verticalScroll(rememberScrollState())
 
 `AdaptiveCollection` owns the only permitted `LazyColumn`. Its paged branch uses
 `EinkAutoFitPagingContainer`, while its scrolling branch remains an explicit
-user preference. Reader body content never follows this setting because reading
-progress and rolling translation are document-page based.
+user preference. Reader body content always uses discrete display pages. Its
+viewport pagination remains separate from canonical document identities used by
+reading progress and translation.
 
 ### Bound every screen to the remaining viewport
 
@@ -57,10 +58,10 @@ Column(Modifier.fillMaxSize()) {
     EinkViewportSurface(
         modifier = Modifier.weight(1f),
     ) {
-        EinkAutoFitPagingContainer(
+        AdaptiveCollection(
             items = items,
             modifier = Modifier.weight(1f),
-            estimatedItemHeight = 96.dp,
+            estimatedPagedItemHeight = 96.dp,
         ) { item ->
             ExampleRow(
                 item = item,
@@ -83,9 +84,9 @@ parameter name says "estimated".
 ```kotlin
 private val ChapterRowHeight = 124.dp
 
-EinkAutoFitPagingContainer(
+AdaptiveCollection(
     items = chapters,
-    estimatedItemHeight = ChapterRowHeight,
+    estimatedPagedItemHeight = ChapterRowHeight,
 ) { chapter ->
     ChapterRow(
         modifier = Modifier.height(ChapterRowHeight),
@@ -98,18 +99,47 @@ Do not pass `48.dp` for a row containing a 48 dp button plus padding, multiple
 text lines, or a second action row. That was the main cause of partially visible
 chapter entries.
 
-### Keep page sizes conservative
+### Fill the measured viewport with complete rows
 
 `EinkAutoFitPagingContainer` calculates:
 
 ```text
-available = viewport height - page navigation reserve
-page size = floor(available / (row height + row spacing))
+all-items capacity = floor((viewport height + row spacing) / (row height + row spacing))
+if every item fits: omit navigation
+otherwise: page size = floor((viewport height - navigation height) / (row height + row spacing))
 ```
 
-The result is limited to 1 through 8 rows. If height is unbounded, the fallback
-is limited to 3 through 5 rows. Never expose arbitrary `12/p` or `24/p` controls
-on a device where those rows cannot fit.
+The navigation height comes from the same font metrics used to render the bar,
+including the system font scale. It is at least 60 dp and leaves button targets
+larger than 44 dp. Calculations use rounded physical pixel sizes for the row,
+spacing, and navigation, so fractional display density cannot add a clipped
+last row.
+
+A finite viewport has no arbitrary eight-row cap: a tall display shows every
+complete row that fits. Only an unbounded viewport uses the caller's fallback,
+clamped to 1 through 5 rows. A zero-height or too-short viewport is not an
+unbounded viewport and must not mount a fallback row. Do not expose arbitrary
+`12/p` or `24/p` controls without measuring whether those rows fit.
+
+If one complete page cannot fit, the pager replaces rows and navigation with a
+space notice. The full notice is measured before display; a smaller indicator
+and an accessible description cover very short viewports. At zero height only
+the accessible description can remain. `onInsufficientHeight` reports the
+required height, or `null` after recovery, so a parent can move controls into a
+sub-tab or otherwise compact its layout. Do not put navigation after an
+oversized row: that makes page-turn controls unreachable.
+
+### Keep an item anchor across layout changes
+
+Supply `itemKey` from the item's stable identity and retain the screen-owned
+`EinkPagingState` through refreshes. The paged branch uses the key for both
+composition and anchor reconciliation. Resizing selects the new page that
+contains the previously anchored item; it does not reuse the old page number.
+Keep that original anchor across repeated resizes to prevent gradual drift.
+An insertion or reorder locates the same key, while deletion falls back to the
+nearest surviving index. A temporary empty loading result preserves the anchor.
+An explicit page turn selects a new anchor, and a deliberate filter or route
+change may call `reset()` or replace the state's reset keys.
 
 ## 3. Shared component selection
 
@@ -124,7 +154,8 @@ on a device where those rows cannot fit.
 | Two to five categories | `EinkSegmentedControl` | Equal-width, two-line labels with a solid selected marker. |
 | Many mutually exclusive choices | `EinkChoiceStepper` | Previous/current/next interaction without wrapped chips. |
 | Long-running work | `EinkOperationIndicator` | Static high-contrast progress suited to low refresh rates. |
-| Reader text fitting | `EinkAutoFitText` | Reduces text size only when bounded content overflows. |
+| Reader body | `ReaderSurface` / `ReaderMeasuredContent` | Measures display slices at the selected font size; overflow goes to another display page. |
+| Bounded preview text | `EinkAutoFitText` | Legacy fitting helper used by note previews; not the reader-body pagination policy. |
 | Global status | `StatusStrip` | Allows three lines and shows a visible busy bar at zero progress. |
 | Compact toolbar | `EinkSingleLineToolbar` | Use only when truncating the title does not hide an action or choice. |
 
@@ -236,14 +267,43 @@ changes, update both the actual row height and `estimatedItemHeight`.
 
 ### Reader body
 
-Reader content has two layers of protection:
+Canonical parsing and display pagination have separate responsibilities:
 
-1. `PlainTextDocumentParser` creates conservative text pages.
-2. `EinkAutoFitText` fits the current page inside the actual reader surface.
+1. The document parser retains the original pages, segment IDs, text, and
+   revision used by translation storage, bookmarks, search, and synchronization.
+2. `ReaderMeasuredContent` measures the available width and height with the
+   selected font size, line spacing, system density/font scale, margins, display
+   mode, and glossary emphasis. `ReaderTextPagination` finds the text slice that
+   fully fits that surface. Remaining text becomes the next display page.
+3. `ReaderDisplayPosition` maps display offsets back to a canonical page and
+   source-character offset. A display page can span canonical text pages, or a
+   single canonical page can need several display pages. The two page numbers
+   must never be treated as interchangeable identities.
 
-Do not solve reader overflow by adding vertical scrolling. If the minimum font
-size is still insufficient, reduce parser page size or split oversized text
-segments at sentence boundaries.
+Keep the user's chosen font size. Do not silently shrink reader text, alter
+canonical parser boundaries, or introduce scrolling to make a page fit. Next
+and previous display slices retain whitespace and avoid splitting UTF-16
+surrogate pairs. If even one character cannot fit, show a space error instead
+of claiming that clipped text has been displayed.
+
+Re-measure after viewport, typography, glossary, or translation changes while
+retaining the source anchor. Translation-only and split layouts measure their
+own available panels. Translated offsets stay associated with their known
+source segment; there is no invented character-for-character alignment between
+different languages. Cached translations remain addressed by the original
+canonical identities.
+
+The web reader follows the same separation using measured DOM fragments and
+canonical paragraph ranges. Font-loading completion also triggers reflow;
+only pagination belonging to the current measured viewport is sent to rolling
+translation.
+
+PDF source pages retain their physical page boundaries and fit mode. Text
+display pagination must not combine or renumber those physical pages. EPUB
+image ordering and completeness remain the separate D2 task: the current image
+layout still takes at most two images from a canonical page. Text reflow does
+not establish that every EPUB illustration is rendered or survives offline/ZIP
+round trips.
 
 When automatic web-novel translation starts, translation-only mode is used so
 the original and translated text do not each receive an unusably small half of
@@ -358,15 +418,18 @@ The left and right 40% regions remain previous/next page targets. The center
 20% exits full screen, as does the Android Back action. Background translation
 and catalog loading must not disable page turns; only a library mutation may
 temporarily lock navigation. A cached translation is rendered only when its
-page index matches the visible page, preventing a stale translated page from
-flashing during fast navigation.
+canonical page index matches the active source page, preventing a stale
+translation from flashing during fast navigation. That canonical index is
+independent of the display slice currently shown.
 
-Plain-text and downloaded web-novel chapters use a dense 1,100-character page
-target. Auto-fit reduces the font only when that bounded page would otherwise
-clip, down to the 11 sp safety floor. Reflow deliberately retains the former
-620-character segment IDs, so already downloaded translations remain addressable;
-when the resulting page count changes, saved reading progress is remapped by
-percentage instead of merely clamping to the new last page.
+Plain-text and downloaded web-novel bodies now use measured display slices at
+the selected typography. Increasing available space can fit text from adjacent
+canonical pages; decreasing it moves overflow to later display pages. Parser
+pages and existing segment IDs remain unchanged, so a viewport change neither
+invalidates downloaded translations nor requires rewriting saved identities.
+Reflow retains canonical source position rather than remapping by display-page
+percentage. PDF physical pages and the current image-bearing-page layout keep
+their own boundaries.
 
 ## 10. Implementation checklist
 
@@ -378,7 +441,12 @@ Before completing an E-Ink UI change, verify all of the following:
 - [ ] `ListLayoutMode.Paged` remains the default and Reader body stays paged.
 - [ ] Auto-fit pagers use `Modifier.weight(1f)`.
 - [ ] Every paged row has a fixed height matching `estimatedPagedItemHeight`.
-- [ ] The page size remains between 1 and 8; fallback remains between 3 and 5.
+- [ ] Finite viewports use every complete row that fits; only unbounded height
+      uses a fallback of 1 through 5 rows.
+- [ ] Navigation measurement matches its rendered height at larger font scales.
+- [ ] Zero/short viewports show no clipped row, button, or partial space notice.
+- [ ] Stable item keys and anchors survive resize, refresh, and temporary empty
+      loading results; deliberate resets still start at the beginning.
 - [ ] Dynamic choices remain reachable without an unbounded `FlowRow`.
 - [ ] Complex screens use sub-tabs.
 - [ ] Buttons have at least a 44 dp target.
@@ -391,13 +459,17 @@ Before completing an E-Ink UI change, verify all of the following:
 - [ ] Full screen leaves only reader content and restores system bars on exit.
 - [ ] Translation-only content has one paper margin, not nested panel padding.
 - [ ] Background translation/catalog work does not block reader page turns.
+- [ ] Reader font size stays at the user's selection; overflow is available on
+      another display page without altering canonical page or segment IDs.
+- [ ] Source anchors survive translation arrival and text reflow; physical PDF
+      page boundaries remain intact.
 
 ## 11. Verification
 
 Run:
 
 ```bash
-./gradlew testDebugUnitTest lintDebug assembleDebug
+./gradlew testDebugUnitTest compileDebugAndroidTestKotlin lintDebug assembleDebug
 ```
 
 Static checks:
@@ -422,11 +494,23 @@ Manual device checks should include:
 - busy and failed operations;
 - largest reader font and line spacing;
 - narrow phone and larger E-Ink tablet viewports;
+- zero-height and just-below/at-one-row-plus-navigation boundaries;
+- insertions, reordering, temporary empty loading results, and repeated resize
+  while viewing a later collection page;
+- long source and translated text, whitespace and supplementary characters,
+  forward/backward page turns, and translation arrival during reading;
+- PDF physical pages and EPUB image-bearing pages, with D2 limitations recorded
+  separately from text pagination;
 - hardware previous/next controls where available.
 
 The production page-size calculation is covered by
-`EinkAutoFitPagingContainerTest`; update that test when changing the reserved
-navigation height, row spacing, fallback policy, or maximum page size.
+`EinkAutoFitPagingContainerTest`; update that test when changing navigation
+measurement, row spacing, fallback policy, or anchor reconciliation.
+`EinkCollectionViewportInstrumentedTest` checks actual Compose bounds at the
+row/navigation boundary, resize/refresh behavior, and larger font scale.
+`ReaderTextPaginationTest` checks exact text coverage and canonical mapping.
+Compiling instrumentation sources is not evidence of a successful device run;
+record connected-device execution separately.
 
 Web-novel route ownership, remote-versus-viewport paging, and refresh behavior
 are documented in [Web Novel Page Architecture](WEB_NOVEL_PAGE_ARCHITECTURE.md).
@@ -447,6 +531,10 @@ ui/common/EinkOperationIndicator.kt
 ui/common/EinkAutoFitText.kt
 ui/common/EinkSingleLineToolbar.kt
 ui/common/StatusStrip.kt
+ui/reader/ReaderMeasuredContent.kt
+ui/reader/ReaderTextPagination.kt
+ui/reader/ReaderDisplayText.kt
+reader/ReaderDisplayPosition.kt
 ```
 
 When a new E-Ink layout issue appears in more than one screen, fix or extend a

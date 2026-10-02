@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { translate as t } from '../lib/locale'
 import { createExchangeLibrary, exchangeExportChoices, exchangeReadingDocument, exchangePdfDocument, mergeExchangePackages, type ExchangeExportChoice, type SavedExchange } from '../lib/exchangeLibrary'
 import { readExchange, writeExchange, exchangeLimits, type ExchangePackage } from '../lib/libraryExchange'
@@ -16,7 +16,7 @@ export function LibraryExchangeWorkspace({ username, onReadingChange }: { userna
   const [selected, setSelected] = useState<string[]>([]), [preview, setPreview] = useState<ExchangePackage>(), [busy, setBusy] = useState(false), [error, setError] = useState(''), [notice, setNotice] = useState('')
   const [reading, setReading] = useState<{ book: SavedExchange; anchor?: ReadingAnchor }>()
   const operation = useRef(0)
-  useEffect(() => { onReadingChange(!!reading); return () => onReadingChange(false) }, [!!reading, onReadingChange])
+  useLayoutEffect(() => { onReadingChange(!!reading); return () => onReadingChange(false) }, [!!reading, onReadingChange])
   useEffect(() => { return () => { operation.current++ } }, [username])
   const run = async (action: (current: () => boolean) => Promise<void>) => {
     if (busy) return

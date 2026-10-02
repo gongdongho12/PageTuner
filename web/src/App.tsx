@@ -786,7 +786,7 @@ export default function App() {
     <ReadingProgressProvider username={username} client={progressClient}>
     <ReadingNoteProvider username={username} client={noteClient}>
     <LibraryOrganizationProvider username={username} client={organizationClient}>
-      <div className="app-shell">
+      <div className={`app-shell${reading || workflowReading ? ' app-shell-reading' : ''}`}>
         <header className="app-header">
           <a
             className="brand"

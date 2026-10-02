@@ -14,6 +14,8 @@ data class ReaderUiState(
     val document: ReaderDocument,
     val pageIndex: Int = 0,
     val pageChangeRevision: Long = 0,
+    val characterOffset: Int = 0,
+    val displayPosition: ReaderDisplayPosition? = null,
     val pdfSourceUri: String? = null,
     val currentBookId: String? = null,
     val controlsVisible: Boolean = true,
@@ -126,9 +128,17 @@ class ReaderViewModel(
     }
 
     fun changePage(targetIndex: Int, userInitiated: Boolean = true): ReaderPageMoveResult {
+        return changeReadingPosition(targetIndex, 0, userInitiated)
+    }
+
+    fun changeReadingPosition(targetIndex: Int, characterOffset: Int, userInitiated: Boolean = true): ReaderPageMoveResult {
         val current = _uiState.value
         val boundedIndex = targetIndex.coerceIn(0, current.document.pageCount - 1)
-        if (boundedIndex == current.pageIndex) {
+        val text = current.document.pages[boundedIndex].plainText
+        val boundedOffset = characterOffset.coerceIn(0, text.length).let { offset ->
+            if (offset in 1 until text.length && text[offset - 1].isHighSurrogate() && text[offset].isLowSurrogate()) offset - 1 else offset
+        }
+        if (boundedIndex == current.pageIndex && boundedOffset == current.characterOffset && current.displayPosition == null) {
             return if (targetIndex < current.pageIndex) {
                 ReaderPageMoveResult.FirstPage
             } else {
@@ -139,11 +149,30 @@ class ReaderViewModel(
         _uiState.update { state ->
             state.copy(
                 pageIndex = boundedIndex,
+                characterOffset = boundedOffset,
+                displayPosition = null,
                 pageChangeRevision = state.pageChangeRevision + if (userInitiated) 1 else 0,
                 selectedSearchResultIndex = -1,
             )
         }
         return ReaderPageMoveResult.Moved
+    }
+
+    fun changeDisplayPosition(position: ReaderDisplayPosition) {
+        val current = _uiState.value
+        require(position.pageIndex in current.document.pages.indices)
+        val text = current.document.pages[position.pageIndex].plainText
+        require(position.characterOffset in 0..text.length)
+        require(position.characterOffset !in 1 until text.length ||
+            !text[position.characterOffset - 1].isHighSurrogate() || !text[position.characterOffset].isLowSurrogate())
+        if (current.displayPosition == position) return
+        _uiState.update { state -> state.copy(
+            pageIndex = position.pageIndex,
+            characterOffset = position.characterOffset,
+            displayPosition = position,
+            pageChangeRevision = state.pageChangeRevision + 1,
+            selectedSearchResultIndex = -1,
+        ) }
     }
 
     fun updateSearchQuery(query: String) {
@@ -203,6 +232,8 @@ class ReaderViewModel(
         _uiState.update { state ->
             state.copy(
                 pageIndex = bookmark.pageIndex.coerceIn(0, state.document.pageCount - 1),
+                characterOffset = 0,
+                displayPosition = null,
                 pageChangeRevision = state.pageChangeRevision + 1,
                 selectedSearchResultIndex = -1,
             )
@@ -250,6 +281,8 @@ class ReaderViewModel(
         _uiState.update { state ->
             state.copy(
                 pageIndex = annotation.pageIndex.coerceIn(0, state.document.pageCount - 1),
+                characterOffset = 0,
+                displayPosition = null,
                 pageChangeRevision = state.pageChangeRevision + 1,
                 selectedSearchResultIndex = -1,
             )
@@ -307,6 +340,9 @@ class ReaderViewModel(
         _uiState.update { state ->
             state.copy(
                 pageIndex = match.pageIndex,
+                characterOffset = state.document.pages[match.pageIndex].segments.take(match.segmentIndex)
+                    .sumOf { it.text.length + 2 },
+                displayPosition = null,
                 pageChangeRevision = state.pageChangeRevision + 1,
                 selectedSearchResultIndex = targetIndex,
             )

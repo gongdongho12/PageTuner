@@ -26,6 +26,29 @@ import com.dongholab.pagetuner.translation.sync.NotesFixture.Store
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class ServerReadingNotesTest {
+    @Test fun viewportOffsetKeepsBookmarkAndHighlightCanonicalRangesExact() {
+        val doc = document(texts = listOf("A".repeat(1100) + "😀 tail"))
+        val bookmark = doc.noteContent(ServerReadingNoteKind.BOOKMARK, 1, "Reading here", "", 3)
+        assertEquals(ServerReadingAnchor("p1", 1103), bookmark.anchor)
+        assertEquals("tail", bookmark.excerpt)
+        val highlight = doc.noteContent(ServerReadingNoteKind.HIGHLIGHT, 1, "Remaining source", "", 3)
+        assertEquals(ServerReadingAnchor("p1", 1103), highlight.range!!.start)
+        assertEquals(ServerReadingAnchor("p1", 1107), highlight.range!!.end)
+        assertEquals("tail", highlight.excerpt)
+        assertThrows(IllegalArgumentException::class.java) { doc.noteContent(ServerReadingNoteKind.BOOKMARK, 1, "Invalid", "", 1) }
+    }
+
+    @Test fun displaySeparatorNotesStartAtNextExistingTextAndDocumentEndCannotInventAnExcerpt() {
+        val doc = document(texts = listOf("First", "Second"))
+        assertEquals(1 to 0, doc.notePosition(0, 5))
+        val bookmark = doc.noteContent(ServerReadingNoteKind.BOOKMARK, 0, "Next paragraph", "", 5)
+        assertEquals(ServerReadingAnchor("p2", 0), bookmark.anchor)
+        assertEquals("Second", bookmark.excerpt)
+        assertNull(doc.notePosition(1, 6))
+        assertThrows(IllegalArgumentException::class.java) { doc.noteContent(ServerReadingNoteKind.BOOKMARK, 1, "End", "", 6) }
+        assertEquals(ServerReadingAnchor("p1", 5), doc.anchor(0, 5))
+    }
+
     @Test fun incrementalPagesAreAtomicPreserveRepeatedIdsAndDoNotUploadRestoredNotes() = runTest(timeout = 10.seconds) {
         val store = Store(); val urls = mutableListOf<String>(); var writes = 0
         val client = connection { request ->

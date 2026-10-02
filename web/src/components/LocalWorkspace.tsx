@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { translate as t } from '../lib/locale'
 import { createLocalDocuments, parseLocalDocument, localDocumentForTranslation, type LocalEncoding, type SavedLocalDocument } from '../lib/localDocuments'
 import type { ReadingDocument } from '../lib/readingDocument'
@@ -22,7 +22,7 @@ export function LocalWorkspace({ username, onReadingChange, onTranslate }: { use
   const filteredBooks = useMemo(() => filterLocalDocuments(books, filter), [books, filter]), folders = useMemo(() => localDocumentFolders(books), [books])
   const [error, setError] = useState(''), [busy, setBusy] = useState(false), [removeId, setRemoveId] = useState<string>()
   const pending = useRef<AbortController | undefined>(undefined)
-  useEffect(() => { onReadingChange?.(!!reading); return () => { onReadingChange?.(false) } }, [!!reading, onReadingChange])
+  useLayoutEffect(() => { onReadingChange?.(!!reading); return () => { onReadingChange?.(false) } }, [!!reading, onReadingChange])
   const refresh = async () => { if (storage) { const snapshot = await storage.list(); setBooks(snapshot.books); setDamagedIds(snapshot.damagedIds) } }
   useEffect(() => {
     let active = true
