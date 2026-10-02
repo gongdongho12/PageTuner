@@ -19,6 +19,7 @@
 
 | ID | 순서 | 상태 | 항목 | 완료 조건·의존성 |
 | --- | --- | --- | --- | --- |
+| H1 | 사용자 우선 | 완료 | 핫스팟에서 폰 서재를 웹으로 읽는 공유 모드 | 공통 읽기 계약·HTTP runtime·Android 공유 서비스·APK 공통 웹 리더 연결. 앱 416개·HTTP 20개·웹 360개 통과, 실제 사설 IP HTTP에서 WebCrypto/SW 없이 TXT/PDF 확인. 저장 원문·완성 번역·PDF/삽화의 읽기 범위. 실제 Android 핫스팟·화면 꺼짐은 V3. [범위·검증](LOCAL_LIBRARY_SHARING.md) |
 | S1 | 1 | 완료 | 서버 원문·번역의 읽기 위치 자동 동기화 | 공통 API·앱/웹 연결·영속 대기열·충돌 선택·계정/지연 응답 검사 완료. 실제 브라우저+서버 복원/전송/복구 확인. Android 실기기는 V3, 독립 로컬/ZIP 대응은 S4. [검증](READING_PROGRESS_SYNC.md) |
 | S2 | 2 | 완료 | 북마크·강조·메모 동기화 | 서버 문서의 항목 UUID/version·삭제 표식, 양방향 CRUD·충돌 보존·영속 대기열 검증 완료. 기존 로컬/ZIP 기록 보존, 새 서버 기록의 ZIP 통합은 S4, 앱 실기기는 V3. [검증](READING_NOTES_SYNC.md) |
 | S3 | 3 | 진행 | 폴더·태그·즐겨찾기·용어집·읽기 설정 동기화 | S3a 계정 읽기 설정과 S3b1 개별 서버 문서 분류 완료([검증](LIBRARY_ORGANIZATION_SYNC.md)). S3b2 서버 서재 전체 분류 검색/필터·소스 책 즐겨찾기와 S3c 용어집이 남음. 각 계정 범위·삭제/충돌 정책·앱/웹 화면 반영 |
@@ -79,3 +80,6 @@ WTR/NovelBuddy 수집·서버 번역·원문/번역 서재·Google 웹 번역 �
 - 2026-10-02 U1 구현·독립 검토·회귀 수정 완료: Android 목록 `6976339`, 본문/서버 anchor `1d8552b`, 웹 `383f9e3`. 웹 345개·계약 10개·프로덕션 빌드, 앱 394개 통과/기존 opt-in 15개 제외, 공통 번역 42개·APK·lint·계측 소스 컴파일·모듈 경계 성공. lint 오류 0/경고 77/힌트 4. 실제 모바일/데스크톱/가로 화면, 최대 글꼴·행간·여백의 5쪽 무손실 이동, Google 번역 응답 중 편집 초안 유지, 동일 언어 요청 전 안내를 확인했다. [상세 근거](VIEWPORT_PAGINATION.md). 연결된 Android 장치가 없어 계측 실행은 V3로 유지한다.
 - 다음 작업은 최신 PR CI와 작업 트리를 확인한 후 **S3b2 서버 서재 전체 분류 검색/필터·소스 책 즐겨찾기**, 이어서 **S3c 용어집 동기화**다. S4 식별자 설계 없이 기존 로컬/ZIP 문서를 서버 문서와 임의 병합하지 않는다. 진행 가능한 항목이 남으므로 반복 실행을 종료/일시정지하지 않는다.
 - U1 draft PR: [#28](https://github.com/gongdongho12/PageTuner/pull/28), head `codex/viewport-pagination`, base `codex/library-organization-sync`(#27). 최종 head의 Android CI를 확인한다. 자동 병합은 하지 않는다.
+- 2026-10-02 H1 사용자 우선 요청: PR #28 `22e49e2` CI 성공 확인 후 `codex/local-library-sharing`에서 구현. 공통/runtime `9fb480b`, 공통 웹 리더 공유 entry `63978d6`, Android 저장소/서비스/빌드 `4917e05`로 분리했다. [draft PR #29](https://github.com/gongdongho12/PageTuner/pull/29)의 base는 `codex/viewport-pagination`(#28)이며 자동 병합하지 않는다.
+- H1 검증: 앱 416개 통과/기존 opt-in 15개 제외(102 suite), 공유 HTTP 20개, 웹 360개/48파일·생성 계약 11개, APK·lint·계측 소스 컴파일·모듈 경계 성공. lint 오류 0/경고 76/힌트 4. APK 웹 자산 189개(4,644,747바이트)가 소스 빌드와 SHA-256 일치. 실제 합성 서재에서 TXT/검색·PDF·EPUB 삽화·75권/50권 경계·연결 해제·ko/en·390×844/844×390 확인. 사설 IP HTTP의 `isSecureContext=false`, WebCrypto/SW 없음에서도 페어링/TXT/PDF 동작을 확인했다. 실제 폰 연결 장치는 없어 핫스팟/Doze 검증은 V3에 남기고 테스트 공유 서버는 종료했다. [상세](LOCAL_LIBRARY_SHARING.md).
+- H1 이후 다음 실행: **PR #29 최종 head CI와 작업 트리부터 확인**, 의존성이 준비된 **S3b2 서버 서재 전체 분류 검색/필터·소스 책 즐겨찾기**, 이어서 **S3c 용어집 동기화**를 진행한다. H1 구현을 다시 만들지 말고 기기 검증을 구현 완료와 구분한다.

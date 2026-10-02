@@ -22,11 +22,13 @@
 | 공통 소설 수집 | 기존 앱의 WTR-LAB·NovelBuddy·Generic 파서와 어댑터를 `source-runtime`으로 이동했다. 서버는 공개 HTTPS 검증 transport를 주입한다. | [NovelSourceService.kt](../source-runtime/src/main/kotlin/com/dongholab/pagetuner/source/service/NovelSourceService.kt), [PublicHttpsNovelHttpClient.kt](../server/src/main/kotlin/com/dongholab/pagetuner/server/novel/PublicHttpsNovelHttpClient.kt) |
 | 공통 번역 실행 | 네 공급자, 용어집 처리, 배치·분할·식별 규칙은 `translation-runtime`에 있다. 앱은 기기에서 호출하고 웹은 서버 API로 실행한다. | [TranslationProviderFactory.kt](../translation-runtime/src/main/kotlin/com/dongholab/pagetuner/translation/TranslationProviderFactory.kt), [ChapterTranslationEngine.kt](../translation-runtime/src/main/kotlin/com/dongholab/pagetuner/translation/ChapterTranslationEngine.kt), [WorkflowTranslator.kt](../server/src/main/kotlin/com/dongholab/pagetuner/server/workflow/WorkflowTranslator.kt) |
 | 웹 계약 소비 | 브라우저에서 Kotlin/JVM 모듈을 직접 실행하지 않는다. TypeScript DTO 검증과 OpenAPI 계약을 통해 서버를 호출한다. | [contracts](../contracts), [workflowApi.ts](../web/src/lib/workflowApi.ts), [validation.ts](../web/src/lib/validation.ts) |
+| 로컬 공유 | `core-sharing` 읽기 계약과 `sharing-runtime` HTTP·페어링을 Android 저장소에 연결한다. APK에 포함한 공유 웹은 기존 React 리더·목록·검색·설정·PDF 컴포넌트를 재사용한다. | [공유 구조·검증](LOCAL_LIBRARY_SHARING.md), [공통 규격](../contracts/local-sharing-v1.md) |
 
 ## 문서·서재
 
 | 기능 | Android 앱 | 웹 대응 | 범위·근거 |
 | --- | --- | --- | --- |
+| 폰 핫스팟·Wi-Fi 서재 공유 | 완료 / 실기기 검증 대기 | 완료 / 읽기 전용 | 설정에서 공유 시작·사설 주소·8자리 코드·알림 중지·2시간 만료. native/ZIP/다운로드 웹소설의 저장 원문·완성 번역·PDF/삽화를 폰 HTTP에서 읽는다. 별도 계정·인터넷 없이 동작하고 기록 쓰기/부분 번역 캐시/클라우드 전용 문서는 제외. 실제 사설 IP HTTP와 WebCrypto/SW 없는 브라우저에서 검증했으며 물리 폰 핫스팟은 V3다. [범위·검증](LOCAL_LIBRARY_SHARING.md) |
 | TXT·Markdown 파일 가져오기 | 완료 | 완료 | 웹은 32MB 이하 파일, BOM/엄격 UTF-8 및 명시적 레거시 인코딩, 내용 해시 ID, 계정별 기기 보관을 지원한다. 일반 서버 artifact와 별도 모델이다. [DocumentLoader](../app/src/main/java/com/dongholab/pagetuner/document/DocumentLoader.kt), [localDocuments](../web/src/lib/localDocuments.ts), [LocalWorkspace](../web/src/components/LocalWorkspace.tsx) |
 | EPUB 가져오기·본문·장 이동 | 완료 | 완료 | 양쪽 OPF/spine 순서를 읽는다. 웹은 안전한 XML 텍스트 추출과 문단 ID 기반 목차 이동이며 원본 CSS 레이아웃을 실행하지 않는다. [EpubDocumentReader](../app/src/main/java/com/dongholab/pagetuner/document/EpubDocumentReader.kt), [epubDocument](../web/src/lib/epubDocument.ts), [ReaderTools](../web/src/components/ReaderTools.tsx) |
 | EPUB 삽화 표시 | 부분 | 부분 | 앱은 페이지당 첫 두 이미지를 표시한다. 웹은 장별 첫 두 PNG/JPEG/GIF/WebP를 내용 signature로 확인해 기기에 보관하고 삽화 탭에서 표시한다. SVG·외부 이미지·원본 EPUB 레이아웃 전체 재현은 지원 범위 밖이다. [ReaderUi](../app/src/main/java/com/dongholab/pagetuner/ui/reader/ReaderUi.kt), [epubDocument](../web/src/lib/epubDocument.ts), [ReaderTools](../web/src/components/ReaderTools.tsx) |
