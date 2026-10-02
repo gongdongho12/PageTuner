@@ -1,45 +1,51 @@
 package com.dongholab.pagetuner.server.translation
 
+import com.dongholab.pagetuner.core.model.library.LibraryFilter
+import com.dongholab.pagetuner.server.organization.LibraryFilterSql
+import com.dongholab.pagetuner.server.organization.LibraryOrganizationKind
 import java.util.UUID
 import org.springframework.jdbc.core.JdbcTemplate
-import org.springframework.jdbc.core.PreparedStatementSetter
 import org.springframework.jdbc.core.RowMapper
 import org.springframework.stereotype.Repository
 
 /** Bounded library projections: source text and translated bodies never leave PostgreSQL. */
 @Repository
 class TranslationLibraryRepository(private val jdbc: JdbcTemplate) {
-    fun count(userId: String): Long = requireNotNull(jdbc.queryForObject(
+    fun count(userId: String, filter: LibraryFilter = LibraryFilter()): Long {
+        val query = LibraryFilterSql(filter, LibraryOrganizationKind.TRANSLATION)
+        return requireNotNull(jdbc.queryForObject(
         """
-            select count(*) from translation_artifact
-            where user_id = ? and content_provider_id is not null and book_id is not null
+            select count(*) from translation_artifact document ${query.join}
+            where document.user_id = ? and document.content_provider_id is not null and document.book_id is not null
+            ${query.predicates}
         """.trimIndent(),
         Long::class.java,
-        userId,
+        *(listOf(userId) + query.arguments).toTypedArray(),
     ))
+    }
 
-    fun list(userId: String, size: Int, offset: Long): List<TranslationSummary> = jdbc.query(
+    fun list(userId: String, size: Int, offset: Long, filter: LibraryFilter = LibraryFilter()): List<TranslationSummary> {
+        val query = LibraryFilterSql(filter, LibraryOrganizationKind.TRANSLATION)
+        return jdbc.query(
         """
             select id, content_provider_id, book_id, chapter_id, source_language, target_language,
                    translation_provider_id, model_id, prompt_revision, glossary_revision,
                    source_revision, artifact_id, revision, payload_hash, created_at,
                    book_title, chapter_title, jsonb_array_length(paragraphs_json::jsonb) as paragraph_count
             from (
-                select id, content_provider_id, book_id, chapter_id, source_language, target_language,
-                       translation_provider_id, model_id, prompt_revision, glossary_revision,
-                       source_revision, artifact_id, revision, payload_hash, created_at, paragraphs_json, book_title, chapter_title
-                from translation_artifact
-                where user_id = ? and content_provider_id is not null and book_id is not null
-                order by created_at desc, id desc
+                select document.id, document.content_provider_id, document.book_id, document.chapter_id,
+                       document.source_language, document.target_language, document.translation_provider_id,
+                       document.model_id, document.prompt_revision, document.glossary_revision, document.source_revision,
+                       document.artifact_id, document.revision, document.payload_hash, document.created_at,
+                       document.paragraphs_json, document.book_title, document.chapter_title
+                from translation_artifact document ${query.join}
+                where document.user_id = ? and document.content_provider_id is not null and document.book_id is not null
+                ${query.predicates}
+                order by document.created_at desc, document.id desc
                 limit ? offset ?
             ) as library_page
             order by created_at desc, id desc
         """.trimIndent(),
-        PreparedStatementSetter { statement ->
-            statement.setString(1, userId)
-            statement.setInt(2, size)
-            statement.setLong(3, offset)
-        },
         RowMapper { row, _ ->
             TranslationSummary(
                 recordId = row.getObject("id", UUID::class.java),
@@ -62,5 +68,7 @@ class TranslationLibraryRepository(private val jdbc: JdbcTemplate) {
                 chapterTitle = row.getString("chapter_title"),
             )
         },
+        *(listOf(userId) + query.arguments + listOf(size, offset)).toTypedArray(),
     )
+    }
 }

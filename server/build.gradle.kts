@@ -11,6 +11,7 @@ kotlin {
 }
 
 dependencies {
+    implementation(project(":core-model"))
     implementation(project(":core-content"))
     implementation(project(":core-translation"))
     implementation(project(":core-backup"))

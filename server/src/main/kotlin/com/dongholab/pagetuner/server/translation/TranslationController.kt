@@ -1,5 +1,6 @@
 package com.dongholab.pagetuner.server.translation
 
+import com.dongholab.pagetuner.server.organization.libraryFilterRequest
 import jakarta.validation.Valid
 import java.util.UUID
 import java.security.Principal
@@ -23,7 +24,11 @@ class TranslationController(
         principal: Principal,
         @RequestParam(defaultValue = "0") page: Int,
         @RequestParam(defaultValue = "12") size: Int,
-    ): TranslationListResponse = service.list(principal.name, page, size)
+        @RequestParam(required = false) q: String? = null,
+        @RequestParam(required = false) folder: String? = null,
+        @RequestParam(required = false) tag: String? = null,
+        @RequestParam(required = false) favorite: String? = null,
+    ): TranslationListResponse = service.list(principal.name, page, size, libraryFilterRequest(q, folder, tag, favorite))
 
     @PostMapping
     fun save(
