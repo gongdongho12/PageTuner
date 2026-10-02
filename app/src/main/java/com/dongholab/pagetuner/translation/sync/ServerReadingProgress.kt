@@ -32,8 +32,18 @@ data class ServerReadingDocument(val accountKey: String, val source: ServerLibra
     val openId: String = UUID.randomUUID().toString()) {
     val key get() = "$accountKey:${source.entry.kind.progressKind()}:${source.entry.recordId}"
     val readerId get() = mapping.document.id
-    fun anchor(page: Int) = mapping.anchors.getOrNull(page)?.let { ServerReadingAnchor(it.paragraphId, it.startOffset) }
+    fun anchor(page: Int, characterOffset: Int = 0) = mapping.anchors.getOrNull(page)?.let {
+        val text = mapping.document.pages[page].plainText
+        require(characterOffset in 0..text.length)
+        ServerReadingAnchor(it.paragraphId, it.startOffset + characterOffset).also(::validate)
+    }
     fun page(anchor: ServerReadingAnchor) = mapping.pageFor(com.dongholab.pagetuner.core.backup.exchange.ExchangeAnchor(anchor.paragraphId, anchor.characterOffset))
+    fun characterOffset(anchor: ServerReadingAnchor): Int {
+        validate(anchor)
+        val page = page(anchor)
+        val start = requireNotNull(mapping.anchors[page]).startOffset
+        return (anchor.characterOffset - start).coerceIn(0, mapping.document.pages[page].plainText.length)
+    }
     fun validate(anchor: ServerReadingAnchor) {
         ServerReadingProgressJson.validateAnchor(anchor)
         val paragraphs = source.storedTranslation?.artifact?.paragraphs?.map { it.paragraphId to it.text }

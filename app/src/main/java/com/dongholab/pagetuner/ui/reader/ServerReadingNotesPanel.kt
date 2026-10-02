@@ -23,7 +23,7 @@ import com.dongholab.pagetuner.ui.theme.*
 /** Server IDs and canonical ranges stay in the journal; page-only legacy/ZIP notes never enter this editor. */
 @Composable
 fun ServerReadingNotesPanel(receivedState: ServerReadingNotesUiState, document: ServerReadingDocument,
-    bookmarksOnly: Boolean, pageIndex: Int, sync: ServerReadingNotesSync, onOpen: (ServerReadingAnchor) -> Unit) {
+    bookmarksOnly: Boolean, pageIndex: Int, sync: ServerReadingNotesSync, onOpen: (ServerReadingAnchor) -> Unit, characterOffset: Int = 0) {
     val state = receivedState.takeIf { it.readerId == document.readerId } ?: ServerReadingNotesUiState(phase = ReadingProgressPhase.Loading)
     val context = LocalContext.current
     val shareLabel = stringResource(R.string.action_export_annotations)
@@ -49,6 +49,7 @@ fun ServerReadingNotesPanel(receivedState: ServerReadingNotesUiState, document: 
         else -> R.string.server_notes_loading
     }
     val enabled = state.readerId == document.readerId && state.phase != ReadingProgressPhase.DeviceError
+    val notePosition = remember(document, pageIndex, characterOffset) { document.notePosition(pageIndex, characterOffset) }
     Column(Modifier.fillMaxSize().padding(8.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
         Row(Modifier.fillMaxWidth().heightIn(min = 44.dp), verticalAlignment = Alignment.CenterVertically) {
             Text(stringResource(label), Modifier.weight(1f), style = MaterialTheme.typography.labelMedium, color = EinkInk)
@@ -56,6 +57,7 @@ fun ServerReadingNotesPanel(receivedState: ServerReadingNotesUiState, document: 
                 TextButton(onClick = sync::retry, modifier = Modifier.heightIn(min = 44.dp)) { Text(stringResource(R.string.reading_progress_retry)) }
             }
         }
+        if (notePosition == null) Text(stringResource(R.string.viewer_no_text), style = MaterialTheme.typography.labelMedium, color = EinkMuted)
         if (selected != null && (selectedItem != null || conflict != null)) {
             NoteDetail(selected!!, selectedItem, conflict, enabled,
                 onBack = { selected = null }, onOpen = onOpen,
@@ -68,17 +70,18 @@ fun ServerReadingNotesPanel(receivedState: ServerReadingNotesUiState, document: 
                 ServerReadingNoteKind.BOOKMARK -> R.string.bookmark_page_label
                 ServerReadingNoteKind.NOTE -> R.string.annotation_note_label
                 ServerReadingNoteKind.HIGHLIGHT -> R.string.annotation_highlight_label
-            }, pageIndex + 1)
-            NoteEditor(title, "", kind, enabled, { creating = null }) { name, text ->
-                sync.create(document.readerId, kind, pageIndex, name, text); creating = null
+            }, (notePosition?.first ?: pageIndex) + 1)
+            NoteEditor(title, "", kind, enabled && notePosition != null, { creating = null }) { name, text ->
+                notePosition?.let { (sourcePage, sourceOffset) -> sync.create(document.readerId, kind, sourcePage, name, text, sourceOffset) }
+                creating = null
             }
         } else {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 TextButton(onClick = { creating = if (bookmarksOnly) ServerReadingNoteKind.BOOKMARK else ServerReadingNoteKind.NOTE },
-                    enabled = enabled, modifier = Modifier.weight(1f).heightIn(min = 44.dp)) {
+                    enabled = enabled && notePosition != null, modifier = Modifier.weight(1f).heightIn(min = 44.dp)) {
                     Text(stringResource(if (bookmarksOnly) R.string.action_add_bookmark else R.string.action_add_note))
                 }
-                if (!bookmarksOnly) TextButton(onClick = { creating = ServerReadingNoteKind.HIGHLIGHT }, enabled = enabled,
+                if (!bookmarksOnly) TextButton(onClick = { creating = ServerReadingNoteKind.HIGHLIGHT }, enabled = enabled && notePosition != null,
                     modifier = Modifier.weight(1f).heightIn(min = 44.dp)) { Text(stringResource(R.string.action_add_highlight)) }
                 TextButton(enabled = ids.isNotEmpty(), modifier = Modifier.heightIn(min = 44.dp), onClick = {
                     val text = ids.mapNotNull(entries::get).joinToString("\n\n") { item ->

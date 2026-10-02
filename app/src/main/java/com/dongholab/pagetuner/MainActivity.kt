@@ -268,6 +268,8 @@ fun PageTurnerApp() {
     val document = readerState.document
     val pageIndex = readerState.safePageIndex
     val currentPage = readerState.currentPage
+    val readerDisplayPosition = readerState.displayPosition ?: com.dongholab.pagetuner.reader.ReaderDisplayPosition(pageIndex, readerState.characterOffset)
+    var readerDisplayNavigation by remember(document.id) { mutableStateOf(com.dongholab.pagetuner.reader.ReaderDisplayNavigation()) }
     val pdfSourceUri = readerState.pdfSourceUri
     val currentBookId = readerState.currentBookId
     val currentBook = localBooks.firstOrNull { it.id == currentBookId }
@@ -482,6 +484,20 @@ fun PageTurnerApp() {
         openFilePicker = { openDocumentLauncher.launch(arrayOf("text/*", "text/markdown", "application/pdf", "application/epub+zip", "application/octet-stream")) },
     )
 
+    val measuredNavigation = readerDisplayNavigation.takeIf {
+        it.pageChangeRevision == readerState.pageChangeRevision && it.position == readerDisplayPosition
+    }
+    val previousDisplayPage: () -> Unit = {
+        if (readerSubPage == com.dongholab.pagetuner.ui.reader.ReaderSubPage.READER) {
+            measuredNavigation?.previous?.let(readerViewModel::changeDisplayPosition)
+        } else actions.previousPage()
+    }
+    val nextDisplayPage: () -> Unit = {
+        if (readerSubPage == com.dongholab.pagetuner.ui.reader.ReaderSubPage.READER) {
+            measuredNavigation?.next?.let(readerViewModel::changeDisplayPosition)
+        } else actions.nextPage()
+    }
+
     // ─── Side effects ────────────────────────────────────────────────────
     LaunchedEffect(Unit) {
         kotlinx.coroutines.delay(1000L)
@@ -626,7 +642,7 @@ fun PageTurnerApp() {
     LaunchedEffect(serverReadingDocument, serverReadingConnection, document.id) {
         val reading = serverReadingDocument
         if (reading != null && reading.readerId == document.id && serverReadingConnection?.accountKey == reading.accountKey) {
-            serverProgressViewModel.sync.open(reading, serverReadingConnection, pageIndex, readerState.pageChangeRevision)
+            serverProgressViewModel.sync.open(reading, serverReadingConnection, pageIndex, readerState.pageChangeRevision, readerState.characterOffset)
             serverNotesViewModel.sync.open(reading, serverReadingConnection)
         } else {
             serverProgressViewModel.sync.close()
@@ -639,8 +655,9 @@ fun PageTurnerApp() {
             com.dongholab.pagetuner.translation.sync.applyServerReadingProgressRestore(readerViewModel, serverProgressViewModel.sync, it)
         }
     }
-    LaunchedEffect(document.id, pageIndex, readerState.pageChangeRevision) {
-        serverProgressViewModel.sync.pageChanged(document.id, pageIndex, readerState.pageChangeRevision)
+    LaunchedEffect(document.id, pageIndex, readerState.pageChangeRevision, readerState.characterOffset) {
+        if (readerDisplayPosition.fromEnd) return@LaunchedEffect
+        serverProgressViewModel.sync.pageChanged(document.id, pageIndex, readerState.pageChangeRevision, readerState.characterOffset)
     }
 
     LaunchedEffect(currentBookId, pageIndex, document.id) {
@@ -742,8 +759,8 @@ fun PageTurnerApp() {
             .onPreviewKeyEvent { ev ->
                 if (ev.type != KeyEventType.KeyDown || readerPageTurnBlocked) return@onPreviewKeyEvent false
                 when (ev.key) {
-                    Key.DirectionLeft, Key.PageUp -> { actions.previousPage(); true }
-                    Key.DirectionRight, Key.PageDown, Key.Spacebar -> { actions.nextPage(); true }
+                    Key.DirectionLeft, Key.PageUp -> { previousDisplayPage(); true }
+                    Key.DirectionRight, Key.PageDown, Key.Spacebar -> { nextDisplayPage(); true }
                     else -> false
                 }
             },
@@ -1105,6 +1122,11 @@ fun PageTurnerApp() {
                         ReaderSurface(
                             modifier = Modifier.weight(1f),
                             page = currentPage,
+                            document = document,
+                            displayPosition = readerDisplayPosition,
+                            pageChangeRevision = readerState.pageChangeRevision,
+                            onDisplayNavigation = { readerDisplayNavigation = it },
+                            onDisplayPositionResolved = readerViewModel::changeDisplayPosition,
                             documentFormat = document.format,
                             pdfPageBitmap = pdfPageBitmap,
                             pdfFitMode = readerSettings.pdfFitMode,
@@ -1117,8 +1139,8 @@ fun PageTurnerApp() {
                             fontSizeSp = readerSettings.readerFontSizeSp,
                             lineSpacing = readerSettings.readerLineSpacing,
                             pageMarginDp = viewportPolicy.pageMarginDp,
-                            onPreviousPage = actions.previousPage,
-                            onNextPage = actions.nextPage,
+                            onPreviousPage = previousDisplayPage,
+                            onNextPage = nextDisplayPage,
                             fullScreen = readerFullscreenActive,
                             onExitFullscreen = { readerFullscreen = false },
                         )
@@ -1133,8 +1155,10 @@ fun PageTurnerApp() {
                                 else -> currentChapterIndex < tableOfContents.lastIndex
                             },
                             busy = readerPageTurnBlocked,
-                            onPrevious = actions.previousPage,
-                            onNext = actions.nextPage,
+                            onPrevious = previousDisplayPage,
+                            onNext = nextDisplayPage,
+                            canPreviousDisplayPage = measuredNavigation?.previous != null,
+                            canNextDisplayPage = measuredNavigation?.next != null,
                             onPreviousChapter = {
                                 navHistoryStack.add(NavigationHistoryFrame.PageJumpFrame(pageIndex))
                                 actions.previousChapter()
@@ -1187,10 +1211,10 @@ fun PageTurnerApp() {
                                 }
                             }
                             if (activeServerReading != null && !showLegacyNotes) ServerReadingNotesPanel(serverNotesState, activeServerReading,
-                                bookmarksOnly = true, pageIndex = pageIndex, sync = serverNotesViewModel.sync, onOpen = { anchor ->
+                                bookmarksOnly = true, pageIndex = pageIndex, characterOffset = readerState.characterOffset, sync = serverNotesViewModel.sync, onOpen = { anchor ->
                                     navHistoryStack.add(NavigationHistoryFrame.PageJumpFrame(pageIndex))
                                     navHistoryStack.add(NavigationHistoryFrame.ReaderSubPageFrame(readerSubPage))
-                                    readerViewModel.changePage(activeServerReading.page(anchor))
+                                    readerViewModel.changeReadingPosition(activeServerReading.page(anchor), activeServerReading.characterOffset(anchor))
                                     readerSubPage = com.dongholab.pagetuner.ui.reader.ReaderSubPage.READER
                                 }) else ReaderBookmarkPanel(
                                 draftLabel = readerState.bookmarkDraftLabel,
@@ -1222,10 +1246,10 @@ fun PageTurnerApp() {
                                 }
                             }
                             if (activeServerReading != null && !showLegacyNotes) ServerReadingNotesPanel(serverNotesState, activeServerReading,
-                                bookmarksOnly = false, pageIndex = pageIndex, sync = serverNotesViewModel.sync, onOpen = { anchor ->
+                                bookmarksOnly = false, pageIndex = pageIndex, characterOffset = readerState.characterOffset, sync = serverNotesViewModel.sync, onOpen = { anchor ->
                                     navHistoryStack.add(NavigationHistoryFrame.PageJumpFrame(pageIndex))
                                     navHistoryStack.add(NavigationHistoryFrame.ReaderSubPageFrame(readerSubPage))
-                                    readerViewModel.changePage(activeServerReading.page(anchor))
+                                    readerViewModel.changeReadingPosition(activeServerReading.page(anchor), activeServerReading.characterOffset(anchor))
                                     readerSubPage = com.dongholab.pagetuner.ui.reader.ReaderSubPage.READER
                                 }) else ReaderAnnotationPanel(
                                 noteDraft = readerState.noteDraftText,

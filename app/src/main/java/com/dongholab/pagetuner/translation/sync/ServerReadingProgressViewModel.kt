@@ -16,7 +16,8 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 enum class ReadingProgressPhase { Inactive, Loading, Synced, Pending, Offline, RateLimited, Conflict, Unavailable, DeviceError }
-data class ReadingProgressRestore(val readerId: String, val pageIndex: Int, val sequence: Long, val expectedPageChangeRevision: Long)
+data class ReadingProgressRestore(val readerId: String, val pageIndex: Int, val sequence: Long, val expectedPageChangeRevision: Long,
+    val characterOffset: Int = 0)
 data class ReadingProgressUiState(
     val readerId: String? = null,
     val phase: ReadingProgressPhase = ReadingProgressPhase.Inactive,
@@ -32,10 +33,12 @@ fun applyServerReadingProgressRestore(reader: com.dongholab.pagetuner.reader.Rea
     val current = reader.uiState.value
     if (current.document.id != restore.readerId) return false
     if (current.pageChangeRevision != restore.expectedPageChangeRevision) {
-        sync.pageChanged(current.document.id, current.safePageIndex, current.pageChangeRevision)
+        if (current.displayPosition?.fromEnd != true) {
+            sync.pageChanged(current.document.id, current.safePageIndex, current.pageChangeRevision, current.characterOffset)
+        }
         return false
     }
-    reader.changePage(restore.pageIndex, userInitiated = false)
+    reader.changeReadingPosition(restore.pageIndex, restore.characterOffset, userInitiated = false)
     return true
 }
 
@@ -43,10 +46,11 @@ fun applyServerReadingProgressRestore(reader: com.dongholab.pagetuner.reader.Rea
 class ServerReadingProgressSync(private val scope: CoroutineScope, private val storage: ServerReadingProgressStore,
     private val clock: () -> Long = System::currentTimeMillis) {
     private sealed interface Action {
-        data class Open(val document: ServerReadingDocument, val connection: ServerReadingConnection, val page: Int, val revision: Long) : Action
+        data class Open(val document: ServerReadingDocument, val connection: ServerReadingConnection, val page: Int, val revision: Long,
+            val characterOffset: Int) : Action
         data class Connect(val connection: ServerReadingConnection?) : Action
         data object Close : Action
-        data class Page(val readerId: String, val page: Int, val revision: Long?) : Action
+        data class Page(val readerId: String, val page: Int, val revision: Long?, val characterOffset: Int) : Action
         data class Retry(val ticket: Long? = null) : Action
         data class Resolve(val local: Boolean) : Action
         data class Received(val ticket: Long, val mutation: ServerReadingMutation?, val result: Result<ServerReadingProgress>) : Action
@@ -61,6 +65,7 @@ class ServerReadingProgressSync(private val scope: CoroutineScope, private val s
         var sentMutationId: String? = null,
         var pageChangeRevision: Long = 0,
         var terminalFailure: Boolean = false,
+        var characterOffset: Int = 0,
     )
     private val actions = Channel<Action>(Channel.UNLIMITED)
     private val mutableState = MutableStateFlow(ReadingProgressUiState())
@@ -88,10 +93,12 @@ class ServerReadingProgressSync(private val scope: CoroutineScope, private val s
         }
     } }
 
-    fun open(document: ServerReadingDocument, connection: ServerReadingConnection, page: Int, revision: Long = 0) { actions.trySend(Action.Open(document, connection, page, revision)) }
+    fun open(document: ServerReadingDocument, connection: ServerReadingConnection, page: Int, revision: Long = 0, characterOffset: Int = 0) {
+        actions.trySend(Action.Open(document, connection, page, revision, characterOffset)) }
     fun connect(connection: ServerReadingConnection?) { actions.trySend(Action.Connect(connection)) }
     fun close() { actions.trySend(Action.Close) }
-    fun pageChanged(readerId: String, page: Int, revision: Long? = null) { actions.trySend(Action.Page(readerId, page, revision)) }
+    fun pageChanged(readerId: String, page: Int, revision: Long? = null, characterOffset: Int = 0) {
+        actions.trySend(Action.Page(readerId, page, revision, characterOffset)) }
     fun retry() { actions.trySend(Action.Retry()) }
     fun chooseLocal() { actions.trySend(Action.Resolve(true)) }
     fun chooseServer() { actions.trySend(Action.Resolve(false)) }
@@ -116,6 +123,7 @@ class ServerReadingProgressSync(private val scope: CoroutineScope, private val s
                 terminalOutbox.remove(action.document.key)
                 val next = Session(generation, action.document, action.connection, DeviceReadingProgress(), action.page)
                 next.pageChangeRevision = action.revision
+                next.characterOffset = action.characterOffset
                 session = next
                 mutableState.value = ReadingProgressUiState(action.document.readerId, ReadingProgressPhase.Loading)
                 next.record = withContext(Dispatchers.IO) { storage.read(action.document) }
@@ -129,18 +137,20 @@ class ServerReadingProgressSync(private val scope: CoroutineScope, private val s
             is Action.Page -> {
                 val current = session ?: return
                 if (current.document.readerId != action.readerId || current.failedStorage ||
-                    action.page == current.page && (action.revision == null || action.revision == current.pageChangeRevision)) return
+                    action.page == current.page && action.characterOffset == current.characterOffset &&
+                        (action.revision == null || action.revision == current.pageChangeRevision)) return
                 if (action.revision != null && action.revision < current.pageChangeRevision) return
                 val userMoved = action.revision != null && action.revision != current.pageChangeRevision
                 if (action.revision != null) current.pageChangeRevision = action.revision
                 current.page = action.page
+                current.characterOffset = action.characterOffset
                 if (action.revision != null && !userMoved) {
                     if (action.page == current.restoredPage) current.restoredPage = null
                     return
                 }
                 if (action.page == current.restoredPage && !userMoved) { current.restoredPage = null; return }
                 current.restoredPage = null
-                val anchor = current.document.anchor(action.page) ?: return
+                val anchor = current.document.anchor(action.page, action.characterOffset) ?: return
                 current.document.validate(anchor)
                 val previous = current.record
                 if (previous.localAnchor == anchor) return
@@ -314,7 +324,8 @@ class ServerReadingProgressSync(private val scope: CoroutineScope, private val s
         current.document.validate(anchor)
         val page = current.document.page(anchor)
         current.restoredPage = page
-        mutableState.value = mutableState.value.copy(restore = ReadingProgressRestore(current.document.readerId, page, ++restoreSequence, current.pageChangeRevision))
+        mutableState.value = mutableState.value.copy(restore = ReadingProgressRestore(current.document.readerId, page, ++restoreSequence,
+            current.pageChangeRevision, current.document.characterOffset(anchor)))
     }
     private fun showConflict(current: Session) {
         mutableState.value = mutableState.value.copy(phase = ReadingProgressPhase.Conflict,

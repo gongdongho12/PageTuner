@@ -11,6 +11,23 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class ReaderViewModelTest {
+    @Test fun displayPageTurnsPreserveCanonicalIdentityAndPublishIntraPageMovement() {
+        val document = documentWithPages("Book", 2)
+        val reader = ReaderViewModel(document)
+        reader.changeDisplayPosition(ReaderDisplayPosition(0, 2, translatedDisplayOffset = 35))
+        assertEquals(0, reader.uiState.value.pageIndex)
+        assertEquals(2, reader.uiState.value.characterOffset)
+        assertEquals(1, reader.uiState.value.pageChangeRevision)
+        assertEquals(document, reader.uiState.value.document)
+        reader.changeReadingPosition(0, 3, userInitiated = false)
+        assertEquals(3, reader.uiState.value.characterOffset)
+        assertEquals(1, reader.uiState.value.pageChangeRevision)
+        assertEquals(null, reader.uiState.value.displayPosition)
+        reader.changePage(0)
+        assertEquals(0, reader.uiState.value.characterOffset)
+        assertEquals(2, reader.uiState.value.pageChangeRevision)
+    }
+
     @Test
     fun appliesLoadedDocumentAndBoundsPageIndex() {
         val initial = documentWithPages("Initial", pageCount = 1)

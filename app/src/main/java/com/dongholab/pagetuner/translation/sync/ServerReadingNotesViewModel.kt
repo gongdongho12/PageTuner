@@ -24,7 +24,7 @@ class ServerReadingNotesSync(private val scope: CoroutineScope, private val stor
         data object Close : Action
         data object Retry : Action
         data class Tick(val ticket: Long) : Action
-        data class Create(val readerId: String, val kind: ServerReadingNoteKind, val page: Int, val title: String, val text: String) : Action
+        data class Create(val readerId: String, val kind: ServerReadingNoteKind, val page: Int, val title: String, val text: String, val characterOffset: Int) : Action
         data class Edit(val readerId: String, val noteId: String, val title: String, val text: String, val base: ServerReadingNote?) : Action
         data class Delete(val readerId: String, val noteId: String, val base: ServerReadingNote?) : Action
         data class Resolve(val readerId: String, val noteId: String, val local: Boolean, val shown: ServerReadingNoteConflictView) : Action
@@ -62,7 +62,8 @@ class ServerReadingNotesSync(private val scope: CoroutineScope, private val stor
     fun open(document: ServerReadingDocument, connection: ServerReadingConnection) { queue.trySend(Action.Open(document, connection)) }
     fun close() { queue.trySend(Action.Close) }
     fun retry() { queue.trySend(Action.Retry) }
-    fun create(readerId: String, kind: ServerReadingNoteKind, page: Int, title: String, text: String) { queue.trySend(Action.Create(readerId, kind, page, title, text)) }
+    fun create(readerId: String, kind: ServerReadingNoteKind, page: Int, title: String, text: String, characterOffset: Int = 0) {
+        queue.trySend(Action.Create(readerId, kind, page, title, text, characterOffset)) }
     fun edit(readerId: String, noteId: String, title: String, text: String, base: ServerReadingNote? = null) { queue.trySend(Action.Edit(readerId, noteId, title, text, base)) }
     fun delete(readerId: String, noteId: String, base: ServerReadingNote? = null) { queue.trySend(Action.Delete(readerId, noteId, base)) }
     fun resolve(readerId: String, noteId: String, local: Boolean, shown: ServerReadingNoteConflictView) { queue.trySend(Action.Resolve(readerId, noteId, local, shown)) }
@@ -91,7 +92,7 @@ class ServerReadingNotesSync(private val scope: CoroutineScope, private val stor
             is Action.Create -> {
                 val document = active?.takeIf { it.readerId == action.readerId && !failedStorage } ?: return
                 staleActionRejected = false
-                val content = document.noteContent(action.kind, action.page, action.title, action.text)
+                val content = document.noteContent(action.kind, action.page, action.title, action.text, action.characterOffset)
                 change(document, UUID.randomUUID().toString(), ServerReadingNoteDesired(false, content)); pump()
             }
             is Action.Edit -> {
