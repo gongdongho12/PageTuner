@@ -10,6 +10,7 @@ import { ReaderPreferencesPanel } from './ReaderPreferences'
 import { ReaderSearch } from './ReaderSearch'
 import { useReadingNoteSync } from './ReadingNoteProvider'
 import { ReadingNotePanel, readingNoteStatus } from './ReadingNotePanel'
+import { LibraryOrganizationPanel } from './LibraryOrganizationPanel'
 import './readingTools.css'
 import { downloadReadingExport, readingNotesExport, shareReadingExport } from '../lib/readingExport'
 
@@ -18,7 +19,7 @@ export function ReaderTools({ namespace, document, anchor, onJump, onClose }: {
   onJump: (anchor: ReadingAnchor) => void; onClose: () => void
 }) {
   const storage = useMemo(() => createReadingNotes(namespace), [namespace])
-  const [tab, setTab] = useState<'bookmark' | 'note' | 'highlight' | 'add' | 'outline' | 'images' | 'search' | 'settings' | 'export' | 'sync'>('bookmark')
+  const [tab, setTab] = useState<'bookmark' | 'note' | 'highlight' | 'add' | 'outline' | 'images' | 'search' | 'settings' | 'export' | 'sync' | 'organization'>('bookmark')
   const sync = useReadingNoteSync(document, namespace)
   const [items, setItems] = useState<ReadingNote[]>([]), [damagedIds, setDamagedIds] = useState<string[]>([])
   const [error, setError] = useState(''), [busy, setBusy] = useState(false)
@@ -43,12 +44,13 @@ export function ReaderTools({ namespace, document, anchor, onJump, onClose }: {
     setBusy(true); setError('')
     try { await action(); await refresh(); setRemoveId(undefined); setRemoveSnapshot(undefined) } catch (error) { setError(deviceStorageMessage(error)) } finally { setBusy(false) }
   }
-  const labels = { bookmark: '북마크', note: '메모', highlight: '강조', add: '현재 위치에 추가', outline: '목차', images: '삽화', search: '본문 검색', settings: '독서 설정', export: '내보내기 · 공유', sync: '읽기 기록 동기화' }
+  const labels = { bookmark: '북마크', note: '메모', highlight: '강조', add: '현재 위치에 추가', outline: '목차', images: '삽화', search: '본문 검색', settings: '독서 설정', export: '내보내기 · 공유', sync: '읽기 기록 동기화', organization: '문서 분류' }
   const rows = items.filter(item => item.kind === tab)
   if (selected) return <PagedReader document={{ id: `reading-note:${selected.id}`, bookTitle: document.bookTitle, chapterTitle: selected.title, language: document.language, kind: 'introduction',
     paragraphs: [{ paragraphId: 'note-body', text: selected.text || selected.excerpt }] }} readOnly onClose={() => setSelected(undefined)} onAnchorChange={() => {}} positionNote={t(sync.available ? '같은 계정의 앱과 웹에서 공유하는 읽기 기록입니다.' : '이 기기에 저장한 읽기 기록입니다.')}/>
   if (tab === 'settings') return <ReaderPreferencesPanel namespace={namespace} onClose={() => setTab('bookmark')}/>
   if (tab === 'sync') return <ReadingNotePanel document={document} sync={sync} onClose={() => setTab('bookmark')}/>
+  if (tab === 'organization') return <LibraryOrganizationPanel key={`${namespace}:${document.id}`} namespace={namespace} document={document} onClose={() => setTab('bookmark')}/>
   if (editing) return <section className="reading-workspace" aria-label={t('읽기 기록 수정')}>
     <header className="reading-tools-header"><button className="button-quiet" disabled={busy} onClick={() => { setEditing(undefined); setError('') }}>{t('수정 취소')}</button><strong>{t('읽기 기록 수정')}</strong></header>
     {error && <p role="alert" className="workflow-message">{t(error)}</p>}
@@ -63,7 +65,7 @@ export function ReaderTools({ namespace, document, anchor, onJump, onClose }: {
   return <section className="reading-workspace" aria-label={t('읽기 도구')}>
     <header className="reading-tools-header"><button className="button-quiet" onClick={onClose}>{t('본문으로 돌아가기')}</button><strong>{document.bookTitle}</strong></header>
     <nav className="workflow-subtabs" aria-label={t('읽기 도구')}>
-      {(Object.keys(labels) as Array<keyof typeof labels>).filter(value => (value !== 'outline' || document.outline?.length) && (value !== 'images' || document.assets?.images?.length) && (value !== 'highlight' || document.local?.format !== 'pdf') && (value !== 'sync' || sync.available)).map(value =>
+      {(Object.keys(labels) as Array<keyof typeof labels>).filter(value => (value !== 'outline' || document.outline?.length) && (value !== 'images' || document.assets?.images?.length) && (value !== 'highlight' || document.local?.format !== 'pdf') && (value !== 'sync' || sync.available) && (value !== 'organization' || document.serverProgress && namespace)).map(value =>
         <button key={value} aria-pressed={tab === value} onClick={() => { setTab(value); setRemoveId(undefined); setRemoveSnapshot(undefined) }} disabled={busy}>{t(labels[value])}</button>)}
     </nav>
     {error && <div role="alert" className="workflow-message">{t(error)} <button className="button-text" onClick={() => void write(refresh)}>{t('다시 시도')}</button></div>}

@@ -36,6 +36,8 @@ import { createReadingProgressClient, type ReadingProgressClient } from './lib/r
 import { ReadingNoteProvider } from './components/ReadingNoteProvider';
 import { createReadingNoteClient, type ReadingNoteClient } from './lib/readingNoteApi';
 import { createReaderPreferenceClient, type ReaderPreferenceClient } from './lib/readerPreferenceApi';
+import { createLibraryOrganizationClient, type LibraryOrganizationClient } from './lib/libraryOrganizationApi';
+import { LibraryOrganizationProvider } from './components/LibraryOrganizationProvider';
 import { LocalWorkspace } from "./components/LocalWorkspace";
 import { LibraryExchangeWorkspace } from "./components/LibraryExchangeWorkspace";
 import { OriginalLibrary } from "./components/OriginalLibrary";
@@ -248,6 +250,8 @@ export default function App() {
   const noteClientRef = useRef<ReadingNoteClient | null>(null);
   const [preferenceClient, setPreferenceClient] = useState<ReaderPreferenceClient | null>(null);
   const preferenceClientRef = useRef<ReaderPreferenceClient | null>(null);
+  const [organizationClient, setOrganizationClient] = useState<LibraryOrganizationClient | null>(null);
+  const organizationClientRef = useRef<LibraryOrganizationClient | null>(null);
   const [workflowClient, setWorkflowClient] = useState<WorkflowClient | null>(
     null,
   );
@@ -417,6 +421,7 @@ export default function App() {
       progressClientRef.current?.close();
       noteClientRef.current?.close();
       preferenceClientRef.current?.close();
+      organizationClientRef.current?.close();
       session.current += 1;
     },
     [],
@@ -439,6 +444,9 @@ export default function App() {
     preferenceClientRef.current?.close();
     preferenceClientRef.current = null;
     setPreferenceClient(null);
+    organizationClientRef.current?.close();
+    organizationClientRef.current = null;
+    setOrganizationClient(null);
     setAccountClient(null);
     setAccountProfile(null);
     workflowClientRef.current?.close();
@@ -492,6 +500,9 @@ export default function App() {
       const nextPreferenceClient = createReaderPreferenceClient({ username: profile.username, password: details.password });
       preferenceClientRef.current = nextPreferenceClient;
       setPreferenceClient(nextPreferenceClient);
+      const nextOrganizationClient = createLibraryOrganizationClient({ username: profile.username, password: details.password });
+      organizationClientRef.current = nextOrganizationClient;
+      setOrganizationClient(nextOrganizationClient);
       setLocale(profile.locale);
       setUsername(profile.username);
       setFormUsername(profile.username);
@@ -774,6 +785,7 @@ export default function App() {
     <ReaderPreferencesProvider namespace={username} client={preferenceClient}>
     <ReadingProgressProvider username={username} client={progressClient}>
     <ReadingNoteProvider username={username} client={noteClient}>
+    <LibraryOrganizationProvider username={username} client={organizationClient}>
       <div className="app-shell">
         <header className="app-header">
           <a
@@ -1443,6 +1455,7 @@ export default function App() {
           </div>
         )}
       </div>
+    </LibraryOrganizationProvider>
     </ReadingNoteProvider>
     </ReadingProgressProvider>
     </ReaderPreferencesProvider>
