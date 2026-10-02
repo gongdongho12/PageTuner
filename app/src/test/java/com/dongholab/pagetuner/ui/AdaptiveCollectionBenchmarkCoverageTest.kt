@@ -26,7 +26,7 @@ class AdaptiveCollectionBenchmarkCoverageTest {
             .toMap()
 
         assertEquals(ExpectedCallSites, actual)
-        assertEquals(25, actual.values.sum())
+        assertEquals(26, actual.values.sum())
     }
 
     private companion object {
@@ -40,6 +40,7 @@ class AdaptiveCollectionBenchmarkCoverageTest {
             "com/dongholab/pagetuner/ui/reader/ServerReadingNotesPanel.kt" to 2,
             "com/dongholab/pagetuner/ui/settings/ServerReaderPreferencesPanel.kt" to 1,
             "com/dongholab/pagetuner/ui/screen/ServerLibraryScreen.kt" to 6,
+            "com/dongholab/pagetuner/ui/screen/ServerLibraryFilterPanel.kt" to 1,
             "com/dongholab/pagetuner/ui/screen/ServerLibraryOrganizationPanel.kt" to 1,
             "com/dongholab/pagetuner/ui/screen/ServerTranslationJobsPanel.kt" to 2,
             "com/dongholab/pagetuner/ui/source/FavoritesPanel.kt" to 1,

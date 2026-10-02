@@ -3,6 +3,7 @@ package com.dongholab.pagetuner.translation.sync
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.dongholab.pagetuner.R
+import com.dongholab.pagetuner.core.model.library.LibraryFilter
 import com.dongholab.pagetuner.document.ReaderDocument
 import com.dongholab.pagetuner.translation.TranslationCache
 import com.dongholab.pagetuner.translation.TranslationSettings
@@ -33,6 +34,8 @@ data class ServerLibraryState(
     val status: ServerLibraryMessage = ServerLibraryMessage(R.string.server_status_credentials),
     val error: ServerLibraryMessage? = null,
     val kind: ServerLibraryKind = ServerLibraryKind.Translations,
+    val filter: LibraryFilter = LibraryFilter(),
+    val filterDraft: ServerLibraryFilterDraft = ServerLibraryFilterDraft(),
     val page: ServerLibraryPage? = null,
     val selected: ServerLibraryDocument? = null,
     val profile: ServerAccountProfile? = null,
@@ -64,6 +67,7 @@ class ServerLibraryViewModel(
     private var operation: Job? = null
     private var jobPolling: Job? = null
     private var generation = 0
+    private var libraryLoading = false
 
     fun readingConnection(): ServerReadingConnection? = store?.takeIf { state.value.connected }?.let { client ->
         ServerReadingConnection(serverReadingAccountKey(state.value.connection.endpoint,
@@ -79,6 +83,7 @@ class ServerLibraryViewModel(
         store = null
         mutableState.update { it.copy(connection = ServerConnectionInput(endpoint, username, password), connected = false,
             page = null, selected = null, profile = null, jobSource = null, jobDraft = ServerJobDraft(),
+            filter = LibraryFilter(), filterDraft = ServerLibraryFilterDraft(),
             passwordDraft = ServerPasswordChangeDraft(),
             providers = emptyList(), jobs = null, latestJob = null, error = null) }
     }
@@ -87,7 +92,7 @@ class ServerLibraryViewModel(
         val input = state.value.connection
         val client = clientFactory(input.endpoint.trim(), TranslationStoreBasicAuth(input.username, input.password))
         val profile = client.accountProfile()
-        val page = client.list(state.value.kind)
+        val page = client.list(state.value.kind, filter = state.value.filter)
         currentCoroutineContext().ensureActive()
         store = client
         mutableState.update { it.copy(connected = true, page = page, profile = profile, profileDraft = profile.draft(),
@@ -292,9 +297,47 @@ class ServerLibraryViewModel(
         }
     }
 
-    fun loadPage(page: Int = 0, kind: ServerLibraryKind = state.value.kind) = start(R.string.server_status_loading) {
-        val result = client().list(kind, page)
-        mutableState.update { it.copy(page = result, kind = kind, status = ServerLibraryMessage(R.string.server_status_count, listOf(result.totalItems))) }
+    fun updateLibraryFilterDraft(value: ServerLibraryFilterDraft) {
+        if (!state.value.busy) mutableState.update { it.copy(filterDraft = value, error = null) }
+    }
+
+    fun applyLibraryFilter(): Boolean {
+        if (!state.value.connected || (state.value.busy && !libraryLoading)) return false
+        val filter = try { state.value.filterDraft.applied() } catch (_: IllegalArgumentException) {
+            mutableState.update { it.copy(error = ServerLibraryMessage(R.string.server_filter_invalid)) }
+            return false
+        }
+        if (libraryLoading) cancel()
+        mutableState.update { it.copy(filter = filter, page = null, selected = null) }
+        loadPage()
+        return true
+    }
+
+    fun resetLibraryFilter() {
+        if (!state.value.connected || (state.value.busy && !libraryLoading)) return
+        if (libraryLoading) cancel()
+        mutableState.update { it.copy(filter = LibraryFilter(), filterDraft = ServerLibraryFilterDraft(), page = null, selected = null) }
+        loadPage()
+    }
+
+    fun loadPage(page: Int = 0, kind: ServerLibraryKind = state.value.kind) {
+        if (state.value.busy && !libraryLoading) return
+        if (libraryLoading) cancel()
+        val changedKind = kind != state.value.kind
+        val filter = if (changedKind) LibraryFilter() else state.value.filter
+        val requestedPage = if (changedKind) 0 else page
+        mutableState.update { it.copy(kind = kind, filter = filter,
+            filterDraft = if (changedKind) ServerLibraryFilterDraft() else it.filterDraft,
+            page = if (changedKind || it.page?.page != requestedPage) null else it.page,
+            selected = if (changedKind) null else it.selected) }
+        start(R.string.server_status_loading, isLibraryRequest = true) {
+            val ticket = generation
+            val result = client().list(kind, requestedPage, filter = filter)
+            currentCoroutineContext().ensureActive()
+            if (ticket == generation) mutableState.update {
+                it.copy(page = result, status = ServerLibraryMessage(R.string.server_status_count, listOf(result.totalItems)))
+            }
+        }
     }
 
     fun read(entry: ServerLibraryEntry, saveToDevice: Boolean) = start(R.string.server_status_reading) {
@@ -331,6 +374,7 @@ class ServerLibraryViewModel(
         generation += 1
         operation?.cancel()
         operation = null
+        libraryLoading = false
         if (passwordMayHaveChanged) {
             // Cancelling transport cannot undo a password already committed by the server.
             clearPasswordSession(R.string.server_password_change_cancelled)
@@ -338,11 +382,12 @@ class ServerLibraryViewModel(
     }
 
     private fun client() = requireNotNull(store) { "먼저 서버에 연결해 주세요." }
-    private fun start(message: Int, work: suspend () -> Unit) {
+    private fun start(message: Int, isLibraryRequest: Boolean = false, work: suspend () -> Unit) {
         if (state.value.busy) return
         // A manual mutation must not be overwritten by an earlier in-flight polling response.
         jobPolling?.cancel()
         val ticket = ++generation
+        libraryLoading = isLibraryRequest
         mutableState.update { it.copy(busy = true, status = ServerLibraryMessage(message), error = null) }
         operation = viewModelScope.launch {
             try { work() }
@@ -351,6 +396,7 @@ class ServerLibraryViewModel(
                 if (ticket == generation) mutableState.update { it.copy(error = serverLibraryError(error), status = ServerLibraryMessage(R.string.server_status_failed)) }
             } finally {
                 if (ticket == generation) {
+                    libraryLoading = false
                     mutableState.update { it.copy(busy = false, passwordChanging = false,
                         passwordDraft = if (it.passwordChanging) ServerPasswordChangeDraft() else it.passwordDraft) }
                     startJobPolling()

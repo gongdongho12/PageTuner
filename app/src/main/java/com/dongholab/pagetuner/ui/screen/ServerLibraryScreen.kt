@@ -28,7 +28,8 @@ import com.dongholab.pagetuner.ui.theme.EinkPaper
 
 private enum class ServerPanel(val label: Int) {
     Connection(R.string.server_panel_connection), Account(R.string.server_panel_account),
-    Library(R.string.server_panel_library), Jobs(R.string.server_job_panel), Document(R.string.server_panel_document),
+    Library(R.string.server_panel_library), Filters(R.string.server_panel_filters),
+    Jobs(R.string.server_job_panel), Document(R.string.server_panel_document),
 }
 private enum class AccountPanel(val label: Int) {
     Form(R.string.server_account_form), Languages(R.string.server_account_languages), Password(R.string.server_account_password),
@@ -54,6 +55,9 @@ fun ServerLibraryScreen(
     onLanguages: () -> Unit,
     onApplyTargetLanguage: (String) -> Unit,
     onPage: (Int, ServerLibraryKind) -> Unit,
+    onFilterDraft: (ServerLibraryFilterDraft) -> Unit,
+    onApplyFilter: () -> Boolean,
+    onResetFilter: () -> Unit,
     onRead: (ServerLibraryEntry, Boolean) -> Unit,
     onPrepareTranslation: (ServerLibraryEntry) -> Unit,
     onJobDraft: (ServerJobDraft) -> Unit,
@@ -197,6 +201,9 @@ fun ServerLibraryScreen(
                 EinkSegmentedControl(ServerLibraryKind.entries, state.kind,
                     { onPage(0, it) }, enabled = state.connected && !busy,
                     label = { strings.getString(if (it == ServerLibraryKind.Translations) R.string.server_kind_translations else R.string.server_kind_originals) })
+                val activeFilters = listOf(state.filter.q, state.filter.folder, state.filter.tag, state.filter.favorite).count { it != null }
+                if (activeFilters > 0) Text(strings.getString(R.string.server_filter_active, activeFilters),
+                    color = EinkInk, style = MaterialTheme.typography.bodySmall)
                 val rowHeight = 160.dp
                 AdaptiveCollection(items = state.page?.items.orEmpty(), estimatedPagedItemHeight = rowHeight,
                     modifier = Modifier.weight(1f), busy = busy, itemKey = { it.recordId },
@@ -237,6 +244,13 @@ fun ServerLibraryScreen(
                         modifier = Modifier.weight(1f).height(48.dp)) { Text(strings.getString(R.string.action_next)) }
                 }
                 }
+            }
+            ServerPanel.Filters -> {
+                Text(strings.getString(R.string.server_filter_scope, strings.getString(
+                    if (state.kind == ServerLibraryKind.Translations) R.string.server_kind_translations else R.string.server_kind_originals)),
+                    color = EinkInk, style = MaterialTheme.typography.bodySmall)
+                ServerLibraryFilterPanel(state.filterDraft, state.connected && !busy, onFilterDraft,
+                    { if (onApplyFilter()) panel = ServerPanel.Library }, { onResetFilter(); panel = ServerPanel.Library }, Modifier.weight(1f))
             }
             ServerPanel.Jobs -> ServerTranslationJobsPanel(state, busy, onJobDraft, onJobProvider, onSubmitJob,
                 onJobsPage, onCancelJob, onRetryJob, onReadJob, Modifier.weight(1f))
