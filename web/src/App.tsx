@@ -1005,7 +1005,7 @@ export default function App() {
                     onDocumentImported={() => setUploadDocument(undefined)}
                   />
                 ) : tab === "connection" ? (
-                  <AccountPanel
+                  <><a className="sharing-guide-link" href="/sharing.html">{t('휴대폰 공유 안내')}</a><AccountPanel
                     client={accountClient}
                     profile={accountProfile}
                     connecting={connecting}
@@ -1025,7 +1025,7 @@ export default function App() {
                       setNotice(t('비밀번호 변경 결과를 확인하지 못했습니다. 새 비밀번호로 로그인을 확인해 주세요.'));
                     }}
                     onBrowse={() => selectTab("novels")}
-                  />
+                  /></>
                 ) : tab === 'device' && deviceView === 'exchange' && username ? (
                   <LibraryExchangeWorkspace key={username} username={username} onReadingChange={setWorkflowReading}/>
                 ) : tab === "device" && deviceView === "files" && username ? (

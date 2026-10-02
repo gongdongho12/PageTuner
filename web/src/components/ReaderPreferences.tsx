@@ -13,6 +13,13 @@ const CHANGE_EVENT = 'pageturner-reader-preferences'
 type PreferenceController = ReturnType<typeof createReaderPreferenceController>
 type Binding = { namespace: string; client: ReaderPreferenceClient | null; controller: PreferenceController; state: ReaderPreferenceState }
 const AccountPreferences = createContext<Binding | null>(null)
+type VisitPreferences = { preferences: ReaderPreferences; update: (patch: Partial<ReaderPreferences>) => void; reset: () => void }
+const VisitPreferencesContext = createContext<VisitPreferences | null>(null)
+/** LAN sharing does not require browser storage or create an account preference journal. */
+export function VisitReaderPreferencesProvider({ children }: { children: ReactNode }) {
+  const [preferences, setPreferences] = useState<ReaderPreferences>({ ...defaultReaderPreferences })
+  return <VisitPreferencesContext.Provider value={{ preferences, update: patch => setPreferences(value => ({ ...value, ...patch })), reset: () => setPreferences({ ...defaultReaderPreferences }) }}>{children}</VisitPreferencesContext.Provider>
+}
 export function ReaderPreferencesProvider({ namespace, client = null, children }: { namespace: string; client?: ReaderPreferenceClient | null; children: ReactNode }) {
   const [binding, setBinding] = useState<Binding | null>(null)
   useEffect(() => {
@@ -50,10 +57,12 @@ export function useReaderPreferenceSync(namespace: string) {
   return binding?.namespace === namespace ? binding : null
 }
 export function useReaderPreferences(namespace?: string) {
+  const visit = useContext(VisitPreferencesContext)
   const inherited = useContext(Namespace), active = namespace ?? inherited
   const sync = useReaderPreferenceSync(active)
   const [value, setValue] = useState<ReaderPreferences>({ ...defaultReaderPreferences }), [error, setError] = useState('')
   useEffect(() => {
+    if (visit) return
     const refresh = () => {
       try { setValue(createReaderPreferences(active, localStorage).load()); setError('') }
       catch (error) { setValue({ ...defaultReaderPreferences }); setError(error instanceof Error ? error.message : '독서 설정을 읽지 못했습니다.') }
@@ -62,7 +71,7 @@ export function useReaderPreferences(namespace?: string) {
     const onStorage = (event: StorageEvent) => { if (!event.key || event.key === readerPreferencesKey(active)) refresh() }
     window.addEventListener(CHANGE_EVENT, refresh); window.addEventListener('storage', onStorage)
     return () => { window.removeEventListener(CHANGE_EVENT, refresh); window.removeEventListener('storage', onStorage) }
-  }, [active])
+  }, [active, !!visit])
   function write(patch?: Partial<ReaderPreferences>) {
     try {
       const store = createReaderPreferences(active, localStorage)
@@ -77,10 +86,11 @@ export function useReaderPreferences(namespace?: string) {
   }
   const preferences = sync && sync.state.status !== 'loading' ? projectReaderPreferences(value, sync.state.local) : value
   const storageError = sync?.state.errorCode === 'storage' ? '이 기기에 계정 설정을 보관하지 못했습니다. 저장 공간을 확인하고 다시 시도해 주세요.' : ''
-  return { preferences, error: error || storageError, update: (patch: Partial<ReaderPreferences>) => write(patch), reset: () => write() }
+  return visit ? { ...visit, error: '' } : { preferences, error: error || storageError, update: (patch: Partial<ReaderPreferences>) => write(patch), reset: () => write() }
 }
 
 export function ReaderPreferencesPanel({ namespace, onClose }: { namespace: string; onClose: () => void }) {
+  const visit = useContext(VisitPreferencesContext)
   const { preferences, update, reset, error } = useReaderPreferences(namespace)
   const [showSync, setShowSync] = useState(false)
   const rows = ['fontSize', 'fontFamily', 'lineHeight', 'pageMargin', 'pageKeys', 'touchDirection', 'listMode'] as const
@@ -98,6 +108,6 @@ export function ReaderPreferencesPanel({ namespace, onClose }: { namespace: stri
     <AdaptiveCollection mode="paged" items={rows} itemKey={item => item} rowHeight={112} renderItem={field => <div className="reading-field"><label htmlFor={`reader-setting-${field}`}>{t(labels[field])}</label>
       {field === 'fontSize' || field === 'lineHeight' || field === 'pageMargin' ? <div className="reader-setting-range"><input id={`reader-setting-${field}`} type="range" min={field === 'fontSize' ? 14 : field === 'lineHeight' ? 1.1 : 0} max={field === 'fontSize' ? 36 : field === 'lineHeight' ? 2.4 : 48} step={field === 'lineHeight' ? 0.01 : 1} value={preferences[field]} onChange={event => update({ [field]: Number(event.target.value) })}/><output>{preferences[field]}</output></div>
       : <select id={`reader-setting-${field}`} value={preferences[field]} onChange={event => update({ [field]: event.target.value })}>{options[field].map(([value, label]) => <option value={value} key={value}>{t(label)}</option>)}</select>}
-    </div>}/><p className="reading-tools-caption">{t('계정 동기화를 시작하면 글자 크기·행간·여백·터치 방향·목록 표시를 공유합니다. 글꼴과 페이지 키는 이 기기의 설정입니다.')}</p>
+    </div>}/><p className="reading-tools-caption">{t(visit ? '설정과 읽기 위치는 이 연결에서만 유지됩니다. 휴대폰의 책과 기록은 변경하지 않습니다.' : '계정 동기화를 시작하면 글자 크기·행간·여백·터치 방향·목록 표시를 공유합니다. 글꼴과 페이지 키는 이 기기의 설정입니다.')}</p>
   </section>
 }
