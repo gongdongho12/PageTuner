@@ -37,6 +37,8 @@ private enum class AccountPanel(val label: Int) {
 @Composable
 fun ServerLibraryScreen(
     state: ServerLibraryState,
+    organizationSync: ServerLibraryOrganizationSync,
+    readingConnection: ServerReadingConnection?,
     documentTitle: String,
     externalBusy: Boolean,
     onEndpoint: (String) -> Unit,
@@ -68,12 +70,16 @@ fun ServerLibraryScreen(
 ) {
     var panel by remember { mutableStateOf(ServerPanel.Connection) }
     var accountPanel by remember { mutableStateOf(AccountPanel.Form) }
+    var organizationEntry by remember(readingConnection?.accountKey) { mutableStateOf<ServerLibraryEntry?>(null) }
+    val organizationState by organizationSync.state.collectAsState()
+    DisposableEffect(organizationSync) { onDispose { organizationSync.close() } }
     val strings = LocalResources.current
     val busy = state.busy || externalBusy
     Column(modifier.fillMaxSize().clipToBounds(), verticalArrangement = Arrangement.spacedBy(6.dp)) {
         EinkChoiceStepper(ServerPanel.entries, panel, {
             if (it != ServerPanel.Account && accountPanel == AccountPanel.Password) onPasswordDraft(ServerPasswordChangeDraft())
             panel = it
+            if (it != ServerPanel.Library) { organizationEntry = null; organizationSync.close() }
             if (it == ServerPanel.Library && state.connected && state.page == null && !busy) onPage(0, state.kind)
             if (it == ServerPanel.Jobs && state.connected && state.jobs == null && !busy) onJobsPage(0)
         }, label = { strings.getString(it.label) })
@@ -176,10 +182,22 @@ fun ServerLibraryScreen(
                 }
             }
             ServerPanel.Library -> {
+                val editEntry = organizationEntry
+                if (editEntry != null && readingConnection != null) {
+                    val target = ServerReadingTarget(readingConnection.accountKey, editEntry.kind.progressKind(), editEntry.recordId)
+                    val visible = organizationState.takeIf { it.accountKey == readingConnection.accountKey && it.target == target }
+                        ?: LibraryOrganizationUiState(session = -1, phase = ReadingProgressPhase.Loading)
+                    ServerLibraryOrganizationPanel(visible, organizationSync,
+                        { organizationEntry = null; organizationSync.close() }, Modifier.weight(1f))
+                } else {
+                if (organizationState.accountKey == readingConnection?.accountKey && organizationState.pendingDocuments > 0) {
+                    Text(strings.getString(R.string.library_organization_outbox, organizationState.pendingDocuments),
+                        style = MaterialTheme.typography.bodySmall, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                }
                 EinkSegmentedControl(ServerLibraryKind.entries, state.kind,
                     { onPage(0, it) }, enabled = state.connected && !busy,
                     label = { strings.getString(if (it == ServerLibraryKind.Translations) R.string.server_kind_translations else R.string.server_kind_originals) })
-                val rowHeight = if (state.kind == ServerLibraryKind.Originals) 160.dp else 112.dp
+                val rowHeight = 160.dp
                 AdaptiveCollection(items = state.page?.items.orEmpty(), estimatedPagedItemHeight = rowHeight,
                     modifier = Modifier.weight(1f), busy = busy, itemKey = { it.recordId },
                     emptyContent = { Text(strings.getString(if (state.connected) R.string.server_empty else R.string.server_connect_first)) }) { entry ->
@@ -192,9 +210,19 @@ fun ServerLibraryScreen(
                                 OutlinedButton(onClick = { onRead(entry, false) }, enabled = !busy, modifier = Modifier.weight(1f).height(44.dp)) { Text(strings.getString(R.string.server_read)) }
                                 OutlinedButton(onClick = { onRead(entry, true) }, enabled = !busy, modifier = Modifier.weight(1f).height(44.dp)) { Text(strings.getString(R.string.server_save_device)) }
                             }
+                            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                             if (entry.kind == ServerLibraryKind.Originals) {
                                 OutlinedButton(onClick = { panel = ServerPanel.Jobs; onPrepareTranslation(entry) }, enabled = !busy,
-                                    modifier = Modifier.fillMaxWidth().height(44.dp)) { Text(strings.getString(R.string.server_job_new)) }
+                                    modifier = Modifier.weight(1f).height(44.dp)) { Text(strings.getString(R.string.server_job_new)) }
+                            }
+                            OutlinedButton(onClick = {
+                                readingConnection?.let { connection ->
+                                    organizationEntry = entry
+                                    organizationSync.open(ServerReadingTarget(connection.accountKey, entry.kind.progressKind(), entry.recordId), connection)
+                                }
+                            }, enabled = !busy && readingConnection != null, modifier = Modifier.weight(1f).height(44.dp)) {
+                                Text(strings.getString(R.string.library_organization_open))
+                            }
                             }
                         }
                     }
@@ -207,6 +235,7 @@ fun ServerLibraryScreen(
                         modifier = Modifier.weight(1.4f).height(48.dp)) { Text(strings.getString(R.string.server_refresh_page, (page?.page ?: 0) + 1, page?.totalPages?.coerceAtLeast(1) ?: 1)) }
                     OutlinedButton(onClick = { onPage((page?.page ?: 0) + 1, state.kind) }, enabled = !busy && page?.hasNext == true,
                         modifier = Modifier.weight(1f).height(48.dp)) { Text(strings.getString(R.string.action_next)) }
+                }
                 }
             }
             ServerPanel.Jobs -> ServerTranslationJobsPanel(state, busy, onJobDraft, onJobProvider, onSubmitJob,

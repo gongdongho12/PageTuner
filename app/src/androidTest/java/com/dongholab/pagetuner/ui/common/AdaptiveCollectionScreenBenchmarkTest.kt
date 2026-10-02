@@ -75,7 +75,7 @@ class AdaptiveCollectionScreenBenchmarkTest {
 
     @Test
     fun benchmarkPagedAndTouchScrollForEveryAdaptiveCollectionScreen() {
-        assertEquals(22, ScreenFixtures.size)
+        assertEquals(24, ScreenFixtures.size)
 
         val activeScenario = mutableStateOf(
             BenchmarkScenario(ScreenFixtures.first(), ListLayoutMode.Paged, runId = 0),
@@ -258,6 +258,7 @@ private val ScreenFixtures = listOf(
     ScreenFixture("server_password", "Server · Password", "ServerLibraryScreen/password", 76, 3, 3, 1, 0),
     ScreenFixture("server_languages", "Server · UI languages", "ServerLibraryScreen/languages", 108, 3, 14, 3, 1),
     ScreenFixture("server_library", "Server · Library", "ServerLibraryScreen/library", 160, 2, 12, 3, 3),
+    ScreenFixture("server_organization", "Server · Document classification", "ServerLibraryOrganizationPanel", 76, 3, 35, 1, 1),
     ScreenFixture("server_document", "Server · This document", "ServerLibraryScreen/document", 154, 2, 24, 4, 1),
     ScreenFixture("server_job_form", "Server · Translation form", "ServerTranslationJobsPanel/form", 76, 3, 8, 1, 0),
     ScreenFixture("server_job_list", "Server · Translation jobs", "ServerTranslationJobsPanel/jobs", 176, 2, 12, 5, 1),
