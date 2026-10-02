@@ -13,6 +13,10 @@ data class PortableLibraryEntry(val packageId: String, val documentIndex: Int, v
 }
 data class PortableImportResult(val entries: List<PortableLibraryEntry>, val duplicate: Boolean)
 
+data class PortableSharingEntry(val packageId: String, val documentIndex: Int, val title: String, val format: String, val translated: Boolean, val errorCode: String? = null) {
+    val key: String get() = "$packageId:$documentIndex"
+}
+
 /** One validated archive is one atomic commit. Existing native books are never touched. */
 class PortableLibraryStore(private val directory: File) {
     private val lock = lockFor(directory)
@@ -33,6 +37,27 @@ class PortableLibraryStore(private val directory: File) {
             .sortedByDescending { it.lastModified() }.flatMap { source ->
                 entries(source.nameWithoutExtension, LibraryExchangeCodec.read(readBounded(source)))
             }
+    }
+
+    /** Inventory retains summaries only; ZIP bodies and asset arrays are discarded one package at a time. */
+    fun listForSharing(): List<PortableSharingEntry> = synchronized(lock) {
+        directory.listFiles().orEmpty().filter { it.name.matches(Regex("[0-9a-f]{64}\\.zip")) }
+            .sortedByDescending { it.lastModified() }.flatMap { source ->
+                if (source.length() > LibraryExchangeLimits.ARCHIVE_BYTES) return@flatMap listOf(PortableSharingEntry(source.nameWithoutExtension, 0,
+                    "Saved document exceeds sharing limit", "txt", false, "document_too_large"))
+                runCatching { LibraryExchangeCodec.read(readBounded(source)).documents.mapIndexed { index, document ->
+                    val format = when {
+                        document.assets.any { it.role == "pdf" } -> "pdf"
+                        document.assets.any { it.role == "image" } -> "epub"
+                        else -> "txt"
+                    }
+                    PortableSharingEntry(source.nameWithoutExtension, index, document.bookTitle, format, document.kind == "translation")
+                } }.getOrElse { listOf(PortableSharingEntry(source.nameWithoutExtension, 0, "Unavailable saved document", "txt", false, "document_unavailable")) }
+            }
+    }
+
+    fun readForSharing(entry: PortableSharingEntry): LibraryExchangePackage = synchronized(lock) {
+        LibraryExchangeCodec.read(readBounded(file(entry.packageId)))
     }
 
     fun read(entry: PortableLibraryEntry): LibraryExchangePackage = synchronized(lock) {

@@ -64,6 +64,7 @@ private enum class SettingsCategoryTab(val title: String) {
     AI_TRANSLATION("AI Translation"),
     DIAGNOSTICS("Diagnostics Log"),
     ACCOUNT_READER("Account reader settings"),
+    LOCAL_SHARING("Device sharing"),
 }
 
 /**
@@ -120,6 +121,7 @@ fun SettingsScreen(
 ) {
     var selectedCategory by remember { mutableStateOf(SettingsCategoryTab.DISPLAY_PAGING) }
     val accountReaderTitle = stringResource(R.string.reader_preferences_sync_title)
+    val sharingTitle = stringResource(R.string.sharing_title)
 
     Column(
         modifier = modifier.fillMaxSize(),
@@ -132,11 +134,18 @@ fun SettingsScreen(
             onSelect = { selectedCategory = it },
             enabled = !busy,
             itemHeight = 54.dp,
-            label = { if (it == SettingsCategoryTab.ACCOUNT_READER) accountReaderTitle else it.title },
+            label = { when (it) {
+                SettingsCategoryTab.ACCOUNT_READER -> accountReaderTitle
+                SettingsCategoryTab.LOCAL_SHARING -> sharingTitle
+                else -> it.title
+            } },
         )
 
         // Active Category Panel Rendering (Discrete Non-Overflowing View)
         when (selectedCategory) {
+            SettingsCategoryTab.LOCAL_SHARING -> Box(Modifier.weight(1f)) {
+                com.dongholab.pagetuner.sharing.LocalSharingPanel()
+            }
             SettingsCategoryTab.ACCOUNT_READER -> Box(Modifier.weight(1f)) {
                 ServerReaderPreferencesPanel(readerPreferencesState, readerPreferencesSync)
             }

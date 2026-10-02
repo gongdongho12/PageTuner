@@ -27,6 +27,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.onNodeWithTag
@@ -52,6 +53,7 @@ import com.dongholab.pagetuner.ui.theme.EinkSoft
 import java.io.File
 import java.util.Locale
 import kotlin.math.ceil
+import kotlin.math.roundToInt
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Rule
@@ -75,7 +77,7 @@ class AdaptiveCollectionScreenBenchmarkTest {
 
     @Test
     fun benchmarkPagedAndTouchScrollForEveryAdaptiveCollectionScreen() {
-        assertEquals(24, ScreenFixtures.size)
+        assertEquals(25, ScreenFixtures.size)
 
         val activeScenario = mutableStateOf(
             BenchmarkScenario(ScreenFixtures.first(), ListLayoutMode.Paged, runId = 0),
@@ -235,10 +237,12 @@ private data class ScreenFixture(
     val actionCount: Int,
     val hasThumbnail: Boolean = false,
     val expandedTouchRowHeightDp: Int? = null,
+    val fontScaleAwareHeight: Boolean = false,
 )
 
 private val ScreenFixtures = listOf(
     ScreenFixture("portable_library", "Local · ZIP exchange", "PortableLibraryPanel", 124, 3, 48, 3, 3),
+    ScreenFixture("local_sharing", "Settings · Device sharing", "LocalSharingPanel", 160, 3, 6, 4, 1, fontScaleAwareHeight = true),
     ScreenFixture("local_library", "Local · Library", "LocalLibraryPanel", 124, 3, 48, 4, 2),
     ScreenFixture("local_directory", "Local · Device files", "LocalDirectoryBrowserPanel", 64, 5, 48, 1, 0),
     ScreenFixture("favorites", "Favorites", "FavoritesPanel", 116, 3, 48, 3, 1),
@@ -266,6 +270,7 @@ private val ScreenFixtures = listOf(
 
 @Composable
 private fun BenchmarkScreen(fixture: ScreenFixture) {
+    val rowHeight = (fixture.pagedRowHeightDp * if (fixture.fontScaleAwareHeight) LocalDensity.current.fontScale else 1f).roundToInt()
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -285,7 +290,7 @@ private fun BenchmarkScreen(fixture: ScreenFixture) {
         )
         AdaptiveCollection(
             items = (1..fixture.itemCount).toList(),
-            estimatedPagedItemHeight = fixture.pagedRowHeightDp.dp,
+            estimatedPagedItemHeight = rowHeight.dp,
             modifier = Modifier
                 .weight(1f)
                 .testTag(CollectionTag),
@@ -295,7 +300,7 @@ private fun BenchmarkScreen(fixture: ScreenFixture) {
                 { item -> BenchmarkRow(fixture, item, expandedHeight) }
             },
         ) { item ->
-            BenchmarkRow(fixture, item, fixture.pagedRowHeightDp)
+            BenchmarkRow(fixture, item, rowHeight)
         }
     }
 }

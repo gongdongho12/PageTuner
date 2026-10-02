@@ -449,4 +449,21 @@
     <string name="collection_more_space_required">목록을 표시할 공간이 부족합니다.</string>
     <string name="reader_viewport_too_small">현재 글꼴 크기의 한 줄을 표시할 공간이 없습니다. 전체 화면을 사용하거나 대조 보기를 끄세요.</string>
     <string name="reader_source_position">문서 위치 %1$d / %2$d</string>
+    <string name="sharing_title">기기 공유</string>
+    <string name="sharing_scope">같은 Wi-Fi나 핫스팟의 다른 기기에서 저장된 책·내려받은 웹소설·보관 번역문을 읽습니다.</string>
+    <string name="sharing_offline">인터넷과 계정은 필요하지 않습니다. 웹에서 읽어도 폰 데이터는 바뀌지 않습니다. 공유가 켜진 동안 배터리를 사용합니다.</string>
+    <string name="sharing_trust">신뢰하는 Wi-Fi·핫스팟에서만 켜세요. 연결 코드를 아는 기기가 저장된 문서를 읽을 수 있습니다. 로컬 연결은 HTTP를 사용합니다.</string>
+    <string name="sharing_open_address">연결한 기기에서 이 주소를 여세요:</string>
+    <string name="sharing_pairing_code">연결 코드</string>
+    <string name="sharing_expiry">2시간 후 공유가 종료됩니다. 껐다 켜면 코드가 바뀝니다.</string>
+    <string name="sharing_start">이 주소에서 공유 시작</string>
+    <string name="sharing_starting">공유 시작 중…</string>
+    <string name="sharing_stop">공유 중지</string>
+    <string name="sharing_network_settings">Wi-Fi / 핫스팟 설정</string>
+    <string name="sharing_no_network">로컬 주소가 없습니다. 핫스팟을 켜거나 두 기기를 같은 Wi-Fi에 연결한 후 돌아오세요.</string>
+    <string name="sharing_start_failed">공유를 시작하지 못했습니다. 선택한 네트워크와 다른 앱의 8787 포트 사용 여부를 확인하고 다시 시도하세요.</string>
+    <string name="sharing_expired">2시간이 지나 공유가 종료되었습니다. 다시 시작하면 새 코드가 생성됩니다.</string>
+    <string name="sharing_network_lost">선택한 네트워크가 사라져 공유를 중지했습니다.</string>
+    <string name="sharing_notification_title">기기 서재를 공유하고 있습니다</string>
+    <string name="sharing_notification_body">연결한 기기에서 저장된 문서를 읽을 수 있습니다. 사용 후 공유를 중지하세요.</string>
 </resources>

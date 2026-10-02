@@ -21,6 +21,9 @@ data class LocalLibraryOpenResult(
     val wasDuplicateImport: Boolean = false,
 )
 
+data class LocalBookReadSnapshot(val book: LocalBook, val bytes: ByteArray)
+class LocalBookSnapshotTooLargeException : IOException("Book exceeds the sharing limit.")
+
 class LocalLibraryStore(context: Context) {
     private val appContext = context.applicationContext
     private val libraryDir = File(appContext.filesDir, "local_library")
@@ -29,6 +32,12 @@ class LocalLibraryStore(context: Context) {
 
     suspend fun listBooks(): List<LocalBook> = withContext(Dispatchers.IO) {
         readBooks().sortedByDescending { it.lastOpenedAtMillis }
+    }
+
+    /** A sharing GET must not change the native reader's timestamps, progress or metadata. */
+    suspend fun readSnapshot(bookId: String, maxBytes: Int): LocalBookReadSnapshot? = withContext(Dispatchers.IO) {
+        val book = readBooks().firstOrNull { it.id == bookId } ?: return@withContext null
+        readLocalBookSnapshot(libraryDir, book, maxBytes)
     }
 
     suspend fun importBook(uri: Uri): LocalLibraryOpenResult = withContext(Dispatchers.IO) {
@@ -330,10 +339,7 @@ class LocalLibraryStore(context: Context) {
     }
 
     private fun safeBookFile(book: LocalBook): File {
-        val root = libraryDir.canonicalFile
-        val file = File(root, book.relativePath).canonicalFile
-        require(file.path.startsWith(root.path)) { "Invalid local book path." }
-        return file
+        return safeLocalBookFile(libraryDir, book.relativePath)
     }
 
     private fun ensureDirectories() {
@@ -355,6 +361,32 @@ class LocalLibraryStore(context: Context) {
             .ifBlank { "book$fallbackExtension" }
         return if (cleaned.contains('.')) cleaned else cleaned + fallbackExtension
     }
+}
+
+internal fun safeLocalBookFile(libraryDirectory: File, relativePath: String): File {
+    val root = libraryDirectory.canonicalFile
+    val file = File(root, relativePath).canonicalFile
+    require(file.path.startsWith(root.path + File.separator)) { "Invalid local book path." }
+    return file
+}
+
+internal fun readLocalBookSnapshot(libraryDirectory: File, book: LocalBook, maxBytes: Int): LocalBookReadSnapshot {
+    val source = safeLocalBookFile(libraryDirectory, book.relativePath)
+    require(maxBytes > 0)
+    if (source.length() > maxBytes) throw LocalBookSnapshotTooLargeException()
+    val bytes = source.inputStream().use { input ->
+        val output = java.io.ByteArrayOutputStream()
+        val buffer = ByteArray(8192)
+        while (true) {
+            val count = input.read(buffer)
+            if (count < 0) break
+            if (output.size().toLong() + count > maxBytes) throw LocalBookSnapshotTooLargeException()
+            output.write(buffer, 0, count)
+        }
+        output.toByteArray()
+    }
+    require(DocumentIds.sha256(bytes) == book.contentHash) { "Book changed while preparing sharing." }
+    return LocalBookReadSnapshot(book, bytes)
 }
 
 internal fun remapReaderPageIndex(
