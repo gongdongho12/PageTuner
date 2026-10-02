@@ -44,6 +44,8 @@ export type PagedReaderProps = {
     actionError?: string;
     onAnchorChange: (anchor: ReadingAnchor) => void;
     onPaginationChange?: (value: { documentId: string; pages: readonly (readonly CanonicalReaderRange[])[]; page: number }) => void;
+    /** Ancillary tools use the entire reader slot, without an enclosing translation toolbar. */
+    onPanelChange?: (open: boolean) => void;
     onBoundaryPageTurn?: (direction: -1 | 1) => void;
     hasPreviousBoundary?: boolean;
     hasNextBoundary?: boolean;
@@ -121,7 +123,7 @@ function setMeasuredText(element: HTMLElement, text: string, start: number, emph
         const node = document.createElement('strong'); node.textContent = part.text; return node;
     }));
 }
-export function PagedReader({ document: readingDocument, anchor, anchorIsNavigation = false, preview = false, readOnly = false, editionLabel, readerLabel, contentKindLabel, saved, saving, onClose, onSave, actionLabel, onAction, positionNote, notesNamespace, actionError, onAnchorChange, onPaginationChange, onBoundaryPageTurn, hasPreviousBoundary = false, hasNextBoundary = false, }: PagedReaderProps) {
+export function PagedReader({ document: readingDocument, anchor, anchorIsNavigation = false, preview = false, readOnly = false, editionLabel, readerLabel, contentKindLabel, saved, saving, onClose, onSave, actionLabel, onAction, positionNote, notesNamespace, actionError, onAnchorChange, onPaginationChange, onPanelChange, onBoundaryPageTurn, hasPreviousBoundary = false, hasNextBoundary = false, }: PagedReaderProps) {
     const root = useRef<HTMLElement>(null);
     const { preferences, update: updatePreferences, error: preferencesError } = useReaderPreferences(notesNamespace);
     const fullscreen = useReaderFullscreen(root);
@@ -129,14 +131,18 @@ export function PagedReader({ document: readingDocument, anchor, anchorIsNavigat
     const measure = useRef<HTMLDivElement>(null);
     const location = useRef<ReaderLocation>({ page: 0, anchor });
     const fontSize = preferences.fontSize;
-    const [bounds, setBounds] = useState({ width: 0, height: 0 });
     const [pages, setPages] = useState<Fragment[][]>([]);
     const [canonicalPages, setCanonicalPages] = useState<CanonicalReaderRange[][]>([]);
+    const measuredLayout = useRef<{ node: HTMLDivElement; width: number; height: number; documentId: string; pages: CanonicalReaderRange[][] } | undefined>(undefined);
     const [page, setPage] = useState(0);
     const [error, setError] = useState("");
     const [toolsOpen, setToolsOpen] = useState(false);
     const [glossaryOpen, setGlossaryOpen] = useState(false);
     const [progressOpen, setProgressOpen] = useState(false);
+    useLayoutEffect(() => {
+        onPanelChange?.(toolsOpen || glossaryOpen || progressOpen);
+        return () => onPanelChange?.(false);
+    }, [toolsOpen, glossaryOpen, progressOpen, onPanelChange]);
     const progress = useReadingProgress(readingDocument, notesNamespace, anchor, !preview && !readOnly, anchorIsNavigation);
     useReadingNoteSync(readingDocument, notesNamespace, !preview && !readOnly);
     const personal = usePersonalLibrary(preview || readOnly ? '' : notesNamespace ?? '');
@@ -198,44 +204,49 @@ export function PagedReader({ document: readingDocument, anchor, anchorIsNavigat
     }
     useLayoutEffect(() => {
         const node = viewport.current;
-        if (!node)
+        const measuring = measure.current;
+        if (!node || !measuring) return;
+        let active = true;
+        const reflow = () => {
+          if (!active) return;
+          // Width and height belong to this DOM instance. A saved bounds state can
+          // refer to the previous reader before a tool panel or font change.
+          const width = node.clientWidth, height = node.clientHeight;
+          if (width < 1 || height < 1) {
+            measuredLayout.current = undefined;
+            setPages([]); setCanonicalPages([]);
+            setError(t('읽기 영역이 너무 작습니다. 글자 크기를 줄이거나 화면 높이를 늘려 주세요.'));
             return;
-        let frame = 0;
-        const observer = new ResizeObserver(() => {
-            cancelAnimationFrame(frame);
-            frame = requestAnimationFrame(() => {
-                setBounds((previous) => previous.width === node.clientWidth &&
-                    previous.height === node.clientHeight
-                    ? previous
-                    : { width: node.clientWidth, height: node.clientHeight });
-            });
-        });
-        observer.observe(node);
-        return () => {
-            observer.disconnect();
-            cancelAnimationFrame(frame);
-        };
-    }, [toolsOpen, glossaryOpen, progressOpen]);
-    useLayoutEffect(() => {
-        if (!measure.current || bounds.width < 1 || bounds.height < 1)
-            return;
-        try {
-            const next = paginate(projection.document.paragraphs, measure.current, bounds.height, projection.displays);
+          }
+          measuring.style.width = `${width}px`;
+          try {
+            const next = paginate(projection.document.paragraphs, measuring, height, projection.displays);
             const relocated = reflowReaderLocation(next, location.current.anchor ? projection.displayAnchor(location.current.anchor) : undefined);
             location.current = { ...relocated, anchor: location.current.anchor ?? (relocated.anchor ? projection.sourceAnchor(relocated.anchor) : undefined) };
             setPages(next);
-            setCanonicalPages(canonicalReaderPages(next, projection));
+            const canonical = canonicalReaderPages(next, projection);
+            measuredLayout.current = { node, width, height, documentId: readingDocument.id, pages: canonical };
+            setCanonicalPages(canonical);
             setPage(relocated.page);
             setError("");
-        }
-        catch (failure) {
+          }
+          catch (failure) {
             setPages([]);
             setCanonicalPages([]);
             setError(failure instanceof Error
                 ? failure.message
                 : t("\uD398\uC774\uC9C0\uB97C \uB098\uB204\uC9C0 \uBABB\uD588\uC2B5\uB2C8\uB2E4."));
-        }
-    }, [projection, bounds, fontSize, preferences.fontFamily, preferences.lineHeight, preferences.pageMargin, toolsOpen, glossaryOpen, progressOpen]);
+          }
+        };
+        const observer = new ResizeObserver(reflow);
+        observer.observe(node);
+        reflow();
+        // A late-loaded font changes line breaks even when the viewport stays fixed.
+        const fonts = document.fonts;
+        void fonts?.ready.then(reflow);
+        fonts?.addEventListener('loadingdone', reflow);
+        return () => { active = false; observer.disconnect(); fonts?.removeEventListener('loadingdone', reflow); };
+    }, [projection, fontSize, preferences.fontFamily, preferences.lineHeight, preferences.pageMargin, toolsOpen, glossaryOpen, progressOpen]);
     const syncedAnchor = progress.state?.restoration?.anchor;
     const restorationSequence = progress.state?.restoration?.sequence;
     const appliedProgress = useRef<{ documentId: string; source: unknown; sequence: number | undefined } | undefined>(undefined);
@@ -271,8 +282,14 @@ export function PagedReader({ document: readingDocument, anchor, anchorIsNavigat
         }
     }, [pages, onAnchorChange, projection, onBoundaryPageTurn, hasPreviousBoundary, hasNextBoundary, progress.move]);
     useEffect(() => {
-        onPaginationChange?.({ documentId: readingDocument.id, pages: canonicalPages, page });
-    }, [readingDocument.id, canonicalPages, page, onPaginationChange]);
+        const measured = measuredLayout.current;
+        // Parent layout notifications can change the reader slot during this commit.
+        // Never send rolling translation a transient layout from the previous slot.
+        if (!toolsOpen && !glossaryOpen && !progressOpen && canonicalPages.length && page === location.current.page && measured?.pages === canonicalPages &&
+            measured.documentId === readingDocument.id && measured.node === viewport.current &&
+            measured.width === measured.node.clientWidth && measured.height === measured.node.clientHeight)
+            onPaginationChange?.({ documentId: readingDocument.id, pages: canonicalPages, page });
+    }, [readingDocument.id, canonicalPages, page, onPaginationChange, toolsOpen, glossaryOpen, progressOpen]);
     const previous = useCallback(() => turnPage(-1), [turnPage]);
     const next = useCallback(() => turnPage(1), [turnPage]);
     usePageKeys(previous, next, !error && !toolsOpen && !glossaryOpen && !progressOpen, preferences.pageKeys);
@@ -309,20 +326,23 @@ export function PagedReader({ document: readingDocument, anchor, anchorIsNavigat
             {readingDocument.bookTitle}
           </strong>
         </div>
-        {!preview && onSave && (<button className="button-outline reader-save" onClick={onSave} disabled={saving || saved}>
-            <Icon name={saved ? "check" : "download"}/>
-            <span>
-              {saving ? t("\uBCF4\uAD00 \uC911") : saved ? t("\uAE30\uAE30\uC5D0 \uBCF4\uAD00\uB428") : t("\uAE30\uAE30\uC5D0 \uBCF4\uAD00")}
-            </span>
-          </button>)}
-        {onAction && (<button className="button-outline reader-save" onClick={onAction}>
-            {actionLabel}
-          </button>)}
-        {!preview && !readOnly && notesNamespace && <button className="button-outline reader-save" onClick={() => setToolsOpen(true)}>{t('읽기 도구')}</button>}
-        {!preview && personal && glossaryIdentity && <button className="button-outline reader-save" onClick={() => setGlossaryOpen(true)}>{t('용어집')}</button>}
-        {!preview && notes && <button className="button-outline reader-save" disabled={!selection || highlightBusy} onPointerDown={event => event.preventDefault()} onClick={() => void saveHighlight()}>{t(highlightBusy ? '저장 중…' : '선택 강조')}</button>}
-        <button className="button-outline reader-save" onClick={() => void fullscreen.toggle()}>{t(fullscreen.fullscreen ? '전체 화면 해제' : '전체 화면')}</button>
+        <select className="reader-action-choice" aria-label={t('읽기 메뉴')} value="" onChange={event => {
+          const action = event.target.value;
+          if (action === 'save') onSave?.();
+          else if (action === 'action') onAction?.();
+          else if (action === 'tools') setToolsOpen(true);
+          else if (action === 'glossary') setGlossaryOpen(true);
+          else if (action === 'fullscreen') void fullscreen.toggle();
+        }}>
+          <option value="" disabled>{t('읽기 메뉴')}</option>
+          {!preview && onSave && <option value="save" disabled={saving || saved}>{t(saving ? '보관 중' : saved ? '기기에 보관됨' : '기기에 보관')}</option>}
+          {onAction && <option value="action">{actionLabel}</option>}
+          {!preview && !readOnly && notesNamespace && <option value="tools">{t('읽기 도구')}</option>}
+          {!preview && personal && glossaryIdentity && <option value="glossary">{t('용어집')}</option>}
+          <option value="fullscreen">{t(fullscreen.fullscreen ? '전체 화면 해제' : '전체 화면')}</option>
+        </select>
       </header>
+      {!preview && notes && selection && <button className="button-outline reader-highlight-action" disabled={highlightBusy} onPointerDown={event => event.preventDefault()} onClick={() => void saveHighlight()}>{t(highlightBusy ? '저장 중…' : '선택 강조')}</button>}
       {actionError && <div role="alert" className="workflow-message">{t(actionError)}</div>}
       {glossaryError && <div role="alert" className="workflow-message">{t(glossaryError)}</div>}
       {projectionError && <div role="alert" className="workflow-message">{t(projectionError)}</div>}

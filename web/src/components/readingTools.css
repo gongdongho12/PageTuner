@@ -9,10 +9,18 @@
 .reading-tools-header { display:flex; align-items:center; flex-wrap:wrap; gap:8px; padding:8px; min-height:56px; flex:none; border-bottom:1px solid #d0d0d0; }
 .reading-tools-header strong { flex:1; min-width:100px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .reading-tools-header button { min-height:44px; }
-.reader .reader-toolbar { display:flex; flex-wrap:wrap; min-height:72px; flex:0 0 auto; padding:12px 24px; gap:12px; }
-.reader .reader-toolbar .reader-title { flex:1; min-width:100px; }
+.reader .reader-toolbar { display:flex; flex-wrap:nowrap; min-height:60px; flex:0 0 60px; padding:8px 12px; gap:8px; }
+.reader .reader-toolbar .reader-title { flex:1; min-width:0; }
+.reader-action-choice { min-width:0; max-width:45%; min-height:44px; padding:8px; border:1px solid #777; border-radius:0; background:#fff; color:#111; font:inherit; font-size:13px; font-weight:700; }
+.reader-highlight-action { position:absolute; top:60px; right:12px; z-index:2; min-height:44px; }
 .reading-workspace .workflow-subtabs { flex-wrap:wrap; gap:4px; }
 .reading-workspace .workflow-subtabs button { min-height:44px; }
+.reading-tool-choice { flex:none; padding:4px 8px; border-bottom:1px solid #d0d0d0; }
+.reading-tool-choice select { width:100%; min-height:44px; padding:8px; border:1px solid #777; border-radius:0; background:#fff; color:#111; font:inherit; font-weight:700; }
+.collection-space-notice { margin:0; padding:8px; font-size:12px; }
+.adaptive-collection { position:relative; overflow:hidden; }
+.collection-space-probe,.collection-navigation-probe { position:absolute; top:0; left:0; width:100%; visibility:hidden; pointer-events:none; }
+.collection-space-state { flex:1; min-height:0; overflow:hidden; }
 .reading-tools-form,.reading-import { flex:1; min-height:0; display:flex; flex-direction:column; overflow:hidden; }
 .reading-tools-form > button { min-height:48px; flex:none; }
 .reading-field { display:flex; flex-direction:column; justify-content:center; gap:8px; height:100%; padding:12px 16px; overflow:hidden; }

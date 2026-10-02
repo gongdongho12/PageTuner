@@ -3,7 +3,7 @@ import {
   setWorkflowPosition,
 } from "../lib/workflowPosition";
 import { translate as t } from "../lib/locale";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { usePersonalLibrary } from "./usePersonalLibrary";
 import {
   ApiError,
@@ -223,7 +223,7 @@ export function NovelWorkspace({
       request.current?.abort();
     };
   }, [client, run]);
-  useEffect(() => {
+  useLayoutEffect(() => {
     onReadingChange(!!reader);
     return () => onReadingChange(false);
   }, [!!reader, onReadingChange]);

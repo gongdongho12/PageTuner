@@ -18,11 +18,19 @@ describe('comparison reader controls', () => {
     expect(html).toContain('aria-pressed="true"'); expect(html).toContain('Compare')
     expect(html).toContain('Original'); expect(html).toContain('Translation')
   })
-  it('keeps derived comparison text read-only while preserving the ordinary reader annotation controls', () => {
+  it('keeps ordinary annotation tools in the compact menu without an idle highlight action', () => {
     setLocale('en')
     const ordinary = renderToStaticMarkup(<PagedReader {...props} notesNamespace="alice"/>)
+    expect(ordinary).toContain('aria-label="Reading menu"')
+    expect(ordinary).toContain('<option value="tools">Reading tools</option>')
+    // No text has been selected during initial rendering. A permanently mounted
+    // highlight button would consume another toolbar row on narrow readers.
+    expect(ordinary).not.toContain('Highlight selection')
+  })
+  it('keeps derived comparison text read-only with no annotation save entry', () => {
+    setLocale('en')
     const derived = renderToStaticMarkup(<PagedReader {...props} notesNamespace="alice" readOnly editionLabel="Comparison" readerLabel="Comparison reading" contentKindLabel="Compare"/>)
-    expect(ordinary).toContain('Reading tools'); expect(ordinary).toContain('Highlight selection')
+    expect(derived).not.toContain('value="tools"')
     expect(derived).not.toContain('Reading tools'); expect(derived).not.toContain('Highlight selection')
     expect(derived).toContain('aria-label="Comparison reading"')
   })

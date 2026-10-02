@@ -1,5 +1,8 @@
 /** Korean source keys keep existing copy readable. Add packs through registerLanguagePack. */
 export const englishMessages: Record<string, string> = {
+  '읽기 메뉴': 'Reading menu',
+  '원문과 번역 언어를 다르게 선택해 주세요.': 'Choose different languages for the original and the translation.',
+  '목록을 표시할 공간이 부족합니다. 화면 높이를 늘려 주세요.': 'There is not enough room for a list row. Increase the window height.',
   '서버 문서 분류': 'Server document organization',
   '문서 분류': 'Organize document',
   '문서 분류 도구': 'Organization tools',

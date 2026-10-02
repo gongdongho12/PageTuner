@@ -45,6 +45,7 @@ export function ReaderTools({ namespace, document, anchor, onJump, onClose }: {
     try { await action(); await refresh(); setRemoveId(undefined); setRemoveSnapshot(undefined) } catch (error) { setError(deviceStorageMessage(error)) } finally { setBusy(false) }
   }
   const labels = { bookmark: '북마크', note: '메모', highlight: '강조', add: '현재 위치에 추가', outline: '목차', images: '삽화', search: '본문 검색', settings: '독서 설정', export: '내보내기 · 공유', sync: '읽기 기록 동기화', organization: '문서 분류' }
+  const tabs = (Object.keys(labels) as Array<keyof typeof labels>).filter(value => (value !== 'outline' || document.outline?.length) && (value !== 'images' || document.assets?.images?.length) && (value !== 'highlight' || document.local?.format !== 'pdf') && (value !== 'sync' || sync.available) && (value !== 'organization' || document.serverProgress && namespace))
   const rows = items.filter(item => item.kind === tab)
   if (selected) return <PagedReader document={{ id: `reading-note:${selected.id}`, bookTitle: document.bookTitle, chapterTitle: selected.title, language: document.language, kind: 'introduction',
     paragraphs: [{ paragraphId: 'note-body', text: selected.text || selected.excerpt }] }} readOnly onClose={() => setSelected(undefined)} onAnchorChange={() => {}} positionNote={t(sync.available ? '같은 계정의 앱과 웹에서 공유하는 읽기 기록입니다.' : '이 기기에 저장한 읽기 기록입니다.')}/>
@@ -64,9 +65,10 @@ export function ReaderTools({ namespace, document, anchor, onJump, onClose }: {
   </section>
   return <section className="reading-workspace" aria-label={t('읽기 도구')}>
     <header className="reading-tools-header"><button className="button-quiet" onClick={onClose}>{t('본문으로 돌아가기')}</button><strong>{document.bookTitle}</strong></header>
-    <nav className="workflow-subtabs" aria-label={t('읽기 도구')}>
-      {(Object.keys(labels) as Array<keyof typeof labels>).filter(value => (value !== 'outline' || document.outline?.length) && (value !== 'images' || document.assets?.images?.length) && (value !== 'highlight' || document.local?.format !== 'pdf') && (value !== 'sync' || sync.available) && (value !== 'organization' || document.serverProgress && namespace)).map(value =>
-        <button key={value} aria-pressed={tab === value} onClick={() => { setTab(value); setRemoveId(undefined); setRemoveSnapshot(undefined) }} disabled={busy}>{t(labels[value])}</button>)}
+    <nav className="reading-tool-choice" aria-label={t('읽기 도구')}>
+      <select aria-label={t('읽기 도구')} value={tab} disabled={busy} onChange={event => { setTab(event.target.value as typeof tab); setRemoveId(undefined); setRemoveSnapshot(undefined) }}>
+        {tabs.map(value => <option key={value} value={value}>{t(labels[value])}</option>)}
+      </select>
     </nav>
     {error && <div role="alert" className="workflow-message">{t(error)} <button className="button-text" onClick={() => void write(refresh)}>{t('다시 시도')}</button></div>}
     {removeId ? <div className="reading-confirm"><h2>{t(sync.available ? '이 읽기 기록을 삭제할까요?' : '이 기기에서 항목을 삭제할까요?')}</h2><p>{t(sync.available ? '동기화된 기록의 삭제는 같은 계정의 앱과 웹에도 반영됩니다.' : '삭제한 북마크와 메모는 복구할 수 없습니다.')}</p><div>

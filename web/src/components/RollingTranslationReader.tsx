@@ -11,6 +11,7 @@ import { normalizeGlossary, type GlossaryEntry } from '../lib/glossary'
 import { TranslationSetup } from './TranslationSetup'
 import type { ProviderCheckHandler } from './ProviderCheckSession'
 import './rollingTranslation.css'
+import { initialReadingTranslationTarget, sameReadingTranslationLanguage } from './readingTranslationLanguage'
 
 type ReaderClient = ReadingTranslationClient & { providers?: (signal?: AbortSignal) => Promise<TranslationProvider[]>; checkProvider?: ProviderCheckHandler }
 export type RollingTranslationReaderProps = PagedReaderProps & { source?: StoredChapter; client?: ReaderClient | null; settings?: Partial<ReadingTranslationSettings> }
@@ -29,9 +30,11 @@ function readSpeed(namespace?: string): Speed {
 }
 function ActiveRollingReader(props: RollingTranslationReaderProps & { source: StoredChapter; client: ReaderClient }) {
   const [snapshot, setSnapshot] = useState(initial), [speed, setSpeed] = useState(() => readSpeed(props.notesNamespace))
-  const [target, setTarget] = useState(props.settings?.targetLanguage ?? (props.source.sourceLanguage.toLowerCase() === 'ko' ? 'en' : 'ko'))
+  const [target, setTarget] = useState(() => initialReadingTranslationTarget(props.settings?.sourceLanguage ?? props.source.sourceLanguage, props.settings?.targetLanguage))
   const [settingsOpen, setSettingsOpen] = useState(false), [showTranslation, setShowTranslation] = useState(false), [settingsError, setSettingsError] = useState('')
   const [connectionOpen, setConnectionOpen] = useState(false), [providers, setProviders] = useState<TranslationProvider[]>([]), [preparing, setPreparing] = useState(false)
+  const [panelOpen, setPanelOpen] = useState(false)
+  const [statusDetail, setStatusDetail] = useState<string>()
   const [providerSettings, setProviderSettings] = useState<Partial<ReadingTranslationSettings>>(props.settings ?? {})
   const [glossary, setGlossary] = useState<GlossaryEntry[] | undefined>()
   const personal = usePersonalLibrary(props.notesNamespace ?? '')
@@ -68,7 +71,12 @@ function ActiveRollingReader(props: RollingTranslationReaderProps & { source: St
     props.onPaginationChange?.(value)
   }, [session, props.document.id, props.onPaginationChange, sameOriginal])
   const originalMoved = useCallback((anchor: ReadingAnchor) => { setSourceAnchor(anchor); props.onAnchorChange(anchor) }, [props.onAnchorChange])
-  const translateVisible = showTranslation && snapshot.items.length > 0
+  // A late translation must not unmount an open tool or discard its unsaved draft.
+  const translateVisible = showTranslation && snapshot.items.length > 0 && !panelOpen
+  const noticeError = snapshot.error || settingsError || (!sameOriginal ? '읽기 번역에는 서버에 저장된 같은 원문이 필요합니다.' : '')
+  const notice = noticeError || (snapshot.running && !snapshot.items.length
+    ? snapshot.waiting ? '읽기 속도에 맞춰 다음 쪽을 준비합니다.' : '현재 쪽부터 번역을 준비하고 있습니다.'
+    : snapshot.limited ? '메모리 한도로 일부 선행 번역을 보류했습니다. 해당 쪽으로 이동하면 현재 쪽부터 준비합니다.' : '')
   function turnSource(direction: -1 | 1) {
     const layout = pagination.current; if (!layout) return
     const page = Math.max(0, Math.min(layout.pages.length - 1, snapshot.page + direction)), first = layout.pages[page]?.[0]
@@ -83,6 +91,9 @@ function ActiveRollingReader(props: RollingTranslationReaderProps & { source: St
     catch { setSettingsError('속도 설정은 이번 읽기에만 적용됩니다.') }
   }
   async function begin(supplied: ReadingTranslationSettings = options) {
+    if (sameReadingTranslationLanguage(supplied.sourceLanguage ?? props.source.sourceLanguage, supplied.targetLanguage)) {
+      setSettingsError('원문과 번역 언어를 다르게 선택해 주세요.'); return
+    }
     const version = ++operation.current; setPreparing(true); setSettingsError('')
     try {
       await session.stop()
@@ -110,6 +121,10 @@ function ActiveRollingReader(props: RollingTranslationReaderProps & { source: St
     chapterTitle: `${props.document.chapterTitle} · ${t('원문 쪽')} ${snapshot.page + 1}`, language: target, kind: 'translation' as const,
     paragraphs: snapshot.items.map((item, index) => ({ paragraphId: `reading-fragment-${index}`, text: item.text })) }),
     [props.source.recordId, props.document.bookTitle, props.document.chapterTitle, snapshot.page, snapshot.items, target])
+  if (statusDetail) return <PagedReader document={{ id: 'reading-translation-status', bookTitle: props.document.bookTitle,
+    chapterTitle: t('읽기 번역'), language: props.document.language, kind: 'introduction',
+    paragraphs: [{ paragraphId: 'status', text: statusDetail }] }} preview readOnly notesNamespace={props.notesNamespace}
+    onClose={() => setStatusDetail(undefined)} onAnchorChange={() => {}}/>
   if (settingsOpen) return <section className="rolling-reader" aria-label={t('읽기 번역 설정')}>
     {connectionOpen ? <TranslationSetup readingPreview chapter={props.source} providers={providers} username={props.notesNamespace ?? ''} busy={preparing}
       onCheckProvider={props.client.checkProvider}
@@ -131,31 +146,29 @@ function ActiveRollingReader(props: RollingTranslationReaderProps & { source: St
     {settingsError && <div className="rolling-notice" role="alert">{t(settingsError)}</div>}
   </section>
   return <section className="rolling-reader" aria-label={t('읽기 번역')}>
-    <div className="rolling-controls rolling-main-controls">
+    {!panelOpen && <div className="rolling-controls rolling-main-controls">
       <button type="button" disabled={!sameOriginal || !snapshot.totalPages || preparing} aria-pressed={snapshot.enabled} onClick={() => {
         if (snapshot.enabled) { operation.current++; void session.stop() } else void begin()
       }}>{t(snapshot.enabled ? '번역 중지' : '읽으며 번역')}</button>
       <button type="button" aria-pressed={translateVisible} disabled={!snapshot.items.length} onClick={() => { setShowTranslation(value => !value); setSourceMount(value => value + 1) }}>{t(translateVisible ? '원문' : '임시 번역')}</button>
       <button type="button" aria-expanded={settingsOpen} onClick={openSettings}>{t('읽기 번역 설정')}</button>
-      <span role="status">{t('현재 원문 {0}/{1}쪽 · 준비 {2}/{3}쪽', [snapshot.page + 1, snapshot.totalPages, snapshot.readyPages, snapshot.windowEnd - snapshot.windowStart])}</span>
-    </div>
-    <div className="rolling-status-space">
-      {(snapshot.error || settingsError || !sameOriginal) ? <div className="rolling-notice" role="alert"><span>{t(snapshot.error || settingsError || '읽기 번역에는 서버에 저장된 같은 원문이 필요합니다.')}</span>
-        {snapshot.error && <button type="button" disabled={preparing} onClick={() => void begin()}>{t('다시 시도')}</button>}</div>
-        : snapshot.running && !snapshot.items.length ? <div className="rolling-notice" role="status">{t(snapshot.waiting ? '읽기 속도에 맞춰 다음 쪽을 준비합니다.' : '현재 쪽부터 번역을 준비하고 있습니다.')}</div>
-        : snapshot.limited ? <div className="rolling-notice">{t('메모리 한도로 일부 선행 번역을 보류했습니다. 해당 쪽으로 이동하면 현재 쪽부터 준비합니다.')}</div> : null}
-    </div>
+      <div className="rolling-toolbar-status" role={noticeError ? 'alert' : 'status'}>
+        {notice ? <button type="button" className="rolling-status-detail" onClick={() => setStatusDetail(t(notice))}><span>{t(notice)}</span></button>
+          : <span>{t('현재 원문 {0}/{1}쪽 · 준비 {2}/{3}쪽', [snapshot.page + 1, snapshot.totalPages, snapshot.readyPages, snapshot.windowEnd - snapshot.windowStart])}</span>}
+        {snapshot.error && <button type="button" disabled={preparing} onClick={() => void begin()}>{t('다시 시도')}</button>}
+      </div>
+    </div>}
     <div className="rolling-pane">
       {translateVisible ? <PagedReader key={`preview:${snapshot.page}:${preview.paragraphs[0]?.text}`} document={preview} preview readOnly
         notesNamespace={props.notesNamespace} onClose={props.onClose} onAnchorChange={() => {}} onBoundaryPageTurn={turnSource}
         hasPreviousBoundary={snapshot.page > 0} hasNextBoundary={snapshot.page + 1 < snapshot.totalPages}
         editionLabel={t('임시 번역')} positionNote={t('임시 읽기 번역입니다. 전체 번역을 보관하려면 기존 전체 번역 작업을 실행하세요.')}/>
-        : <PagedReader {...props} key={`original:${sourceMount}`} anchor={sourceAnchor} onAnchorChange={originalMoved} onPaginationChange={layoutChanged}/>}
+        : <PagedReader {...props} key={`original:${sourceMount}`} anchor={sourceAnchor} onAnchorChange={originalMoved} onPaginationChange={layoutChanged} onPanelChange={setPanelOpen}/>}
     </div>
-    <div className="rolling-source-navigation" style={{ visibility: showTranslation ? 'visible' : 'hidden' }} aria-hidden={!showTranslation}>
+    {translateVisible && !panelOpen && <div className="rolling-source-navigation">
       <button type="button" disabled={snapshot.page === 0} onClick={() => turnSource(-1)}>{t('이전 원문 쪽')}</button>
       <span>{t('임시 번역')}</span>
       <button type="button" disabled={snapshot.page + 1 >= snapshot.totalPages} onClick={() => turnSource(1)}>{t('다음 원문 쪽')}</button>
-    </div>
+    </div>}
   </section>
 }

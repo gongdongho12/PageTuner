@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useState } from "react";
 import { type SavedOriginal } from "../lib/personalLibrary";
 import { createReadingNotes } from "../lib/readingNotes";
 import { translate as t } from "../lib/locale";
@@ -54,7 +54,7 @@ export function OriginalLibrary({
   useEffect(() => {
     void refresh();
   }, [storage]);
-  useEffect(() => {
+  useLayoutEffect(() => {
     onReadingChange(!!reading);
     return () => onReadingChange(false);
   }, [!!reading, onReadingChange]);
