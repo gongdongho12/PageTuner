@@ -206,6 +206,9 @@ fun PageTurnerApp() {
     val serverProgressViewModel: ServerReadingProgressViewModel = viewModel(factory = ServerReadingProgressViewModel.Factory(serverProgressStore))
     val serverNotesStore = remember(context) { FileServerReadingNotesStore(context.filesDir.resolve("server-reading-notes")) }
     val serverNotesViewModel: ServerReadingNotesViewModel = viewModel(factory = ServerReadingNotesViewModel.Factory(serverNotesStore))
+    val serverOrganizationStore = remember(context) { com.dongholab.pagetuner.translation.sync.FileServerLibraryOrganizationStore(context.filesDir.resolve("server-library-organization")) }
+    val serverOrganizationViewModel: com.dongholab.pagetuner.translation.sync.ServerLibraryOrganizationViewModel = viewModel(
+        factory = com.dongholab.pagetuner.translation.sync.ServerLibraryOrganizationViewModel.Factory(serverOrganizationStore))
     val serverReaderPreferencesStore = remember(context) { FileServerReaderPreferencesStore(context.filesDir.resolve("server-reader-preferences")) }
     val serverReaderPreferencesViewModel: ServerReaderPreferencesViewModel = viewModel(
         factory = ServerReaderPreferencesViewModel.Factory(serverReaderPreferencesStore, settingsStore))
@@ -617,6 +620,7 @@ fun PageTurnerApp() {
     LaunchedEffect(serverReadingConnection) {
         serverProgressViewModel.sync.connect(serverReadingConnection)
         serverNotesViewModel.sync.connect(serverReadingConnection)
+        serverOrganizationViewModel.sync.connect(serverReadingConnection)
         serverReaderPreferencesViewModel.sync.connect(serverReadingConnection)
     }
     LaunchedEffect(serverReadingDocument, serverReadingConnection, document.id) {
@@ -850,6 +854,7 @@ fun PageTurnerApp() {
                             if (webNovelSection == "서버 서재") {
                                 ServerLibraryScreen(
                                     state = serverLibraryState, documentTitle = document.title, externalBusy = busy,
+                                    organizationSync = serverOrganizationViewModel.sync, readingConnection = serverReadingConnection,
                                     onEndpoint = serverLibraryViewModel::updateEndpoint,
                                     onUsername = serverLibraryViewModel::updateUsername,
                                     onPassword = serverLibraryViewModel::updatePassword,

@@ -233,6 +233,20 @@ class HttpTranslationStore(
         decode { require(response.status == 204 && response.body.isEmpty()) }
     }
 
+    suspend fun libraryOrganization(kind: String, recordId: String): ServerLibraryOrganization = withContext(Dispatchers.IO) {
+        ServerReadingProgressJson.validateTarget(kind, recordId)
+        val response = execute("/api/v1/library-organization/$kind/$recordId", "GET")
+        decode { ServerLibraryOrganizationJson.view(JSONObject(response.body), kind, recordId) }
+    }
+
+    suspend fun saveLibraryOrganization(kind: String, recordId: String, mutation: LibraryOrganizationMutation): ServerLibraryOrganization = withContext(Dispatchers.IO) {
+        ServerReadingProgressJson.validateTarget(kind, recordId)
+        val response = writeWithCsrf("/api/v1/library-organization/$kind/$recordId", "PUT", ServerLibraryOrganizationJson.encode(mutation), true)
+        decode { ServerLibraryOrganizationJson.view(JSONObject(response.body), kind, recordId).also {
+            require(it.version == mutation.expectedVersion + 1 && it.organization == mutation.organization)
+        } }
+    }
+
     suspend fun readerPreferences(): ServerReaderPreferences = withContext(Dispatchers.IO) {
         val response = execute("/api/v1/reader-preferences", "GET")
         decode { ServerReaderPreferencesJson.view(JSONObject(response.body)) }
@@ -317,7 +331,22 @@ class HttpTranslationStore(
             throw TranslationStoreException(TranslationStoreFailure.NETWORK)
         }
         currentCoroutineContext().ensureActive()
+        if (path.startsWith("/api/v1/library-organization/") && response.body.toByteArray(Charsets.UTF_8).size > 8192) {
+            throw TranslationStoreException(TranslationStoreFailure.INVALID_RESPONSE)
+        }
         if (response.status !in 200..299) {
+            if (path.startsWith("/api/v1/library-organization/") && response.status == 429) {
+                val seconds = response.headers.entries.firstOrNull { it.key.equals("Retry-After", true) }?.value?.firstOrNull()
+                    ?.toLongOrNull()?.takeIf { it in 1..86_400 } ?: 60L
+                throw LibraryOrganizationRateLimited(seconds)
+            }
+            if (path.startsWith("/api/v1/library-organization/") && method == "PUT" && response.status == 409) {
+                val value = decode { JSONObject(response.body) }
+                if (value.optString("code") == "LIBRARY_ORGANIZATION_CONFLICT") {
+                    val parts = path.split('/')
+                    throw LibraryOrganizationConflict(decode { ServerLibraryOrganizationJson.view(value.getJSONObject("current"), parts[4], parts[5]) })
+                }
+            }
             if (path == "/api/v1/reader-preferences" && response.status == 429) {
                 val seconds = response.headers.entries.firstOrNull { it.key.equals("Retry-After", true) }?.value?.firstOrNull()
                     ?.toLongOrNull()?.takeIf { it in 1..86_400 } ?: 60L

@@ -1,0 +1,409 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "PageTurner Library Organization",
+    "version": "1.0.0",
+    "description": "Account-owned server document folder, ordered tags and favorite state. See library-organization-v1.md for canonical UTF-16 strings, explicit adoption and CAS recovery."
+  },
+  "paths": {
+    "/api/v1/library-organization/{kind}/{recordId}": {
+      "get": {
+        "operationId": "getLibraryOrganization",
+        "security": [
+          {
+            "basicAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/LibraryOrganizationSuccess"
+          },
+          "401": {
+            "description": "Authentication required."
+          },
+          "404": {
+            "$ref": "#/components/responses/LibraryOrganizationError"
+          },
+          "400": {
+            "$ref": "#/components/responses/LibraryOrganizationError"
+          }
+        }
+      },
+      "put": {
+        "operationId": "putLibraryOrganization",
+        "security": [
+          {
+            "basicAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "X-CSRF-TOKEN",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Use /api/v1/csrf and its matching session cookie."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "description": "At most 8 KiB, including chunked JSON. Preserve the complete request for response-loss retries.",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PutLibraryOrganizationRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/LibraryOrganizationSuccess"
+          },
+          "400": {
+            "$ref": "#/components/responses/LibraryOrganizationError"
+          },
+          "401": {
+            "description": "Authentication required."
+          },
+          "403": {
+            "description": "Missing or invalid CSRF token."
+          },
+          "409": {
+            "description": "CONFLICT includes current; preserve pending local organization for an explicit choice. EXHAUSTED is terminal and omits current.",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "$ref": "#/components/schemas/LibraryOrganizationConflict"
+                    },
+                    {
+                      "$ref": "#/components/schemas/LibraryOrganizationExhausted"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "413": {
+            "$ref": "#/components/responses/LibraryOrganizationError"
+          },
+          "429": {
+            "description": "Per-account write limit. Preserve pending values and obey Retry-After.",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                }
+              },
+              "Retry-After": {
+                "required": true,
+                "schema": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 60
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LibraryOrganizationProblem"
+                }
+              }
+            }
+          },
+          "404": {
+            "$ref": "#/components/responses/LibraryOrganizationError"
+          }
+        }
+      },
+      "parameters": [
+        {
+          "name": "kind",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "$ref": "#/components/schemas/LibraryOrganizationKind"
+          }
+        },
+        {
+          "name": "recordId",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "description": "Complete hyphenated UUID of an owned server record."
+        }
+      ]
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "basicAuth": {
+        "type": "http",
+        "scheme": "basic"
+      }
+    },
+    "responses": {
+      "LibraryOrganizationSuccess": {
+        "description": "Current organization for the owned document. Version zero has null organization and updatedAt; positive versions have both. GET never creates defaults.",
+        "headers": {
+          "Cache-Control": {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "no-store"
+              ]
+            }
+          }
+        },
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/LibraryOrganizationView"
+            }
+          }
+        }
+      },
+      "LibraryOrganizationError": {
+        "description": "Invalid request, missing/foreign document or body limit. See the normative Markdown error codes.",
+        "headers": {
+          "Cache-Control": {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "no-store"
+              ]
+            }
+          }
+        },
+        "content": {
+          "application/problem+json": {
+            "schema": {
+              "$ref": "#/components/schemas/LibraryOrganizationProblem"
+            }
+          }
+        }
+      }
+    },
+    "schemas": {
+      "LibraryOrganization": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "folder",
+          "tags",
+          "favorite"
+        ],
+        "properties": {
+          "folder": {
+            "type": "string",
+            "maxLength": 200,
+            "description": "0-200 UTF-16 units, canonical trimmed string; empty means no folder. No controls or unpaired surrogates. See the normative Markdown contract."
+          },
+          "tags": {
+            "type": "array",
+            "minItems": 0,
+            "maxItems": 32,
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 60,
+              "description": "1-60 UTF-16 units, canonical trimmed string; no controls or unpaired surrogates."
+            },
+            "description": "Order preserved, exact case-sensitive uniqueness. No Unicode normalization."
+          },
+          "favorite": {
+            "type": "boolean"
+          }
+        }
+      },
+      "LibraryOrganizationView": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "kind",
+          "recordId",
+          "version",
+          "organization",
+          "updatedAt"
+        ],
+        "properties": {
+          "kind": {
+            "$ref": "#/components/schemas/LibraryOrganizationKind"
+          },
+          "recordId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "version": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true,
+            "description": "Server UTC timestamp; informational, never a concurrency token."
+          },
+          "organization": {
+            "nullable": true,
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/LibraryOrganization"
+              }
+            ]
+          }
+        }
+      },
+      "PutLibraryOrganizationRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "expectedVersion",
+          "mutationId",
+          "organization"
+        ],
+        "properties": {
+          "expectedVersion": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740990
+          },
+          "mutationId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Generate for each new update; preserve the entire request when retrying response loss."
+          },
+          "organization": {
+            "$ref": "#/components/schemas/LibraryOrganization"
+          }
+        }
+      },
+      "LibraryOrganizationProblem": {
+        "type": "object",
+        "required": [
+          "status"
+        ],
+        "properties": {
+          "type": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "status": {
+            "type": "integer"
+          },
+          "detail": {
+            "type": "string"
+          },
+          "instance": {
+            "type": "string"
+          },
+          "code": {
+            "type": "string"
+          }
+        }
+      },
+      "LibraryOrganizationConflict": {
+        "type": "object",
+        "required": [
+          "status",
+          "code",
+          "current"
+        ],
+        "properties": {
+          "type": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "status": {
+            "type": "integer",
+            "enum": [
+              409
+            ]
+          },
+          "detail": {
+            "type": "string"
+          },
+          "instance": {
+            "type": "string"
+          },
+          "code": {
+            "type": "string",
+            "enum": [
+              "LIBRARY_ORGANIZATION_CONFLICT"
+            ]
+          },
+          "current": {
+            "$ref": "#/components/schemas/LibraryOrganizationView"
+          }
+        }
+      },
+      "LibraryOrganizationExhausted": {
+        "type": "object",
+        "required": [
+          "status",
+          "code"
+        ],
+        "properties": {
+          "type": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "status": {
+            "type": "integer",
+            "enum": [
+              409
+            ]
+          },
+          "detail": {
+            "type": "string"
+          },
+          "instance": {
+            "type": "string"
+          },
+          "code": {
+            "type": "string",
+            "enum": [
+              "LIBRARY_ORGANIZATION_EXHAUSTED"
+            ]
+          }
+        }
+      },
+      "LibraryOrganizationKind": {
+        "type": "string",
+        "enum": [
+          "ORIGINAL",
+          "TRANSLATION"
+        ]
+      }
+    }
+  }
+}
