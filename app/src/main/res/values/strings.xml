@@ -449,4 +449,21 @@
     <string name="collection_more_space_required">More room is needed to show this list.</string>
     <string name="reader_viewport_too_small">The reading area cannot fit one line at this font size. Use full screen or turn off comparison view.</string>
     <string name="reader_source_position">Document position %1$d / %2$d</string>
+    <string name="sharing_title">Device sharing</string>
+    <string name="sharing_scope">Share stored books, downloaded novels and saved translations with another device on this Wi-Fi or hotspot.</string>
+    <string name="sharing_offline">Internet and an account are not required. Browser reading does not change the phone. Sharing uses battery power until stopped.</string>
+    <string name="sharing_trust">Use trusted Wi-Fi or a hotspot. Devices with the code can read stored documents. The local connection uses HTTP.</string>
+    <string name="sharing_open_address">Open this address on the connected device:</string>
+    <string name="sharing_pairing_code">Connection code</string>
+    <string name="sharing_expiry">Sharing stops after 2 hours. Stop and start to change the code.</string>
+    <string name="sharing_start">Start sharing here</string>
+    <string name="sharing_starting">Starting…</string>
+    <string name="sharing_stop">Stop sharing</string>
+    <string name="sharing_network_settings">Wi-Fi / hotspot settings</string>
+    <string name="sharing_no_network">No local Wi-Fi or hotspot address found. Enable a hotspot or connect both devices to the same Wi-Fi, then return here.</string>
+    <string name="sharing_start_failed">Sharing could not start. Check the selected network and whether port 8787 is already in use, then try again.</string>
+    <string name="sharing_expired">Sharing ended after 2 hours. Start again for a new connection code.</string>
+    <string name="sharing_network_lost">The selected network is unavailable. Sharing has stopped.</string>
+    <string name="sharing_notification_title">Device library sharing is on</string>
+    <string name="sharing_notification_body">Connected devices can read saved documents. Stop sharing when finished.</string>
 </resources>

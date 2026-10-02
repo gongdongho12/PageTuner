@@ -13,6 +13,7 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "build": "npm run check:api && npm run typecheck && vite build && node scripts/write-service-worker.mjs",
+    "build:sharing": "npm run check:api && npm run typecheck && vite build --mode phone-sharing && node scripts/prepare-sharing.mjs",
     "preview": "vite preview --host 127.0.0.1",
     "verify": "npm run build && npm test"
   },

@@ -31,6 +31,54 @@ val deepSeekApiUrl = localSecret("DEEPSEEK_API_URL")
     .ifBlank { "https://api.deepseek.com/chat/completions" }
 val deepSeekModel = localSecret("DEEPSEEK_MODEL").ifBlank { "deepseek-v4-flash" }
 
+// Both the hosted web reader and the phone's offline sharing UI use the same React sources.
+// Generate the phone bundle as part of an APK build so a stale checked-in bundle cannot ship.
+val sharingWebDirectory = rootProject.layout.projectDirectory.dir("web")
+val npmCommand = if (System.getProperty("os.name").startsWith("Windows")) {
+    listOf("cmd", "/c", "npm")
+} else listOf("npm")
+val installSharingWebDependencies = tasks.register<Exec>("installSharingWebDependencies") {
+    group = "build"
+    description = "Installs the locked web dependencies for the bundled local sharing reader (requires Node.js)."
+    workingDir(sharingWebDirectory)
+    commandLine(npmCommand + "ci")
+    inputs.files(sharingWebDirectory.file("package.json"), sharingWebDirectory.file("package-lock.json"))
+    outputs.file(sharingWebDirectory.file("node_modules/.package-lock.json"))
+}
+val buildSharingWeb = tasks.register<Exec>("buildSharingWeb") {
+    group = "build"
+    description = "Builds the self-contained phone sharing UI from the shared web components."
+    dependsOn(installSharingWebDependencies)
+    workingDir(sharingWebDirectory)
+    commandLine(npmCommand + listOf("run", "build:sharing"))
+    inputs.files(fileTree(sharingWebDirectory) {
+        exclude("node_modules/**", "dist/**", "dist-sharing/**", ".git/**", "coverage/**")
+    })
+    inputs.files(rootProject.fileTree("contracts") { include("*.openapi.json") })
+    outputs.dir(sharingWebDirectory.dir("dist-sharing"))
+}
+abstract class BundleSharingWebAssets : DefaultTask() {
+    @get:InputDirectory
+    abstract val webBundle: DirectoryProperty
+    @get:OutputDirectory
+    abstract val destinationDirectory: DirectoryProperty
+    @get:javax.inject.Inject
+    abstract val fileSystem: org.gradle.api.file.FileSystemOperations
+
+    @TaskAction
+    fun bundle() {
+        fileSystem.sync {
+            from(webBundle) { into("local-sharing") }
+            into(destinationDirectory)
+        }
+    }
+}
+val bundleSharingWeb = tasks.register<BundleSharingWebAssets>("bundleSharingWeb") {
+    dependsOn(buildSharingWeb)
+    webBundle.set(sharingWebDirectory.dir("dist-sharing"))
+    destinationDirectory.set(layout.buildDirectory.dir("generated/sharingAssets"))
+}
+
 android {
     namespace = "com.dongholab.pagetuner"
     compileSdk {
@@ -76,6 +124,11 @@ android {
     sourceSets.getByName("test").resources.srcDir(rootProject.file("contracts/fixtures"))
 }
 
+androidComponents.onVariants { variant ->
+    variant.sources.assets?.addGeneratedSourceDirectory(bundleSharingWeb) { it.destinationDirectory }
+}
+tasks.named("preBuild").configure { dependsOn(bundleSharingWeb) }
+
 dependencies {
     implementation(project(":core-model"))
     implementation(project(":core-translation"))
@@ -83,6 +136,7 @@ dependencies {
     implementation(project(":backup-runtime"))
     implementation(project(":source-runtime"))
     implementation(project(":translation-runtime"))
+    implementation(project(":sharing-runtime"))
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.activity.compose)
     implementation(libs.androidx.compose.material3)

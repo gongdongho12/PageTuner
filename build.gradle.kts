@@ -32,12 +32,14 @@ gradle.projectsEvaluated {
             ":core-content" to emptySet<String>(),
             ":core-translation" to setOf(":core-content"),
             ":core-backup" to setOf(":core-translation"),
+            ":core-sharing" to emptySet<String>(),
         )
         val errors = mutableListOf<String>()
         val allowedRuntimeDependencies = mapOf(
             ":backup-runtime" to setOf(":core-backup"),
             ":source-runtime" to setOf(":core-model", ":core-content"),
             ":translation-runtime" to setOf(":core-content", ":core-translation"),
+            ":sharing-runtime" to setOf(":core-sharing"),
         )
         val targets = module.configurations.flatMap { configuration ->
             configuration.dependencies.withType<org.gradle.api.artifacts.ProjectDependency>()

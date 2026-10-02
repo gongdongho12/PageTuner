@@ -217,6 +217,11 @@ not as source-code bases.
 
 ## Build
 
+Install Node.js 22.12+ (or 20.19+) and npm alongside the Android/JDK toolchain.
+Android builds run `npm ci` and `npm run build:sharing` when the web sources or
+lockfile change, then package the shared React reader in APK assets. The installed
+app serves this bundle locally without Node.js or an Internet connection.
+
 ```bash
 ./gradlew testDebugUnitTest assembleDebug
 ```
