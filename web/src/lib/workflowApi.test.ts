@@ -65,6 +65,36 @@ const input: StartTranslation = {
 };
 
 describe("web novel workflow transport", () => {
+  it('sends literal library filters before pagination and rejects invalid inputs without fetching', async () => {
+    const transport = vi.fn(async (url: RequestInfo | URL) => json({ items: [], page: Number(new URL(String(url), 'https://test').searchParams.get('page')), size: 12, totalItems: 0, totalPages: 0, hasNext: false }))
+    const client = createWorkflowClient(credentials, { fetch: transport })
+    const filter = { q: ' 50%_ & title ', folder: '', tag: 'Hero,alias', favorite: false }
+    await client.chapters(0, undefined, filter)
+    await client.chapters(1, undefined, filter)
+    expect(transport.mock.calls.map(call => Object.fromEntries(new URL(String(call[0]), 'https://test').searchParams))).toEqual([0, 1].map(page => ({ page: String(page), size: '12', q: '50%_ & title', folder: '', tag: 'Hero,alias', favorite: 'false' })))
+    expect(() => client.chapters(0, undefined, { tag: '' })).toThrowError(expect.objectContaining({ kind: 'invalid-request' }))
+    expect(transport).toHaveBeenCalledTimes(2)
+    client.close()
+  })
+
+  it('discards a late original-library response after filter replacement', async () => {
+    const listing = { items: [], page: 0, size: 12, totalItems: 0, totalPages: 0, hasNext: false }
+    let release!: (response: Response) => void
+    const transport = vi.fn((url: RequestInfo | URL) => String(url).includes('q=old') ? new Promise<Response>(resolve => { release = resolve }) : Promise.resolve(json(listing)))
+    const client = createWorkflowClient(credentials, { fetch: transport }), abort = new AbortController()
+    const old = client.chapters(0, abort.signal, { q: 'old' }).catch(error => error)
+    abort.abort()
+    expect(await client.chapters(0, undefined, { q: 'new' })).toEqual(listing)
+    release(json(listing))
+    expect(await old).toMatchObject({ kind: 'aborted' })
+    client.close()
+  })
+
+  it('rejects a filtered chapter response for a different remote page', async () => {
+    const client = createWorkflowClient(credentials, { fetch: async () => json({ items: [], page: 0, size: 12, totalItems: 0, totalPages: 0, hasNext: false }) })
+    await expect(client.chapters(1, undefined, { q: 'Tea' })).rejects.toMatchObject({ kind: 'invalid-response' })
+    client.close()
+  })
   it("reads advertised filter values and passes the selected values unchanged on every catalog page", async () => {
     const filters = {
       genres: [

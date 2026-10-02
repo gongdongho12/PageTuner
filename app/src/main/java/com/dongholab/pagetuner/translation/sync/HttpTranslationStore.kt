@@ -2,6 +2,7 @@ package com.dongholab.pagetuner.translation.sync
 
 import com.dongholab.pagetuner.core.content.BookIdentity
 import com.dongholab.pagetuner.core.content.ChapterIdentity
+import com.dongholab.pagetuner.core.model.library.LibraryFilter
 import com.dongholab.pagetuner.core.translation.StoredTranslation
 import com.dongholab.pagetuner.core.translation.TranslatedParagraph
 import com.dongholab.pagetuner.core.translation.TranslationArtifact
@@ -116,10 +117,18 @@ class HttpTranslationStore(
         }
     }
 
-    suspend fun list(kind: ServerLibraryKind, page: Int = 0, size: Int = 12): ServerLibraryPage = withContext(Dispatchers.IO) {
+    suspend fun list(kind: ServerLibraryKind, page: Int = 0, size: Int = 12, filter: LibraryFilter = LibraryFilter()): ServerLibraryPage = withContext(Dispatchers.IO) {
         require(page >= 0 && size in 1..50 && page.toLong() * size <= Int.MAX_VALUE)
+        filter.validate()
         val path = if (kind == ServerLibraryKind.Translations) "translations" else "chapters"
-        val response = execute("/api/v1/$path?page=$page&size=$size", "GET")
+        val query = buildString {
+            append("page=$page&size=$size")
+            listOf("q" to filter.q, "folder" to filter.folder, "tag" to filter.tag,
+                "favorite" to filter.favorite?.toString()).forEach { (name, value) ->
+                if (value != null) append("&$name=" + java.net.URLEncoder.encode(value, "UTF-8").replace("+", "%20"))
+            }
+        }
+        val response = execute("/api/v1/$path?$query", "GET")
         decode { ServerLibraryJson.page(JSONObject(response.body), kind, page, size) }
     }
 

@@ -58,6 +58,31 @@ describe('shared translation contract', () => {
 })
 
 describe('same-origin API client', () => {
+  it('sends filters on every remote page and retains an empty folder with favorite=false', async () => {
+    const transport = vi.fn(async (input: RequestInfo | URL) => {
+      const requested = Number(new URL(String(input), 'https://test').searchParams.get('page'))
+      return json({ items: [], page: requested, size: 12, totalItems: 0, totalPages: 0, hasNext: false })
+    })
+    const client = createTranslationClient({ username: 'reader', password: 'password' }, { fetch: transport })
+    const filter = { q: ' 100%_Tea & 本 ', folder: '', tag: '인물,별명', favorite: false }
+    await client.list(0, undefined, filter)
+    await client.list(1, undefined, filter)
+    const queries = transport.mock.calls.map(call => Object.fromEntries(new URL(String(call[0]), 'https://test').searchParams))
+    expect(queries).toEqual([0, 1].map(page => ({ page: String(page), size: '12', q: '100%_Tea & 本', folder: '', tag: '인물,별명', favorite: 'false' })))
+    await expect(client.list(0, undefined, { tag: '' })).rejects.toMatchObject({ kind: 'invalid-request' })
+    expect(transport).toHaveBeenCalledTimes(2)
+  })
+
+  it('rejects a late old-filter response after its signal is aborted', async () => {
+    let release!: (response: Response) => void
+    const transport = vi.fn((input: RequestInfo | URL) => String(input).includes('q=old') ? new Promise<Response>(resolve => { release = resolve }) : Promise.resolve(json(page())))
+    const client = createTranslationClient({ username: 'reader', password: 'password' }, { fetch: transport })
+    const abort = new AbortController(), old = client.list(0, abort.signal, { q: 'old' }).catch(error => error)
+    abort.abort()
+    expect((await client.list(0, undefined, { q: 'new' })).totalItems).toBe(1)
+    release(json(page()))
+    expect(await old).toMatchObject({ kind: 'aborted' })
+  })
   it('uses only explicit memory authentication and validates list/get', async () => {
     const transport = vi.fn(async (input: RequestInfo | URL, _options?: RequestInit) => json(String(input).includes('?') ? page() : fixture))
     const client = createTranslationClient({ username: 'reader', password: 'password' }, { fetch: transport })

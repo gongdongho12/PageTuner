@@ -466,4 +466,23 @@
     <string name="sharing_network_lost">The selected network is unavailable. Sharing has stopped.</string>
     <string name="sharing_notification_title">Device library sharing is on</string>
     <string name="sharing_notification_body">Connected devices can read saved documents. Stop sharing when finished.</string>
+    <string name="server_panel_filters">Library filters</string>
+    <string name="server_filter_scope">Filter all server %1$s documents</string>
+    <string name="server_filter_title">Book or chapter title</string>
+    <string name="server_filter_folder">Folder</string>
+    <string name="server_filter_folder_exact">Exact folder name</string>
+    <string name="server_filter_tag">Exact tag</string>
+    <string name="server_filter_text_hint">Up to 200 characters</string>
+    <string name="server_filter_tag_hint">One tag, up to 60 characters</string>
+    <string name="server_filter_all_folders">All folders</string>
+    <string name="server_filter_unfiled">Unfiled</string>
+    <string name="server_filter_named_folder">Named folder</string>
+    <string name="server_filter_favorite">Favorite</string>
+    <string name="server_filter_all_favorites">All documents</string>
+    <string name="server_filter_only_favorites">Favorites only</string>
+    <string name="server_filter_not_favorites">Not favorites</string>
+    <string name="server_filter_apply">Apply</string>
+    <string name="server_filter_reset">Reset</string>
+    <string name="server_filter_active">%1$d active filters · edit in Library filters</string>
+    <string name="server_filter_invalid">Check the filters: title and folder allow up to 200 characters; a tag allows 60. A named folder needs a name.</string>
 </resources>

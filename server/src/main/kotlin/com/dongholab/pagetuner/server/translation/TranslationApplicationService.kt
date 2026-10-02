@@ -7,6 +7,7 @@ import com.dongholab.pagetuner.core.backup.TranslationBackupPolicy
 import com.dongholab.pagetuner.core.backup.TranslationBackupRecord
 import com.dongholab.pagetuner.core.content.BookIdentity
 import com.dongholab.pagetuner.core.content.ChapterIdentity
+import com.dongholab.pagetuner.core.model.library.LibraryFilter
 import com.dongholab.pagetuner.core.translation.StoredTranslation
 import com.dongholab.pagetuner.core.translation.TranslatedParagraph
 import com.dongholab.pagetuner.core.translation.TranslationArtifact
@@ -29,17 +30,18 @@ class TranslationApplicationService(
     private val library: TranslationLibraryRepository,
 ) {
     @Transactional(readOnly = true, isolation = Isolation.REPEATABLE_READ)
-    fun list(userId: String, page: Int, size: Int): TranslationListResponse {
+    fun list(userId: String, page: Int, size: Int, filter: LibraryFilter = LibraryFilter()): TranslationListResponse {
         require(userId.isNotBlank()) { "userId must not be blank." }
+        filter.validate()
         require(page >= 0) { "page must be zero or greater." }
         require(size in 1..50) { "size must be between 1 and 50." }
         val offset = page.toLong() * size
         require(offset <= Int.MAX_VALUE) { "The requested page offset is too large." }
-        val totalItems = library.count(userId)
+        val totalItems = library.count(userId, filter)
         val totalPages = totalItems / size + if (totalItems % size == 0L) 0 else 1
         check(totalPages <= Int.MAX_VALUE) { "The translation library exceeds the supported page count." }
         return TranslationListResponse(
-            items = library.list(userId, size, offset),
+            items = library.list(userId, size, offset, filter),
             page = page,
             size = size,
             totalItems = totalItems,

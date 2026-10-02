@@ -1,13 +1,14 @@
 import { ApiError } from './errors'
 import { validatePage, validateTranslation, validRecordId } from './validation'
 import type { TranslationPage, TranslationResponse } from './types'
+import { libraryFilterQuery, type LibraryFilter } from './libraryFilter'
 
 export { ApiError } from './errors'
 export type { ApiErrorKind } from './errors'
 export type { TranslationPage, TranslationResponse, TranslationSummary } from './types'
 
 export interface TranslationClient {
-  list(page?: number, signal?: AbortSignal): Promise<TranslationPage>
+  list(page?: number, signal?: AbortSignal, filter?: LibraryFilter): Promise<TranslationPage>
   get(recordId: string, signal?: AbortSignal): Promise<TranslationResponse>
 }
 
@@ -106,9 +107,9 @@ export function createTranslationClient(
   }
 
   return {
-    async list(page = 0, signal) {
+    async list(page = 0, signal, filter) {
       if (!Number.isSafeInteger(page) || page < 0) throw new ApiError('invalid-request', '페이지 번호가 올바르지 않습니다.')
-      const result = await request(`/api/v1/translations?page=${page}&size=${pageSize}`, validatePage, signal)
+      const result = await request(`/api/v1/translations?page=${page}&size=${pageSize}${libraryFilterQuery(filter)}`, validatePage, signal)
       if (result.page !== page || result.size !== pageSize) throw new ApiError('invalid-response', '요청한 페이지와 응답이 일치하지 않습니다.')
       return result
     },

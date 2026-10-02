@@ -16,6 +16,7 @@ import org.springframework.context.annotation.Import
 import org.springframework.http.MediaType
 import org.springframework.mock.web.MockHttpSession
 import org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.httpBasic
+import org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf
 import org.springframework.test.context.bean.override.mockito.MockitoBean
 import org.springframework.test.web.servlet.MockMvc
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get
@@ -24,6 +25,7 @@ import org.springframework.test.web.servlet.result.MockMvcResultMatchers.content
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.header
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.status
+import org.hamcrest.Matchers.containsString
 
 @WebMvcTest(
     controllers = [CsrfController::class, TranslationController::class, WorkflowController::class],
@@ -58,6 +60,24 @@ class ServerSecurityMvcTest {
         mvc.perform(get("/assets/missing.js")).andExpect(status().isNotFound)
         mvc.perform(get("/api/v1/translations")).andExpect(status().isUnauthorized)
         verifyNoInteractions(service)
+    }
+
+    @Test
+    fun `anonymous sharing shell can be precached without opening sharing data or other paths`() {
+        // A test-only static resource exercises the actual resource handler used by packaged web assets.
+        // The cloud service worker fetches this document with credentials omitted during cache.addAll.
+        mvc.perform(get("/sharing.html")).andExpect(status().isOk)
+            .andExpect(content().contentTypeCompatibleWith(MediaType.TEXT_HTML))
+            .andExpect(content().string(containsString("public-sharing-shell-fixture")))
+        for (path in listOf("/api/share/v1/status", "/api/share/v1/session", "/api/share/v1/books",
+            "/api/share/v1/books/test-book", "/sharing.html/private", "/sharing-private.html")) {
+            mvc.perform(get(path)).andExpect(status().isUnauthorized)
+        }
+        // Permission applies to this exact GET document, not POST or an entire sharing prefix.
+        mvc.perform(post("/sharing.html").with(csrf())).andExpect(status().isUnauthorized)
+        mvc.perform(post("/api/share/v1/pair").with(csrf()).contentType(MediaType.APPLICATION_JSON).content("{}"))
+            .andExpect(status().isUnauthorized)
+        verifyNoInteractions(service, sources, chapters, workflow, providers)
     }
 
     @Test

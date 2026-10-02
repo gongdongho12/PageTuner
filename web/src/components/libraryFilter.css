@@ -1,0 +1,12 @@
+.library-filter-bar { display: flex; align-items: center; flex: 0 0 48px; gap: 8px; min-width: 0; border-bottom: 1px solid var(--line); }
+.library-filter-bar > span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--muted); font-size: 12px; }
+.library-filter-bar button { min-height: 44px; flex-shrink: 0; padding: 0 10px; font-size: 12px; }
+.library-filter-panel { display: flex; flex-direction: column; flex: 1; min-height: 0; overflow: hidden; gap: 8px; padding: 4px 0; }
+.library-filter-label { display: flex; gap: 8px; line-height: 18px; }
+.library-filter-label > span:first-child { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; }
+.library-filter-step { font-size: 11px; color: var(--muted); flex-shrink: 0; }
+.library-filter-fields { display: flex; flex-direction: column; gap: 10px; max-width: 520px; }
+.library-filter-fields label { display: flex; flex-direction: column; gap: 4px; color: var(--muted); font-size: 12px; }
+.library-filter-fields input, .library-filter-fields select { min-height: 44px; width: 100%; padding: 6px 10px; color: var(--ink); background: var(--paper); border: 1px solid var(--line); border-radius: 0; }
+.library-filter-actions { display: flex; flex-shrink: 0; gap: 6px; margin-top: auto; }
+.library-filter-actions button { min-height: 44px; min-width: 44px; padding: 0 8px; font-size: 12px; }

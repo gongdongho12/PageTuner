@@ -1,4 +1,5 @@
 import { ApiError } from "./errors";
+import { libraryFilterQuery, type LibraryFilter } from './libraryFilter';
 import { normalizeGlossary } from './glossary';
 import { validRecordId, validTimestamp } from "./validation";
 import { validateCatalogTranslation, type CatalogTranslationRequest } from './catalogTranslation';
@@ -651,10 +652,14 @@ export function createWorkflowClient(
         signal,
       );
     },
-    chapters: (n = 0, signal?: AbortSignal) =>
+    chapters: (n = 0, signal?: AbortSignal, filter?: LibraryFilter) =>
       request(
-        `/api/v1/chapters?page=${pageNumber(n)}&size=12`,
-        (v) => page(v, validateChapterSummary),
+        `/api/v1/chapters?page=${pageNumber(n)}&size=12${libraryFilterQuery(filter)}`,
+        (v) => {
+          const result = page(v, validateChapterSummary);
+          if (result.page !== n || result.size !== 12) throw invalid();
+          return result;
+        },
         signal,
       ),
     chapter: (id: string, signal?: AbortSignal) =>

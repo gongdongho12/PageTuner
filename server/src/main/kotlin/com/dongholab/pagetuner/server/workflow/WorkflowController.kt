@@ -1,6 +1,7 @@
 package com.dongholab.pagetuner.server.workflow
 
 import com.dongholab.pagetuner.source.service.NovelSourceService
+import com.dongholab.pagetuner.server.organization.libraryFilterRequest
 import java.security.Principal
 import java.util.UUID
 import kotlinx.coroutines.runBlocking
@@ -32,8 +33,15 @@ class WorkflowController(
     @PostMapping("/chapters/upload")
     fun uploadChapter(principal: Principal, @RequestBody request: UploadedChapterRequest) = noStore(chapters.upload(principal.name, request))
     @GetMapping("/chapters")
-    fun chapters(principal: Principal, @RequestParam(defaultValue = "0") page: Int, @RequestParam(defaultValue = "12") size: Int) =
-        noStore(chapters.list(principal.name, page, size))
+    fun chapters(
+        principal: Principal,
+        @RequestParam(defaultValue = "0") page: Int,
+        @RequestParam(defaultValue = "12") size: Int,
+        @RequestParam(required = false) q: String? = null,
+        @RequestParam(required = false) folder: String? = null,
+        @RequestParam(required = false) tag: String? = null,
+        @RequestParam(required = false) favorite: String? = null,
+    ) = noStore(chapters.list(principal.name, page, size, libraryFilterRequest(q, folder, tag, favorite)))
     @GetMapping("/chapters/{recordId}")
     fun chapter(principal: Principal, @PathVariable recordId: UUID) = noStore(chapters.get(principal.name, recordId))
     @GetMapping("/translation-providers")

@@ -1,6 +1,9 @@
 package com.dongholab.pagetuner.server.workflow
 
 import com.dongholab.pagetuner.core.content.StableContentHash
+import com.dongholab.pagetuner.core.model.library.LibraryFilter
+import com.dongholab.pagetuner.server.organization.LibraryFilterSql
+import com.dongholab.pagetuner.server.organization.LibraryOrganizationKind
 import com.dongholab.pagetuner.source.service.SourceChapterDraft
 import com.fasterxml.jackson.core.type.TypeReference
 import com.fasterxml.jackson.databind.ObjectMapper
@@ -63,17 +66,27 @@ class SourceChapterStore(private val jdbc: JdbcTemplate, private val json: Objec
         .singleOrNull() ?: throw WorkflowFailure("CHAPTER_NOT_FOUND", 404, "원문을 찾을 수 없습니다.")
 
     @Transactional(readOnly = true, isolation = Isolation.REPEATABLE_READ)
-    fun list(user: String, page: Int, size: Int): WorkflowPage<ChapterSummary> {
+    fun list(user: String, page: Int, size: Int, filter: LibraryFilter = LibraryFilter()): WorkflowPage<ChapterSummary> {
         validateWorkflowPage(page, size)
-        val count = jdbc.queryForObject("select count(*) from source_chapter where user_id=?", Long::class.java, user)!!
+        val query = LibraryFilterSql(filter, LibraryOrganizationKind.ORIGINAL)
+        val arguments = listOf(user) + query.arguments
+        val count = jdbc.queryForObject("select count(*) from source_chapter document ${query.join} where document.user_id=? ${query.predicates}",
+            Long::class.java, *arguments.toTypedArray())!!
         val items = jdbc.query("""
             select id,provider_id,book_id,book_title,book_url,chapter_id,chapter_title,chapter_url,source_language,source_revision,
-                created_at,jsonb_array_length(paragraphs_json::jsonb) paragraph_count from source_chapter
-            where user_id=? order by created_at desc,id desc limit ? offset ?
+                created_at,jsonb_array_length(paragraphs_json::jsonb) paragraph_count from (
+                select document.id,document.provider_id,document.book_id,document.book_title,document.book_url,
+                    document.chapter_id,document.chapter_title,document.chapter_url,document.source_language,
+                    document.source_revision,document.created_at,document.paragraphs_json
+                from source_chapter document ${query.join}
+                where document.user_id=? ${query.predicates}
+                order by document.created_at desc,document.id desc limit ? offset ?
+            ) library_page order by created_at desc,id desc
         """.trimIndent(), RowMapper { row, _ -> ChapterSummary(row.getObject("id", UUID::class.java), row.getString("provider_id"),
             row.getString("book_id"), row.getString("book_title"), row.getString("book_url"), row.getString("chapter_id"),
             row.getString("chapter_title"), row.getString("chapter_url"), row.getString("source_language"), row.getString("source_revision"),
-            row.getInt("paragraph_count"), row.getTimestamp("created_at").toInstant()) }, user, size, page.toLong() * size)
+            row.getInt("paragraph_count"), row.getTimestamp("created_at").toInstant()) },
+            *(arguments + listOf(size, page.toLong() * size)).toTypedArray())
         return WorkflowPage(items, page, size, count)
     }
 

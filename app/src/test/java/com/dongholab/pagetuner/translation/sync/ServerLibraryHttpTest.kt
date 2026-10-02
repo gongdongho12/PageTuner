@@ -4,6 +4,7 @@ import com.dongholab.pagetuner.core.content.BookIdentity
 import com.dongholab.pagetuner.core.content.ChapterContent
 import com.dongholab.pagetuner.core.content.ChapterIdentity
 import com.dongholab.pagetuner.core.content.ContentParagraph
+import com.dongholab.pagetuner.core.model.library.LibraryFilter
 import kotlinx.coroutines.runBlocking
 import org.json.JSONArray
 import org.json.JSONObject
@@ -11,6 +12,30 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class ServerLibraryHttpTest {
+    @Test
+    fun filtersUseEncodedParametersAndRetainExplicitEmptyFolderAndFalseFavorite() = runBlocking {
+        val requests = mutableListOf<TranslationStoreHttpRequest>()
+        val client = client { request ->
+            requests += request
+            TranslationStoreHttpResponse(200, body = """{"items":[],"page":0,"size":12,"totalItems":0,"totalPages":0,"hasNext":false}""")
+        }
+        client.list(ServerLibraryKind.Translations, filter = LibraryFilter(
+            q = "한글 +&%_?#", folder = "", tag = "인물,별명", favorite = false))
+        assertTrue(requests.single().url.endsWith("q=%ED%95%9C%EA%B8%80%20%2B%26%25_%3F%23&folder=&tag=%EC%9D%B8%EB%AC%BC%2C%EB%B3%84%EB%AA%85&favorite=false"))
+        client.list(ServerLibraryKind.Originals, filter = LibraryFilter(folder = "책 & 시", favorite = true))
+        assertTrue(requests.last().url.endsWith("/chapters?page=0&size=12&folder=%EC%B1%85%20%26%20%EC%8B%9C&favorite=true"))
+    }
+
+    @Test
+    fun invalidFiltersFailBeforeSendingRequests() {
+        var calls = 0
+        val client = client { calls++; error("Invalid filter sent") }
+        listOf(LibraryFilter(q = "a".repeat(201)), LibraryFilter(tag = ""), LibraryFilter(folder = " padded ")).forEach { filter ->
+            assertThrows(IllegalArgumentException::class.java) { runBlocking { client.list(ServerLibraryKind.Translations, filter = filter) } }
+        }
+        assertEquals(0, calls)
+    }
+
     @Test
     fun sharedListAndStoredFixturesLoadWithSameAuthenticationAndValidatedHashes() = runBlocking {
         val requests = mutableListOf<TranslationStoreHttpRequest>()
