@@ -1,0 +1,13 @@
+{
+  "providerId": "wtr-lab",
+  "bookId": "https://wtr-lab.com/en/novel/42/river",
+  "expectedVersion": 0,
+  "mutationId": "9863c674-6f07-469f-b548-cfda7c01fc3d",
+  "deleted": false,
+  "book": {
+    "title": "River",
+    "authors": ["Author", "作者"],
+    "language": "en",
+    "url": "https://wtr-lab.com/en/novel/42/river"
+  }
+}
