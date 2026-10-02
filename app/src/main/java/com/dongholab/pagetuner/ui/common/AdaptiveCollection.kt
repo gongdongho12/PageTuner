@@ -33,22 +33,12 @@ fun <T> AdaptiveCollection(
     busy: Boolean = false,
     pagingState: EinkPagingState = rememberEinkPagingState(),
     itemKey: ((T) -> Any)? = null,
+    onInsufficientHeight: ((Dp?) -> Unit)? = null,
     emptyContent: @Composable () -> Unit = {},
     scrollItemContent: (@Composable (T) -> Unit)? = null,
     pagedItemContent: @Composable (T) -> Unit,
 ) {
     val scrollState = rememberLazyListState()
-    if (items.isEmpty()) {
-        Box(
-            modifier = modifier
-                .fillMaxWidth()
-                .clipToBounds(),
-        ) {
-            emptyContent()
-        }
-        return
-    }
-
     when (LocalListLayoutMode.current) {
         ListLayoutMode.Paged -> EinkAutoFitPagingContainer(
             items = items,
@@ -58,11 +48,17 @@ fun <T> AdaptiveCollection(
             fallbackPageSize = fallbackPageSize,
             busy = busy,
             state = pagingState,
+            itemKey = itemKey,
+            onInsufficientHeight = onInsufficientHeight,
             emptyContent = emptyContent,
             itemContent = pagedItemContent,
         )
 
         ListLayoutMode.Scroll -> {
+            if (items.isEmpty()) {
+                Box(modifier = modifier.fillMaxWidth().clipToBounds()) { emptyContent() }
+                return
+            }
             val indexedKey: ((Int, T) -> Any)? = itemKey?.let { stableKey ->
                 { _, item -> stableKey(item) }
             }
