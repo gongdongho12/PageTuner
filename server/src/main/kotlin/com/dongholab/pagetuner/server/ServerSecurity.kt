@@ -18,7 +18,7 @@ class ServerSecurity {
     @Bean
     fun securityFilterChain(http: HttpSecurity, attempts: ObjectProvider<AccountAttempts>): SecurityFilterChain = http
         .authorizeHttpRequests {
-            it.requestMatchers(HttpMethod.GET, "/", "/index.html", "/sharing.html", "/assets/**", "/icon.svg", "/manifest.webmanifest", "/sw.js")
+            it.requestMatchers(HttpMethod.GET, "/", "/index.html", "/sharing.html", "/assets/**", "/icon.svg", "/manifest.webmanifest", "/sw.js", "/fonts/OFL-NotoSerifKR.txt")
                 .permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/v1/accounts/csrf", "/api/v1/accounts/languages").permitAll()
                 .requestMatchers(HttpMethod.POST, "/api/v1/accounts/register").permitAll()
