@@ -10,24 +10,34 @@ import org.json.JSONObject
 class BookGlossaryStore(private val rootDirectory: File) {
     constructor(context: Context) : this(context.filesDir.resolve("book-glossaries"))
 
-    private val lock = ReentrantLock()
+    private val lock = Locks.getOrPut(rootDirectory.absoluteFile.normalize().path) { ReentrantLock() }
 
     fun load(bookId: String): BookGlossary = lock.withLock {
         val safeId = safeBookId(bookId)
         val file = rootDirectory.resolve("$safeId.json")
+        recover(file)
         if (!file.exists()) return@withLock BookGlossary(bookId)
-        runCatching { decode(file.readText()) }.getOrElse { BookGlossary(bookId) }
+        require(file.length() <= 8_388_608) { "Dictionary file is too large." }
+        decode(file.readText()).also { require(it.bookId == bookId) { "Dictionary identity mismatch." } }
     }
 
     fun save(glossary: BookGlossary) = lock.withLock {
         rootDirectory.mkdirs()
         val target = rootDirectory.resolve("${safeBookId(glossary.bookId)}.json")
+        recover(target)
         val temporary = rootDirectory.resolve("${target.name}.tmp")
-        temporary.writeText(encode(glossary))
-        check(temporary.renameTo(target) || run {
-            temporary.copyTo(target, overwrite = true)
-            temporary.delete()
-        }) { "Unable to save book glossary." }
+        val backup = rootDirectory.resolve("${target.name}.bak")
+        val bytes = encode(glossary).toByteArray(Charsets.UTF_8)
+        require(bytes.size <= 8_388_608)
+        temporary.outputStream().use { it.write(bytes); it.fd.sync() }
+        if (target.exists()) check(target.renameTo(backup)) { "Unable to retain dictionary backup." }
+        try {
+            check(temporary.renameTo(target)) { "Unable to save book glossary." }
+            check(!backup.exists() || backup.delete()) { "Unable to finish dictionary save." }
+        } catch (error: Exception) {
+            if (backup.exists()) { if (target.exists()) target.delete(); backup.renameTo(target) }
+            throw error
+        }
     }
 
     fun mergeCharacterAliases(
@@ -41,7 +51,9 @@ class BookGlossaryStore(private val rootDirectory: File) {
     }
 
     fun delete(bookId: String) = lock.withLock {
-        rootDirectory.resolve("${safeBookId(bookId)}.json").delete()
+        val target = rootDirectory.resolve("${safeBookId(bookId)}.json")
+        recover(target)
+        !target.exists() || target.delete()
     }
 
     internal fun encode(glossary: BookGlossary): String = JSONObject()
@@ -63,27 +75,31 @@ class BookGlossaryStore(private val rootDirectory: File) {
 
     internal fun decode(raw: String): BookGlossary {
         val root = JSONObject(raw)
-        val entriesJson = root.optJSONArray("entries") ?: JSONArray()
-        val entries = buildList {
-            for (index in 0 until entriesJson.length()) {
-                val item = entriesJson.optJSONObject(index) ?: continue
-                val id = item.optString("id")
-                val source = item.optString("sourceTerm")
-                val translated = item.optString("translatedTerm")
-                if (id.isBlank() || source.isBlank() || translated.isBlank()) continue
-                add(BookGlossaryEntry(
-                    id = id,
-                    sourceTerm = source,
-                    translatedTerm = translated,
-                    displayTerm = item.optString("displayTerm"),
-                    kind = runCatching { GlossaryTermKind.valueOf(item.optString("kind")) }
-                        .getOrDefault(GlossaryTermKind.Term),
-                    caseSensitive = item.optBoolean("caseSensitive", false),
-                    enabled = item.optBoolean("enabled", true),
-                ))
-            }
+        require(root.get("version") == 1)
+        val entriesJson = root.getJSONArray("entries")
+        val entries = List(entriesJson.length()) { index ->
+            val item = entriesJson.getJSONObject(index)
+            BookGlossaryEntry(id = item.get("id") as String,
+                sourceTerm = item.get("sourceTerm") as String, translatedTerm = item.get("translatedTerm") as String,
+                displayTerm = item.get("displayTerm") as String,
+                kind = GlossaryTermKind.valueOf(item.get("kind") as String),
+                caseSensitive = item.get("caseSensitive") as Boolean, enabled = item.get("enabled") as Boolean)
+                .also { require(it.id.isNotBlank() && it.sourceTerm.isNotBlank() && it.translatedTerm.isNotBlank()) }
         }
-        return BookGlossary(bookId = root.optString("bookId"), entries = entries)
+        require(entries.map { it.id }.distinct().size == entries.size)
+        return BookGlossary(bookId = root.get("bookId") as String, entries = entries)
+    }
+
+    private fun recover(target: File) {
+        val backup = File(target.path + ".bak")
+        if (backup.exists()) {
+            check(!target.exists() || target.delete()) { "Unable to restore dictionary." }
+            check(backup.renameTo(target)) { "Unable to restore dictionary." }
+        }
+    }
+
+    private companion object {
+        val Locks = java.util.concurrent.ConcurrentHashMap<String, ReentrantLock>()
     }
 
     private fun safeBookId(bookId: String): String {

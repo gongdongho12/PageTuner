@@ -77,7 +77,7 @@ class AdaptiveCollectionScreenBenchmarkTest {
 
     @Test
     fun benchmarkPagedAndTouchScrollForEveryAdaptiveCollectionScreen() {
-        assertEquals(26, ScreenFixtures.size)
+        assertEquals(28, ScreenFixtures.size)
 
         val activeScenario = mutableStateOf(
             BenchmarkScenario(ScreenFixtures.first(), ListLayoutMode.Paged, runId = 0),
@@ -247,6 +247,7 @@ private val ScreenFixtures = listOf(
     ScreenFixture("local_directory", "Local · Device files", "LocalDirectoryBrowserPanel", 64, 5, 48, 1, 0),
     ScreenFixture("favorites", "Favorites", "FavoritesPanel", 116, 3, 48, 3, 1, fontScaleAwareHeight = true),
     ScreenFixture("source_favorites_sync", "Favorites · Account sync", "FavoritesScreen", 100, 3, 12, 2, 2, fontScaleAwareHeight = true),
+    ScreenFixture("book_glossary_sync", "Dictionary · Account sync", "ServerBookGlossaryPanel", 116, 3, 32, 2, 2, fontScaleAwareHeight = true),
     ScreenFixture("web_catalog_page", "Web Novel · Catalog page", "WebCatalogPagePanel", 104, 3, 80, 3, 2, hasThumbnail = true, expandedTouchRowHeightDp = 132),
     ScreenFixture("web_catalog_root", "Web Novel · Root catalog", "RemoteSourcesTodoPanel/catalog", 104, 3, 80, 3, 2, hasThumbnail = true, expandedTouchRowHeightDp = 132),
     ScreenFixture("web_detail_dialog", "Web Novel · Chapter dialog", "WebNovelDetailDialog", 64, 3, 80, 1, 1),

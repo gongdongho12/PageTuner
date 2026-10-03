@@ -271,6 +271,20 @@ class HttpTranslationStore(
         } }
     }
 
+    suspend fun bookGlossary(identity: com.dongholab.pagetuner.core.model.glossary.BookGlossarySyncIdentity): ServerBookGlossary = withContext(Dispatchers.IO) {
+        com.dongholab.pagetuner.core.model.glossary.BookGlossarySyncValidation.validateIdentity(identity)
+        // Read-only POST avoids request-line limits for 2000-unit non-ASCII book IDs.
+        val response = writeWithCsrf("/api/v1/book-glossary/query", "POST", ServerBookGlossaryJson.encode(identity), true)
+        decode { ServerBookGlossaryJson.view(JSONObject(response.body), identity) }
+    }
+
+    suspend fun saveBookGlossary(identity: com.dongholab.pagetuner.core.model.glossary.BookGlossarySyncIdentity, mutation: BookGlossaryMutation): ServerBookGlossary = withContext(Dispatchers.IO) {
+        val response = writeWithCsrf("/api/v1/book-glossary", "PUT", ServerBookGlossaryJson.encode(identity, mutation), true)
+        decode { ServerBookGlossaryJson.view(JSONObject(response.body), identity).also {
+            require(it.version == mutation.expectedVersion + 1 && it.value == mutation.value)
+        } }
+    }
+
     suspend fun readerPreferences(): ServerReaderPreferences = withContext(Dispatchers.IO) {
         val response = execute("/api/v1/reader-preferences", "GET")
         decode { ServerReaderPreferencesJson.view(JSONObject(response.body)) }
@@ -361,7 +375,23 @@ class HttpTranslationStore(
         if (path.substringBefore('?') == "/api/v1/source-book-favorites" && response.body.toByteArray(Charsets.UTF_8).size > 2_097_152) {
             throw TranslationStoreException(TranslationStoreFailure.INVALID_RESPONSE)
         }
+        if (path.substringBefore('?') in setOf("/api/v1/book-glossary", "/api/v1/book-glossary/query") && response.body.toByteArray(Charsets.UTF_8).size > 2_097_152) {
+            throw TranslationStoreException(TranslationStoreFailure.INVALID_RESPONSE)
+        }
         if (response.status !in 200..299) {
+            if (path.substringBefore('?') in setOf("/api/v1/book-glossary", "/api/v1/book-glossary/query") && response.status == 429) {
+                val seconds = response.headers.entries.firstOrNull { it.key.equals("Retry-After", true) }?.value?.firstOrNull()
+                    ?.toLongOrNull()?.takeIf { it in 1..86_400 } ?: 60L
+                throw BookGlossaryRateLimited(seconds)
+            }
+            if (path == "/api/v1/book-glossary" && method == "PUT" && response.status == 409) {
+                val value = decode { JSONObject(response.body) }
+                if (value.optString("code") == "BOOK_GLOSSARY_CONFLICT") {
+                    val current = decode { ServerBookGlossaryJson.view(value.getJSONObject("current"),
+                        ServerBookGlossaryJson.identity(JSONObject(requireNotNull(body)))) }
+                    throw BookGlossaryConflict(current)
+                }
+            }
             if (path.substringBefore('?') == "/api/v1/source-book-favorites" && response.status == 429) {
                 val seconds = response.headers.entries.firstOrNull { it.key.equals("Retry-After", true) }?.value?.firstOrNull()
                     ?.toLongOrNull()?.takeIf { it in 1..86_400 } ?: 60L

@@ -84,6 +84,7 @@ import com.dongholab.pagetuner.translation.TranslationSettings
 import com.dongholab.pagetuner.translation.TranslationStatus
 import com.dongholab.pagetuner.translation.TranslationViewModel
 import com.dongholab.pagetuner.translation.sync.ServerLibraryViewModel
+import com.dongholab.pagetuner.translation.sync.glossaryTarget
 import com.dongholab.pagetuner.translation.sync.ServerLibraryEvent
 import com.dongholab.pagetuner.translation.sync.ServerReadingDocument
 import com.dongholab.pagetuner.translation.sync.ServerReadingProgressViewModel
@@ -218,6 +219,9 @@ fun PageTurnerApp() {
     val glossaryViewModel: BookGlossaryViewModel = viewModel(
         factory = BookGlossaryViewModel.Factory(glossaryStore),
     )
+    val serverGlossaryStore = remember(context) { com.dongholab.pagetuner.translation.sync.FileServerBookGlossaryStore(context.filesDir.resolve("server-book-glossaries")) }
+    val serverGlossaryViewModel: com.dongholab.pagetuner.translation.sync.ServerBookGlossaryViewModel = viewModel(
+        factory = com.dongholab.pagetuner.translation.sync.ServerBookGlossaryViewModel.Factory(serverGlossaryStore))
 
     // — State observation
     val deviceReaderSettings by settingsViewModel.settings.collectAsState(initial = ReaderSettings())
@@ -243,6 +247,7 @@ fun PageTurnerApp() {
     val serverNotesState by serverNotesViewModel.sync.state.collectAsState()
     val serverReadingDocument by serverProgressViewModel.document.collectAsState()
     val glossaryState by glossaryViewModel.uiState.collectAsState()
+    val observedServerGlossaryState by serverGlossaryViewModel.sync.state.collectAsState()
 
     // — UI state
     val focusRequester = remember { FocusRequester() }
@@ -369,16 +374,40 @@ fun PageTurnerApp() {
         batchSize = readerSettings.translationBatchSize,
         paceMode = readerSettings.paceMode,
     )
-    val activeGlossary = glossaryState.glossary
-    val activeTranslationProvider = remember(settings, cache, activeGlossary?.bookId, activeGlossary?.translationFingerprint) {
+    val glossaryReading = serverReadingDocument?.takeIf { it.readerId == document.id }
+    val glossaryTarget = glossaryReading?.takeIf { it.accountKey == serverReadingConnection?.accountKey }
+        ?.glossaryTarget(settings.normalizedTargetLanguage.lowercase(java.util.Locale.ROOT))
+    val serverGlossaryState = observedServerGlossaryState.takeIf {
+        it.target == glossaryTarget && it.accountKey == serverReadingConnection?.accountKey
+    } ?: com.dongholab.pagetuner.translation.sync.BookGlossaryUiState(session = -1)
+    val serverGlossaryReady = glossaryReading == null || (glossaryTarget != null && serverGlossaryState.loaded &&
+        (!serverGlossaryState.selected || serverGlossaryState.base.remote != null) &&
+        serverGlossaryState.phase != com.dongholab.pagetuner.translation.sync.ReadingProgressPhase.DeviceError)
+    val localGlossaryReady = glossaryReading != null || currentBookId == null ||
+        (glossaryState.glossary?.bookId == currentBookId && glossaryState.error == null && !glossaryState.busy)
+    val activeGlossary = if (glossaryReading == null) glossaryState.glossary?.takeIf { it.bookId == currentBookId && glossaryState.error == null }
+        else glossaryTarget?.takeIf { serverGlossaryReady && serverGlossaryState.selected }?.let {
+            com.dongholab.pagetuner.translation.glossary.BookGlossary(it.key, serverGlossaryState.base.local?.entries.orEmpty())
+        }
+    val activeTranslationProvider = remember(settings, cache, activeGlossary?.bookId, activeGlossary?.translationFingerprint,
+        serverGlossaryReady, localGlossaryReady, serverGlossaryState.session, serverGlossaryState.base, glossaryState.error) {
         val provider = TranslationProviderFactory.create(
             settings = settings,
             initialCharacterAliases = activeGlossary?.characterAliases.orEmpty(),
-            onCharacterAliases = activeGlossary?.let {
-                { suggestions -> glossaryViewModel.mergeLlmCharacterAliases(suggestions) }
+            onCharacterAliases = activeGlossary?.let { selectedGlossary ->
+                { suggestions ->
+                    if (glossaryReading == null) glossaryViewModel.mergeLlmCharacterAliases(selectedGlossary.bookId, suggestions)
+                    else serverGlossaryViewModel.sync.appendAliases(serverGlossaryState.session, serverGlossaryState.base, suggestions)
+                }
             },
         )
-        activeGlossary
+        if (!serverGlossaryReady || !localGlossaryReady) {
+            object : com.dongholab.pagetuner.translation.TranslationProvider {
+                override val id = "${provider.id}:glossary-unavailable"
+                override suspend fun translate(request: com.dongholab.pagetuner.translation.TranslationRequest): List<com.dongholab.pagetuner.translation.TranslatedSegment> =
+                    error(resources.getString(R.string.book_glossary_not_ready))
+            }
+        } else activeGlossary
                 ?.takeIf { it.activeEntries.isNotEmpty() }
                 ?.let { GlossaryTranslationProvider(provider, it) }
                 ?: provider
@@ -388,7 +417,7 @@ fun PageTurnerApp() {
     }
     val tableOfContents = document.tableOfContents
     val currentChapterIndex = tableOfContents.indexOfLast { it.pageIndex <= currentPage.index }
-    val canTranslateCurrentPage = settings.isProviderConfigured && currentPage.hasText
+    val canTranslateCurrentPage = settings.isProviderConfigured && currentPage.hasText && serverGlossaryReady && localGlossaryReady
     val translationCacheStatus = translationState.cacheStatus
     val currentPageTranslation = translationState.translation.forReaderPage(currentPage)
     val currentReaderTranslationLoad = translationState.readerLoad.takeIf {
@@ -646,7 +675,13 @@ fun PageTurnerApp() {
         serverNotesViewModel.sync.connect(serverReadingConnection)
         serverOrganizationViewModel.sync.connect(serverReadingConnection)
         sourceFavoritesViewModel.sync.connect(serverReadingConnection)
+        serverGlossaryViewModel.sync.connect(serverReadingConnection)
         serverReaderPreferencesViewModel.sync.connect(serverReadingConnection)
+    }
+    LaunchedEffect(glossaryTarget, serverReadingConnection) {
+        val connection = serverReadingConnection
+        if (glossaryTarget != null && connection != null) serverGlossaryViewModel.sync.open(glossaryTarget, connection)
+        else serverGlossaryViewModel.sync.close()
     }
     LaunchedEffect(serverReadingDocument, serverReadingConnection, document.id) {
         val reading = serverReadingDocument
@@ -679,6 +714,7 @@ fun PageTurnerApp() {
     }
 
     LaunchedEffect(document.id, pendingTranslationDocumentId, settings, repository) {
+        if (!serverGlossaryReady || !localGlossaryReady) return@LaunchedEffect
         if (pendingTranslationDocumentId != document.id) return@LaunchedEffect
         settingsViewModel.updateTranslationDisplayMode(
             com.dongholab.pagetuner.translation.TranslationDisplayMode.TranslationOnly,
@@ -722,6 +758,7 @@ fun PageTurnerApp() {
     }
 
     LaunchedEffect(document.id, pageIndex, settings, repository) {
+        if (!serverGlossaryReady || !localGlossaryReady) return@LaunchedEffect
         translationViewModel.onReaderPageChanged(
             document = document,
             currentPageIndex = pageIndex,
@@ -1289,7 +1326,10 @@ fun PageTurnerApp() {
                         }
                     }
                     com.dongholab.pagetuner.ui.reader.ReaderSubPage.GLOSSARY -> {
-                        com.dongholab.pagetuner.ui.translation.BookGlossaryPanel(
+                        if (glossaryReading != null) com.dongholab.pagetuner.ui.translation.ServerBookGlossaryPanel(
+                            state = serverGlossaryState, sync = serverGlossaryViewModel.sync, books = localBooks,
+                            deviceStore = glossaryStore, modifier = Modifier.weight(1f))
+                        else com.dongholab.pagetuner.ui.translation.BookGlossaryPanel(
                             modifier = Modifier.weight(1f),
                             bookTitle = currentBook?.title,
                             entries = activeGlossary?.entries.orEmpty(),
