@@ -36,6 +36,9 @@ fun WebNovelScreen(
     onTranslateCatalog: () -> Unit,
     onRemoteCatalogPageSelected: (Int) -> Unit,
     onBatchDownloadChapters: (List<RemoteBookItem>) -> Unit,
+    isFavorite: (RemoteBookItem) -> Boolean = { false },
+    onToggleFavorite: (RemoteBookItem) -> Unit = {},
+    onBookResolved: (RemoteBookItem) -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     val webNovelBusy = busy || state.catalogLoading != null
@@ -76,5 +79,8 @@ fun WebNovelScreen(
         onTranslateCatalog = onTranslateCatalog,
         onRemoteCatalogPageSelected = onRemoteCatalogPageSelected,
         onBatchDownloadChapters = onBatchDownloadChapters,
+        isFavorite = isFavorite,
+        onToggleFavorite = onToggleFavorite,
+        onBookResolved = onBookResolved,
     )
 }

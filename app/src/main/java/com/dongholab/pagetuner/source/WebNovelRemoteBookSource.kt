@@ -88,6 +88,8 @@ class WebNovelRemoteBookSource(
         }
     }
 
+    val sourceProviderId: String get() = siteAdapter.id
+
     suspend fun loadNovelDetail(): WebNovelSiteDetail {
         return siteAdapter.parseDetail(endpointHtml(), resolvedEndpointUrl)
     }
@@ -172,6 +174,8 @@ class WebNovelRemoteBookSource(
 
     private fun bookItem(book: WebNovelSiteBook): RemoteBookItem = RemoteBookItem(
         identity = RemoteBookIdentity(sourceType, accountId, book.id),
+        sourceProviderId = siteAdapter.id,
+        sourceBookId = com.dongholab.pagetuner.source.webnovel.WebNovelSeriesKeys.fromUrl(book.url),
         title = book.title,
         authors = book.authors,
         format = DocumentFormat.TEXT,

@@ -206,6 +206,9 @@ fun PageTurnerApp() {
     val serverProgressViewModel: ServerReadingProgressViewModel = viewModel(factory = ServerReadingProgressViewModel.Factory(serverProgressStore))
     val serverNotesStore = remember(context) { FileServerReadingNotesStore(context.filesDir.resolve("server-reading-notes")) }
     val serverNotesViewModel: ServerReadingNotesViewModel = viewModel(factory = ServerReadingNotesViewModel.Factory(serverNotesStore))
+    val sourceFavoritesStore = remember(context) { com.dongholab.pagetuner.translation.sync.FileSourceBookFavoritesStore(context.filesDir.resolve("source-book-favorites")) }
+    val sourceFavoritesViewModel: com.dongholab.pagetuner.translation.sync.SourceBookFavoritesViewModel = viewModel(
+        factory = com.dongholab.pagetuner.translation.sync.SourceBookFavoritesViewModel.Factory(sourceFavoritesStore))
     val serverOrganizationStore = remember(context) { com.dongholab.pagetuner.translation.sync.FileServerLibraryOrganizationStore(context.filesDir.resolve("server-library-organization")) }
     val serverOrganizationViewModel: com.dongholab.pagetuner.translation.sync.ServerLibraryOrganizationViewModel = viewModel(
         factory = com.dongholab.pagetuner.translation.sync.ServerLibraryOrganizationViewModel.Factory(serverOrganizationStore))
@@ -248,7 +251,12 @@ fun PageTurnerApp() {
     var selectedTab by remember { mutableStateOf(AppTab.Local) }
     var readerSubPage by remember { mutableStateOf(com.dongholab.pagetuner.ui.reader.ReaderSubPage.READER) }
     val navHistoryStack = remember { mutableStateListOf<NavigationHistoryFrame>() }
-    var favoritesList by remember { mutableStateOf(favoriteStore.listFavorites()) }
+    val initialFavorites = remember(favoriteStore) { runCatching { favoriteStore.listFavorites() } }
+    var favoritesList by remember { mutableStateOf(initialFavorites.getOrDefault(emptyList())) }
+    var favoritesError by remember { mutableStateOf(initialFavorites.isFailure) }
+    fun updateLocalFavorites(action: () -> List<com.dongholab.pagetuner.source.RemoteBookItem>) {
+        runCatching(action).onSuccess { favoritesList = it; favoritesError = false }.onFailure { favoritesError = true }
+    }
     var appStatusText by rememberSaveable(initialStatus) { mutableStateOf(initialStatus) }
     var appErrorText by rememberSaveable { mutableStateOf<String?>(null) }
     var pdfPageBitmap by remember { mutableStateOf<Bitmap?>(null) }
@@ -637,6 +645,7 @@ fun PageTurnerApp() {
         serverProgressViewModel.sync.connect(serverReadingConnection)
         serverNotesViewModel.sync.connect(serverReadingConnection)
         serverOrganizationViewModel.sync.connect(serverReadingConnection)
+        sourceFavoritesViewModel.sync.connect(serverReadingConnection)
         serverReaderPreferencesViewModel.sync.connect(serverReadingConnection)
     }
     LaunchedEffect(serverReadingDocument, serverReadingConnection, document.id) {
@@ -863,7 +872,10 @@ fun PageTurnerApp() {
                                 selectedTab = AppTab.WebNovel
                                 webCatalogViewModel.loadCatalog()
                             },
-                            onRemoveFavorite = { novel -> favoritesList = favoriteStore.toggleFavorite(novel) },
+                            onRemoveFavorite = { novel -> updateLocalFavorites { favoriteStore.toggleFavorite(novel) } },
+                            sync = sourceFavoritesViewModel.sync,
+                            accountKey = serverReadingConnection?.accountKey,
+                            localError = favoritesError,
                         )
                         AppTab.WebNovel -> Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                             EinkSegmentedControl(listOf("웹소설", "서버 서재"), webNovelSection,
@@ -919,6 +931,9 @@ fun PageTurnerApp() {
                             statusText = webCatalogStatusText,
                             targetLanguage = settings.normalizedTargetLanguage,
                             canTranslate = settings.isProviderConfigured,
+                            isFavorite = { item -> favoritesList.any { com.dongholab.pagetuner.source.sameFavorite(it, item) } },
+                            onToggleFavorite = { item -> updateLocalFavorites { favoriteStore.toggleFavorite(item) } },
+                            onBookResolved = { item -> updateLocalFavorites { favoriteStore.refreshMetadata(item) } },
                             onCatalogUrlChange = webCatalogViewModel::updateCatalogUrl,
                             onQueryChange = webCatalogViewModel::updateQuery,
                             onGenreSelected = webCatalogViewModel::updateGenreSelection,
