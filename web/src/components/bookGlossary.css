@@ -15,3 +15,10 @@
 .book-glossary-edit-field label { display: flex; flex-direction: column; gap: 8px; }
 .book-glossary-edit-field input, .book-glossary-edit-field select { height: 48px; min-height: 48px; width: 100%; }
 .book-glossary-empty { flex: 1; min-height: 0; display: grid; place-items: center; }
+@media (max-width: 599px) {
+  .book-glossary-toolbar { display: grid; grid-template-columns: auto minmax(0, 1fr); }
+  .book-glossary-toolbar > button:first-of-type { grid-column: 1; grid-row: 1; justify-self: start; }
+  .book-glossary-toolbar > strong { grid-column: 2; grid-row: 1; }
+  .book-glossary-toolbar > button:nth-of-type(2) { grid-column: 1; grid-row: 2; }
+  .book-glossary-toolbar > button:nth-of-type(3) { grid-column: 2; grid-row: 2; }
+}
