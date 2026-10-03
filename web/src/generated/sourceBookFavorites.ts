@@ -27,7 +27,7 @@ export interface components {
             language: string;
             /**
              * Format: uri
-             * @description Absolute HTTP(S) visible ASCII URI, host required, no credentials, percent escapes in authority (including IPv6 zone IDs), backslash or whitespace; port absent or0..65535.
+             * @description Absolute HTTP(S) visible ASCII URI, no credentials, percent escapes in authority, backslash or whitespace; port absent or 0..65535. Host is ASCII DNS (labels 1..63 characters, name at most 253 excluding optional trailing dot, final multi-label DNS label starts with a letter), canonical four decimal IPv4 octets 0..255 without leading zeros or trailing dot, or bracketed pure IPv6 without zone ID or dotted IPv4 tail. Numeric/hex hosts requiring browser IPv4 repair are rejected.
              */
             url: string;
         };

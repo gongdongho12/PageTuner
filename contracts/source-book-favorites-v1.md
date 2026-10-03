@@ -43,7 +43,7 @@ All limits count UTF-16 code units. Required identity/display strings are nonemp
 | `book.title` | 1–500 units. |
 | `book.authors` | 0–20 strings, each 1–200 units; order preserved, empty array means unknown. |
 | `book.language` | 1–35 units; display/source language metadata. |
-| `book.url` | 1–2048 visible ASCII characters; absolute HTTP(S) URI with hostname, no credentials/userinfo, percent escapes in the authority (including IPv6 zone IDs), backslash, literal whitespace or controls; port absent or 0–65535. Unicode path/query may be percent-encoded without altering `bookId`. The server stores this inert metadata and never fetches it. |
+| `book.url` | 1–2048 visible ASCII characters; absolute HTTP(S) URI with hostname, no credentials/userinfo, percent escapes in the authority (including IPv6 zone IDs), backslash, literal whitespace or controls; port absent or 0–65535. Hosts use ASCII DNS labels (1–63 characters, total name at most 253 without an optional trailing dot; a multi-label name's final label starts with a letter), canonical four decimal IPv4 octets (0–255 without leading zeros or trailing dot), or bracketed pure IPv6 (no zone ID or dotted IPv4 tail). Numeric/hex hosts requiring browser IPv4 repair are rejected. Unicode path/query may be percent-encoded without altering `bookId`. The server stores this inert metadata and never fetches it. |
 | `expectedVersion` | Integer 0–9007199254740990, ensuring increment is JSON-safe. |
 | `mutationId` | Full hyphenated UUID. |
 

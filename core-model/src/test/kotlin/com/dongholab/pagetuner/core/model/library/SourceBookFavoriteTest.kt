@@ -29,4 +29,18 @@ class SourceBookFavoriteTest {
             assertThrows(IllegalArgumentException::class.java) { SourceBookFavoriteValidation.validateMetadata(book.copy(url = url)) }
         }
     }
+
+    @Test fun `accept only hosts that both URI and browser URL parse without numeric repairs`() {
+        listOf("http://localhost:8080/a", "https://EXAMPLE.COM./a", "https://127.0.0.1/a", "https://255.255.255.255/a",
+            "https://[::1]/a", "https://[2001:db8::1]:443/a",
+            "https://${List(3) { "a".repeat(63) }.joinToString(".")}.${"a".repeat(61)}/a").forEach { url ->
+            SourceBookFavoriteValidation.validateMetadata(book.copy(url = url))
+        }
+        listOf("https://192.168.001.008/a", "https://192.168.001.007/a", "https://4294967296/a", "https://127/a",
+            "https://0x100000000/a", "https://0x7f000001/a", "https://example.0x7f/a", "https://1.2.3.256/a",
+            "https://127.0.0.1./a", "https://[::ffff:192.168.1.1]/a", "https://${"a".repeat(64)}.test/a",
+            "https://${List(4) { "a".repeat(63) }.joinToString(".")}/a").forEach { url ->
+            assertThrows(url, IllegalArgumentException::class.java) { SourceBookFavoriteValidation.validateMetadata(book.copy(url = url)) }
+        }
+    }
 }
