@@ -9,11 +9,16 @@ import { getWorkflowPosition } from './workflowPosition'
 import type { ReadingDocument } from './readingDocument'
 import { validAnchor } from './readingDocument'
 import { readingRangeText } from './readingSelection'
+import { originalLibraryIdentity, translationLibraryIdentity, type LibraryDocumentIdentity } from './libraryIdentity'
 
 export type SavedExchange = { id: string; document: ExchangeDocument; assets: ExchangeAsset[]; importedAt: string; checksum: string; integratedNoteIds: string[] }
 type Row = SavedExchange & { username: string }
 const bytes = (value: unknown) => new TextEncoder().encode(JSON.stringify(value))
 const metadata = <T extends { paragraphs: unknown }>(value: T) => { const { paragraphs: _, ...rest } = value; return rest }
+/** Legacy source metadata may exceed the new proof bounds; keep its existing portable export. */
+async function identityExtension(recordId: string, create: () => Promise<LibraryDocumentIdentity>) {
+  try { return { documentIdentity: await create(), serverRecordId: recordId } } catch { return {} }
+}
 async function contentId(doc: ExchangeDocument) { return `exchange:${await localFileHash(bytes(doc))}` }
 async function checksum(doc: ExchangeDocument, assets: ExchangeAsset[]) { return localFileHash(bytes([doc, await Promise.all(assets.map(async a => [a.path, a.mimeType, await localFileHash(a.bytes)]))])) }
 
@@ -114,14 +119,14 @@ export async function exchangeExportChoices(username: string): Promise<ExchangeE
       const glossary = options.glossaryIdentity ? await createPersonalLibrary(username).getGlossary(options.glossaryIdentity.providerId, options.glossaryIdentity.bookId) : undefined
       const extensions = { ...options.extensions, ...(reading.local?.pdfTextPages ? { pdfTextPages: reading.local.pdfTextPages } : {}), ...(reading.local?.pdfTextErrorPages ? { pdfTextErrorPages: reading.local.pdfTextErrorPages } : {}) }
       const document = validateExchangeDocument({ id: reading.id, bookTitle: reading.bookTitle, chapterTitle: reading.chapterTitle, language: reading.language, kind: reading.kind === 'introduction' ? 'original' : reading.kind,
-        paragraphs: reading.paragraphs, outline: reading.outline ?? [], ...(position ? { position } : {}), notes: savedNotes.items.map(({ documentId: _, ...note }) => note), organization: options.organization ?? { folder: '', tags: [], favorite: false },
+        paragraphs: reading.paragraphs.map(({ paragraphId, text }) => ({ paragraphId, text })), outline: reading.outline ?? [], ...(position ? { position } : {}), notes: savedNotes.items.map(({ documentId: _, ...note }) => note), organization: options.organization ?? { folder: '', tags: [], favorite: false },
         glossary: glossary?.entries.map(g => ({ ...g, caseSensitive: g.caseSensitive ?? false, enabled: g.enabled ?? true })) ?? [], assets: refs, ...(Object.keys(extensions).length ? { extensions } : {}) })
       return { createdAt: new Date().toISOString(), documents: [document], assets }
     }
     return [
       ...local.books.map(book => ({ key: `local:${book.document.id}`, title: book.document.bookTitle, kind: book.document.local.format.toUpperCase(), load: () => prepare(book.document, { organization: book.organization }) })),
-      ...translations.books.map(book => ({ key: `translation:${book.translation.recordId}`, title: book.translation.bookTitle || book.translation.bookId, kind: 'translation', load: () => prepare(translationReadingDocument(book.translation), { anchor: getTranslationPosition(username, book.translation) ?? book.anchor, extensions: { translation: metadata(book.translation) }, glossaryIdentity: { providerId: book.translation.contentProviderId, bookId: book.translation.bookId } }) })),
-      ...originals.books.map(book => { const c = book.chapter; const reading: ReadingDocument = { id: `original:${c.recordId}:${c.sourceRevision}`, kind: 'original', bookTitle: c.bookTitle, chapterTitle: c.chapterTitle, language: c.sourceLanguage, paragraphs: c.paragraphs }; return { key: `original:${c.recordId}`, title: c.bookTitle, kind: 'original', load: () => prepare(reading, { anchor: getWorkflowPosition(username, reading), extensions: { source: metadata(c) }, glossaryIdentity: { providerId: c.providerId, bookId: c.bookId } }) } }),
+      ...translations.books.map(book => ({ key: `translation:${book.translation.recordId}`, title: book.translation.bookTitle || book.translation.bookId, kind: 'translation', load: async () => prepare(translationReadingDocument(book.translation), { anchor: getTranslationPosition(username, book.translation) ?? book.anchor, extensions: { translation: metadata(book.translation), ...await identityExtension(book.translation.recordId, () => translationLibraryIdentity(book.translation)) }, glossaryIdentity: { providerId: book.translation.contentProviderId, bookId: book.translation.bookId } }) })),
+      ...originals.books.map(book => { const c = book.chapter; const reading: ReadingDocument = { id: `original:${c.recordId}:${c.sourceRevision}`, kind: 'original', bookTitle: c.bookTitle, chapterTitle: c.chapterTitle, language: c.sourceLanguage, paragraphs: c.paragraphs }; return { key: `original:${c.recordId}`, title: c.bookTitle, kind: 'original', load: async () => prepare(reading, { anchor: getWorkflowPosition(username, reading), extensions: { source: metadata(c), ...await identityExtension(c.recordId, () => originalLibraryIdentity(c)) }, glossaryIdentity: { providerId: c.providerId, bookId: c.bookId } }) } }),
       ...exchanged.map(book => ({ key: book.id, title: book.document.bookTitle, kind: 'ZIP', load: () => portable.exportDocument(book) })),
     ]
   } finally { personal.close(); offline.close() }

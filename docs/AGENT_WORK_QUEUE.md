@@ -27,7 +27,10 @@
 | S3b2b | S3 하위 | 완료 | 소스 책 즐겨찾기 계정 동기화 | 원래 provider/book 식별자, 명시적 기기 채택, CAS/삭제/불변 변경 이력, 앱·웹 영속 대기열. 서버 164개·공통 11개·웹 385개·앱 442개 통과. 실제 오프라인 재시작·다른 클라이언트와 충돌·선택 및 WTR-LAB 계정 추가/목차 재진입 확인. Android 실기기는 V3. [범위·검증](SOURCE_BOOK_FAVORITES_SYNC.md) |
 | S3c | S3 하위 | 완료 | 용어집 계정 동기화 | 원래 책 식별자·언어 범위, 항목 ID/배열 순서/원문/번역/별칭/종류/대소문자/활성 상태 보존. 스냅샷 CAS·명시적 채택·삭제/충돌·영속 대기열, 앱/웹 편집과 실제 번역 연결. displayTerm/kind 변경과 번역 fingerprint 구분. 공통 15개·서버 177개·웹 404개·앱 460개 및 실제 웹/Google 번역 검증. 독립 로컬/ZIP 대응은 S4. [범위·근거](BOOK_GLOSSARY_SYNC.md) |
 | U1 | 3a | 완료 | 화면에 맞춘 목록·본문 페이지 채움과 잘림 수정 | 양쪽 8행 제한 제거·실측 행/버튼·키 anchor·부족 공간 안내, 웹 DOM/폰트 재측정·도구 배치·가로 화면 개선, Android canonical ID를 유지한 별도 표시 페이지·고정 글꼴·정확한 서버 anchor 연결 완료. 웹 345개·앱 394개·공통 번역 42개와 실제 브라우저 검증 성공. Android 계측 실행은 V3, EPUB 이미지 누락은 D2. [검증](VIEWPORT_PAGINATION.md) |
-| S4 | 4 | 대기 | 로컬·ZIP 문서의 동기화 식별자 | 내용 해시·원문 revision·언어를 통한 동일 문서 대응, PDF/EPUB anchor 매핑, S1~S3 확장과 새 서버 기록의 ZIP 재출력 통합, 잘못된 문서 병합 방지 |
+| S4 | 4 | 진행 | 로컬·ZIP 문서의 동기화 식별자 | S4a 원본 식별·검증, S4b 명시적 서버 연결/anchor 대응, S4c 최신 S1~S3 기록의 ZIP 왕복으로 나눠 진행. 전체 내용·revision·언어 일치 없이 병합하지 않음 |
+| S4a | S4 하위 | 완료 | ZIP 원본 식별자 보존과 서버 동일성 확인 | 공통 provenance/ordered 문단 digest와 원래 provider/book/chapter/revision 보존, 현재 계정 서버 문서의 읽기 전용 확인. 서버 185개·웹 416개·앱 469개와 실제 웹→공통 Android runtime→웹 ZIP 왕복 확인. 자동 연결은 S4b, 실기기는 V3. [근거](PORTABLE_DOCUMENT_IDENTITY.md) |
+| S4b | S4 하위 | 대기 | 검증된 로컬·ZIP 문서의 명시적 서버 연결 | 계정·origin별 binding, 늦은 계정 전환/삭제 대응, 정확한 문단·UTF-16 anchor 대응, PDF/EPUB 물리 페이지와 본문 위치 구분, S1~S3 연결 |
+| S4c | S4 하위 | 대기 | 최신 동기화 기록의 ZIP 내보내기·가져오기 | 현재 위치·메모·분류·원래 ID와 언어 범위가 있는 용어집의 무손실 스냅샷, 충돌/대기 상태 구분, 자격 증명·CAS/outbox mutation 이전 금지 |
 | W1 | 5 | 대기 | 웹 로컬 번역 캐시의 서버 업로드·복원 | 전체 문단 검증, 원문 revision 대응, 미완성/다른 제공자 충돌 처리, 앱에서 재조회 |
 | W2 | 6 | 대기 | 웹 진단 화면 | 민감정보 제거된 제한 크기 로그, 번역/수집/동기화 오류 구분, 복사/내보내기·삭제, 작은 화면 페이지 탐색 |
 | W3 | 7 | 대기 | 번역 작업 제어와 묶음 범위 개선 | 앱·웹 일시정지/재개 동작 통일 가능 범위, 현재 20회차 제한의 서버 큐 확장, 재시작·중복 제출·취소 검증 |
@@ -102,3 +105,9 @@ WTR/NovelBuddy 수집·서버 번역·원문/번역 서재·Google 웹 번역 �
 - S3c 실제 검증: 격리 8081 HTTP에서 500항목·100/2,000/200 CJK 원본 식별자를 손실 없이 왕복하고 재전송·삭제·409·언어 격리를 확인했다. Google Web으로 합성 원문 2문단을 번역해 원래 항목 ID와 fingerprint를 확인했다. 웹에서 명시적 계정 선택, 원문/번역 ko 범위, 별칭·종류·활성·대소문자 CRUD, 전체 삭제와 원격 복원, 오프라인 편집→탭 종료→별도 클라이언트 변경→재로그인 충돌 비교→기기 선택(version 6)을 확인했다. 계정→기기 모드 복귀, 390×844 한/영과 844×390 가로 배치도 검증했다. [상세 근거](BOOK_GLOSSARY_SYNC.md).
 - 미리보기 8080은 활성 번역 작업 0개와 실행 JAR/PID를 확인한 뒤 새 서버로 갱신했고 health UP, 공유 HTML 200, V13 마이그레이션 성공을 확인했다. 연결 Android 장치가 없어 물리 핫스팟/Doze 검증은 V3, 유료 공급자 실호출은 V2다. V1의 계정 CRUD/별칭 검증은 진행했으나 파일 JSON·조사·강조 선택 전체 회귀는 아직 완료로 표시하지 않는다.
 - 다음 실행: **PR #32 최종 head CI·미완성 변경을 먼저 확인한 뒤 S4 로컬/ZIP 문서 동기화 식별자**를 진행한다. 원문 revision/전체 내용 hash/언어를 바탕으로 명시적 동일성 검증을 설계하고 PDF/EPUB/번역·서버 기록/ZIP 재출력의 표현 범위를 구분한다. 제목이나 화면 페이지로 자동 병합하지 않는다. S3c를 다시 만들지 않고 진행 가능한 큐가 남으므로 반복 실행을 유지한다.
+
+- 2026-10-03 사용자 확인: 전체 개발 완료가 아니라 S3c까지 완료한 상태임을 명확히 했다. PR #32 최종 `5dba8f7` [CI](https://github.com/gongdongho12/PageTuner/actions/runs/37092054617) 성공(3분35초)과 깨끗한 작업 트리를 재확인하고 `codex/portable-document-identity`에서 S4를 시작했다. S4a/b/c 완료 범위를 나누며 이번 첫 단위의 동일성 검증이 자동 동기화 완성을 뜻하지 않는다. 앱 ZIP의 원본 provider/book/chapter 누락과 웹/앱의 서로 다른 passive metadata 구조를 먼저 공통화한다.
+
+- 2026-10-03 S4a 완료: 공통/runtime `c19fd24`, Android `9428039`, 웹 `861752c`, 세션/언어팩 `277d53e`, 서버 `927a4b2`, 작은 화면 문구 `1f1f9d1`로 나눠 커밋·푸시했다. [draft PR #33](https://github.com/gongdongho12/PageTuner/pull/33)의 base는 `codex/book-glossary-sync`(#32)이며 자동 병합하지 않는다. 서버 head `927a4b2` [CI](https://github.com/gongdongho12/PageTuner/actions/runs/37093995897) 성공(3분1초)을 확인했고 이후 최종 head CI는 PR 검사에서 확인한다.
+- S4a 검증: core-backup 6개·backup-runtime 16개·격리 PostgreSQL 서버 185개/29 suite·웹 416개/56파일·계약 14개·Android 469개 통과/기존 opt-in 15개 제외(111 suite). APK·lint(오류 0/경고 79/힌트 4)·계측 소스 컴파일·모듈 경계 성공. 공유 웹 자산 189개/4,671,706 bytes의 SHA-256 일치. 실제 HTTP 원문/번역 확인, 불일치/없는 문서 거절, 웹 다운로드→앱 공통 runtime 왕복→웹 가져오기/원문·번역 재확인, legacy 읽기 보존·변경 본문 거절, 390×844 한/영·844×390 가로 배치를 확인했다. [범위와 후속 설계 경계](PORTABLE_DOCUMENT_IDENTITY.md).
+- 전체 개발과 S4 전체는 아직 미완료다. 다음 실행은 **PR #33 최종 head CI와 작업 트리부터 확인한 뒤 S4b 명시적 연결/anchor 대응**, 이어서 **S4c 최신 계정 기록 ZIP 통합**이다. 성공한 identity 확인을 영속 binding이나 자동 동기화 권한으로 재사용하지 않는다. 기존 note bind의 자동 전송·마이그레이션 삭제, 문단 끝/빈 문단 anchor 한도, 언어가 없는 원문 dedup 키, ZIP 전체 JSON의 사본 hash와 원본 identity 차이를 먼저 해결한다. 제목/로컬 ID/페이지로 합치지 않는다. V2/V3 외부 검증 및 나머지 큐가 남아 있어 자동 실행을 유지한다.

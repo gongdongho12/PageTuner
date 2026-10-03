@@ -103,10 +103,18 @@ object PortableDocumentMapper {
                 .put("targetLanguage", artifact.targetLanguage).put("modelId", artifact.modelId)
                 .put("promptRevision", artifact.promptRevision).put("glossaryRevision", artifact.glossaryRevision)
         }
-        return LibraryExchangePackage(portableTimestamp(), listOf(ExchangeDocument("server:${value.entry.recordId}", value.entry.title,
+        val document = ExchangeDocument("server:${value.entry.recordId}", value.entry.title,
             value.sourceContent?.title ?: value.entry.title, value.entry.language,
             if (value.storedTranslation != null) "translation" else "original", paragraphs,
-            extensionsJson = JSONObject().put("server", metadata).toString())))
+            extensionsJson = JSONObject().put("server", metadata).put("serverRecordId", value.entry.recordId).toString())
+        // Legacy server records may be readable without meeting the new identity limits. Never
+        // block reading/download/export or fabricate a proof for those records.
+        val identified = runCatching {
+            val identity = value.storedTranslation?.artifact?.let(DocumentIdentities::translation)
+                ?: DocumentIdentities.original(requireNotNull(value.sourceContent))
+            DocumentIdentityJson.withIdentity(document, identity)
+        }.getOrDefault(document)
+        return LibraryExchangePackage(portableTimestamp(), listOf(identified))
     }
 
     /** A page may split a paragraph for E-Ink fitting; archive identities and UTF-16 offsets stay unchanged. */

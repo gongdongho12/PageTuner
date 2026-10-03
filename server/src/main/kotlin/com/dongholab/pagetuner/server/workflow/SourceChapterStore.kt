@@ -5,6 +5,7 @@ import com.dongholab.pagetuner.core.model.library.LibraryFilter
 import com.dongholab.pagetuner.server.organization.LibraryFilterSql
 import com.dongholab.pagetuner.server.organization.LibraryOrganizationKind
 import com.dongholab.pagetuner.source.service.SourceChapterDraft
+import com.fasterxml.jackson.core.JsonProcessingException
 import com.fasterxml.jackson.core.type.TypeReference
 import com.fasterxml.jackson.databind.ObjectMapper
 import java.sql.ResultSet
@@ -15,6 +16,9 @@ import org.springframework.jdbc.core.RowMapper
 import org.springframework.stereotype.Repository
 import org.springframework.transaction.annotation.Isolation
 import org.springframework.transaction.annotation.Transactional
+
+/** Stored content is unreadable; deliberately distinct from JDBC/SQL infrastructure failures. */
+class SourceChapterMetadataUnavailable(cause: Exception) : RuntimeException("Stored source metadata is unavailable.", cause)
 
 @Repository
 class SourceChapterStore(private val jdbc: JdbcTemplate, private val json: ObjectMapper) {
@@ -91,12 +95,21 @@ class SourceChapterStore(private val jdbc: JdbcTemplate, private val json: Objec
     }
 
     private val mapper = RowMapper { row: ResultSet, _: Int ->
-        StoredChapter(row.getObject("id", UUID::class.java), row.getString("provider_id"), row.getString("book_id"),
+        // Read through JDBC outside content validation. SQL failures must retain their original type.
+        val serializedParagraphs = row.getString("paragraphs_json")
+        val paragraphs = try {
+            val decoded = json.readValue(serializedParagraphs, object : TypeReference<List<SourceParagraph?>?>() {})
+            requireNotNull(decoded).map { requireNotNull(it) }
+        } catch (error: JsonProcessingException) { throw SourceChapterMetadataUnavailable(error) }
+        catch (error: IllegalArgumentException) { throw SourceChapterMetadataUnavailable(error) }
+        val chapter = StoredChapter(row.getObject("id", UUID::class.java), row.getString("provider_id"), row.getString("book_id"),
             row.getString("book_title"), row.getString("book_url"), row.getString("chapter_id"), row.getString("chapter_title"),
             row.getString("chapter_url"), row.getString("source_language"), row.getString("source_revision"),
-            json.readValue(row.getString("paragraphs_json"), object : TypeReference<List<SourceParagraph>>() {}),
-            row.getTimestamp("created_at").toInstant()).also { chapter ->
-                check(chapter.content().sourceRevision == chapter.sourceRevision) { "Stored source revision does not match its paragraphs." }
-            }
+            paragraphs, row.getTimestamp("created_at").toInstant())
+        try {
+            check(chapter.content().sourceRevision == chapter.sourceRevision) { "Stored source revision does not match its paragraphs." }
+        } catch (error: IllegalArgumentException) { throw SourceChapterMetadataUnavailable(error) }
+        catch (error: IllegalStateException) { throw SourceChapterMetadataUnavailable(error) }
+        chapter
     }
 }

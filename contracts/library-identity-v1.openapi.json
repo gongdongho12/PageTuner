@@ -1,0 +1,366 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "PageTurner library identity verification",
+    "version": "1.0.0",
+    "description": "Explicit read-only verification for text-only server exports. See library-identity-v1.md for byte framing, local proof verification and unsupported assets."
+  },
+  "paths": {
+    "/api/v1/library-identity/verify": {
+      "post": {
+        "operationId": "verifyLibraryIdentity",
+        "security": [
+          {
+            "basicAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "X-CSRF-TOKEN",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Token from /api/v1/csrf with its session cookie."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VerifyLibraryIdentityRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Owned immutable record matches every identity field and ordered paragraph hash; no synchronization binding is created.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VerifyLibraryIdentityResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Strict JSON, identity, kind or UUID is invalid.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LibraryIdentityProblem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LibraryIdentityProblem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "CSRF rejected.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LibraryIdentityProblem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Owned record does not exist; foreign and missing records are indistinguishable.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LibraryIdentityProblem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Identity mismatch or stored identity unavailable.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LibraryIdentityProblem"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Request exceeds 64 KiB.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LibraryIdentityProblem"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "basicAuth": {
+        "type": "http",
+        "scheme": "basic"
+      }
+    },
+    "schemas": {
+      "OriginalDocumentIdentity": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "version",
+          "kind",
+          "contentProviderId",
+          "bookId",
+          "chapterId",
+          "sourceRevision",
+          "sourceLanguage",
+          "paragraphHash"
+        ],
+        "properties": {
+          "version": {
+            "type": "integer",
+            "enum": [
+              1
+            ]
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "ORIGINAL"
+            ]
+          },
+          "contentProviderId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 2000
+          },
+          "bookId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 2000
+          },
+          "chapterId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 2000
+          },
+          "sourceRevision": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          },
+          "sourceLanguage": {
+            "type": "string",
+            "pattern": "^[A-Za-z][A-Za-z0-9-]{0,34}$"
+          },
+          "paragraphHash": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          }
+        }
+      },
+      "TranslationDocumentIdentity": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "version",
+          "kind",
+          "contentProviderId",
+          "bookId",
+          "chapterId",
+          "sourceRevision",
+          "sourceLanguage",
+          "paragraphHash",
+          "targetLanguage",
+          "translationProviderId",
+          "modelId",
+          "promptRevision",
+          "glossaryRevision",
+          "artifactId",
+          "revision",
+          "payloadHash"
+        ],
+        "properties": {
+          "version": {
+            "type": "integer",
+            "enum": [
+              1
+            ]
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "TRANSLATION"
+            ]
+          },
+          "contentProviderId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 2000
+          },
+          "bookId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 2000
+          },
+          "chapterId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 2000
+          },
+          "sourceRevision": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64
+          },
+          "sourceLanguage": {
+            "type": "string",
+            "pattern": "^[A-Za-z][A-Za-z0-9-]{0,34}$"
+          },
+          "paragraphHash": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          },
+          "targetLanguage": {
+            "type": "string",
+            "pattern": "^[A-Za-z][A-Za-z0-9-]{0,34}$"
+          },
+          "translationProviderId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 2000
+          },
+          "modelId": {
+            "type": "string",
+            "maxLength": 2000
+          },
+          "promptRevision": {
+            "type": "string",
+            "maxLength": 2000
+          },
+          "glossaryRevision": {
+            "type": "string",
+            "maxLength": 2000
+          },
+          "artifactId": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          },
+          "revision": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          },
+          "payloadHash": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          }
+        }
+      },
+      "LibraryDocumentIdentity": {
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/OriginalDocumentIdentity"
+          },
+          {
+            "$ref": "#/components/schemas/TranslationDocumentIdentity"
+          }
+        ]
+      },
+      "VerifyLibraryIdentityRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "kind",
+          "recordId",
+          "identity"
+        ],
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "ORIGINAL",
+              "TRANSLATION"
+            ]
+          },
+          "recordId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "identity": {
+            "$ref": "#/components/schemas/LibraryDocumentIdentity"
+          }
+        }
+      },
+      "VerifyLibraryIdentityResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "kind",
+          "recordId",
+          "identity",
+          "verified"
+        ],
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "ORIGINAL",
+              "TRANSLATION"
+            ]
+          },
+          "recordId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "identity": {
+            "$ref": "#/components/schemas/LibraryDocumentIdentity"
+          },
+          "verified": {
+            "type": "boolean",
+            "enum": [
+              true
+            ]
+          }
+        }
+      },
+      "LibraryIdentityProblem": {
+        "type": "object",
+        "required": [
+          "status",
+          "code"
+        ],
+        "properties": {
+          "status": {
+            "type": "integer"
+          },
+          "code": {
+            "type": "string",
+            "enum": [
+              "LIBRARY_IDENTITY_INVALID",
+              "LIBRARY_IDENTITY_NOT_FOUND",
+              "LIBRARY_IDENTITY_MISMATCH",
+              "LIBRARY_IDENTITY_UNAVAILABLE"
+            ]
+          },
+          "detail": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  }
+}

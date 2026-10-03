@@ -5,6 +5,8 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -22,11 +24,13 @@ private sealed interface PortableRow {
 @Composable
 fun PortableLibraryPanel(books: List<LocalBook>, currentBookId: String?, state: PortableLibraryState,
     onImport: () -> Unit, onNativeExport: (LocalBook, Boolean) -> Unit, onExport: (PortableLibraryEntry) -> Unit,
-    onOpen: (PortableLibraryEntry, Boolean) -> Unit, modifier: Modifier = Modifier) {
+    onOpen: (PortableLibraryEntry, Boolean) -> Unit, onVerify: (PortableLibraryEntry) -> Unit,
+    modifier: Modifier = Modifier) {
     var imported by remember { mutableStateOf(true) }
     val importedLabel = stringResource(R.string.portable_imported_library)
     val nativeLabel = stringResource(R.string.portable_native_library)
     val rows: List<PortableRow> = if (imported) state.entries.map { PortableRow.Imported(it) } else books.map { PortableRow.Native(it) }
+    val rowHeight = 168.dp * LocalDensity.current.fontScale.coerceAtLeast(1f)
     Column(modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(6.dp)) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
             OutlinedButton(onClick = onImport, enabled = !state.busy, modifier = Modifier.heightIn(min = 44.dp)) { Text(stringResource(R.string.portable_import)) }
@@ -37,10 +41,10 @@ fun PortableLibraryPanel(books: List<LocalBook>, currentBookId: String?, state: 
         if (state.busy) Text(stringResource(R.string.portable_busy), color = EinkInk)
         state.status?.let { Text(stringResource(it), color = EinkInk) }
         state.error?.let { Text(it, color = EinkInk, maxLines = 3, overflow = TextOverflow.Ellipsis) }
-        AdaptiveCollection(items = rows, modifier = Modifier.weight(1f), estimatedPagedItemHeight = 124.dp,
+        AdaptiveCollection(items = rows, modifier = Modifier.weight(1f).clipToBounds(), estimatedPagedItemHeight = rowHeight,
             busy = state.busy, itemKey = { when (it) { is PortableRow.Native -> it.book.id; is PortableRow.Imported -> it.entry.key } },
             emptyContent = { Text(stringResource(R.string.portable_empty), color = EinkMuted) }) { row ->
-            Surface(Modifier.fillMaxWidth().height(124.dp), color = EinkPanel, border = BorderStroke(1.dp, EinkLine), shadowElevation = 0.dp) {
+            Surface(Modifier.fillMaxWidth().height(rowHeight).clipToBounds(), color = EinkPanel, border = BorderStroke(1.dp, EinkLine), shadowElevation = 0.dp) {
                 Column(Modifier.padding(8.dp)) {
                     Text(when (row) { is PortableRow.Native -> row.book.title; is PortableRow.Imported -> row.entry.document.bookTitle },
                         color = EinkInk, maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
@@ -56,10 +60,14 @@ fun PortableLibraryPanel(books: List<LocalBook>, currentBookId: String?, state: 
                             is PortableRow.Imported -> {
                                 TextButton(onClick = { onOpen(row.entry, false) }, enabled = !state.busy, modifier = Modifier.heightIn(min = 44.dp)) { Text(stringResource(R.string.portable_open)) }
                                 TextButton(onClick = { onExport(row.entry) }, enabled = !state.busy, modifier = Modifier.heightIn(min = 44.dp)) { Text(stringResource(R.string.portable_export)) }
-                                if (row.entry.document.assets.any { it.role == "pdf" } && row.entry.document.paragraphs.isNotEmpty()) TextButton(onClick = { onOpen(row.entry, true) },
-                                    enabled = !state.busy, modifier = Modifier.heightIn(min = 44.dp)) { Text("PDF") }
                             }
                         }
+                    }
+                    if (row is PortableRow.Imported) Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
+                        TextButton(onClick = { onVerify(row.entry) }, enabled = !state.busy,
+                            modifier = Modifier.heightIn(min = 44.dp)) { Text(stringResource(R.string.portable_identity_check)) }
+                        if (row.entry.document.assets.any { it.role == "pdf" } && row.entry.document.paragraphs.isNotEmpty()) TextButton(onClick = { onOpen(row.entry, true) },
+                            enabled = !state.busy, modifier = Modifier.heightIn(min = 44.dp)) { Text("PDF") }
                     }
                 }
             }

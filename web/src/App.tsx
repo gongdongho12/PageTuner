@@ -42,6 +42,7 @@ import { createLibraryOrganizationClient, type LibraryOrganizationClient } from 
 import { LibraryOrganizationProvider } from './components/LibraryOrganizationProvider';
 import { createSourceFavoriteClient, type SourceFavoriteClient } from './lib/sourceFavoriteApi';
 import { createBookGlossaryClient, type BookGlossaryClient } from './lib/bookGlossaryApi';
+import { createLibraryIdentityClient, type LibraryIdentityClient } from './lib/libraryIdentityApi';
 import { BookGlossaryProvider } from './components/BookGlossaryProvider';
 import { SourceFavoriteProvider } from './components/SourceFavoriteProvider';
 import { LocalWorkspace } from "./components/LocalWorkspace";
@@ -262,6 +263,8 @@ export default function App() {
   const favoriteClientRef = useRef<SourceFavoriteClient | null>(null);
   const [glossaryClient, setGlossaryClient] = useState<BookGlossaryClient | null>(null);
   const glossaryClientRef = useRef<BookGlossaryClient | null>(null);
+  const [identityClient, setIdentityClient] = useState<LibraryIdentityClient | null>(null);
+  const identityClientRef = useRef<LibraryIdentityClient | null>(null);
   const [workflowClient, setWorkflowClient] = useState<WorkflowClient | null>(
     null,
   );
@@ -436,6 +439,7 @@ export default function App() {
       organizationClientRef.current?.close();
       favoriteClientRef.current?.close();
       glossaryClientRef.current?.close();
+      identityClientRef.current?.close();
       session.current += 1;
     },
     [],
@@ -467,6 +471,9 @@ export default function App() {
     glossaryClientRef.current?.close();
     glossaryClientRef.current = null;
     setGlossaryClient(null);
+    identityClientRef.current?.close();
+    identityClientRef.current = null;
+    setIdentityClient(null);
     setAccountClient(null);
     setAccountProfile(null);
     workflowClientRef.current?.close();
@@ -532,6 +539,9 @@ export default function App() {
       const nextGlossaryClient = createBookGlossaryClient({ username: profile.username, password: details.password });
       glossaryClientRef.current = nextGlossaryClient;
       setGlossaryClient(nextGlossaryClient);
+      const nextIdentityClient = createLibraryIdentityClient({ username: profile.username, password: details.password });
+      identityClientRef.current = nextIdentityClient;
+      setIdentityClient(nextIdentityClient);
       setLocale(profile.locale);
       setUsername(profile.username);
       setFormUsername(profile.username);
@@ -1059,7 +1069,7 @@ export default function App() {
                     onBrowse={() => selectTab("novels")}
                   /></>
                 ) : tab === 'device' && deviceView === 'exchange' && username ? (
-                  <LibraryExchangeWorkspace key={username} username={username} onReadingChange={setWorkflowReading}/>
+                  <LibraryExchangeWorkspace key={username} username={username} identityClient={identityClient} onReadingChange={setWorkflowReading}/>
                 ) : tab === "device" && deviceView === "files" && username ? (
                   <LocalWorkspace
                     key={username}
