@@ -8,6 +8,7 @@ import com.dongholab.pagetuner.core.model.glossary.BookGlossarySyncValidation
 import com.dongholab.pagetuner.core.translation.TranslatedParagraph
 import com.dongholab.pagetuner.translation.ChapterTranslationEngine
 import com.dongholab.pagetuner.translation.DeepSeekDefaults
+import com.dongholab.pagetuner.translation.GeminiDefaults
 import com.dongholab.pagetuner.translation.TranslationPaceMode
 import com.dongholab.pagetuner.translation.TranslationProviderKind
 import com.dongholab.pagetuner.translation.TranslationRuntimeIdentity
@@ -48,8 +49,9 @@ class WorkflowProviders private constructor(private val environment: (String) ->
     constructor(environment: Map<String, String>) : this(environment::get)
     private fun env(name: String) = environment(name).orEmpty().trim()
     private val defaultDeepSeekEndpoint = env("DEEPSEEK_API_URL").ifBlank { "https://api.deepseek.com/chat/completions" }
+    private val defaultGeminiEndpoint = env("GEMINI_API_URL").ifBlank { GeminiDefaults.ApiUrl }
     private val defaultOpenAiEndpoint = env("OPENAI_API_URL").ifBlank { "https://api.openai.com/v1/chat/completions" }
-    private val allowedEndpoints = (env("PAGETUNER_LLM_ENDPOINTS").split(',') + defaultDeepSeekEndpoint + defaultOpenAiEndpoint)
+    private val allowedEndpoints = (env("PAGETUNER_LLM_ENDPOINTS").split(',') + defaultDeepSeekEndpoint + defaultOpenAiEndpoint + defaultGeminiEndpoint)
         .map { it.trim().trimEnd('/') }.filter(String::isNotBlank).toSet()
 
     fun list() = TranslationProviderList(listOf(
@@ -57,6 +59,8 @@ class WorkflowProviders private constructor(private val environment: (String) ->
         TranslationProviderInfo("GOOGLE_CLOUD", "Google Cloud Translation", key("GOOGLE_CLOUD").isNotBlank(), true, "", ""),
         TranslationProviderInfo("DEEPSEEK", "DeepSeek", key("DEEPSEEK").isNotBlank(), true, defaultDeepSeekEndpoint,
             env("DEEPSEEK_MODEL").ifBlank { DeepSeekDefaults.Model }),
+        TranslationProviderInfo("GEMINI", "Google Gemini", key("GEMINI").isNotBlank(), true, defaultGeminiEndpoint,
+            env("GEMINI_MODEL").ifBlank { GeminiDefaults.Model }),
         TranslationProviderInfo("OPENAI_COMPATIBLE_LLM", "OpenAI 호환 API", key("OPENAI_COMPATIBLE_LLM").isNotBlank(), true,
             defaultOpenAiEndpoint, env("OPENAI_MODEL").ifBlank { "gpt-4.1-mini" }),
     ))
@@ -72,7 +76,7 @@ class WorkflowProviders private constructor(private val environment: (String) ->
         require(!request.targetLanguage.trim().equals("auto", ignoreCase = true)) { "A concrete target language is required." }
         val target = LanguageCatalog.normalize(request.targetLanguage, 24)
         require(!source.equals(target, ignoreCase = true)) { "Source and target languages must differ." }
-        val isLlm = provider.id in setOf("DEEPSEEK", "OPENAI_COMPATIBLE_LLM")
+        val isLlm = provider.id in setOf("DEEPSEEK", "GEMINI", "OPENAI_COMPATIBLE_LLM")
         val endpoint = if (isLlm) request.endpoint?.trim()?.trimEnd('/').orEmpty().ifBlank { provider.defaultEndpoint.trimEnd('/') } else ""
         val model = if (isLlm) request.model?.trim().orEmpty().ifBlank { provider.defaultModel } else ""
         if (isLlm) {
@@ -111,6 +115,7 @@ class WorkflowProviders private constructor(private val environment: (String) ->
     private fun key(id: String): String = when (id) {
         "GOOGLE_CLOUD" -> env("PAGETUNER_GOOGLE_API_KEY")
         "DEEPSEEK" -> env("DEEPSEEK_API_KEY")
+        "GEMINI" -> env("GEMINI_API_KEY")
         "OPENAI_COMPATIBLE_LLM" -> env("OPENAI_API_KEY")
         else -> ""
     }

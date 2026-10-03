@@ -9,7 +9,7 @@ export type CatalogTranslationRequest = Schemas['CatalogTranslationRequest'];
 export type CatalogTranslationResponse = Schemas['CatalogTranslationResponse'];
 export type CatalogTranslationOptions = { providerKind: ProviderKind; targetLanguage: string; apiKey?: string; endpoint?: string; model?: string };
 const invalid = () => new ApiError('invalid-response', '목록 번역 응답을 확인할 수 없습니다. 원문을 표시합니다.');
-const kinds = ['GOOGLE_WEB_TRANSLATE_HTML', 'GOOGLE_CLOUD', 'DEEPSEEK', 'OPENAI_COMPATIBLE_LLM'];
+const kinds = ['GOOGLE_WEB_TRANSLATE_HTML', 'GOOGLE_CLOUD', 'DEEPSEEK', 'GEMINI', 'OPENAI_COMPATIBLE_LLM'];
 function ensure(value: unknown): asserts value { if (!value) throw invalid(); }
 function text(value: unknown): string { ensure(typeof value === 'string'); return value; }
 function count(value: unknown): number { ensure(typeof value === 'number' && Number.isSafeInteger(value) && value >= 0); return value; }

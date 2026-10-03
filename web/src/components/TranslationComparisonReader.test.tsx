@@ -22,6 +22,7 @@ describe('comparison reader controls', () => {
     setLocale('en')
     const ordinary = renderToStaticMarkup(<PagedReader {...props} notesNamespace="alice"/>)
     expect(ordinary).toContain('aria-label="Reading menu"')
+    expect(ordinary).not.toContain('reader-read-only')
     expect(ordinary).toContain('<option value="tools">Reading tools</option>')
     // No text has been selected during initial rendering. A permanently mounted
     // highlight button would consume another toolbar row on narrow readers.
@@ -31,6 +32,7 @@ describe('comparison reader controls', () => {
     setLocale('en')
     const derived = renderToStaticMarkup(<PagedReader {...props} notesNamespace="alice" readOnly editionLabel="Comparison" readerLabel="Comparison reading" contentKindLabel="Compare"/>)
     expect(derived).not.toContain('value="tools"')
+    expect(derived).toContain('reader reader-read-only')
     expect(derived).not.toContain('Reading tools'); expect(derived).not.toContain('Highlight selection')
     expect(derived).toContain('aria-label="Comparison reading"')
   })

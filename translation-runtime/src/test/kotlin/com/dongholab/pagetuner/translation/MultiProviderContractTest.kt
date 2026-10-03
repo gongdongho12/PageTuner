@@ -18,6 +18,50 @@ import org.junit.Test
 class MultiProviderContractTest {
     private val request = TranslationRequest("en", "ko", listOf(TextSegment("first", 0, 0, "Hello."), TextSegment("second", 0, 1, "A new world.")))
 
+    @Test fun geminiUsesOfficialCompatibleEndpointBearerSchemaAndStrictParagraphMapping() = runBlocking {
+        val wire = Wire(chat("""{"translations":["안녕.","새로운 세계."]}"""))
+        val provider = GeminiTranslationProvider(KEY, transport = wire.transport)
+        val result = provider.translate(request)
+        assertEquals(GeminiDefaults.ApiUrl, wire.connection.url.toString())
+        assertEquals("gemini-3.8-flash", wire.body.getString("model"))
+        assertEquals("Bearer $KEY", wire.connection.getRequestProperty("Authorization"))
+        assertFalse(wire.connection.url.toString().contains(KEY))
+        val format = wire.body.getJSONObject("response_format")
+        assertEquals("json_schema", format.getString("type"))
+        val schema = format.getJSONObject("json_schema").getJSONObject("schema")
+        assertEquals("string", schema.getJSONObject("properties").getJSONObject("translations").getJSONObject("items").getString("type"))
+        assertFalse(schema.getBoolean("additionalProperties"))
+        assertFalse(wire.body.has("thinking"))
+        assertEquals(32_768, wire.body.getInt("max_tokens"))
+        assertEquals(request.segments.map { it.id }, result.map { it.segmentId })
+        assertTrue(provider.id.startsWith("gemini:"))
+        assertTrue(provider.id.contains(":json-schema-v1"))
+        assertTrue(wire.connection.closed)
+    }
+
+    @Test fun geminiSchemaIncludesAliasesOnlyWhenEnabledAndMalformedOutputCannotPass() = runBlocking {
+        val wire = Wire(chat("""{"translations":["안녕.","새로운 세계."],"characterAliases":[]}"""))
+        GeminiTranslationProvider(KEY, transport = wire.transport, onCharacterAliases = {}).translate(request)
+        val properties = wire.body.getJSONObject("response_format").getJSONObject("json_schema").getJSONObject("schema").getJSONObject("properties")
+        assertEquals("array", properties.getJSONObject("characterAliases").getString("type"))
+        listOf("""{"translations":["only one"]}""", """{"translations":["a","b"]} trailing""").forEach { output ->
+            assertFormat { GeminiTranslationProvider(KEY, transport = LlmHttpTransport { _, _, _ -> chat(output) }).translate(request) }
+        }
+        assertFormat { GeminiTranslationProvider(KEY, transport = LlmHttpTransport { _, _, _ -> chat("""{"translations":["a","b"]}""", "length") }).translate(request) }
+    }
+
+    @Test fun geminiDefaultsAndExecutionIdentityAreConfiguredWithoutGenericLlmSettings() {
+        val settings = TranslationSettings(TranslationProviderKind.GEMINI, KEY)
+        assertTrue(settings.isProviderConfigured)
+        assertEquals(ProviderHealthState.Ready, settings.checkProviderHealth().state)
+        val identity = TranslationRuntimeIdentity.describe(settings)
+        assertEquals(GeminiDefaults.Model, identity.modelId)
+        assertTrue(identity.providerId.startsWith("gemini:"))
+        assertFalse(identity.toString().contains(KEY))
+        assertEquals(ProviderHealthState.MissingConfiguration, settings.copy(apiKey = "").checkProviderHealth().state)
+        assertEquals(ProviderHealthState.InvalidConfiguration, settings.copy(llmEndpoint = "http://remote.example/chat").checkProviderHealth().state)
+    }
+
     @Test fun deepSeekSendsTheCurrentModelAndBoundedNonThinkingJsonRequestThroughRealTransport() = runBlocking {
         val wire = Wire(chat("""{"translations":["안녕.","새로운 세계."]}"""))
         val provider = DeepSeekTranslationProvider(KEY, transport = wire.transport)
@@ -133,7 +177,7 @@ class MultiProviderContractTest {
         val statuses = mapOf(401 to TranslationProviderErrorKind.Authentication, 402 to TranslationProviderErrorKind.Quota,
             429 to TranslationProviderErrorKind.RateLimited, 500 to TranslationProviderErrorKind.Server)
         statuses.forEach { (status, kind) ->
-            listOf<(LlmHttpTransport) -> TranslationProvider>(::llm, { DeepSeekTranslationProvider(KEY, transport = it) }, { GoogleCloudTranslationProvider(KEY, it) }).forEach { factory ->
+            listOf<(LlmHttpTransport) -> TranslationProvider>(::llm, { GeminiTranslationProvider(KEY, transport = it) }, { DeepSeekTranslationProvider(KEY, transport = it) }, { GoogleCloudTranslationProvider(KEY, it) }).forEach { factory ->
                 val wire = Wire("private-provider-text $KEY", status)
                 val error = runCatching { factory(wire.transport).translate(request) }.exceptionOrNull()
                 assertEquals(kind, (error as TranslationProviderException).failure.kind)

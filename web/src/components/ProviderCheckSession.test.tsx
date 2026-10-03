@@ -79,4 +79,13 @@ describe('mounted provider connection check', () => {
     const keyless = renderToStaticMarkup(<ProviderConnectionFields {...props} kind="GOOGLE_WEB_TRANSLATE_HTML" provider={{ ...provider, id: 'GOOGLE_WEB_TRANSLATE_HTML', requiresKey: false, configured: true }}/>);
     expect(keyless).toContain('disabled=""'); expect(keyless).not.toContain('type="url"');
   });
+  it('exposes Gemini key, endpoint and model defaults without persisting or checking a key during render', () => {
+    const gemini: TranslationProvider = { id: 'GEMINI', displayName: 'Google Gemini', requiresKey: true, configured: false,
+      defaultEndpoint: 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions', defaultModel: 'gemini-3.8-flash' };
+    const html = renderToStaticMarkup(<ProviderConnectionFields provider={gemini} kind="GEMINI" apiKey="" endpoint="" model=""
+      onApiKey={() => {}} onEndpoint={() => {}} onModel={() => {}}/>);
+    expect(html).toContain('type="password"'); expect(html).toContain('type="url"'); expect(html).toContain(gemini.defaultEndpoint); expect(html).toContain(gemini.defaultModel);
+    expect(html).toContain('이 기기에는 저장하지 않습니다.');
+  });
+
 });

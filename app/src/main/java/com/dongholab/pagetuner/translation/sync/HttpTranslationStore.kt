@@ -193,7 +193,7 @@ class HttpTranslationStore(
             decode { ServerTranslationJobJson.job(JSONObject(response.body)).also {
                 require(it.chapterRecordId == snapshot.chapterRecordId && it.providerKind == snapshot.providerKind && it.targetLanguage == snapshot.targetLanguage)
                 require(it.settings.sourceLanguage == snapshot.sourceLanguage && it.settings.glossary.sortedBy { term -> term.source } == terms)
-                if (snapshot.providerKind in setOf("DEEPSEEK", "OPENAI_COMPATIBLE_LLM")) {
+                if (snapshot.providerKind in setOf("DEEPSEEK", "GEMINI", "OPENAI_COMPATIBLE_LLM")) {
                     require(snapshot.endpoint.isBlank() || it.settings.endpoint == snapshot.endpoint.trim().trimEnd('/'))
                     require(snapshot.model.isBlank() || it.settings.model == snapshot.model.trim())
                 }

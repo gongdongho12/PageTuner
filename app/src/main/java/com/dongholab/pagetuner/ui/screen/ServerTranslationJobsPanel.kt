@@ -55,7 +55,7 @@ fun ServerTranslationJobsPanel(
                 enabled = !busy && !retry, label = { id -> strings.getString(jobProviderLabel(id)) })
             val fields = buildList {
                 add("source"); add("target")
-                if (draft.providerKind in setOf("DEEPSEEK", "OPENAI_COMPATIBLE_LLM")) { add("endpoint"); add("model") }
+                if (draft.providerKind in setOf("DEEPSEEK", "GEMINI", "OPENAI_COMPATIBLE_LLM")) { add("endpoint"); add("model") }
                 if (provider?.requiresKey == true) add("key")
                 add("glossary")
             }
@@ -154,6 +154,7 @@ private fun jobStatusLabel(status: String) = when (status) {
 private fun jobProviderLabel(provider: String) = when (provider) {
     "GOOGLE_WEB_TRANSLATE_HTML" -> R.string.provider_google_web_translate_html
     "GOOGLE_CLOUD" -> R.string.provider_google_cloud
+    "GEMINI" -> R.string.provider_gemini
     "DEEPSEEK" -> R.string.provider_deepseek
     else -> R.string.provider_openai_compatible_llm
 }

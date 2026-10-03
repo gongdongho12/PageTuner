@@ -120,3 +120,7 @@ WTR/NovelBuddy 수집·서버 번역·원문/번역 서재·Google 웹 번역 �
 - 반복 실행 설정 갱신: 기존 `pageturner`를 이 채팅의 최신 개발 큐용 heartbeat로 갱신했다(매시간, ACTIVE). 기존 `pageturner-2` 로컬 개선은 별도 유지하며 같은 작업 트리의 변경을 보존한다. GitHub MCP 인증이 실패하여 이번 PR 조회/생성은 저장소의 기존 `gh` 인증으로 진행한다. 다른 자동화가 작성한 `.gitignore`와 `docs/LOCAL_IMPROVEMENT_LOG.md` 변경은 이번 커밋에서 제외한다.
 - S4b1 draft PR: [#35](https://github.com/gongdongho12/PageTuner/pull/35), base `codex/source-language-and-position-identity`(#34). 서버 `5436d82`, Android `88f5980`, 웹 `e1a7b77`, 근거 `bd9a8ba`. 자동 병합하지 않는다. 최종 head CI를 확인하고 다음 실행에서 미완성 변경부터 점검한다. 임시 8081 서버·5173 웹·검증용 DB·테스트 탭은 종료했다.
 - S4b1 CI 후속: `b46ca55`의 Android CI에서 읽기 위치 rate-limit 테스트가 가상 시간과 실제 IO 실행기의 경합으로 종료 시간 초과가 발생했다. 저장소 dispatcher를 주입하고 가상 시간 테스트 4개를 같은 scheduler로 실행하도록 수정했다. 해당 테스트와 Android 전체 단위 테스트 재검증 성공, 독립 검토에서 문제 없음. 실제 앱의 기본 IO 실행기는 유지하며 수정 head CI를 확인한다.
+
+### 2026-10-03 사용자 후속 요청
+
+S4b1 재구현 없이 공유 실제 로컬 책 확인, 공유 본문 선택 방지, 내장 폰트, Gemini 공통 제공자 지원을 진행했다. 일반 계정 메모 선택과 기존 사용자 데이터를 보존한다. Typesafe Jev는 텍스트 생성 API가 아니며 추가하지 않는다. S4b2/S4c는 기존 미완료 상태를 유지한다. 최종 검증 결과는 후속 기록에 남긴다.

@@ -1,8 +1,12 @@
 import { defineConfig } from 'vitest/config';
 import react from '@vitejs/plugin-react';
+import { readFileSync } from 'node:fs';
 
 export default defineConfig(({ mode }) => ({
-  plugins: [react()],
+  plugins: [react(), { name: 'bundled-font-license', generateBundle() {
+    this.emitFile({ type: 'asset', fileName: 'fonts/OFL-NotoSerifKR.txt',
+      source: readFileSync(new URL('./src/assets/fonts/OFL-NotoSerifKR.txt', import.meta.url), 'utf8') });
+  } }],
   server: {
     host: '127.0.0.1',
     strictPort: true,

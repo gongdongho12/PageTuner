@@ -16,10 +16,10 @@ object TranslationRuntimeIdentity {
         val model = when (settings.providerKind) {
             TranslationProviderKind.GOOGLE_CLOUD -> "google-translation-v2"
             TranslationProviderKind.GOOGLE_WEB_TRANSLATE_HTML -> if (settings.apiKey.isBlank()) "google-web-public" else "google-web-html"
-            TranslationProviderKind.DEEPSEEK, TranslationProviderKind.OPENAI_COMPATIBLE_LLM -> settings.normalizedLlmModel
+            TranslationProviderKind.GEMINI, TranslationProviderKind.DEEPSEEK, TranslationProviderKind.OPENAI_COMPATIBLE_LLM -> settings.normalizedLlmModel
         }
         val prompt = when (settings.providerKind) {
-            TranslationProviderKind.DEEPSEEK, TranslationProviderKind.OPENAI_COMPATIBLE_LLM -> OpenAiCompatibleLlmTranslationProvider.PromptRevision
+            TranslationProviderKind.GEMINI, TranslationProviderKind.DEEPSEEK, TranslationProviderKind.OPENAI_COMPATIBLE_LLM -> OpenAiCompatibleLlmTranslationProvider.PromptRevision
             TranslationProviderKind.GOOGLE_CLOUD -> "google-cloud-text-v1"
             TranslationProviderKind.GOOGLE_WEB_TRANSLATE_HTML -> "google-web-text-v1"
         }

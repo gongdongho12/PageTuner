@@ -49,6 +49,7 @@ class LocalSharingServerTest {
         when (path) {
             "index.html" -> SharedBinary("text/html", 26) { "<html>Local sharing</html>".byteInputStream() }
             "assets/reader.js" -> SharedBinary("text/javascript", 10) { "// reader\n".byteInputStream() }
+            "fonts/OFL-NotoSerifKR.txt" -> SharedBinary("text/plain", 3) { "OFL".byteInputStream() }
             else -> null
         }
     }
@@ -152,6 +153,8 @@ class LocalSharingServerTest {
         assertTrue(script.headers.getValue("content-security-policy").contains("'wasm-unsafe-eval'"))
         assertFalse(script.headers.getValue("content-security-policy").contains("'unsafe-eval'"))
         assertEquals(404, request("/assets/missing.js").status)
+        assertEquals("OFL", request("/fonts/OFL-NotoSerifKR.txt").body)
+        assertEquals(404, request("/fonts/private.txt").status)
     }
 
     @Test fun `pair body must be bounded JSON with exactly one string code`() {
@@ -364,8 +367,13 @@ class LocalSharingServerTest {
         }
         val length = header.toString().split("\r\n").firstOrNull { it.startsWith("Content-Length:", true) }
             ?.substringAfter(':')?.trim()?.toInt() ?: 0
-        val payload = input.readNBytes(length)
-        assertEquals("Complete raw HTTP response body", length, payload.size)
+        val payload = ByteArray(length)
+        var received = 0
+        while (received < length) {
+            val count = input.read(payload, received, length - received)
+            check(count > 0) { "Incomplete raw HTTP response body" }
+            received += count
+        }
         val response = header.toString() + payload.toString(Charsets.UTF_8)
         val head = response.substringBefore("\r\n\r\n").split("\r\n")
         Response(head.first().split(' ')[1].toInt(), response.substringAfter("\r\n\r\n"), head.drop(1).associate { it.substringBefore(':').lowercase() to it.substringAfter(':').trim() })

@@ -39,7 +39,7 @@ data class ServerJobDraft(
 }
 
 internal object ServerTranslationJobJson {
-    val providerIds = setOf("GOOGLE_WEB_TRANSLATE_HTML", "GOOGLE_CLOUD", "DEEPSEEK", "OPENAI_COMPATIBLE_LLM")
+    val providerIds = setOf("GOOGLE_WEB_TRANSLATE_HTML", "GOOGLE_CLOUD", "DEEPSEEK", "GEMINI", "OPENAI_COMPATIBLE_LLM")
     private val states = setOf("QUEUED", "RUNNING", "COMPLETED", "FAILED", "CANCELLED", "INTERRUPTED")
     fun providers(json: JSONObject): List<ServerTranslationProvider> {
         val values = json.getJSONArray("providers")

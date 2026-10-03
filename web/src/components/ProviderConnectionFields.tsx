@@ -10,7 +10,7 @@ export function ProviderConnectionFields({ provider, kind, apiKey, endpoint, mod
 }) {
   const helpId = useId();
   const requiresKey = provider?.requiresKey ?? kind !== 'GOOGLE_WEB_TRANSLATE_HTML';
-  const advanced = kind === 'DEEPSEEK' || kind === 'OPENAI_COMPATIBLE_LLM';
+  const advanced = kind === 'DEEPSEEK' || kind === 'GEMINI' || kind === 'OPENAI_COMPATIBLE_LLM';
   return <div className="provider-connection-fields">
     <label>{t('API 키')}{provider?.configured && requiresKey ? t('(선택)') : ''}
       <input type="password" autoComplete="off" value={apiKey} maxLength={4096} aria-describedby={helpId}

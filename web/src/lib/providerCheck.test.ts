@@ -39,7 +39,7 @@ describe('provider connection check', () => {
     expect(validateProviderCheck(failed, input).code).toBe('TRANSLATION_RATE_LIMITED')
   })
 
-  it.each(['GOOGLE_CLOUD', 'GOOGLE_WEB_TRANSLATE_HTML', 'DEEPSEEK', 'OPENAI_COMPATIBLE_LLM'] as const)
+  it.each(['GOOGLE_CLOUD', 'GOOGLE_WEB_TRANSLATE_HTML', 'DEEPSEEK', 'GEMINI', 'OPENAI_COMPATIBLE_LLM'] as const)
     ('checks %s through the authenticated same-origin server endpoint', async providerKind => {
       const settings = { ...input, providerKind, model: undefined }
       const transport = vi.fn<typeof fetch>().mockResolvedValueOnce(csrf()).mockResolvedValueOnce(json({ ...success, providerKind }))

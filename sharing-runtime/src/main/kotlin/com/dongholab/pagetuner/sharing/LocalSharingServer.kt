@@ -199,7 +199,7 @@ class LocalSharingServer(
             query(request, emptySet())
             val assetPath = if (path == "/") "index.html" else path.removePrefix("/")
             // Generated assets only; never map a URL to a filesystem path in this runtime.
-            if (assetPath != "index.html" && !assetPath.startsWith("assets/") && assetPath != "icon.svg") fail(404, "route_not_found")
+            if (assetPath != "index.html" && !assetPath.startsWith("assets/") && assetPath != "icon.svg" && assetPath != "fonts/OFL-NotoSerifKR.txt") fail(404, "route_not_found")
             val asset = webAssets.open(assetPath) ?: fail(404, "asset_not_found")
             if (asset.byteLength !in 0..LocalSharingContract.MAX_ASSET_BYTES) fail(413, "asset_too_large")
             return newFixedLengthResponse(status(200), asset.mimeType, asset.open(), asset.byteLength)

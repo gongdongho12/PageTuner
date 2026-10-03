@@ -142,3 +142,5 @@ Android **Local → ZIP**, 웹 **On this device → App · Web ZIP transfer**에
 | 중복·변경본 처리 | 완료 | 같은 snapshot은 기존 기록 유지, 변경본은 별도 사본. 기존 책을 덮어쓰지 않음 |
 | 실제 양방향 확인 | 완료 / 브라우저 UI·Android 어댑터 | Android 출력 ZIP을 웹 UI에서 가져와 본문·북마크 확인. 웹 UI 다운로드 ZIP을 Android 저장소·리더 mapper에서 읽고 재출력 확인. Android 실기기 화면 검증은 별도 |
 | ZIP 텍스트의 명시적 계정 기록 연결 | 완료 / S4b1·실기기 검증 대기 | 현재 계정/origin/사본/전체 identity별 연결·해제, 읽기 전 재검증과 기존 S1~S3 canonical reader. 로컬 읽기와 ZIP 기록은 별도 보존. PDF/EPUB 물리 위치·원본 proof 없는 기기 문서는 S4b2, 최신 계정 기록 ZIP은 S4c. [근거](PORTABLE_DOCUMENT_BINDING.md) |
+
+2026-10-03 후속: Gemini를 공통 번역 runtime·서버·Android·웹에 추가했다. DeepSeek 기본값은 deepseek-flash다. Typesafe Jev는 텍스트 생성 번역 API가 아니므로 제공자로 추가하지 않았다. 내장 본문 폰트와 공유 배포는 [내장 폰트 기록](BUNDLED_READER_FONTS.md)을 따른다. 공유 읽기 전용 화면의 글자 선택을 막았고, 웹 볼륨 키의 이전/다음·반전·비활성 매핑을 검증했다. Chrome의 실제 볼륨 버튼 전달과 수정 후 기기 터치는 미검증이다.

@@ -10,7 +10,7 @@ export class ProviderCheckError extends ApiError {
     super('invalid-request', providerFailureMessage(code), status)
   }
 }
-const kinds: readonly ProviderKind[] = ['GOOGLE_WEB_TRANSLATE_HTML', 'GOOGLE_CLOUD', 'DEEPSEEK', 'OPENAI_COMPATIBLE_LLM']
+const kinds: readonly ProviderKind[] = ['GOOGLE_WEB_TRANSLATE_HTML', 'GOOGLE_CLOUD', 'DEEPSEEK', 'GEMINI', 'OPENAI_COMPATIBLE_LLM']
 const invalid = () => new ApiError('invalid-response', '번역기 연결 확인 응답이 현재 설정과 일치하지 않습니다. 다시 확인해 주세요.')
 const badSettings = () => new ApiError('invalid-request', '번역기·언어·연결 설정을 확인해 주세요.')
 const language = (value: unknown): value is string => typeof value === 'string' && /^[A-Za-z][A-Za-z0-9-]{0,23}$/.test(value)
@@ -25,7 +25,7 @@ export function createProviderCheckInput(input: ProviderCheckInput): ProviderChe
   if (targetLanguage.toLowerCase() === 'auto' || sourceLanguage.toLowerCase() === targetLanguage.toLowerCase()) throw badSettings()
   const apiKey = input.apiKey?.trim() || undefined
   if (input.apiKey && (input.apiKey.length > 4096 || control.test(input.apiKey))) throw badSettings()
-  const llm = input.providerKind === 'DEEPSEEK' || input.providerKind === 'OPENAI_COMPATIBLE_LLM'
+  const llm = input.providerKind === 'DEEPSEEK' || input.providerKind === 'GEMINI' || input.providerKind === 'OPENAI_COMPATIBLE_LLM'
   const endpoint = llm ? input.endpoint?.trim().replace(/\/+$/, '') || undefined : undefined
   const model = llm ? input.model?.trim() || undefined : undefined
   if (model && (model.length > 200 || control.test(model))) throw badSettings()

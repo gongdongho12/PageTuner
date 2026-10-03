@@ -338,15 +338,19 @@ fun PageTurnerApp() {
     val manualApiKey = translationState.apiKey
     val usesLocalDeepSeekSecret = providerKind == TranslationProviderKind.DEEPSEEK &&
         TranslationRuntimeSecrets.hasLocalDeepSeekKey
+    val usesLocalGeminiSecret = providerKind == TranslationProviderKind.GEMINI && TranslationRuntimeSecrets.hasLocalGeminiKey
     val apiKey = when {
+        usesLocalGeminiSecret -> TranslationRuntimeSecrets.geminiApiKey
         usesLocalDeepSeekSecret -> TranslationRuntimeSecrets.deepSeekApiKey
         else -> manualApiKey
     }
     val activeLlmEndpoint = when (providerKind) {
+        TranslationProviderKind.GEMINI -> TranslationRuntimeSecrets.geminiApiUrl
         TranslationProviderKind.DEEPSEEK -> TranslationRuntimeSecrets.deepSeekApiUrl
         else -> readerSettings.llmEndpoint
     }
     val activeLlmModel = when (providerKind) {
+        TranslationProviderKind.GEMINI -> TranslationRuntimeSecrets.geminiModel
         TranslationProviderKind.DEEPSEEK -> TranslationRuntimeSecrets.deepSeekModel
         else -> readerSettings.llmModel
     }
@@ -482,6 +486,8 @@ fun PageTurnerApp() {
             stringResource(R.string.provider_status_missing_google_key)
         providerKind == com.dongholab.pagetuner.translation.TranslationProviderKind.GOOGLE_WEB_TRANSLATE_HTML ->
             stringResource(R.string.provider_status_google_web_no_key_required)
+        providerKind == TranslationProviderKind.GEMINI ->
+            stringResource(R.string.provider_health_missing_gemini_key)
         providerKind == TranslationProviderKind.DEEPSEEK ->
             stringResource(R.string.provider_status_missing_deepseek_key)
         else -> stringResource(R.string.provider_status_missing_llm_settings)
@@ -1048,7 +1054,7 @@ fun PageTurnerApp() {
                             translationState = translationState,
                             providerKind = providerKind,
                             apiKey = manualApiKey,
-                            usesLocalDeepSeekSecret = usesLocalDeepSeekSecret,
+                            usesLocalDeepSeekSecret = usesLocalDeepSeekSecret || usesLocalGeminiSecret,
                             busy = busy,
                             canTranslate = canTranslateCurrentPage,
                             canRetryTranslation = canRetryCurrentPageTranslation,

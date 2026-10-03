@@ -57,7 +57,7 @@ export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
         /** @enum {string} */
-        ProviderKind: "GOOGLE_CLOUD" | "GOOGLE_WEB_TRANSLATE_HTML" | "DEEPSEEK" | "OPENAI_COMPATIBLE_LLM";
+        ProviderKind: "GOOGLE_CLOUD" | "GOOGLE_WEB_TRANSLATE_HTML" | "DEEPSEEK" | "GEMINI" | "OPENAI_COMPATIBLE_LLM";
         /** @description Defaults preserve the original source/target contract. Optional id retains a synchronized entry's identity, raw fields and input ordering. Duplicate normalized sources require explicit unique IDs for all matching entries; effective IDs must be unique including legacy hashes. Omitted id preserves legacy normalization and source-hash identity. Kind and display aliases affect only reader display; enabled and caseSensitive affect translation fingerprint. */
         GlossaryEntry: {
             /** @description Optional exact entry ID in UTF-16 units. Reject boundary ECMAScript whitespace, controls, unpaired surrogates and effective ID collisions. Omit for legacy source-hash identity. */

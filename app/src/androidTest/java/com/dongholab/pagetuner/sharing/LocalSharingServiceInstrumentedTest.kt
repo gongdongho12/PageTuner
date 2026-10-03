@@ -91,4 +91,41 @@ class LocalSharingServiceInstrumentedTest {
             runtime.stopSharing(); marker.delete(); finished.delete()
         }
     }
+    /** Manual runner preserves the installed app and opens its LAN URL in the device browser. */
+    @Test fun sameDeviceBrowser() = runBlocking {
+        org.junit.Assume.assumeTrue(InstrumentationRegistry.getArguments().getString("sameDeviceBrowser") == "true")
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        val fixtureFile = java.io.File(context.cacheDir, "공유_검증_책.txt")
+        fixtureFile.writeText((1..30).joinToString("\n\n") { "공유 검증 $it. 앱에 실제로 저장한 책을 같은 폰의 브라우저에서 읽습니다. 내장 폰트와 페이지 이동을 확인합니다. 😀" })
+        val savedBook = LocalLibraryStore(context).importBook(android.net.Uri.fromFile(fixtureFile))
+        fixtureFile.delete()
+        val marker = java.io.File(context.cacheDir, "sharing-same-device.json")
+        val finished = java.io.File(context.cacheDir, "sharing-same-device.done")
+        ActivityScenario.launch(ComponentActivity::class.java).use {
+            try {
+                finished.delete()
+                LocalSharingControl.start(context, sharingAddresses().first().address)
+                val info = withTimeout(20_000) {
+                    while (LocalSharingControl.state.value.session == null) {
+                        check(LocalSharingControl.state.value.message == null)
+                        delay(100)
+                    }
+                    LocalSharingControl.state.value.session!!
+                }
+                val url = "http://${info.address}:${info.port}/"
+                val library = AndroidSharingLibrary(context)
+                val books = library.list(0, 50)
+                val shared = books.items.single { it.title == savedBook.book.title }
+                val sharedDocument = library.document(shared.id)!!
+                assertTrue(sharedDocument.paragraphs.any { it.text.contains("앱에 실제로 저장한 책") })
+                marker.writeText(JSONObject().put("url", url).put("code", info.pairingCode).put("book", savedBook.book.title).toString())
+                context.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(url))
+                    .setPackage("com.android.chrome").addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK))
+                withTimeout(600_000) { while (!finished.exists()) delay(200) }
+                assertNotNull("Sharing survives the browser foreground", LocalSharingControl.state.value.session)
+            } finally {
+                LocalSharingControl.stop(context); marker.delete(); finished.delete()
+            }
+        }
+    }
 }

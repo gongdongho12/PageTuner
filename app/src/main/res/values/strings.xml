@@ -590,4 +590,11 @@
 
     <string name="portable_identity_unbind">Disconnect server records</string>
     <string name="portable_identity_unbound">Disconnected. Local records are preserved.</string>
+
+    <string name="provider_gemini">Gemini</string>
+    <string name="field_gemini_api_key">Gemini API key</string>
+    <string name="translation_plan_gemini">Google Gemini API</string>
+    <string name="gemini_setup_hint">Enter a Google AI Studio API key. Gemini web subscriptions are separate from API billing.</string>
+    <string name="provider_health_missing_gemini_key">Gemini API key is required.</string>
+    <string name="gemini_local_secret_active">Using the local Gemini development key.</string>
 </resources>

@@ -324,7 +324,7 @@ export function PagedReader({ document: readingDocument, anchor, anchorIsNavigat
     if (toolsOpen && notesNamespace) return <ReaderTools namespace={notesNamespace} document={readingDocument}
       anchor={location.current.anchor ?? firstAnchor(readingDocument)} onClose={() => setToolsOpen(false)}
       onJump={anchor => { const moved = reflowReaderLocation(pages, projection.displayAnchor(anchor)); location.current = { ...moved, anchor }; setPage(moved.page); onAnchorChange(anchor); progress.move(anchor); setToolsOpen(false); }}/>
-    return (<section ref={root} className="reader" aria-label={readerLabel ?? (readingDocument.kind === 'local' ? t('로컬 파일 읽기') : readingDocument.kind === "original"
+    return (<section ref={root} className={readOnly ? "reader reader-read-only" : "reader"} aria-label={readerLabel ?? (readingDocument.kind === 'local' ? t('로컬 파일 읽기') : readingDocument.kind === "original"
             ? t("\uC6D0\uBB38 \uC77D\uAE30") : readingDocument.kind === "introduction"
             ? t("\uC18C\uAC1C \uC77D\uAE30") : t("\uBC88\uC5ED\uBB38 \uC77D\uAE30"))}>
       <header className="reader-toolbar">

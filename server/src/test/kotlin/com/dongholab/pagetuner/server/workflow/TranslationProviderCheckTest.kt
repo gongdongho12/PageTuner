@@ -25,9 +25,9 @@ class TranslationProviderCheckTest {
     }
     private fun translated(chapter: ChapterContent) = chapter.paragraphs.map { TranslatedParagraph(it.paragraphId, "확인된 번역") }
 
-    @Test fun `all four providers use shared resolved settings and only an ephemeral fixed sample`() {
+    @Test fun `all five providers use shared resolved settings and only an ephemeral fixed sample`() {
         val secret = "do-not-expose-this-key"
-        val providers = WorkflowProviders(mapOf("DEEPSEEK_API_KEY" to secret, "PAGETUNER_GOOGLE_API_KEY" to secret, "OPENAI_API_KEY" to secret))
+        val providers = WorkflowProviders(mapOf("DEEPSEEK_API_KEY" to secret, "PAGETUNER_GOOGLE_API_KEY" to secret, "OPENAI_API_KEY" to secret, "GEMINI_API_KEY" to secret))
         val seen = mutableListOf<String>()
         val checks = TranslationProviderChecks(providers, translator { chapter, config, key ->
             assertEquals(1, chapter.paragraphs.size)
@@ -45,9 +45,32 @@ class TranslationProviderCheckTest {
                 val json = jacksonObjectMapper().writeValueAsString(result)
                 listOf(secret, "확인된 번역", "The reader", "endpoint", "apiKey").forEach { assertFalse(json.contains(it)) }
             }
-            assertEquals(4, seen.size)
+            assertEquals(5, seen.size)
             assertFalse(TranslationProviderCheckRequest("DEEPSEEK", apiKey = secret).toString().contains(secret))
         } finally { checks.close() }
+    }
+
+    @Test fun `Gemini defaults and explicit custom endpoint use the exact protected allowlist`() {
+        val defaults = WorkflowProviders(mapOf("GEMINI_API_KEY" to "server-gemini-key"))
+        val info = defaults.list().providers.single { it.id == "GEMINI" }
+        assertTrue(info.configured); assertTrue(info.requiresKey)
+        assertEquals(GeminiDefaults.ApiUrl, info.defaultEndpoint); assertEquals(GeminiDefaults.Model, info.defaultModel)
+        val checks = TranslationProviderChecks(defaults, translator { chapter, config, key ->
+            assertEquals("GEMINI", config.providerKind); assertEquals(GeminiDefaults.ApiUrl, config.endpoint)
+            assertEquals(GeminiDefaults.Model, config.model); assertEquals("server-gemini-key", key)
+            assertTrue(config.translationProviderId.startsWith("gemini:"))
+            translated(chapter)
+        })
+        try { assertEquals("SUCCESS", checks.check("reader", TranslationProviderCheckRequest("GEMINI")).get(2, TimeUnit.SECONDS).status) }
+        finally { checks.close() }
+        val endpoint = "http://127.0.0.1:54321/gemini/chat/completions"
+        val configured = WorkflowProviders(mapOf("GEMINI_API_URL" to endpoint, "GEMINI_MODEL" to "custom-gemini", "GEMINI_API_KEY" to "memory-only"))
+        val custom = TranslationProviderChecks(configured, translator { chapter, config, key ->
+            assertEquals(endpoint, config.endpoint); assertEquals("custom-gemini", config.model); assertEquals("memory-only", key)
+            translated(chapter)
+        })
+        try { assertEquals("SUCCESS", custom.check("reader", TranslationProviderCheckRequest("GEMINI")).get(2, TimeUnit.SECONDS).status) }
+        finally { custom.close() }
     }
 
     @Test fun `invalid configuration never reaches a provider and environment seams preserve the allowlist`() {
@@ -55,6 +78,8 @@ class TranslationProviderCheckTest {
         val checks = TranslationProviderChecks(WorkflowProviders(emptyMap()), translator { chapter, _, _ -> calls.incrementAndGet(); translated(chapter) })
         try {
             for ((input, code) in listOf(
+                TranslationProviderCheckRequest("GEMINI") to "PROVIDER_NOT_CONFIGURED",
+                TranslationProviderCheckRequest("GEMINI", apiKey = "key", endpoint = "https://attacker.example/chat/completions") to "ENDPOINT_NOT_ALLOWED",
                 TranslationProviderCheckRequest("unknown") to "INVALID_PROVIDER",
                 TranslationProviderCheckRequest("DEEPSEEK") to "PROVIDER_NOT_CONFIGURED",
                 TranslationProviderCheckRequest("DEEPSEEK", apiKey = "key", endpoint = "https://attacker.example/chat/completions") to "ENDPOINT_NOT_ALLOWED",
