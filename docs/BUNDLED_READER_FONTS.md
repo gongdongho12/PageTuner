@@ -15,3 +15,5 @@ Android TTF는 각각 약 14.1MB, 공유 웹 WOFF2는 약 3.1/3.2MB다. 최초 �
 2026-10-03: 공유 runtime의 라이선스 경로는 제공됐지만, 클라우드 ServerSecurity 공개 GET 목록에는 같은 경로가 빠져 있었다. 서비스워커가 credentials omit으로 license를 포함한 전체 SHELL을 cache.addAll할 때 401 때문에 설치가 실패할 수 있어 정확한 `/fonts/OFL-NotoSerifKR.txt` GET만 공개했다. 인접 경로와 POST·API의 인증은 유지한다.
 
 서버 MVC 보안 검사 7개 통과: 실제 static license 200/text/plain/OFL 내용, 인접 경로·POST·API 인증을 검사한다. 웹을 포함한 실제 bootJar의 SHELL 68개를 익명 HTTP로 받아 원본 bytes까지 비교했다. 검증용 8082 서버를 종료하고 네트워크 요청이 실패함을 별도 확인한 후, 실제 브라우저에서 root 새로고침·오프라인 라이선스·독서 미리보기 1→2쪽과 콘솔 오류 없음 확인. 화면 근거는 `.gradle-home/font-license-offline-reader.png`다. 검증 서버와 임시 탭을 종료했으며 사용자 서재/DB는 삭제하지 않았다. CI에도 서버 shell 보안 검사를 추가했다.
+
+2026-10-03 사용자 확인 후속: 이전 적용은 독서 본문에 한정되어 웹 서재·제목·버튼은 시스템 폰트가 남아 있었다. 웹 UI의 기본/명시적 font-family에도 내장 Noto Serif KR을 적용했다. 현재 5173 브라우저의 body·heading·button computed style을 확인하고 새로고침 화면을 `.gradle-home/bundled-font-library.png`에 저장했다. 독서의 명시적 sans/mono 설정은 유지한다. 웹 443개/typecheck/build와 공유 웹이 포함된 APK 빌드 성공.
