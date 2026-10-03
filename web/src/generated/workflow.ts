@@ -405,8 +405,10 @@ export interface components {
         TranslationProviderList: {
             providers: components["schemas"]["TranslationProvider"][];
         };
-        /** @description Defaults preserve the original source/target contract. Kind and display aliases affect only reader display, while enabled and caseSensitive also affect the shared translation fingerprint. Display options never rewrite a stored translation artifact. */
+        /** @description Defaults preserve the original source/target contract. Optional id retains a synchronized entry's identity, raw fields and input ordering. Duplicate normalized sources require explicit unique IDs for all matching entries; effective IDs must be unique including legacy hashes. Omitted id preserves legacy normalization and source-hash identity. Kind and display aliases affect only reader display; enabled and caseSensitive affect translation fingerprint. */
         GlossaryEntry: {
+            /** @description Optional exact entry ID in UTF-16 units. Reject boundary ECMAScript whitespace, controls, unpaired surrogates and effective ID collisions. Omit for legacy source-hash identity. */
+            id?: string;
             source: string;
             target: string;
             /**

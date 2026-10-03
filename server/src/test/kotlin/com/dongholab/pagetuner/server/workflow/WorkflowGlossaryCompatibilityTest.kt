@@ -3,6 +3,8 @@ package com.dongholab.pagetuner.server.workflow
 import com.dongholab.pagetuner.core.content.StableContentHash
 import com.dongholab.pagetuner.translation.glossary.GlossaryTermKind
 import com.dongholab.pagetuner.translation.glossary.GlossaryTextProcessor
+import com.dongholab.pagetuner.translation.glossary.BookGlossary
+import com.dongholab.pagetuner.translation.glossary.BookGlossaryEntry
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import com.fasterxml.jackson.module.kotlin.readValue
 import java.time.Instant
@@ -63,5 +65,41 @@ class WorkflowGlossaryCompatibilityTest {
             listOf(WorkflowGlossaryEntry("Alice", "앨리스", displayTerm = "x".repeat(201))),
             listOf(WorkflowGlossaryEntry("Alice", "앨리스"), WorkflowGlossaryEntry("ALICE", "다른 이름", caseSensitive = true)),
         )) assertThrows(IllegalArgumentException::class.java) { resolve(entries) }
+    }
+
+    @Test fun `explicit original IDs preserve full fields order and Android translation fingerprint`() {
+        val input = listOf(
+            WorkflowGlossaryEntry(" City ", " 都市 ", "Place", " 마을 ", true, true, "android-existing-z"),
+            WorkflowGlossaryEntry("Alice", "앨리스", "Character", "아리", false, true, "android-existing-a"),
+            WorkflowGlossaryEntry("Ignored", "무시", "Term", "", false, false, "disabled-original"),
+        )
+        val config = resolve(input)
+        assertEquals(input, config.glossary)
+        val runtime = config.glossary("book")!!
+        assertEquals(input.map { it.id }, runtime.entries.map { it.id })
+        assertEquals(" City ", runtime.entries.first().sourceTerm)
+        assertFalse(runtime.entries.last().enabled)
+        val android = BookGlossary("book", input.map {
+            BookGlossaryEntry(it.id!!, it.source, it.target, it.displayTerm!!, GlossaryTermKind.valueOf(it.kind!!), it.caseSensitive!!, it.enabled!!)
+        })
+        assertEquals(android, runtime)
+        assertEquals(android.translationFingerprint, runtime.translationFingerprint)
+        assertEquals(config, json.readValue<JobConfiguration>(json.writeValueAsString(config)))
+        val displayOnly = resolve(input.map { it.copy(kind = "Term", displayTerm = " 다른 표시 ") })
+        assertEquals(config.glossaryRevision, displayOnly.glossaryRevision)
+        assertNotEquals(config.glossaryRevision, resolve(input.map { it.copy(caseSensitive = false) }).glossaryRevision)
+    }
+
+    @Test fun `duplicate sources require explicit distinct IDs and cannot collide with a legacy effective ID`() {
+        val explicit = listOf(WorkflowGlossaryEntry("Alice", "A", id = "explicit-one"), WorkflowGlossaryEntry("alice", "B", id = "explicit-two"))
+        assertEquals(explicit, resolve(explicit).glossary)
+        for (bad in listOf(
+            listOf(explicit[0], explicit[1].copy(id = null)),
+            listOf(explicit[0], explicit[1].copy(id = explicit[0].id)),
+            listOf(WorkflowGlossaryEntry("Other", "B", id = StableContentHash.sha256("alice").take(24)), WorkflowGlossaryEntry("Alice", "A")),
+            listOf(explicit[0].copy(id = " boundary")), listOf(explicit[0].copy(id = "\ud800")),
+            listOf(explicit[0].copy(source = "\u00a0\ufeff")),
+            List(201) { WorkflowGlossaryEntry("Source $it", "Target $it", id = "id-$it") },
+        )) assertThrows(IllegalArgumentException::class.java) { resolve(bad) }
     }
 }

@@ -2,6 +2,9 @@ package com.dongholab.pagetuner.server.workflow
 
 import com.dongholab.pagetuner.core.content.ChapterContent
 import com.dongholab.pagetuner.core.content.StableContentHash
+import com.dongholab.pagetuner.core.model.glossary.BookGlossarySyncEntry
+import com.dongholab.pagetuner.core.model.glossary.BookGlossarySyncKind
+import com.dongholab.pagetuner.core.model.glossary.BookGlossarySyncValidation
 import com.dongholab.pagetuner.core.translation.TranslatedParagraph
 import com.dongholab.pagetuner.translation.ChapterTranslationEngine
 import com.dongholab.pagetuner.translation.DeepSeekDefaults
@@ -35,7 +38,7 @@ fun JobConfiguration.settings(key: String) = TranslationSettings(
     sourceLanguage = sourceLanguage, targetLanguage = targetLanguage, paceMode = TranslationPaceMode.FAST,
 )
 fun JobConfiguration.glossary(bookId: String): BookGlossary? = glossary.takeIf { it.isNotEmpty() }?.let { entries ->
-    BookGlossary(bookId, entries.map { BookGlossaryEntry(StableContentHash.sha256(it.source.lowercase()).take(24), it.source, it.target,
+    BookGlossary(bookId, entries.map { BookGlossaryEntry(it.id ?: StableContentHash.sha256(it.source.lowercase()).take(24), it.source, it.target,
         it.displayTerm.orEmpty(), GlossaryTermKind.valueOf(it.kind ?: "Character"), it.caseSensitive ?: false, it.enabled ?: true) })
 }
 
@@ -82,14 +85,25 @@ class WorkflowProviders private constructor(private val environment: (String) ->
         require(request.glossary.size <= 200) { "A glossary can contain at most 200 entries." }
         val glossary = request.glossary.map {
             require(it.kind == null || it.kind in setOf("Character", "Place", "Term")) { "Invalid glossary kind." }
+            if (it.id != null) {
+                BookGlossarySyncValidation.validateEntry(BookGlossarySyncEntry(it.id, it.source, it.target, it.displayTerm.orEmpty(),
+                    BookGlossarySyncKind.valueOf(it.kind ?: "Character"), it.caseSensitive ?: false, it.enabled ?: true))
+                return@map it
+            }
             require((it.displayTerm?.trim()?.length ?: 0) <= 200) { "Invalid glossary display alias." }
             WorkflowGlossaryEntry(it.source.trim(), it.target.trim(), it.kind?.takeUnless { kind -> kind == "Character" },
                 it.displayTerm?.trim()?.takeIf(String::isNotEmpty), it.caseSensitive?.takeIf { sensitive -> sensitive },
                 it.enabled?.takeUnless { enabled -> enabled })
         }
         require(glossary.all { it.source.length in 1..200 && it.target.length in 1..200 }) { "Invalid glossary entry." }
-        require(glossary.map { it.source.lowercase() }.distinct().size == glossary.size) { "Duplicate glossary source terms." }
-        val preliminary = JobConfiguration(provider.id, source, target, endpoint, model, glossary.sortedBy { it.source }, "", "", "")
+        require(glossary.groupBy { it.source.trim().lowercase() }.values.none { group -> group.size > 1 && group.any { it.id == null } }) {
+            "Duplicate glossary source terms require explicit unique entry IDs."
+        }
+        require(glossary.map { it.id ?: StableContentHash.sha256(it.source.lowercase()).take(24) }.toSet().size == glossary.size) {
+            "Duplicate glossary entry IDs."
+        }
+        val ordered = if (glossary.any { it.id != null }) glossary else glossary.sortedBy { it.source }
+        val preliminary = JobConfiguration(provider.id, source, target, endpoint, model, ordered, "", "", "")
         val identity = TranslationRuntimeIdentity.describe(preliminary.settings(secret), preliminary.glossary(chapter.content().identity.book.canonicalId))
         return preliminary.copy(translationProviderId = identity.providerId, model = identity.modelId,
             promptRevision = identity.promptRevision, glossaryRevision = identity.glossaryRevision) to secret
