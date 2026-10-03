@@ -1,0 +1,177 @@
+[
+  {
+    "name": "text",
+    "representation": "TEXT",
+    "document": {
+      "id": "ignored-copy-id",
+      "bookTitle": "ignored title",
+      "chapterTitle": "ignored chapter",
+      "language": "ko",
+      "kind": "local",
+      "paragraphs": [
+        {
+          "paragraphId": "p:😀",
+          "text": "안녕 😀:|\n"
+        },
+        {
+          "paragraphId": "empty",
+          "text": ""
+        }
+      ],
+      "outline": [],
+      "notes": [],
+      "organization": {
+        "folder": "",
+        "tags": [],
+        "favorite": false
+      },
+      "glossary": [],
+      "assets": []
+    },
+    "payloads": [],
+    "originalFile": null,
+    "expected": {
+      "originalFileByteLength": null,
+      "originalFileSha256": null,
+      "version": 1,
+      "representation": "TEXT",
+      "language": "ko",
+      "paragraphHash": "49a2786ea841e981ec031fdb0ee78a997d92306a2f21be5ef25baf4ccfbcef5e",
+      "assets": [],
+      "sha256": "642ef061c51865594035f81ee3dc38f00549300b258bdfc6381b1979b2451478"
+    }
+  },
+  {
+    "name": "pdf-empty",
+    "representation": "PDF",
+    "document": {
+      "id": "ignored-copy-id",
+      "bookTitle": "ignored title",
+      "chapterTitle": "ignored chapter",
+      "language": "ko",
+      "kind": "local",
+      "paragraphs": [],
+      "outline": [],
+      "notes": [],
+      "organization": {
+        "folder": "",
+        "tags": [],
+        "favorite": false
+      },
+      "glossary": [],
+      "assets": [
+        {
+          "path": "assets/646afc0abe8b35d35cdf6c4ed88a4fcafe5a956225be324c5e082915ae7d4ccd",
+          "role": "pdf"
+        }
+      ]
+    },
+    "payloads": [
+      {
+        "file": "source.pdf",
+        "mimeType": "application/pdf",
+        "path": "assets/646afc0abe8b35d35cdf6c4ed88a4fcafe5a956225be324c5e082915ae7d4ccd"
+      }
+    ],
+    "originalFile": "source.pdf",
+    "expected": {
+      "originalFileByteLength": 598,
+      "originalFileSha256": "646afc0abe8b35d35cdf6c4ed88a4fcafe5a956225be324c5e082915ae7d4ccd",
+      "version": 1,
+      "representation": "PDF",
+      "language": "ko",
+      "paragraphHash": "d0c870bacd7b165350e7643383d14f52a6d5e53d0350b378041b9949cd653259",
+      "assets": [
+        {
+          "path": "assets/646afc0abe8b35d35cdf6c4ed88a4fcafe5a956225be324c5e082915ae7d4ccd",
+          "role": "pdf",
+          "mimeType": "application/pdf",
+          "byteLength": 598,
+          "sha256": "646afc0abe8b35d35cdf6c4ed88a4fcafe5a956225be324c5e082915ae7d4ccd",
+          "paragraphId": null,
+          "alt": null
+        }
+      ],
+      "sha256": "957ee25d474627dac7bb26c24ed8c26a0567092f982c33388cb565bb3895bb44"
+    }
+  },
+  {
+    "name": "epub-repeated-image",
+    "representation": "EPUB",
+    "document": {
+      "id": "ignored-copy-id",
+      "bookTitle": "ignored title",
+      "chapterTitle": "ignored chapter",
+      "language": "ko",
+      "kind": "local",
+      "paragraphs": [
+        {
+          "paragraphId": "p:😀",
+          "text": "안녕 😀:|\n"
+        },
+        {
+          "paragraphId": "empty",
+          "text": ""
+        }
+      ],
+      "outline": [],
+      "notes": [],
+      "organization": {
+        "folder": "",
+        "tags": [],
+        "favorite": false
+      },
+      "glossary": [],
+      "assets": [
+        {
+          "path": "assets/e878950f8091ec010cf5cc723bdea027a8539cf7147cfea199c2f666232dcd4e",
+          "role": "image",
+          "paragraphId": "p:😀"
+        },
+        {
+          "path": "assets/e878950f8091ec010cf5cc723bdea027a8539cf7147cfea199c2f666232dcd4e",
+          "role": "image",
+          "paragraphId": "empty",
+          "alt": ""
+        }
+      ]
+    },
+    "payloads": [
+      {
+        "file": "image.png",
+        "mimeType": "image/png",
+        "path": "assets/e878950f8091ec010cf5cc723bdea027a8539cf7147cfea199c2f666232dcd4e"
+      }
+    ],
+    "originalFile": "source.epub",
+    "expected": {
+      "originalFileByteLength": 389,
+      "originalFileSha256": "59a7e6476c657a572acabe3cceb013cdaf8a40f267a096d7edb73005f667c079",
+      "version": 1,
+      "representation": "EPUB",
+      "language": "ko",
+      "paragraphHash": "49a2786ea841e981ec031fdb0ee78a997d92306a2f21be5ef25baf4ccfbcef5e",
+      "assets": [
+        {
+          "path": "assets/e878950f8091ec010cf5cc723bdea027a8539cf7147cfea199c2f666232dcd4e",
+          "role": "image",
+          "paragraphId": "p:😀",
+          "mimeType": "image/png",
+          "byteLength": 69,
+          "sha256": "e878950f8091ec010cf5cc723bdea027a8539cf7147cfea199c2f666232dcd4e",
+          "alt": null
+        },
+        {
+          "path": "assets/e878950f8091ec010cf5cc723bdea027a8539cf7147cfea199c2f666232dcd4e",
+          "role": "image",
+          "paragraphId": "empty",
+          "alt": "",
+          "mimeType": "image/png",
+          "byteLength": 69,
+          "sha256": "e878950f8091ec010cf5cc723bdea027a8539cf7147cfea199c2f666232dcd4e"
+        }
+      ],
+      "sha256": "f98790ca56858e3f1ed07df23cb6d2b3d63ecb6993c7b034ccca3583c68d97c7"
+    }
+  }
+]
