@@ -66,7 +66,7 @@ export function readingNoteInput(note: ReadingNote, document?: ReadingDocument):
   const input = validateReadingNoteInput({ kind: note.kind.toUpperCase(), title: note.title, text: note.text, anchor: note.anchor, range: note.range ?? null, createdAt: note.createdAt })
   if (document) {
     const p = document.paragraphs.find(p => p.paragraphId === input.anchor.paragraphId), offset = input.anchor.characterOffset
-    if (!p || offset >= p.text.length || offset > 0 && /[\uD800-\uDBFF]/.test(p.text[offset - 1]) && /[\uDC00-\uDFFF]/.test(p.text[offset])) return invalid()
+    if (!p || offset > p.text.length || offset > 0 && /[\uD800-\uDBFF]/.test(p.text[offset - 1]) && /[\uDC00-\uDFFF]/.test(p.text[offset])) return invalid()
     if (input.range && readingRangeText(document, input.range) !== note.excerpt) return invalid()
   }
   return input

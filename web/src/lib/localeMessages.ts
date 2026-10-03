@@ -1,5 +1,18 @@
 /** Korean source keys keep existing copy readable. Add packs through registerLanguagePack. */
 export const englishMessages: Record<string, string> = {
+  '계정 기록으로 읽기': 'Read account records',
+  '이 문서를 계정 기록에 연결': 'Connect to account records',
+  '서버 원본과 일치합니다. 연결을 선택하면 계정 기록으로 읽습니다. 기기 기록은 별도로 보존됩니다.': 'Server content matches. Connecting enables account records. Device records remain separate.',
+  '서버 연결을 저장했습니다. 계정 기록으로 읽기를 선택해 주세요.': 'Connection saved. Select Read account records.',
+  '서버 연결을 저장하지 못했습니다.': 'Could not save the connection.',
+  '서버 연결을 해제했습니다. 기기 기록은 보존됩니다.': 'Disconnected. Device records are preserved.',
+  '계정 기록으로 읽고 있습니다. ZIP의 기기 기록은 별도로 보존됩니다.': 'Reading with account records. ZIP device records are preserved separately.',
+  '먼저 서버 원본을 확인하고 계정 기록에 연결해 주세요.': 'Verify the server copy and connect to account records first.',
+  '본문 또는 원본 정보가 변경되어 서버 연결을 해제했습니다. 기기 기록은 보존됩니다.': 'Content or provenance changed. Connection removed; device records are preserved.',
+  '서버 연결을 확인하려면 다시 로그인해 주세요. 기기에서 읽기는 계속 사용할 수 있습니다.': 'Sign in again to verify the connection. Device reading remains available.',
+  '서버 연결 정보를 다시 확인해 주세요.': 'Verify the server connection again.',
+  '서버 연결 확인이 취소되었습니다.': 'Connection verification canceled.',
+
   '서버 원본 확인': 'Verify server copy',
   '서버 원본을 확인하려면 다시 로그인해 주세요.': 'Sign in again to verify the server copy.',
   '서버 확인 권한을 확인해 주세요. 다시 로그인한 뒤 시도해 주세요.': 'Check access to the server. Sign in again and retry.',

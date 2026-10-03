@@ -3,6 +3,8 @@ import { translate as t } from '../lib/locale'
 import { createExchangeLibrary, exchangeExportChoices, exchangeReadingDocument, exchangePdfDocument, mergeExchangePackages, type ExchangeExportChoice, type SavedExchange } from '../lib/exchangeLibrary'
 import { readExchange, writeExchange, exchangeLimits, type ExchangePackage } from '../lib/libraryExchange'
 import { createReadingNotes } from '../lib/readingNotes'
+import { createPortableBindings } from '../lib/portableBinding'
+import type { ReadingDocument } from '../lib/readingDocument'
 import type { ReadingAnchor } from '../lib/offline'
 import { AdaptiveCollection } from './AdaptiveCollection'
 import { PagedReader } from './PagedReader'
@@ -12,12 +14,15 @@ import { LibraryIdentityVerifier } from './LibraryIdentityVerifier'
 import type { LibraryIdentityClient } from '../lib/libraryIdentityApi'
 import './readingTools.css'
 
-export function LibraryExchangeWorkspace({ username, identityClient, onReadingChange }: { username: string; identityClient: LibraryIdentityClient | null; onReadingChange: (reading: boolean) => void }) {
+export function LibraryExchangeWorkspace({ username, identityClient, targetLanguage, onReadingChange }: { username: string; identityClient: LibraryIdentityClient | null; targetLanguage: string; onReadingChange: (reading: boolean) => void }) {
   const storage = useMemo(() => createExchangeLibrary(username), [username]), notes = useMemo(() => createReadingNotes(username), [username])
   const [tab, setTab] = useState<'import' | 'export' | 'books'>('import'), [books, setBooks] = useState<SavedExchange[]>([]), [choices, setChoices] = useState<ExchangeExportChoice[]>([])
   const [selected, setSelected] = useState<string[]>([]), [preview, setPreview] = useState<ExchangePackage>(), [busy, setBusy] = useState(false), [error, setError] = useState(''), [notice, setNotice] = useState('')
-  const [reading, setReading] = useState<{ book: SavedExchange; anchor?: ReadingAnchor }>()
+  const [reading, setReading] = useState<{ book: SavedExchange; anchor?: ReadingAnchor; accountDocument?: ReadingDocument }>()
   const [verifying, setVerifying] = useState<SavedExchange>()
+  const bindings = useMemo(() => createPortableBindings(username, window.location.origin), [username])
+  const accountRequest = useRef<AbortController | null>(null)
+  useEffect(() => () => { accountRequest.current?.abort(); operation.current++ }, [username, identityClient])
   const operation = useRef(0)
   useLayoutEffect(() => { onReadingChange(!!reading); return () => onReadingChange(false) }, [!!reading, onReadingChange])
   useEffect(() => { return () => { operation.current++ } }, [username])
@@ -41,10 +46,10 @@ export function LibraryExchangeWorkspace({ username, identityClient, onReadingCh
   })
   if (reading) {
     if (reading.book.document.assets.some(a => a.role === 'pdf') || (reading.book.document.assets.length > 0 && !reading.book.document.paragraphs.some(p => p.text.trim()))) return <ExchangeAssetReader saved={reading.book} username={username} onClose={() => setReading(undefined)}/>
-    const document = exchangeReadingDocument(reading.book), pdf = exchangePdfDocument(reading.book)
+    const document = reading.accountDocument ?? exchangeReadingDocument(reading.book), pdf = exchangePdfDocument(reading.book)
     const remember = (anchor: ReadingAnchor) => { void notes.setPosition(document, anchor).catch(e => setError(e instanceof Error ? e.message : '')) }
     if (pdf) return <LocalPdfReader document={pdf} namespace={username} anchor={reading.anchor} onClose={() => setReading(undefined)} onAnchorChange={remember} actionError={error}/>
-    return <PagedReader document={document} notesNamespace={username} anchor={reading.anchor} onClose={() => setReading(undefined)} onAnchorChange={remember} positionNote={t('ZIP으로 가져온 책입니다. 변경한 독서 기록도 다시 내보낼 수 있습니다.')} actionError={error}/>
+    return <PagedReader document={document} notesNamespace={username} glossaryTargetLanguage={document.kind === 'translation' ? document.language : targetLanguage} anchor={reading.anchor} onClose={() => setReading(undefined)} onAnchorChange={remember} positionNote={t(reading.accountDocument ? '계정 기록으로 읽고 있습니다. ZIP의 기기 기록은 별도로 보존됩니다.' : 'ZIP으로 가져온 책입니다. 변경한 독서 기록도 다시 내보낼 수 있습니다.')} actionError={error}/>
   }
   return <section className="reading-workspace" aria-label={t('앱 · 웹 ZIP 교환')}>
     <nav className="workflow-subtabs" aria-label={t('ZIP 교환 메뉴')}>{(['import', 'export', 'books'] as const).map(value => <button key={value} disabled={busy} aria-pressed={tab === value} onClick={() => loadTab(value)}>{t(value === 'import' ? 'ZIP 가져오기' : value === 'export' ? 'ZIP 내보내기' : '가져온 책')}</button>)}</nav>
@@ -60,7 +65,7 @@ export function LibraryExchangeWorkspace({ username, identityClient, onReadingCh
       <p>{t('기기에 보관된 책을 선택하세요. 서버 책은 먼저 기기에 보관해 주세요.')}</p>
       {choices.length ? <AdaptiveCollection items={choices} itemKey={c => c.key} rowHeight={104} renderItem={choice => <label className="reading-note-row reading-checkbox"><input type="checkbox" checked={selected.includes(choice.key)} disabled={busy} onChange={event => setSelected(values => event.target.checked ? [...values, choice.key] : values.filter(v => v !== choice.key))}/><strong>{choice.title}</strong><span>{choice.kind}</span></label>}/> : <p>{t('내보낼 기기 보관 문서가 없습니다.')}</p>}
       <div className="reading-filter-actions"><span>{t('{0}개 선택', [selected.length])}</span><button className="button-primary" disabled={busy || selected.length === 0 || selected.length > 100} onClick={exportSelected}>{t('선택한 책을 ZIP으로 내보내기')}</button></div>
-    </> : books.length ? <AdaptiveCollection items={books} itemKey={book => book.id} rowHeight={128} renderItem={book => <div className="reading-note-row"><strong>{book.document.bookTitle}</strong><span>{book.document.chapterTitle} · {book.document.language} · {book.document.organization.folder}</span><div className="exchange-book-actions"><button className="button-outline" disabled={busy} onClick={() => void run(async current => { const anchor = await notes.getPosition(exchangeReadingDocument(book)); if (current()) setReading({ book, anchor }) })}>{t('읽기')}</button><button className="button-outline" disabled={busy} onClick={() => setVerifying(book)}>{t('서버 원본 확인')}</button></div></div>}/> : <p>{t('ZIP으로 가져온 책이 없습니다.')}</p>}
-    {verifying && <LibraryIdentityVerifier key={`${username}:${verifying.id}`} book={verifying} username={username} client={identityClient} onClose={() => setVerifying(undefined)}/>}
+    </> : books.length ? <AdaptiveCollection items={books} itemKey={book => book.id} rowHeight={180} renderItem={book => <div className="reading-note-row"><strong>{book.document.bookTitle}</strong><span>{book.document.chapterTitle} · {book.document.language} · {book.document.organization.folder}</span><div className="exchange-book-actions"><button className="button-outline" disabled={busy} onClick={() => void run(async current => { const anchor = await notes.getPosition(exchangeReadingDocument(book)); if (current()) setReading({ book, anchor }) })}>{t('읽기')}</button><button className="button-outline" disabled={busy} onClick={() => setVerifying(book)}>{t('서버 원본 확인')}</button><button className="button-outline" disabled={busy} onClick={() => void run(async current => { const request = new AbortController(); accountRequest.current?.abort(); accountRequest.current = request; const accountDocument = await bindings.open(book, identityClient, request.signal); if (!accountDocument) throw new Error('먼저 서버 원본을 확인하고 계정 기록에 연결해 주세요.'); const anchor = await notes.getPosition(accountDocument); if (current()) setReading({ book, anchor, accountDocument }) })}>{t('계정 기록으로 읽기')}</button></div></div>}/> : <p>{t('ZIP으로 가져온 책이 없습니다.')}</p>}
+    {verifying && <LibraryIdentityVerifier key={`${username}:${verifying.id}`} book={verifying} username={username} client={identityClient} onConfirm={(result, signal) => bindings.confirm(verifying, result, signal)} onUnbind={() => bindings.remove(verifying)} onClose={() => setVerifying(undefined)}/>}
   </section>
 }

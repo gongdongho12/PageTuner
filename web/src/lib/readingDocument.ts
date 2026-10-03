@@ -17,12 +17,10 @@ export type ReadingDocument = {
 }
 
 export function validAnchor(document: ReadingDocument, anchor: ReadingAnchor): boolean {
-  const paragraph = document.paragraphs.find(item => item.paragraphId === anchor.paragraphId)
-  return !!paragraph && Number.isSafeInteger(anchor.characterOffset) && anchor.characterOffset >= 0 &&
-    anchor.characterOffset < paragraph.text.length
+  return validReadingPosition(document, anchor)
 }
 
-/** Reading progress is an insertion point; unlike note starts it includes empty and terminal positions. */
+/** Reading progress and point notes use exact insertion points, including empty and terminal positions. */
 export function validReadingPosition(document: Pick<ReadingDocument, 'paragraphs'>, value: unknown): value is ReadingAnchor {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return false
   const anchor = value as Record<string, unknown>
