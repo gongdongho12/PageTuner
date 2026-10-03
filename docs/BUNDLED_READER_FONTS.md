@@ -9,3 +9,9 @@ Android TTF는 각각 약 14.1MB, 공유 웹 WOFF2는 약 3.1/3.2MB다. 최초 �
 2026-10-03: APK의 내장 WOFF2와 웹 원본의 바이트 일치, 동일 기기 공유 HTTP의 두 폰트 200 응답을 확인했다. Android 본문/페이지 계측 및 실제 패키지 공유 검사 8개 통과. 같은 에뮬레이터 Chrome에서 사용자가 실제 로컬 책 표시를 확인했다. 물리 기기와 무선 핫스팟 확인은 미실행이다.
 
 후속 라이선스 경로의 정확한 allowlist를 추가하고 실제 Android HTTP 200 및 OFL 본문을 확인했다. 공유 runtime 20개 검사와 최종 앱 APK/lint 빌드가 통과했다.
+
+## 서버 공개 캐시 설치 후속 수정
+
+2026-10-03: 공유 runtime의 라이선스 경로는 제공됐지만, 클라우드 ServerSecurity 공개 GET 목록에는 같은 경로가 빠져 있었다. 서비스워커가 credentials omit으로 license를 포함한 전체 SHELL을 cache.addAll할 때 401 때문에 설치가 실패할 수 있어 정확한 `/fonts/OFL-NotoSerifKR.txt` GET만 공개했다. 인접 경로와 POST·API의 인증은 유지한다.
+
+서버 MVC 보안 검사 7개 통과: 실제 static license 200/text/plain/OFL 내용, 인접 경로·POST·API 인증을 검사한다. 웹을 포함한 실제 bootJar의 SHELL 68개를 익명 HTTP로 받아 원본 bytes까지 비교했다. 검증용 8082 서버를 종료하고 네트워크 요청이 실패함을 별도 확인한 후, 실제 브라우저에서 root 새로고침·오프라인 라이선스·독서 미리보기 1→2쪽과 콘솔 오류 없음 확인. 화면 근거는 `.gradle-home/font-license-offline-reader.png`다. 검증 서버와 임시 탭을 종료했으며 사용자 서재/DB는 삭제하지 않았다. CI에도 서버 shell 보안 검사를 추가했다.
