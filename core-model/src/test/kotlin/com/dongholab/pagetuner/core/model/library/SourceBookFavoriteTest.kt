@@ -24,7 +24,8 @@ class SourceBookFavoriteTest {
 
     @Test fun `reject executable ambiguous and credential bearing URLs`() {
         listOf("javascript:alert(1)", "//example.com/a", "https://user:pass@example.com/a", "https://example.com\\@evil.test",
-            "https://example.com/ space", "https://例え.test/a", "https://example.com:99999/a", "https://example.com/\n").forEach { url ->
+            "https://example.com/ space", "https://例え.test/a", "https://example.com:99999/a", "https://example.com/\n",
+            "https://[fe80::1%25eth0]/a", "https://%65xample.com/a").forEach { url ->
             assertThrows(IllegalArgumentException::class.java) { SourceBookFavoriteValidation.validateMetadata(book.copy(url = url)) }
         }
     }

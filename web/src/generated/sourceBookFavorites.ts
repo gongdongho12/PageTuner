@@ -27,7 +27,7 @@ export interface components {
             language: string;
             /**
              * Format: uri
-             * @description Absolute HTTP(S) visible ASCII URI, host required, no credentials, backslash or whitespace; port absent or0..65535.
+             * @description Absolute HTTP(S) visible ASCII URI, host required, no credentials, percent escapes in authority (including IPv6 zone IDs), backslash or whitespace; port absent or0..65535.
              */
             url: string;
         };

@@ -24,7 +24,9 @@ object SourceBookFavoriteValidation {
         require(url.length in 1..2048 && url.all { it.code in 33..126 && it != '\\' }) { "Invalid source book URL." }
         val parsed = try { URI(url) } catch (_: Exception) { throw IllegalArgumentException("Invalid source book URL.") }
         require(parsed.scheme?.lowercase() in setOf("http", "https") && !parsed.host.isNullOrEmpty() &&
-            parsed.rawUserInfo == null && parsed.port in -1..65535) { "Invalid source book URL." }
+            parsed.rawUserInfo == null && '%' !in parsed.rawAuthority.orEmpty() && parsed.port in -1..65535) {
+            "Invalid source book URL."
+        }
     }
 
     private fun canonical(value: String, maximum: Int): Boolean {
