@@ -333,7 +333,14 @@ class LocalSharingServerTest {
         return try {
             val status = connection.responseCode
             val stream = if (status >= 400) connection.errorStream else connection.inputStream
-            Response(status, stream?.use { it.readBytes().toString(Charsets.UTF_8) }.orEmpty(), connection.headerFields.filterKeys { it != null }.mapKeys { it.key.lowercase() }.mapValues { it.value.first() })
+            Response(status, stream?.use {
+                // Rejections can close a socket with unread request bytes. Read the framed
+                // response, not an extra EOF probe after its complete Content-Length body.
+                val length = connection.contentLength
+                val bytes = if (length >= 0) it.readNBytes(length) else it.readBytes()
+                if (length >= 0) assertEquals("Complete HTTP response body", length, bytes.size)
+                bytes.toString(Charsets.UTF_8)
+            }.orEmpty(), connection.headerFields.filterKeys { it != null }.mapKeys { it.key.lowercase() }.mapValues { it.value.first() })
         } finally { connection.disconnect() }
     }
 
@@ -348,7 +355,18 @@ class LocalSharingServerTest {
         val request = "$method $path HTTP/1.1\r\n" + values.entries.joinToString("") { "${it.key}: ${it.value}\r\n" } + "\r\n"
         socket.getOutputStream().write(request.toByteArray(Charsets.UTF_8))
         if (bytes != null) socket.getOutputStream().write(bytes)
-        val response = socket.getInputStream().readBytes().toString(Charsets.UTF_8)
+        val input = socket.getInputStream().buffered()
+        val header = StringBuilder()
+        while (!header.endsWith("\r\n\r\n")) {
+            val byte = input.read()
+            check(byte >= 0 && header.length < 32768) { "Incomplete HTTP headers" }
+            header.append(byte.toChar())
+        }
+        val length = header.toString().split("\r\n").firstOrNull { it.startsWith("Content-Length:", true) }
+            ?.substringAfter(':')?.trim()?.toInt() ?: 0
+        val payload = input.readNBytes(length)
+        assertEquals("Complete raw HTTP response body", length, payload.size)
+        val response = header.toString() + payload.toString(Charsets.UTF_8)
         val head = response.substringBefore("\r\n\r\n").split("\r\n")
         Response(head.first().split(' ')[1].toInt(), response.substringAfter("\r\n\r\n"), head.drop(1).associate { it.substringBefore(':').lowercase() to it.substringAfter(':').trim() })
     }
