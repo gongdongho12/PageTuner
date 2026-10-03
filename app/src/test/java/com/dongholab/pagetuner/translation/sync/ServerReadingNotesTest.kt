@@ -38,15 +38,21 @@ class ServerReadingNotesTest {
         assertThrows(IllegalArgumentException::class.java) { doc.noteContent(ServerReadingNoteKind.BOOKMARK, 1, "Invalid", "", 1) }
     }
 
-    @Test fun displaySeparatorNotesStartAtNextExistingTextAndDocumentEndCannotInventAnExcerpt() {
-        val doc = document(texts = listOf("First", "Second"))
-        assertEquals(1 to 0, doc.notePosition(0, 5))
-        val bookmark = doc.noteContent(ServerReadingNoteKind.BOOKMARK, 0, "Next paragraph", "", 5)
-        assertEquals(ServerReadingAnchor("p2", 0), bookmark.anchor)
-        assertEquals("Second", bookmark.excerpt)
-        assertNull(doc.notePosition(1, 6))
-        assertThrows(IllegalArgumentException::class.java) { doc.noteContent(ServerReadingNoteKind.BOOKMARK, 1, "End", "", 6) }
-        assertEquals(ServerReadingAnchor("p1", 5), doc.anchor(0, 5))
+    @Test fun pointNotesRetainTerminalAndEmptyAnchorsWhileHighlightsCannotRemap() {
+        val doc = document(texts = listOf("First", "Second", ""))
+        assertEquals(0 to 5, doc.notePosition(0, 5))
+        val bookmark = doc.noteContent(ServerReadingNoteKind.BOOKMARK, 0, "Paragraph end", "", 5)
+        assertEquals(ServerReadingAnchor("p1", 5), bookmark.anchor)
+        assertEquals("", bookmark.excerpt)
+        val end = doc.noteContent(ServerReadingNoteKind.NOTE, 1, "End", "My note", 6)
+        assertEquals(ServerReadingAnchor("p2", 6), end.anchor)
+        assertEquals("", end.excerpt)
+        val empty = doc.noteContent(ServerReadingNoteKind.BOOKMARK, 2, "Empty", "", 0)
+        assertEquals(ServerReadingAnchor("p3", 0), empty.anchor)
+        assertEquals("", empty.excerpt)
+        assertThrows(IllegalArgumentException::class.java) { doc.noteContent(ServerReadingNoteKind.HIGHLIGHT, 0, "End", "", 5) }
+        assertThrows(IllegalArgumentException::class.java) { doc.noteContent(ServerReadingNoteKind.HIGHLIGHT, 2, "Empty", "", 0) }
+        assertThrows(IllegalArgumentException::class.java) { doc.noteContent(ServerReadingNoteKind.BOOKMARK, 0, "Out of bounds", "", 6) }
     }
 
     @Test fun incrementalPagesAreAtomicPreserveRepeatedIdsAndDoNotUploadRestoredNotes() = runTest(timeout = 10.seconds) {

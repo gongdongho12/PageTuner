@@ -70,7 +70,7 @@ export interface components {
              * @default GOOGLE_WEB_TRANSLATE_HTML
              * @enum {string}
              */
-            providerKind: "GOOGLE_WEB_TRANSLATE_HTML" | "GOOGLE_CLOUD" | "DEEPSEEK" | "OPENAI_COMPATIBLE_LLM";
+            providerKind: "GOOGLE_WEB_TRANSLATE_HTML" | "GOOGLE_CLOUD" | "DEEPSEEK" | "GEMINI" | "OPENAI_COMPATIBLE_LLM";
             endpoint?: string | null;
             model?: string | null;
             apiKey?: string | null;

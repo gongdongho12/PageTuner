@@ -49,6 +49,7 @@ class LocalSharingServerTest {
         when (path) {
             "index.html" -> SharedBinary("text/html", 26) { "<html>Local sharing</html>".byteInputStream() }
             "assets/reader.js" -> SharedBinary("text/javascript", 10) { "// reader\n".byteInputStream() }
+            "fonts/OFL-NotoSerifKR.txt" -> SharedBinary("text/plain", 3) { "OFL".byteInputStream() }
             else -> null
         }
     }
@@ -152,6 +153,8 @@ class LocalSharingServerTest {
         assertTrue(script.headers.getValue("content-security-policy").contains("'wasm-unsafe-eval'"))
         assertFalse(script.headers.getValue("content-security-policy").contains("'unsafe-eval'"))
         assertEquals(404, request("/assets/missing.js").status)
+        assertEquals("OFL", request("/fonts/OFL-NotoSerifKR.txt").body)
+        assertEquals(404, request("/fonts/private.txt").status)
     }
 
     @Test fun `pair body must be bounded JSON with exactly one string code`() {
@@ -333,7 +336,14 @@ class LocalSharingServerTest {
         return try {
             val status = connection.responseCode
             val stream = if (status >= 400) connection.errorStream else connection.inputStream
-            Response(status, stream?.use { it.readBytes().toString(Charsets.UTF_8) }.orEmpty(), connection.headerFields.filterKeys { it != null }.mapKeys { it.key.lowercase() }.mapValues { it.value.first() })
+            Response(status, stream?.use {
+                // Rejections can close a socket with unread request bytes. Read the framed
+                // response, not an extra EOF probe after its complete Content-Length body.
+                val length = connection.contentLength
+                val bytes = if (length >= 0) it.readNBytes(length) else it.readBytes()
+                if (length >= 0) assertEquals("Complete HTTP response body", length, bytes.size)
+                bytes.toString(Charsets.UTF_8)
+            }.orEmpty(), connection.headerFields.filterKeys { it != null }.mapKeys { it.key.lowercase() }.mapValues { it.value.first() })
         } finally { connection.disconnect() }
     }
 
@@ -348,7 +358,23 @@ class LocalSharingServerTest {
         val request = "$method $path HTTP/1.1\r\n" + values.entries.joinToString("") { "${it.key}: ${it.value}\r\n" } + "\r\n"
         socket.getOutputStream().write(request.toByteArray(Charsets.UTF_8))
         if (bytes != null) socket.getOutputStream().write(bytes)
-        val response = socket.getInputStream().readBytes().toString(Charsets.UTF_8)
+        val input = socket.getInputStream().buffered()
+        val header = StringBuilder()
+        while (!header.endsWith("\r\n\r\n")) {
+            val byte = input.read()
+            check(byte >= 0 && header.length < 32768) { "Incomplete HTTP headers" }
+            header.append(byte.toChar())
+        }
+        val length = header.toString().split("\r\n").firstOrNull { it.startsWith("Content-Length:", true) }
+            ?.substringAfter(':')?.trim()?.toInt() ?: 0
+        val payload = ByteArray(length)
+        var received = 0
+        while (received < length) {
+            val count = input.read(payload, received, length - received)
+            check(count > 0) { "Incomplete raw HTTP response body" }
+            received += count
+        }
+        val response = header.toString() + payload.toString(Charsets.UTF_8)
         val head = response.substringBefore("\r\n\r\n").split("\r\n")
         Response(head.first().split(' ')[1].toInt(), response.substringAfter("\r\n\r\n"), head.drop(1).associate { it.substringBefore(':').lowercase() to it.substringAfter(':').trim() })
     }

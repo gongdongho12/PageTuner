@@ -140,10 +140,11 @@ query를 오류에 포함하지 않습니다. 다른 목적지의 리다이렉�
 | --- | --- |
 | `PAGETUNER_GOOGLE_API_KEY` | Google Cloud 서버 키 |
 | `DEEPSEEK_API_KEY`, `DEEPSEEK_API_URL`, `DEEPSEEK_MODEL` | DeepSeek 키·endpoint·모델; 모델 기본값은 공통 `DeepSeekDefaults.Model` |
+| `GEMINI_API_KEY`, `GEMINI_API_URL`, `GEMINI_MODEL` | Gemini 키·공식 OpenAI 호환 endpoint·모델; 기본 `GeminiDefaults.Model` |
 | `OPENAI_API_KEY`, `OPENAI_API_URL`, `OPENAI_MODEL` | OpenAI 호환 키·endpoint·모델 |
 | `PAGETUNER_LLM_ENDPOINTS` | 추가로 허용할 정확한 LLM endpoint 목록; 쉼표로 구분 |
 
-기본 DeepSeek/OpenAI endpoint와 환경 변수로 정한 기본 endpoint도 허용 목록에 포함됩니다.
+기본 DeepSeek/Gemini/OpenAI endpoint와 환경 변수로 정한 기본 endpoint도 허용 목록에 포함됩니다.
 LLM endpoint에는 사용자 정보·query·fragment를 허용하지 않으며 HTTPS가 기본입니다.
 HTTP는 명시적으로 등록한 loopback 개발 endpoint만 허용합니다. 번역 HTTP redirect는 따르지 않습니다.
 API 키는 작업 JSON/DB/checkpoint/오류 메시지에 저장하지 않고 현재 실행 메모리 또는 서버 환경에서만 사용합니다.

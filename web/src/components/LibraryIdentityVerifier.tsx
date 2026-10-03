@@ -1,7 +1,7 @@
 import { useId, useLayoutEffect, useRef, useState } from 'react'
 import { translate as t } from '../lib/locale'
 import { inspectPortableIdentity, type PortableIdentityCheck } from '../lib/libraryIdentity'
-import { LibraryIdentityError, type LibraryIdentityClient } from '../lib/libraryIdentityApi'
+import { LibraryIdentityError, type LibraryIdentityClient, type LibraryIdentityResult } from '../lib/libraryIdentityApi'
 import { validRecordId } from '../lib/validation'
 import type { SavedExchange } from '../lib/exchangeLibrary'
 import { AdaptiveCollection } from './AdaptiveCollection'
@@ -36,12 +36,12 @@ function fields(items: { label: string; value: string }[]) {
   })
 }
 const identityLabels: Record<string, string> = { version: '규격 버전', kind: '문서 종류', contentProviderId: '원본 소스 식별자', bookId: '책 식별자', chapterId: '장 식별자', sourceRevision: '원문 revision', sourceLanguage: '원문 언어', paragraphHash: '전체 문단 hash', targetLanguage: '번역 언어', translationProviderId: '번역 제공자', modelId: '모델 식별자', promptRevision: '프롬프트 revision', glossaryRevision: '용어집 revision', artifactId: '번역 식별 hash', revision: '번역 revision', payloadHash: '번역 본문 hash' }
-export function LibraryIdentityVerifier({ book, username, client, onClose }: { book: SavedExchange; username: string; client: LibraryIdentityClient | null; onClose: () => void }) {
+export function LibraryIdentityVerifier({ book, username, client, onConfirm, onUnbind, onClose }: { book: SavedExchange; username: string; client: LibraryIdentityClient | null; onConfirm: (result: LibraryIdentityResult, signal: AbortSignal) => Promise<void>; onUnbind: () => void; onClose: () => void }) {
   const dialog = useRef<HTMLDialogElement>(null), titleId = useId(), recordIdId = useId(), request = useRef<AbortController | null>(null)
-  const [check, setCheck] = useState<PortableIdentityCheck>(), [recordId, setRecordId] = useState(''), [details, setDetails] = useState(false), [busy, setBusy] = useState(false), [outcome, setOutcome] = useState('')
+  const [check, setCheck] = useState<PortableIdentityCheck>(), [recordId, setRecordId] = useState(''), [details, setDetails] = useState(false), [busy, setBusy] = useState(false), [outcome, setOutcome] = useState(''), [verified, setVerified] = useState<LibraryIdentityResult>()
   useLayoutEffect(() => { const node = dialog.current!; node.showModal(); return () => { request.current?.abort(); if (node.open) node.close() } }, [])
   useLayoutEffect(() => {
-    let active = true; request.current?.abort(); setBusy(false); setCheck(undefined); setOutcome(''); setRecordId('')
+    let active = true; request.current?.abort(); setBusy(false); setVerified(undefined); setCheck(undefined); setOutcome(''); setRecordId('')
     void inspectPortableIdentity(book.document).then(value => { if (active) { setCheck(value); if (value.status === 'ready') setRecordId(value.recordIdHint ?? '') } })
     return () => { active = false; request.current?.abort() }
   }, [book, username, client])
@@ -49,10 +49,10 @@ export function LibraryIdentityVerifier({ book, username, client, onClose }: { b
   const status = outcome || (!check ? 'ZIP 본문과 원본 확인 정보를 검증하고 있습니다.' : check.status !== 'ready' ? unsupported[check.status] : !client ? '현재 계정으로 서버에 연결한 뒤 원본을 확인해 주세요.' : 'UUID는 찾기 힌트입니다. 현재 계정의 서버 문서와 전체 내용을 대조합니다.')
   async function verify() {
     if (!ready || !client || busy || !validRecordId(recordId)) return
-    request.current?.abort(); const operation = new AbortController(); request.current = operation; setBusy(true); setOutcome('')
+    request.current?.abort(); const operation = new AbortController(); request.current = operation; setBusy(true); setVerified(undefined); setOutcome('')
     try {
-      await client.verify(recordId, ready.identity, operation.signal)
-      if (!operation.signal.aborted) setOutcome('서버 원본과 일치합니다. 동기화 연결은 아직 설정되지 않았습니다.')
+      const result = await client.verify(recordId, ready.identity, operation.signal)
+      if (!operation.signal.aborted) { setVerified(result); setOutcome('서버 원본과 일치합니다. 연결을 선택하면 계정 기록으로 읽습니다. 기기 기록은 별도로 보존됩니다.') }
     } catch (error) { if (!operation.signal.aborted) setOutcome(error instanceof LibraryIdentityError ? failure[error.code] ?? failure.network : failure['invalid-response']) }
     finally { if (!operation.signal.aborted) { setBusy(false); request.current = null } }
   }
@@ -64,8 +64,8 @@ export function LibraryIdentityVerifier({ book, username, client, onClose }: { b
   ])
   return <dialog ref={dialog} className="library-identity-dialog" aria-labelledby={titleId} onCancel={event => { event.preventDefault(); onClose() }}>
     <header className="library-identity-toolbar"><button autoFocus onClick={onClose}>{t('닫기')}</button><strong id={titleId}>{t('서버 원본 확인')}</strong><button disabled={!ready} onClick={() => setDetails(!details)}>{t(details ? '확인 화면' : '원본 정보')}</button></header>
-    {!details && ready && <label className="library-identity-input" htmlFor={recordIdId}>{t('서버 문서 UUID')}<input id={recordIdId} value={recordId} maxLength={36} spellCheck={false} autoComplete="off" disabled={busy} onChange={event => { setRecordId(event.target.value); setOutcome('') }}/></label>}
+    {!details && ready && <label className="library-identity-input" htmlFor={recordIdId}>{t('서버 문서 UUID')}<input id={recordIdId} value={recordId} maxLength={36} spellCheck={false} autoComplete="off" disabled={busy} onChange={event => { setRecordId(event.target.value); setVerified(undefined); setOutcome('') }}/></label>}
     <AdaptiveCollection key={`${details}:${busy}:${outcome}`} items={metadata} itemKey={item => item.id} rowHeight={108} renderItem={item => <div className="library-identity-field"><strong>{item.label}</strong><p>{item.value}</p></div>}/>
-    {!details && <footer className="library-identity-actions"><button className="button-primary" disabled={!ready || !client || !validRecordId(recordId) || busy} onClick={() => void verify()}>{t(busy ? '확인 중…' : '이 계정의 서버 원본 확인')}</button></footer>}
+    {!details && <footer className="library-identity-actions"><button className="button-primary" disabled={!ready || !client || !validRecordId(recordId) || busy} onClick={() => void verify()}>{t(busy ? '확인 중…' : '이 계정의 서버 원본 확인')}</button>{verified && <button disabled={busy} onClick={() => { const operation = new AbortController(); request.current?.abort(); request.current = operation; setBusy(true); void onConfirm(verified, operation.signal).then(() => { if (!operation.signal.aborted) setOutcome('서버 연결을 저장했습니다. 계정 기록으로 읽기를 선택해 주세요.') }).catch(() => { if (!operation.signal.aborted) setOutcome('서버 연결을 저장하지 못했습니다.') }).finally(() => { if (!operation.signal.aborted) setBusy(false) }) }}>{t('이 문서를 계정 기록에 연결')}</button>}<button disabled={busy} onClick={() => { onUnbind(); setVerified(undefined); setOutcome('서버 연결을 해제했습니다. 기기 기록은 보존됩니다.') }}>{t('연결 해제')}</button></footer>}
   </dialog>
 }

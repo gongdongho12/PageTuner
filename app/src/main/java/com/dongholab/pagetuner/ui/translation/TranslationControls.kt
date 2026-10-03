@@ -133,6 +133,10 @@ fun TranslationControls(
                     color = EinkInk,
                 )
             }
+            if (providerKind == TranslationProviderKind.GEMINI) {
+                Text(stringResource(R.string.gemini_setup_hint), style = MaterialTheme.typography.bodySmall, color = EinkInk)
+                if (usesLocalDeepSeekSecret) Text(stringResource(R.string.gemini_local_secret_active), style = MaterialTheme.typography.bodySmall, color = EinkInk)
+            }
             Text(
                 text = providerStatusText,
                 style = MaterialTheme.typography.bodySmall,

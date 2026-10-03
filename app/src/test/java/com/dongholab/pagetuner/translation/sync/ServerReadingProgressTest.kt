@@ -13,6 +13,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
 import org.junit.Assert.*
@@ -290,6 +291,7 @@ class ServerReadingProgressTest {
         assertEquals(2L, store.records[document.key]!!.remote!!.version)
     }
 
+    // Journal I/O shares virtual time with retry timers, so deadline checks cannot race a real IO thread.
     @Test fun foregroundRateLimitSurvivesReopenAndManualRetryCannotShortenItsDeadline() = runTest {
         val document = document()
         val store = MemoryStore()
@@ -301,7 +303,7 @@ class ServerReadingProgressTest {
                 else response(progress(1, "p2"))
             }
         }
-        val sync = ServerReadingProgressSync(backgroundScope, store) { testScheduler.currentTime }
+        val sync = ServerReadingProgressSync(backgroundScope, store, StandardTestDispatcher(testScheduler)) { testScheduler.currentTime }
         sync.open(document, connection, 0); sync.state.first { it.phase == ReadingProgressPhase.Synced }
         sync.pageChanged(document.readerId, 1); sync.state.first { it.phase == ReadingProgressPhase.Pending }
         advanceTimeBy(701); runCurrent()
@@ -329,7 +331,7 @@ class ServerReadingProgressTest {
             calls++; assertEquals(pending, ServerReadingProgressJson.mutation(JSONObject(request.body!!)))
             response(progress(1, "p2"))
         }
-        val sync = ServerReadingProgressSync(backgroundScope, store) { testScheduler.currentTime }
+        val sync = ServerReadingProgressSync(backgroundScope, store, StandardTestDispatcher(testScheduler)) { testScheduler.currentTime }
         sync.connect(connection); store.scans.receive(); runCurrent()
         sync.retry(); advanceTimeBy(59_999); runCurrent()
         assertEquals(0, calls)
@@ -346,7 +348,7 @@ class ServerReadingProgressTest {
             var calls = 0
             val entered = Channel<Unit>(Channel.UNLIMITED)
             val connection = connection { calls++; entered.trySend(Unit); TranslationStoreHttpResponse(status) }
-            val sync = ServerReadingProgressSync(backgroundScope, store) { testScheduler.currentTime }
+            val sync = ServerReadingProgressSync(backgroundScope, store, StandardTestDispatcher(testScheduler)) { testScheduler.currentTime }
             sync.connect(connection); entered.receive()
             // pumpOutbox scans once after suppressing this terminal failure.
             store.scans.receive(); store.scans.receive()
@@ -373,7 +375,7 @@ class ServerReadingProgressTest {
                     else TranslationStoreHttpResponse(status)
                 }
             }
-            val sync = ServerReadingProgressSync(backgroundScope, store) { testScheduler.currentTime }
+            val sync = ServerReadingProgressSync(backgroundScope, store, StandardTestDispatcher(testScheduler)) { testScheduler.currentTime }
             sync.open(document, connection, 0); sync.state.first { it.phase == ReadingProgressPhase.Synced }
             sync.pageChanged(document.readerId, 1); sync.state.first { it.phase == ReadingProgressPhase.Pending }
             advanceTimeBy(701); runCurrent()

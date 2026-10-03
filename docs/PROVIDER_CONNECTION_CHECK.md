@@ -10,6 +10,7 @@ API 키는 웹 화면의 메모리에서만 유지하고 서버 실행에 전달
 | Google 웹 번역 | 키 불필요 | 공개 HTML 번역 endpoint. 외부 요청 제한 시 명확한 실패 안내 |
 | Google Cloud Translation | `PAGETUNER_GOOGLE_API_KEY` | Translation v2, `x-goog-api-key` 헤더로 인증 |
 | DeepSeek | `DEEPSEEK_API_KEY`, 선택 `DEEPSEEK_API_URL`, `DEEPSEEK_MODEL` | `deepseek-flash`, JSON 응답, thinking 비활성화, `max_tokens=32768` |
+| Google Gemini | `GEMINI_API_KEY`, 선택 `GEMINI_API_URL`, `GEMINI_MODEL` | Google 공식 OpenAI 호환 Chat Completions, `gemini-3.8-flash`, JSON schema 응답 |
 | OpenAI 호환 API | `OPENAI_API_KEY`, 선택 `OPENAI_API_URL`, `OPENAI_MODEL` | Chat Completions, 기본 `gpt-4.1-mini`; 제공자의 호환 모델 지정 가능 |
 
 서버 키를 설정하지 않았으면 웹 연결 설정에서 이번 화면에 사용할 키를 입력한다. 서버 키가
@@ -21,6 +22,11 @@ HTTPS를 사용하고, 명시적으로 등록한 loopback 개발 주소만 HTTP�
 DeepSeek의 명시적으로 저장된 기존 모델 값은 유지한다. 현재 기본값과 요청 옵션은
 [DeepSeek 요청 규격](https://api-docs.deepseek.com/api/create-chat-completion/) 및
 [모델과 기존 별칭](https://api-docs.deepseek.com/quick_start/pricing/)을 2026-09-16 확인했다.
+Gemini 기본 endpoint는 `https://generativelanguage.googleapis.com/v1beta/openai/chat/completions`다.
+2026-10-03 [Google 공식 호환 API](https://ai.google.dev/gemini-api/docs/openai)와
+[현재 모델 목록](https://ai.google.dev/gemini-api/docs/models)을 확인했다. Gemini는 URL에 키를 넣지 않고
+Bearer 헤더로 인증하며, 기존 엄격한 문단 JSON·보호 문자열·용어집 검증과 오류 처리 경로를 사용한다.
+현재 DeepSeek 기본값 `deepseek-flash`는 [공식 2026-09-10 변경 기록](https://api-docs.deepseek.com/updates/)의 V4.1 Flash 이름과 일치한다.
 Google 헤더 인증은 [공식 API 키 사용법](https://docs.cloud.google.com/docs/authentication/api-keys-use)을 따른다.
 외부 모델·권한·가격은 변경될 수 있다.
 

@@ -50,6 +50,7 @@ fun ServerReadingNotesPanel(receivedState: ServerReadingNotesUiState, document: 
     }
     val enabled = state.readerId == document.readerId && state.phase != ReadingProgressPhase.DeviceError
     val notePosition = remember(document, pageIndex, characterOffset) { document.notePosition(pageIndex, characterOffset) }
+    val highlightAvailable = notePosition?.let { (page, offset) -> offset < document.mapping.document.pages[page].plainText.length } == true
     Column(Modifier.fillMaxSize().padding(8.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
         Row(Modifier.fillMaxWidth().heightIn(min = 44.dp), verticalAlignment = Alignment.CenterVertically) {
             Text(stringResource(label), Modifier.weight(1f), style = MaterialTheme.typography.labelMedium, color = EinkInk)
@@ -71,7 +72,7 @@ fun ServerReadingNotesPanel(receivedState: ServerReadingNotesUiState, document: 
                 ServerReadingNoteKind.NOTE -> R.string.annotation_note_label
                 ServerReadingNoteKind.HIGHLIGHT -> R.string.annotation_highlight_label
             }, (notePosition?.first ?: pageIndex) + 1)
-            NoteEditor(title, "", kind, enabled && notePosition != null, { creating = null }) { name, text ->
+            NoteEditor(title, "", kind, enabled && notePosition != null && (kind != ServerReadingNoteKind.HIGHLIGHT || highlightAvailable), { creating = null }) { name, text ->
                 notePosition?.let { (sourcePage, sourceOffset) -> sync.create(document.readerId, kind, sourcePage, name, text, sourceOffset) }
                 creating = null
             }
@@ -81,7 +82,7 @@ fun ServerReadingNotesPanel(receivedState: ServerReadingNotesUiState, document: 
                     enabled = enabled && notePosition != null, modifier = Modifier.weight(1f).heightIn(min = 44.dp)) {
                     Text(stringResource(if (bookmarksOnly) R.string.action_add_bookmark else R.string.action_add_note))
                 }
-                if (!bookmarksOnly) TextButton(onClick = { creating = ServerReadingNoteKind.HIGHLIGHT }, enabled = enabled && notePosition != null,
+                if (!bookmarksOnly) TextButton(onClick = { creating = ServerReadingNoteKind.HIGHLIGHT }, enabled = enabled && highlightAvailable,
                     modifier = Modifier.weight(1f).heightIn(min = 44.dp)) { Text(stringResource(R.string.action_add_highlight)) }
                 TextButton(enabled = ids.isNotEmpty(), modifier = Modifier.heightIn(min = 44.dp), onClick = {
                     val text = ids.mapNotNull(entries::get).joinToString("\n\n") { item ->

@@ -6,6 +6,7 @@ import androidx.lifecycle.viewModelScope
 import java.util.UUID
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
@@ -44,6 +45,7 @@ fun applyServerReadingProgressRestore(reader: com.dongholab.pagetuner.reader.Rea
 
 /** A serialized device journal keeps late responses and offline writes out of another account/session. */
 class ServerReadingProgressSync(private val scope: CoroutineScope, private val storage: ServerReadingProgressStore,
+    private val storageDispatcher: CoroutineDispatcher = Dispatchers.IO,
     private val clock: () -> Long = System::currentTimeMillis) {
     private sealed interface Action {
         data class Open(val document: ServerReadingDocument, val connection: ServerReadingConnection, val page: Int, val revision: Long,
@@ -126,7 +128,7 @@ class ServerReadingProgressSync(private val scope: CoroutineScope, private val s
                 next.characterOffset = action.characterOffset
                 session = next
                 mutableState.value = ReadingProgressUiState(action.document.readerId, ReadingProgressPhase.Loading)
-                next.record = withContext(Dispatchers.IO) { storage.read(action.document) }
+                next.record = withContext(storageDispatcher) { storage.read(action.document) }
                 // A persisted mutation may have reached the server before the previous process exited.
                 next.sentMutationId = next.record.pending?.mutationId
                 next.record.localAnchor?.let { restore(next, it) }
@@ -235,19 +237,19 @@ class ServerReadingProgressSync(private val scope: CoroutineScope, private val s
             is Action.OutboxReceived -> {
                 if (action.ticket != generation || action.target.accountKey != accountConnection?.accountKey) return
                 outboxNetwork = null
-                val record = withContext(Dispatchers.IO) { storage.read(action.target) }
+                val record = withContext(storageDispatcher) { storage.read(action.target) }
                 if (record.pending == action.mutation && record.conflict == null) {
                     action.result.fold(onSuccess = { value ->
                         val queued = record.queuedAnchor?.takeUnless { it == value.anchor }
                         val next = DeviceReadingProgress(remote = value, pending = queued?.let { mutation(value.version, it) })
-                        withContext(Dispatchers.IO) { storage.write(action.target, next) }
+                        withContext(storageDispatcher) { storage.write(action.target, next) }
                     }, onFailure = { error ->
                         attemptedOutbox += action.target.key
                         if (error is ServerReadingProgressConflict) {
-                            withContext(Dispatchers.IO) { storage.write(action.target, record.copy(conflict = error.current)) }
+                            withContext(storageDispatcher) { storage.write(action.target, record.copy(conflict = error.current)) }
                         } else if (error is ServerReadingProgressRateLimited) {
                             val next = record.copy(retryAfterUntil = clock() + error.retryAfterSeconds * 1_000)
-                            withContext(Dispatchers.IO) { storage.write(action.target, next) }
+                            withContext(storageDispatcher) { storage.write(action.target, next) }
                         } else if (error !is TranslationStoreException || error.failure !in setOf(
                                 TranslationStoreFailure.NETWORK, TranslationStoreFailure.TIMEOUT, TranslationStoreFailure.SERVER)) {
                             terminalOutbox += action.target.key
@@ -262,13 +264,13 @@ class ServerReadingProgressSync(private val scope: CoroutineScope, private val s
     private suspend fun pumpOutbox() {
         val connection = accountConnection ?: return
         if (outboxNetwork != null) return
-        val targets = withContext(Dispatchers.IO) { storage.pending(connection.accountKey) }
+        val targets = withContext(storageDispatcher) { storage.pending(connection.accountKey) }
             .filter { it.key != session?.document?.key }
         mutableState.value = mutableState.value.copy(pendingDocuments = targets.size)
         var automaticRetryNeeded = false
         for (target in targets) {
             if (target.key in terminalOutbox) continue
-            val record = withContext(Dispatchers.IO) { storage.read(target) }
+            val record = withContext(storageDispatcher) { storage.read(target) }
             if (record.conflict != null) { attemptedOutbox += target.key; continue }
             automaticRetryNeeded = true
             if (target.key in attemptedOutbox) continue
@@ -317,7 +319,7 @@ class ServerReadingProgressSync(private val scope: CoroutineScope, private val s
         }
     }
     private suspend fun persist(current: Session, next: DeviceReadingProgress) {
-        withContext(Dispatchers.IO) { storage.write(current.document, next) }
+        withContext(storageDispatcher) { storage.write(current.document, next) }
         current.record = next
     }
     private fun restore(current: Session, anchor: ServerReadingAnchor) {

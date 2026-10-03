@@ -17,7 +17,7 @@ private data class IdentityRow(val key: String, val content: @Composable (Modifi
 
 @Composable
 fun PortableIdentityPanel(state: PortableIdentityState, connected: Boolean, currentSession: Boolean,
-    onBack: () -> Unit, onRecord: (String) -> Unit, onCheck: () -> Unit, modifier: Modifier = Modifier) {
+    onBack: () -> Unit, onRecord: (String) -> Unit, onCheck: () -> Unit, onBind: () -> Unit = {}, onReadServer: () -> Unit = {}, onUnbind: () -> Unit = {}, modifier: Modifier = Modifier) {
     val rowHeight = 116.dp * LocalDensity.current.fontScale.coerceAtLeast(1f)
     val rows = mutableListOf<IdentityRow>()
     fun field(key: String, label: Int, value: String) {
@@ -33,6 +33,18 @@ fun PortableIdentityPanel(state: PortableIdentityState, connected: Boolean, curr
     rows += IdentityRow("verify") { row -> OutlinedButton(onClick = onCheck,
         enabled = connected && currentSession && !state.busy && state.identity != null, modifier = row.heightIn(min = 44.dp)) {
         Text(stringResource(R.string.portable_identity_check))
+    } }
+    rows += IdentityRow("bind") { row -> OutlinedButton(onClick = onBind,
+        enabled = connected && currentSession && !state.busy && state.verified, modifier = row.heightIn(min = 44.dp)) {
+        Text(stringResource(R.string.portable_identity_bind))
+    } }
+    rows += IdentityRow("read_server") { row -> OutlinedButton(onClick = onReadServer,
+        enabled = connected && currentSession && !state.busy && state.identity != null, modifier = row.heightIn(min = 44.dp)) {
+        Text(stringResource(R.string.portable_identity_read_server))
+    } }
+    rows += IdentityRow("unbind") { row -> OutlinedButton(onClick = onUnbind,
+        enabled = connected && currentSession && !state.busy, modifier = row.heightIn(min = 44.dp)) {
+        Text(stringResource(R.string.portable_identity_unbind))
     } }
     state.identity?.let { identity ->
         field("kind", R.string.portable_identity_kind, identity.kind.name)

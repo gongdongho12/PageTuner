@@ -59,6 +59,7 @@ const kinds = [
   "GOOGLE_CLOUD",
   "GOOGLE_WEB_TRANSLATE_HTML",
   "DEEPSEEK",
+  "GEMINI",
   "OPENAI_COMPATIBLE_LLM",
 ] as const;
 function providerKind(value: unknown) {

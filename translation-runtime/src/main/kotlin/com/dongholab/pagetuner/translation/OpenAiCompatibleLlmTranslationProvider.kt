@@ -38,6 +38,7 @@ class OpenAiCompatibleLlmTranslationProvider(
         append(':').append(PromptRevision)
         append(':').append(DocumentIds.sha256(listOf(requestOptions.jsonResponse,
             requestOptions.thinkingEnabled, requestOptions.maxTokens).joinToString("\n")).take(12))
+        if (requestOptions.jsonSchemaResponse) append(":json-schema-v1")
         if (characterAliasEnabled) append(":character-alias-v1")
     }
 
@@ -74,6 +75,24 @@ class OpenAiCompatibleLlmTranslationProvider(
         }
     }
 
+    private fun translationResponseSchema(): JSONObject {
+        val properties = JSONObject().put("translations", JSONObject().put("type", "array")
+            .put("items", JSONObject().put("type", "string")))
+        val required = JSONArray().put("translations")
+        if (characterAliasEnabled) {
+            properties.put("characterAliases", JSONObject().put("type", "array").put("items", JSONObject()
+                .put("type", "object").put("properties", JSONObject()
+                    .put("source", JSONObject().put("type", "string"))
+                    .put("alias", JSONObject().put("type", "string")))
+                .put("required", JSONArray().put("source").put("alias")).put("additionalProperties", false)))
+            required.put("characterAliases")
+        }
+        return JSONObject().put("type", "json_schema").put("json_schema", JSONObject()
+            .put("name", "paragraph_translation").put("strict", true)
+            .put("schema", JSONObject().put("type", "object").put("properties", properties)
+                .put("required", required).put("additionalProperties", false)))
+    }
+
     private fun buildRequestBody(request: TranslationRequest): String {
         val input = JSONArray().apply {
             request.segments.forEach { put(it.text) }
@@ -84,7 +103,9 @@ class OpenAiCompatibleLlmTranslationProvider(
             put("temperature", 0)
             put("stream", false)
             requestOptions.maxTokens?.let { put("max_tokens", it) }
-            if (requestOptions.jsonResponse) {
+            if (requestOptions.jsonSchemaResponse) {
+                put("response_format", translationResponseSchema())
+            } else if (requestOptions.jsonResponse) {
                 put("response_format", JSONObject().put("type", "json_object"))
             }
             requestOptions.thinkingEnabled?.let { enabled ->
@@ -248,6 +269,7 @@ data class LlmChatRequestOptions(
     val jsonResponse: Boolean = false,
     val thinkingEnabled: Boolean? = null,
     val maxTokens: Int? = null,
+    val jsonSchemaResponse: Boolean = false,
 ) {
     init { require(maxTokens == null || maxTokens in 1..393_216) { "Invalid LLM output token limit." } }
 }

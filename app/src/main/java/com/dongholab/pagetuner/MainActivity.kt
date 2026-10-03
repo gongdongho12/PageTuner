@@ -338,15 +338,19 @@ fun PageTurnerApp() {
     val manualApiKey = translationState.apiKey
     val usesLocalDeepSeekSecret = providerKind == TranslationProviderKind.DEEPSEEK &&
         TranslationRuntimeSecrets.hasLocalDeepSeekKey
+    val usesLocalGeminiSecret = providerKind == TranslationProviderKind.GEMINI && TranslationRuntimeSecrets.hasLocalGeminiKey
     val apiKey = when {
+        usesLocalGeminiSecret -> TranslationRuntimeSecrets.geminiApiKey
         usesLocalDeepSeekSecret -> TranslationRuntimeSecrets.deepSeekApiKey
         else -> manualApiKey
     }
     val activeLlmEndpoint = when (providerKind) {
+        TranslationProviderKind.GEMINI -> TranslationRuntimeSecrets.geminiApiUrl
         TranslationProviderKind.DEEPSEEK -> TranslationRuntimeSecrets.deepSeekApiUrl
         else -> readerSettings.llmEndpoint
     }
     val activeLlmModel = when (providerKind) {
+        TranslationProviderKind.GEMINI -> TranslationRuntimeSecrets.geminiModel
         TranslationProviderKind.DEEPSEEK -> TranslationRuntimeSecrets.deepSeekModel
         else -> readerSettings.llmModel
     }
@@ -482,6 +486,8 @@ fun PageTurnerApp() {
             stringResource(R.string.provider_status_missing_google_key)
         providerKind == com.dongholab.pagetuner.translation.TranslationProviderKind.GOOGLE_WEB_TRANSLATE_HTML ->
             stringResource(R.string.provider_status_google_web_no_key_required)
+        providerKind == TranslationProviderKind.GEMINI ->
+            stringResource(R.string.provider_health_missing_gemini_key)
         providerKind == TranslationProviderKind.DEEPSEEK ->
             stringResource(R.string.provider_status_missing_deepseek_key)
         else -> stringResource(R.string.provider_status_missing_llm_settings)
@@ -610,7 +616,11 @@ fun PageTurnerApp() {
     LaunchedEffect(portableViewModel) {
         launch { portableViewModel.exportReady.collect { portableExportLauncher.launch(it) } }
         launch { portableViewModel.opened.collect { opened ->
-            portableOpened = opened
+            portableOpened = opened.takeIf { it.serverReading == null }
+            opened.serverReading?.let { reading ->
+                serverProgressViewModel.retainDocument(reading)
+                serverPreviewTranslatedDocumentId = reading.readerId.takeIf { reading.source.entry.kind == ServerLibraryKind.Translations }
+            }
             readerReturnTab = AppTab.Local
             readerSubPage = com.dongholab.pagetuner.ui.reader.ReaderSubPage.READER
             navHistoryStack.clear()
@@ -893,14 +903,26 @@ fun PageTurnerApp() {
                                     onBack = portableIdentityViewModel.verification::close,
                                     onRecord = { portableIdentityViewModel.verification.updateRecord(portableIdentityState.session, it) },
                                     onCheck = { portableIdentityViewModel.verification.check(portableIdentityState.session,
-                                        serverLibraryViewModel.readingConnection(), portableViewModel::currentDocument) })
+                                        serverLibraryViewModel.readingConnection(), portableViewModel::currentDocument) },
+                                    onBind = { portableIdentityViewModel.verification.bind(portableIdentityState.session,
+                                        serverLibraryViewModel.readingConnection(), portableViewModel::currentDocument, portableViewModel::saveBinding) },
+                                    onUnbind = { portableIdentityViewModel.verification.unbind(portableIdentityState.session,
+                                        serverLibraryViewModel.readingConnection(), portableViewModel::removeBinding) },
+                                    onReadServer = {
+                                        val connection = serverLibraryViewModel.readingConnection()
+                                        val selected = portableIdentityViewModel.verification.state.value
+                                        if (connection != null) selected.entry?.let { entry -> portableViewModel.open(entry, false, connection) {
+                                            portableIdentityViewModel.verification.state.value.session == selected.session &&
+                                                serverLibraryViewModel.readingConnection()?.let { it.accountKey == connection.accountKey && it.client === connection.client } == true
+                                        } }
+                                    })
                                 else PortableLibraryPanel(localBooks, currentBookId, portableState,
                                     onImport = { portableImportLauncher.launch(arrayOf("application/zip", "application/octet-stream", "application/x-zip-compressed")) },
                                     onNativeExport = { book, includeTranslation ->
                                         portableViewModel.prepareNativeExport(book, includeTranslation, settings, activeTranslationProvider.id, activeGlossary)
                                     },
                                     onExport = portableViewModel::prepareExport,
-                                    onOpen = portableViewModel::open,
+                                    onOpen = { entry, originalPdf -> portableViewModel.open(entry, originalPdf) },
                                     onVerify = { portableIdentityViewModel.verification.select(it, serverLibraryViewModel.readingConnection()) })
                             },
                         )
@@ -1032,7 +1054,7 @@ fun PageTurnerApp() {
                             translationState = translationState,
                             providerKind = providerKind,
                             apiKey = manualApiKey,
-                            usesLocalDeepSeekSecret = usesLocalDeepSeekSecret,
+                            usesLocalDeepSeekSecret = usesLocalDeepSeekSecret || usesLocalGeminiSecret,
                             busy = busy,
                             canTranslate = canTranslateCurrentPage,
                             canRetryTranslation = canRetryCurrentPageTranslation,

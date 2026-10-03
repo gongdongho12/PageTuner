@@ -9,9 +9,9 @@
 .library-identity-field { height: 108px; padding: 8px; border: 1px solid var(--line); overflow: hidden; }
 .library-identity-field strong { font-size: 14px; }
 .library-identity-field p { margin: 4px 0 0; font-size: 13px; line-height: 1.35; overflow-wrap: anywhere; white-space: pre-wrap; }
-.library-identity-actions { flex: 0 0 auto; display: flex; }
+.library-identity-actions { flex: 0 0 auto; display: flex; flex-wrap: wrap; gap: 4px; }
 .library-identity-actions button { width: 100%; }
 .library-identity-dialog .page-navigation { height: 44px; min-height: 44px; }
 .library-identity-dialog .page-navigation button { min-height: 44px; }
-.exchange-book-actions { display: flex; gap: 8px; grid-column: 1 / -1; }
+.exchange-book-actions { display: flex; flex-wrap: wrap; gap: 8px; grid-column: 1 / -1; }
 .exchange-book-actions button { min-height: 44px; }

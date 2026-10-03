@@ -29,7 +29,7 @@ function sourceUrl(value: string) {
 }
 /** Explicit projection is essential: never persist the caller's API key or generated request object. */
 export function bulkSettings(input: BulkSettings): BulkSettings {
-  check(['GOOGLE_WEB_TRANSLATE_HTML', 'GOOGLE_CLOUD', 'DEEPSEEK', 'OPENAI_COMPATIBLE_LLM'].includes(input.providerKind));
+  check(['GOOGLE_WEB_TRANSLATE_HTML', 'GOOGLE_CLOUD', 'DEEPSEEK', 'GEMINI', 'OPENAI_COMPATIBLE_LLM'].includes(input.providerKind));
   const language = /^[A-Za-z][A-Za-z0-9-]{0,23}$/;
   check(language.test(input.targetLanguage) && input.targetLanguage.toLowerCase() !== 'auto');
   if (input.sourceLanguage) check(language.test(input.sourceLanguage));

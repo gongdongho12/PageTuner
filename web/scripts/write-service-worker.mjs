@@ -5,7 +5,7 @@ const dist = new URL('../dist/', import.meta.url);
 const assetFiles = await readdir(new URL('assets/', dist), { recursive: true, withFileTypes: true });
 // Vite emits flat hashed bundles. Reject unexpected nested output instead of missing offline assets.
 if (assetFiles.some(file => file.isDirectory())) throw new Error('Update the shell manifest for nested assets.');
-const shell = ['/', '/index.html', '/sharing.html', '/icon.svg', '/manifest.webmanifest', ...assetFiles.filter(file => file.isFile()).map(file => `/assets/${file.name}`)];
+const shell = ['/', '/index.html', '/sharing.html', '/icon.svg', '/manifest.webmanifest', '/fonts/OFL-NotoSerifKR.txt', ...assetFiles.filter(file => file.isFile()).map(file => `/assets/${file.name}`)];
 const hash = createHash('sha256');
 for (const path of shell.filter(path => path !== '/')) hash.update(await readFile(new URL(path.slice(1), dist)));
 const cacheName = `pageturner-shell-${hash.digest('hex').slice(0, 16)}`;

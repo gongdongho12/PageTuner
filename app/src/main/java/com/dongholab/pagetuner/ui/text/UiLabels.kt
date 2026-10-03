@@ -48,6 +48,7 @@ val TranslationProviderKind.labelRes: Int
     @StringRes get() = when (this) {
         TranslationProviderKind.GOOGLE_CLOUD -> R.string.provider_google_cloud
         TranslationProviderKind.GOOGLE_WEB_TRANSLATE_HTML -> R.string.provider_google_web_translate_html
+        TranslationProviderKind.GEMINI -> R.string.provider_gemini
         TranslationProviderKind.DEEPSEEK -> R.string.provider_deepseek
         TranslationProviderKind.OPENAI_COMPATIBLE_LLM -> R.string.provider_openai_compatible_llm
     }
@@ -56,6 +57,7 @@ val TranslationProviderKind.apiKeyLabelRes: Int
     @StringRes get() = when (this) {
         TranslationProviderKind.GOOGLE_CLOUD -> R.string.field_google_api_key
         TranslationProviderKind.GOOGLE_WEB_TRANSLATE_HTML -> R.string.field_google_web_api_key
+        TranslationProviderKind.GEMINI -> R.string.field_gemini_api_key
         TranslationProviderKind.DEEPSEEK -> R.string.field_deepseek_api_key
         TranslationProviderKind.OPENAI_COMPATIBLE_LLM -> R.string.field_llm_api_key
     }
@@ -63,6 +65,7 @@ val TranslationProviderKind.apiKeyLabelRes: Int
 val TranslationSubscriptionPlan.labelRes: Int
     @StringRes get() = when (this) {
         TranslationSubscriptionPlan.GOOGLE_TRANSLATE -> R.string.translation_plan_google
+        TranslationSubscriptionPlan.GEMINI_AI -> R.string.translation_plan_gemini
         TranslationSubscriptionPlan.DEEPSEEK_AI -> R.string.translation_plan_deepseek
         TranslationSubscriptionPlan.CUSTOM_API -> R.string.translation_plan_custom
     }

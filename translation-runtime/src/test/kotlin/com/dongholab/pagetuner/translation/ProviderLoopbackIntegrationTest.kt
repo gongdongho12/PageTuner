@@ -14,14 +14,14 @@ import org.junit.Test
 class ProviderLoopbackIntegrationTest {
     private val request = TranslationRequest("en", "ko", listOf(TextSegment("one", 0, 0, "Hello.")))
 
-    @Test fun allThreeProvidersRoundTripRealHttpWithTheirProductionWireContracts() = runBlocking {
+    @Test fun allProvidersRoundTripRealHttpWithTheirProductionWireContracts() = runBlocking {
         Fixture().use { fixture ->
             val providers = fixture.providers()
             providers.forEach { provider ->
                 assertEquals(listOf(TranslatedSegment("one", "안녕.")), provider.translate(request))
             }
             val calls = fixture.calls.toList()
-            assertEquals(3, calls.size)
+            assertEquals(4, calls.size)
             calls.forEach { assertEquals("POST", it.method); assertNull(it.query); assertFalse(it.body.toString().contains(KEY)) }
             assertEquals("deepseek-flash", calls[0].body.getString("model"))
             assertEquals("disabled", calls[0].body.getJSONObject("thinking").getString("type"))
@@ -37,6 +37,10 @@ class ProviderLoopbackIntegrationTest {
             assertEquals("Hello.", calls[2].body.getJSONArray("q").getString(0))
             assertEquals("text", calls[2].body.getString("format"))
             assertEquals("en", calls[2].body.getString("source"))
+            assertEquals(GeminiDefaults.Model, calls[3].body.getString("model"))
+            assertEquals("json_schema", calls[3].body.getJSONObject("response_format").getString("type"))
+            assertEquals("Bearer $KEY", calls[3].authorization)
+            assertFalse(calls[3].body.has("thinking"))
         }
     }
 
@@ -47,7 +51,7 @@ class ProviderLoopbackIntegrationTest {
                 val error = runCatching { provider.translate(request) }.exceptionOrNull()
                 assertEquals(TranslationProviderErrorKind.ResponseFormat, (error as TranslationProviderException).failure.kind)
             }
-            assertEquals(3, fixture.calls.size)
+            assertEquals(4, fixture.calls.size)
             fixture.malformed = false
             fixture.status = 429
             fixture.providers().forEach { provider ->
@@ -56,7 +60,7 @@ class ProviderLoopbackIntegrationTest {
                 assertFalse(error.toString().contains(KEY))
                 assertFalse(error.toString().contains("private response"))
             }
-            assertEquals(6, fixture.calls.size)
+            assertEquals(8, fixture.calls.size)
         }
     }
 
@@ -98,6 +102,8 @@ class ProviderLoopbackIntegrationTest {
                 // Only replace routing for the fixed Google endpoint; all headers/body/transport/parser are production.
                 ProviderHttpTransport("Google Cloud").post("$base/language/translate/v2", headers, body)
             }),
+            TranslationProviderFactory.create(TranslationSettings(TranslationProviderKind.GEMINI, KEY,
+                llmEndpoint = "$base/gemini/chat/completions", llmModel = GeminiDefaults.Model)),
         )
 
         override fun close() { server.stop(0) }

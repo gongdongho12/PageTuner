@@ -150,4 +150,63 @@ class PortableIdentityVerificationTest {
         assertEquals(2, requests)
         assertEquals(R.string.portable_identity_verified, verification.state.value.message)
     }
+    @Test fun bindingRequiresSeparateSuccessfulCheckAndRechecksBeforeSaving() = runTest {
+        val entry = entry()
+        val connection = connection()
+        var checks = 0
+        val saved = mutableListOf<PortableServerBinding>()
+        val controller = PortableIdentityVerification(this, kotlinx.coroutines.test.StandardTestDispatcher(testScheduler)) { _, _, _ -> checks++ }
+        controller.select(entry, connection)
+        runCurrent()
+        controller.bind(controller.state.value.session, connection, { it.document }, { saved += it })
+        runCurrent()
+        assertTrue(saved.isEmpty())
+        controller.check(controller.state.value.session, connection) { it.document }
+        runCurrent()
+        assertTrue(controller.state.value.verified)
+        assertEquals(1, checks)
+        assertTrue(saved.isEmpty())
+        controller.bind(controller.state.value.session, connection, { it.document }, { saved += it })
+        runCurrent()
+        assertEquals(2, checks)
+        assertEquals(1, saved.size)
+        assertEquals(connection.accountKey, saved.single().accountKey)
+        assertEquals(entry.key, saved.single().localKey)
+        assertEquals(DocumentIdentityJson.fromDocument(entry.document), saved.single().identity)
+    }
+
+    @Test fun recordEditAndLogoutDiscardPermissionToBind() = runTest {
+        val entry = entry()
+        val connection = connection()
+        var saves = 0
+        val controller = PortableIdentityVerification(this, kotlinx.coroutines.test.StandardTestDispatcher(testScheduler)) { _, _, _ -> }
+        controller.select(entry, connection); runCurrent()
+        controller.check(controller.state.value.session, connection) { it.document }; runCurrent()
+        controller.updateRecord(controller.state.value.session, NotesFixture.otherId)
+        assertFalse(controller.state.value.verified)
+        controller.bind(controller.state.value.session, connection, { it.document }, { saves++ }); runCurrent()
+        assertEquals(0, saves)
+        controller.check(controller.state.value.session, connection) { it.document }; runCurrent()
+        controller.connect(null); runCurrent()
+        assertFalse(controller.state.value.verified)
+        controller.bind(controller.state.value.session, null, { it.document }, { saves++ }); runCurrent()
+        assertEquals(0, saves)
+    }
+
+    @Test fun unbindRemovesOnlySelectedAccountAssociationAndInvalidatesCheckedSession() = runTest {
+        val entry = entry()
+        val connection = connection()
+        val removed = mutableListOf<Pair<String, String>>()
+        val controller = PortableIdentityVerification(this, kotlinx.coroutines.test.StandardTestDispatcher(testScheduler)) { _, _, _ -> }
+        controller.select(entry, connection); runCurrent()
+        controller.check(controller.state.value.session, connection) { it.document }; runCurrent()
+        val session = controller.state.value.session
+        controller.unbind(session, connection) { account, selected -> removed += account to selected.key }
+        assertEquals(listOf(connection.accountKey to entry.key), removed)
+        assertFalse(controller.state.value.verified)
+        assertTrue(controller.state.value.session != session)
+        assertEquals(entry, controller.state.value.entry)
+        controller.unbind(session, connection) { _, _ -> fail("Stale action must not delete a binding") }
+    }
+
 }

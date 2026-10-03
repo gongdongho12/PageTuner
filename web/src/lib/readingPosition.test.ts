@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { IDBFactory } from 'fake-indexeddb'
 import { validAnchor, validReadingPosition, type ReadingDocument } from './readingDocument'
+import { readingNoteInput } from './readingNoteApi'
 import { createReadingNotes } from './readingNotes'
 import { getWorkflowPosition, setWorkflowPosition } from './workflowPosition'
 import { createExchangeLibrary, exchangeReadingDocument } from './exchangeLibrary'
@@ -13,14 +14,14 @@ describe('inclusive reading positions remain distinct from note starts', () => {
   it('allows exact empty/terminal UTF16 positions but rejects malformed and split-surrogate offsets', () => {
     for (const anchor of [terminal, empty, { paragraphId: 'one', characterOffset: 1 }, { paragraphId: 'one', characterOffset: 3 }]) expect(validReadingPosition(document, anchor)).toBe(true)
     for (const anchor of [null, {}, { ...terminal, paragraphId: 'missing' }, { ...terminal, characterOffset: -1 }, { ...terminal, characterOffset: 1.5 }, { ...terminal, characterOffset: 5 }, { ...terminal, characterOffset: 2 }, { ...empty, characterOffset: 1 }, { ...terminal, extra: true }]) expect(validReadingPosition(document, anchor)).toBe(false)
-    expect(validAnchor(document, terminal)).toBe(false); expect(validAnchor(document, empty)).toBe(false)
+    expect(validAnchor(document, terminal)).toBe(true); expect(validAnchor(document, empty)).toBe(true)
   })
   it('retains exact progress across reopen and legacy position migration without expanding notes', async () => {
     const options = { indexedDB: new IDBFactory() }, notes = createReadingNotes('alice', options)
     for (const anchor of [terminal, empty]) {
       await notes.setPosition(document, anchor)
       expect(await createReadingNotes('alice', options).getPosition(document)).toEqual(anchor)
-      await expect(notes.add(document, { kind: 'bookmark', title: 'Outside note range', anchor })).rejects.toThrow()
+      const note = await notes.add(document, { kind: 'bookmark', title: 'Exact boundary', anchor }); expect(note.anchor).toEqual(anchor); expect(readingNoteInput(note, document).anchor).toEqual(anchor)
     }
     const legacy = { ...document, id: 'legacy-position' }, canonical = { ...document, id: 'canonical-position' }
     await notes.setPosition(legacy, empty); await notes.migrateDocument(legacy, canonical)
@@ -43,7 +44,7 @@ describe('inclusive reading positions remain distinct from note starts', () => {
     await library.importPackage({ createdAt, documents, assets: [] })
     for (const saved of await library.list()) {
       expect(await createReadingNotes('alice', options).getPosition(exchangeReadingDocument(saved))).toEqual(saved.document.position)
-      expect((await createReadingNotes('alice', options).list(exchangeReadingDocument(saved))).items).toEqual([])
+      expect((await createReadingNotes('alice', options).list(exchangeReadingDocument(saved))).items).toHaveLength(1)
       const result = await readExchange(await writeExchange(await library.exportDocument(saved)))
       expect(result.documents[0].position).toEqual(saved.document.position); expect(result.documents[0].notes).toEqual(saved.document.notes)
     }

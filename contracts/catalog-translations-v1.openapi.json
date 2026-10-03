@@ -207,6 +207,7 @@
               "GOOGLE_WEB_TRANSLATE_HTML",
               "GOOGLE_CLOUD",
               "DEEPSEEK",
+              "GEMINI",
               "OPENAI_COMPATIBLE_LLM"
             ],
             "default": "GOOGLE_WEB_TRANSLATE_HTML"

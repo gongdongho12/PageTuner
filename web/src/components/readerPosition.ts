@@ -7,6 +7,13 @@ export type ReaderFragment = {
   end: number;
 };
 
+/** Hide soft page-boundary whitespace without changing the canonical page or source offsets. */
+export function visibleReaderFragment(fragment: ReaderFragment, firstOnPage: boolean): ReaderFragment {
+  if (!firstOnPage || fragment.start === 0) return fragment;
+  const skipped = fragment.text.match(/^[ \t\r\n\u3000]+/)?.[0].length ?? 0;
+  return skipped ? { ...fragment, text: fragment.text.slice(skipped), start: fragment.start + skipped } : fragment;
+}
+
 export type ReaderLocation = {
   page: number;
   anchor?: ReadingAnchor;

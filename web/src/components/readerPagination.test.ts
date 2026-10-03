@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { paginateReaderParagraphs } from './PagedReader'
-import { reflowReaderLocation, turnReaderPage } from './readerPosition'
+import { reflowReaderLocation, turnReaderPage, visibleReaderFragment } from './readerPosition'
 
 /** Deterministic line-height probe. Production reads the same paragraph DOM for actual font/viewport metrics. */
 class MeasuredElement {
@@ -33,5 +33,26 @@ describe('measured pagination retains empty canonical paragraphs', () => {
     const anchor = { paragraphId: 'b', characterOffset: 0 }, location = reflowReaderLocation(pages, anchor)
     expect(location).toEqual({ page: 1, anchor }); expect(turnReaderPage(pages, location, 1)).toEqual({ page: 2, anchor: { paragraphId: 'c', characterOffset: 0 } })
     expect(() => paginateReaderParagraphs(paragraphs, new MeasuredElement() as unknown as HTMLDivElement, 2, new Map())).toThrow()
+  })
+})
+
+describe('soft page-boundary whitespace', () => {
+  it('hides only continuation whitespace and keeps exact UTF-16 selection offsets', () => {
+    const fragment = { paragraphId: 'p', text: ' \r\n\t　😀Text', start: 12, end: 23 }
+    expect(visibleReaderFragment(fragment, true)).toEqual({ ...fragment, text: '😀Text', start: 17 })
+    expect(visibleReaderFragment(fragment, false)).toBe(fragment)
+    const beginning = { ...fragment, start: 0 }
+    expect(visibleReaderFragment(beginning, true)).toBe(beginning)
+    expect(fragment.text).toBe(' \r\n\t　😀Text')
+  })
+  it('measures the visible continuation but retains every source character in canonical pages', () => {
+    vi.stubGlobal('document', { createElement: () => new MeasuredElement() })
+    const text = 'ABC\n DEF😀GHI'
+    const pages = paginateReaderParagraphs([{ paragraphId: 'p', text }], new MeasuredElement() as unknown as HTMLDivElement, 5, new Map())
+    expect(pages.flat().map(f => f.text).join('')).toBe(text)
+    expect(pages[1][0].start).toBe(3)
+    expect(visibleReaderFragment(pages[1][0], true).text).toBe('DEF')
+    expect(visibleReaderFragment(pages[1][0], true).start).toBe(5)
+    expect(reflowReaderLocation(pages, { paragraphId: 'p', characterOffset: 4 }).page).toBe(1)
   })
 })

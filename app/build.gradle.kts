@@ -29,7 +29,11 @@ fun localSecret(name: String): String =
 val deepSeekApiKey = localSecret("DEEPSEEK_API_KEY")
 val deepSeekApiUrl = localSecret("DEEPSEEK_API_URL")
     .ifBlank { "https://api.deepseek.com/chat/completions" }
-val deepSeekModel = localSecret("DEEPSEEK_MODEL").ifBlank { "deepseek-v4-flash" }
+val deepSeekModel = localSecret("DEEPSEEK_MODEL").ifBlank { "deepseek-flash" }
+
+val geminiApiKey = localSecret("GEMINI_API_KEY")
+val geminiApiUrl = localSecret("GEMINI_API_URL").ifBlank { "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions" }
+val geminiModel = localSecret("GEMINI_MODEL").ifBlank { "gemini-3.8-flash" }
 
 // Both the hosted web reader and the phone's offline sharing UI use the same React sources.
 // Generate the phone bundle as part of an APK build so a stale checked-in bundle cannot ship.
@@ -99,11 +103,17 @@ android {
 
     buildTypes {
         debug {
+            buildConfigField("String", "GEMINI_API_KEY", geminiApiKey.asBuildConfigString())
+            buildConfigField("String", "GEMINI_API_URL", geminiApiUrl.asBuildConfigString())
+            buildConfigField("String", "GEMINI_MODEL", geminiModel.asBuildConfigString())
             buildConfigField("String", "DEEPSEEK_API_KEY", deepSeekApiKey.asBuildConfigString())
             buildConfigField("String", "DEEPSEEK_API_URL", deepSeekApiUrl.asBuildConfigString())
             buildConfigField("String", "DEEPSEEK_MODEL", deepSeekModel.asBuildConfigString())
         }
         release {
+            buildConfigField("String", "GEMINI_API_KEY", "\"\"")
+            buildConfigField("String", "GEMINI_API_URL", geminiApiUrl.asBuildConfigString())
+            buildConfigField("String", "GEMINI_MODEL", geminiModel.asBuildConfigString())
             // Production credentials must be resolved by a subscription backend, never embedded in the APK.
             buildConfigField("String", "DEEPSEEK_API_KEY", "\"\"")
             buildConfigField("String", "DEEPSEEK_API_URL", deepSeekApiUrl.asBuildConfigString())

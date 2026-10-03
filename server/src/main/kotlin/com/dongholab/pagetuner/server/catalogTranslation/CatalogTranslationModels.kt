@@ -28,7 +28,7 @@ class CatalogTranslationRequest(
         val language = Regex("[A-Za-z][A-Za-z0-9-]{0,23}")
         require(language.matches(sourceLanguage) && language.matches(targetLanguage) && !targetLanguage.equals("auto", true) &&
             !sourceLanguage.equals(targetLanguage, true)) { "Invalid catalog translation languages." }
-        require(providerKind in setOf("GOOGLE_WEB_TRANSLATE_HTML", "GOOGLE_CLOUD", "DEEPSEEK", "OPENAI_COMPATIBLE_LLM")) { "Invalid translation provider." }
+        require(providerKind in setOf("GOOGLE_WEB_TRANSLATE_HTML", "GOOGLE_CLOUD", "DEEPSEEK", "GEMINI", "OPENAI_COMPATIBLE_LLM")) { "Invalid translation provider." }
         require((apiKey?.length ?: 0) <= 4096 && apiKey.orEmpty().none { it == '\r' || it == '\n' }) { "Invalid provider credential." }
         require((endpoint?.length ?: 0) <= 2_000 && (model?.length ?: 0) <= 200 &&
             endpoint.orEmpty().none { it.isISOControl() } && model.orEmpty().none { it.isISOControl() }) { "Invalid translation settings." }

@@ -23,16 +23,16 @@ data class TranslationSettings(
         get() = targetLanguage.trim().ifBlank { "ko" }
 
     val normalizedLlmEndpoint: String
-        get() = llmEndpoint.trim().trimEnd('/')
+        get() = llmEndpoint.trim().trimEnd('/').ifBlank { if (providerKind == TranslationProviderKind.GEMINI) GeminiDefaults.ApiUrl else "" }
 
     val normalizedLlmModel: String
-        get() = llmModel.trim()
+        get() = llmModel.trim().ifBlank { if (providerKind == TranslationProviderKind.GEMINI) GeminiDefaults.Model else "" }
 
     val isProviderConfigured: Boolean
         get() = when (providerKind) {
             TranslationProviderKind.GOOGLE_CLOUD -> apiKey.isNotBlank()
             TranslationProviderKind.GOOGLE_WEB_TRANSLATE_HTML -> true
-            TranslationProviderKind.DEEPSEEK ->
+            TranslationProviderKind.GEMINI, TranslationProviderKind.DEEPSEEK ->
                 apiKey.isNotBlank() && normalizedLlmEndpoint.isNotBlank() && normalizedLlmModel.isNotBlank()
             TranslationProviderKind.OPENAI_COMPATIBLE_LLM ->
                 apiKey.isNotBlank() && normalizedLlmEndpoint.isNotBlank() && normalizedLlmModel.isNotBlank()
@@ -43,12 +43,14 @@ enum class TranslationProviderKind {
     GOOGLE_CLOUD,
     GOOGLE_WEB_TRANSLATE_HTML,
     DEEPSEEK,
+    GEMINI,
     OPENAI_COMPATIBLE_LLM,
 }
 
 enum class TranslationSubscriptionPlan {
     GOOGLE_TRANSLATE,
     DEEPSEEK_AI,
+    GEMINI_AI,
     CUSTOM_API,
 }
 
@@ -57,6 +59,7 @@ val TranslationProviderKind.subscriptionPlan: TranslationSubscriptionPlan
         TranslationProviderKind.GOOGLE_CLOUD,
         TranslationProviderKind.GOOGLE_WEB_TRANSLATE_HTML -> TranslationSubscriptionPlan.GOOGLE_TRANSLATE
         TranslationProviderKind.DEEPSEEK -> TranslationSubscriptionPlan.DEEPSEEK_AI
+        TranslationProviderKind.GEMINI -> TranslationSubscriptionPlan.GEMINI_AI
         TranslationProviderKind.OPENAI_COMPATIBLE_LLM -> TranslationSubscriptionPlan.CUSTOM_API
     }
 
@@ -106,7 +109,7 @@ fun TranslationSettings.checkProviderHealth(): ProviderHealthCheck {
         TranslationProviderKind.GOOGLE_WEB_TRANSLATE_HTML -> {
             ProviderHealthCheck(state = ProviderHealthState.Ready, providerKind = providerKind)
         }
-        TranslationProviderKind.DEEPSEEK -> {
+        TranslationProviderKind.GEMINI, TranslationProviderKind.DEEPSEEK -> {
             when {
                 apiKey.isBlank() || normalizedLlmEndpoint.isBlank() || normalizedLlmModel.isBlank() ->
                     ProviderHealthCheck(

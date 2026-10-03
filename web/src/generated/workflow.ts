@@ -393,7 +393,7 @@ export interface components {
             bookUrl?: string | null;
         };
         /** @enum {string} */
-        ProviderKind: "GOOGLE_CLOUD" | "GOOGLE_WEB_TRANSLATE_HTML" | "DEEPSEEK" | "OPENAI_COMPATIBLE_LLM";
+        ProviderKind: "GOOGLE_CLOUD" | "GOOGLE_WEB_TRANSLATE_HTML" | "DEEPSEEK" | "GEMINI" | "OPENAI_COMPATIBLE_LLM";
         TranslationProvider: {
             id: components["schemas"]["ProviderKind"];
             displayName: string;

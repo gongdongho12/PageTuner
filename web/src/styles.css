@@ -1,3 +1,19 @@
+@font-face {
+  font-family: 'PageTurner Noto Serif KR';
+  src: url('./assets/fonts/noto_serif_kr_regular.woff2') format('woff2');
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'PageTurner Noto Serif KR';
+  src: url('./assets/fonts/noto_serif_kr_bold.woff2') format('woff2');
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+}
+
 :root {
   font-family: Arial, "Malgun Gothic", "Apple SD Gothic Neo", sans-serif;
   color: #000;
@@ -1027,7 +1043,7 @@ input:disabled {
 }
 .welcome h2 {
   margin: 27px 0 22px;
-  font-family: Georgia, "Batang", "AppleMyungjo", serif;
+  font-family: 'PageTurner Noto Serif KR', Georgia, serif;
   font-weight: 400;
   font-size: clamp(31px, 3.1vw, 46px);
   letter-spacing: -2.1px;
@@ -1677,7 +1693,7 @@ input:disabled {
   overflow: hidden;
 }
 .reader-typeset {
-  font-family: Georgia, "Batang", "AppleMyungjo", serif;
+  font-family: 'PageTurner Noto Serif KR', Georgia, serif;
   font-size: inherit;
   line-height: 1.95;
   letter-spacing: 0;
@@ -1689,6 +1705,12 @@ input:disabled {
 }
 .reader-page {
   margin: 0;
+}
+.reader-read-only .reader-page,
+.reader-read-only button {
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
 }
 .reader-measure {
   position: absolute;

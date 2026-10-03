@@ -83,7 +83,7 @@ class ReadingNoteService(private val jdbc: JdbcTemplate, private val json: Objec
             input.kind == ReadingNoteKind.NOTE && input.text.isBlank() || input.createdAt < MIN_NOTE_TIME || input.createdAt > MAX_NOTE_TIME) invalidNote()
         val raw = jdbc.queryForObject("select paragraphs_json from ${table(kind)} where user_id=? and id=?", String::class.java, user, recordId)!!
         val paragraphs = json.readTree(raw).map { Paragraph(it["paragraphId"].textValue(), it["text"].textValue()) }
-        val index = validateAnchor(paragraphs, input.anchor, allowEnd = false)
+        val index = validateAnchor(paragraphs, input.anchor, allowEnd = input.kind != ReadingNoteKind.HIGHLIGHT)
         val excerpt = if (input.kind == ReadingNoteKind.HIGHLIGHT) {
             val range = input.range ?: invalidNote()
             if (range.start != input.anchor) invalidNote()

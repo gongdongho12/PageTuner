@@ -1069,7 +1069,7 @@ export default function App() {
                     onBrowse={() => selectTab("novels")}
                   /></>
                 ) : tab === 'device' && deviceView === 'exchange' && username ? (
-                  <LibraryExchangeWorkspace key={username} username={username} identityClient={identityClient} onReadingChange={setWorkflowReading}/>
+                  <LibraryExchangeWorkspace key={username} username={username} identityClient={identityClient} targetLanguage={accountProfile?.targetLanguage ?? "ko"} onReadingChange={setWorkflowReading}/>
                 ) : tab === "device" && deviceView === "files" && username ? (
                   <LocalWorkspace
                     key={username}

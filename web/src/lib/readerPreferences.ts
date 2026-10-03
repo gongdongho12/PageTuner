@@ -55,5 +55,5 @@ export function touchPageDirection(fraction: number, direction: ReaderPreference
 }
 
 export const readerFontFamilies: Record<ReaderPreferences['fontFamily'], string> = {
-  serif: 'Georgia, Batang, AppleMyungjo, serif', sans: 'Arial, Malgun Gothic, Apple SD Gothic Neo, sans-serif', mono: 'Consolas, Menlo, monospace',
+  serif: '"PageTurner Noto Serif KR", Georgia, serif', sans: 'Arial, Malgun Gothic, Apple SD Gothic Neo, sans-serif', mono: 'Consolas, Menlo, monospace',
 }

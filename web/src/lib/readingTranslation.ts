@@ -31,7 +31,7 @@ export function validateReadingTranslation(value: unknown): ReadingTranslationRe
     typeof input.chapterRecordId === 'string' && validRecordId(input.chapterRecordId))
   check(['QUEUED', 'RUNNING', 'COMPLETED', 'FAILED', 'CANCELLED'].includes(String(input.status)))
   check(text(input.sourceHash) && /^[a-f0-9]{64}$/.test(input.sourceHash) && text(input.sourceRevision) && /^[a-f0-9]{64}$/.test(input.sourceRevision))
-  check(['GOOGLE_WEB_TRANSLATE_HTML', 'GOOGLE_CLOUD', 'DEEPSEEK', 'OPENAI_COMPATIBLE_LLM'].includes(String(input.providerKind)))
+  check(['GOOGLE_WEB_TRANSLATE_HTML', 'GOOGLE_CLOUD', 'DEEPSEEK', 'GEMINI', 'OPENAI_COMPATIBLE_LLM'].includes(String(input.providerKind)))
   check(text(input.targetLanguage) && /^[A-Za-z][A-Za-z0-9-]{0,23}$/.test(input.targetLanguage) && input.targetLanguage.toLowerCase() !== 'auto')
   check(integer(input.completedFragments) && integer(input.totalFragments) && input.totalFragments > 0 && input.totalFragments <= 64 && input.completedFragments <= input.totalFragments)
   check(validTimestamp(input.updatedAt) && (input.errorCode === null || text(input.errorCode) && input.errorCode.length <= 100))
