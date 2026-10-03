@@ -134,3 +134,4 @@ S4b1 재구현 없이 공유 실제 로컬 책 확인, 공유 본문 선택 방�
 
 - 2026-10-03 18시 heartbeat: PR #36 최종 `c05f2577`의 [CI](https://github.com/gongdongho12/PageTuner/actions/runs/37109572852) 성공(3분55초)을 확인했다. S4c 다음 단위 조사에서 server public shell의 폰트 라이선스 GET 누락을 발견해 기존 기능 결함을 먼저 수정했다. 정확한 경로만 공개하고 MVC 7개, 실제 익명 SHELL 68개 및 서버 종료 후 브라우저 오프라인 읽기/라이선스/페이지 이동을 검증했다. 다른 로컬 개선 변경은 보존했다.
 - S4c 다음 작은 단위 후보: 계정 용어집의 passive ZIP snapshot 계약/codec. 기존 glossary는 원래 ID·대상 언어를 잃으므로 별도 extension이 필요하다. 전체 순서·별칭·활성/대소문자·null 삭제/빈 배열을 보존하고 CAS/outbox/계정 인증 정보는 내보내지 않는다. 캐시·pending/conflict를 최신 서버 기록이라고 표시하지 않으며 실제 최신 내보내기는 명시적 GET과 늦은 계정 응답 폐기가 필요하다. S4b2 실제 연결은 서버 원본 바이너리 영속 보관 기반부터 필요하다. 이번 실행에서는 조사만 했고 S4c 구현 완료로 표시하지 않는다.
+- 폰트 공개 경로 후속 [draft PR #37](https://github.com/gongdongho12/PageTuner/pull/37): `codex/public-font-license` → `codex/portable-content-proof`(#36). 수정 `c019502b`, 검증 기록 `0e280646`를 분리해 push했다. CI 최종 head를 확인하고 다음 실행에서 S4c passive 용어집 snapshot의 독립 가능한 단위를 진행한다. 자동 병합하지 않는다.
