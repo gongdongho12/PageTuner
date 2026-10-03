@@ -1,4 +1,4 @@
-import { useEffect, useId, useLayoutEffect, useRef, useState } from 'react'
+import { useId, useLayoutEffect, useRef, useState } from 'react'
 import { translate as t } from '../lib/locale'
 import { inspectPortableIdentity, type PortableIdentityCheck } from '../lib/libraryIdentity'
 import { LibraryIdentityError, type LibraryIdentityClient } from '../lib/libraryIdentityApi'
@@ -28,7 +28,7 @@ export function LibraryIdentityVerifier({ book, username, client, onClose }: { b
   const dialog = useRef<HTMLDialogElement>(null), titleId = useId(), recordIdId = useId(), request = useRef<AbortController | null>(null)
   const [check, setCheck] = useState<PortableIdentityCheck>(), [recordId, setRecordId] = useState(''), [details, setDetails] = useState(false), [busy, setBusy] = useState(false), [outcome, setOutcome] = useState('')
   useLayoutEffect(() => { const node = dialog.current!; node.showModal(); return () => { request.current?.abort(); if (node.open) node.close() } }, [])
-  useEffect(() => {
+  useLayoutEffect(() => {
     let active = true; request.current?.abort(); setBusy(false); setCheck(undefined); setOutcome(''); setRecordId('')
     void inspectPortableIdentity(book.document).then(value => { if (active) { setCheck(value); if (value.status === 'ready') setRecordId(value.recordIdHint ?? '') } })
     return () => { active = false; request.current?.abort() }
