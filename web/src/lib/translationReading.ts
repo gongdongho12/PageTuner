@@ -5,7 +5,7 @@ import {
   type ReadingAnchor,
 } from "./offline";
 import { createReadingNotes } from "./readingNotes";
-import { validAnchor, type ReadingDocument } from "./readingDocument";
+import { validReadingPosition, type ReadingDocument } from "./readingDocument";
 import type { DeviceDatabaseOptions } from "./deviceReadingDatabase";
 
 type Options = {
@@ -55,7 +55,7 @@ function readPosition(
       const value = JSON.parse(
         (options.storage ?? localStorage).getItem(key) ?? "null",
       );
-      if (value && validAnchor(document, value))
+      if (validReadingPosition(document, value))
         return {
           paragraphId: value.paragraphId,
           characterOffset: value.characterOffset,
@@ -103,7 +103,7 @@ export async function openTranslationReading(
   } finally {
     if (!options.offline) offline.close();
   }
-  if (anchor && validAnchor(document, anchor))
+  if (validReadingPosition(document, anchor))
     return { document, translation, anchor };
   return { document, translation, anchor: undefined };
 }
@@ -116,7 +116,7 @@ export async function rememberTranslationPosition(
   options: Options = {},
 ) {
   const document = translationReadingDocument(translation);
-  if (!validAnchor(document, anchor))
+  if (!validReadingPosition(document, anchor))
     throw new Error("이 문서에 없는 읽기 위치입니다.");
   let persisted = false;
   try {

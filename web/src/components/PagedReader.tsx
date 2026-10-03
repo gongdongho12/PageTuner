@@ -4,7 +4,7 @@ import type { ReadingAnchor } from "../lib/offline";
 import { Icon } from "./Icon";
 import { usePageKeys } from "./usePageKeys";
 import { ReaderTools } from './ReaderTools';
-import { firstAnchor, type ReadingDocument } from '../lib/readingDocument';
+import { firstAnchor, validReadingPosition, type ReadingDocument } from '../lib/readingDocument';
 import { useReadingProgress } from './ReadingProgressProvider';
 import { useReadingNoteSync } from './ReadingNoteProvider';
 import { ReadingProgressPanel, readingProgressStatus } from './ReadingProgressPanel';
@@ -71,7 +71,7 @@ function boundaries(text: string) {
     return result;
 }
 /** Measure the exact reader DOM. Every source character belongs to exactly one fragment. */
-function paginate(paragraphs: ReadingDocument["paragraphs"], measure: HTMLDivElement, height: number, displays: ReadonlyMap<string, GlossaryDisplay>): Fragment[][] {
+export function paginateReaderParagraphs(paragraphs: ReadingDocument["paragraphs"], measure: HTMLDivElement, height: number, displays: ReadonlyMap<string, GlossaryDisplay>): Fragment[][] {
     const pages: Fragment[][] = [];
     let fragments: Fragment[] = [];
     measure.replaceChildren();
@@ -82,6 +82,15 @@ function paginate(paragraphs: ReadingDocument["paragraphs"], measure: HTMLDivEle
         measure.replaceChildren();
     };
     for (const paragraph of paragraphs) {
+        if (!paragraph.text.length) {
+            const element = document.createElement('p');
+            element.className = 'reader-paragraph reader-paragraph-empty';
+            measure.append(element);
+            if (measure.getBoundingClientRect().height > height - 2 && fragments.length) { element.remove(); flush(); measure.append(element); }
+            if (measure.getBoundingClientRect().height > height - 2) throw new Error(t('읽기 영역이 너무 작습니다. 글자 크기를 줄이거나 화면 높이를 늘려 주세요.'));
+            fragments.push({ paragraphId: paragraph.paragraphId, text: '', start: 0, end: 0 });
+            continue;
+        }
         const stops = boundaries(paragraph.text);
         let first = 0;
         while (first < stops.length - 1) {
@@ -231,7 +240,7 @@ export function PagedReader({ document: readingDocument, anchor, anchorIsNavigat
           }
           measuring.style.width = `${width}px`;
           try {
-            const next = paginate(projection.document.paragraphs, measuring, height, projection.displays);
+            const next = paginateReaderParagraphs(projection.document.paragraphs, measuring, height, projection.displays);
             const relocated = reflowReaderLocation(next, location.current.anchor ? projection.displayAnchor(location.current.anchor) : undefined);
             location.current = { ...relocated, anchor: location.current.anchor ?? (relocated.anchor ? projection.sourceAnchor(relocated.anchor) : undefined) };
             setPages(next);
@@ -263,12 +272,9 @@ export function PagedReader({ document: readingDocument, anchor, anchorIsNavigat
     const appliedProgress = useRef<{ documentId: string; source: unknown; sequence: number | undefined } | undefined>(undefined);
     useLayoutEffect(() => {
         if (!syncedAnchor) return;
-        const paragraph = readingDocument.paragraphs.find(p => p.paragraphId === syncedAnchor.paragraphId);
-        if (!paragraph || !Number.isInteger(syncedAnchor.characterOffset) || syncedAnchor.characterOffset < 0 || syncedAnchor.characterOffset > paragraph.text.length) return;
+        if (!validReadingPosition(readingDocument, syncedAnchor)) return;
         const applied = appliedProgress.current;
         if (applied?.documentId === readingDocument.id && applied.source === progress.restorationSource && applied.sequence === restorationSequence) return;
-        const text = paragraph.text;
-        if (syncedAnchor.characterOffset > 0 && /[\uD800-\uDBFF]/.test(text[syncedAnchor.characterOffset - 1]) && /[\uDC00-\uDFFF]/.test(text[syncedAnchor.characterOffset])) return;
         appliedProgress.current = { documentId: readingDocument.id, source: progress.restorationSource, sequence: restorationSequence };
         if (location.current.anchor?.paragraphId === syncedAnchor.paragraphId && location.current.anchor.characterOffset === syncedAnchor.characterOffset) return;
         const moved = reflowReaderLocation(pages, projection.displayAnchor(syncedAnchor));
@@ -378,7 +384,7 @@ export function PagedReader({ document: readingDocument, anchor, anchorIsNavigat
           {error ? (<div role="alert" className="reader-error">
               {error}
             </div>) : (<article ref={article} className="reader-typeset reader-page" style={typography} aria-label={t("{0}\uBC88\uC9F8 \uD398\uC774\uC9C0", [page + 1])}>
-              {pages[page]?.map((fragment) => (<p className="reader-paragraph" key={`${fragment.paragraphId}:${fragment.start}`} data-paragraph-id={fragment.paragraphId} data-character-offset={fragment.start}>
+              {pages[page]?.map((fragment) => (<p className={`reader-paragraph${fragment.text.length ? '' : ' reader-paragraph-empty'}`} key={`${fragment.paragraphId}:${fragment.start}`} data-paragraph-id={fragment.paragraphId} data-character-offset={fragment.start}>
                   {glossaryReaderParts(fragment.text, fragment.start, projection.displays.get(fragment.paragraphId)?.emphasizedRanges ?? [],
                     highlightedReaderParts(projection.document, fragment, displayHighlightRanges, paragraphIndices)).map((part, index) => {
                       const text = part.emphasized ? <strong>{part.text}</strong> : part.text;

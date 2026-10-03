@@ -1,6 +1,6 @@
 import type { ReadingAnchor } from './offline'
 import type { ReadingDocument } from './readingDocument'
-import { validAnchor } from './readingDocument'
+import { validAnchor, validReadingPosition } from './readingDocument'
 import { readingNamespace, readingTransaction, type DeviceDatabaseOptions } from './deviceReadingDatabase'
 import { readingRangeText, type ReadingRange } from './readingSelection'
 import { createReadingNoteStore, enqueueReadingNoteChange } from './readingNoteStore'
@@ -72,7 +72,7 @@ export function createReadingNotes(username: string, options: DeviceDatabaseOpti
         }
         const prior = positions.get([namespace, previous.id])
         prior.onsuccess = () => {
-          if (!prior.result?.anchor || !validAnchor(document, prior.result.anchor)) return
+          if (!prior.result?.anchor || !validReadingPosition(document, prior.result.anchor)) return
           const current = positions.get([namespace, document.id])
           current.onsuccess = () => {
             if (!current.result) positions.put({ ...prior.result, documentId: document.id })
@@ -164,11 +164,11 @@ export function createReadingNotes(username: string, options: DeviceDatabaseOpti
         request.onsuccess = () => result(request.result)
       }, options)
       if (!value?.anchor) return undefined
-      if (!validAnchor(document, value.anchor)) throw new Error('저장된 읽기 위치를 확인할 수 없습니다.')
+      if (!validReadingPosition(document, value.anchor)) throw new Error('저장된 읽기 위치를 확인할 수 없습니다.')
       return value.anchor
     },
     async setPosition(document: ReadingDocument, anchor: ReadingAnchor): Promise<void> {
-      if (!validAnchor(document, anchor)) throw new Error('이 문서에 없는 읽기 위치입니다.')
+      if (!validReadingPosition(document, anchor)) throw new Error('이 문서에 없는 읽기 위치입니다.')
       await readingTransaction<void>(['positions'], 'readwrite', tx => {
         tx.objectStore('positions').put({ username: namespace, documentId: document.id, anchor: { ...anchor } })
       }, options)

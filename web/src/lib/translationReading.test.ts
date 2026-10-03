@@ -5,6 +5,7 @@ import fixture from "../../../contracts/fixtures/translation-v1/stored-response.
 import type { TranslationResponse } from "./api";
 import { createOfflineLibrary } from "./offline";
 import { createReadingNotes } from "./readingNotes";
+import { sha256 } from './validation';
 import {
   getTranslationPosition,
   openTranslationReading,
@@ -31,6 +32,21 @@ function memoryStorage() {
 }
 
 describe("one translation identity across job results, server library and offline reopening", () => {
+  it('preserves paragraph ends across every position store and rejects surrogate interior positions', async () => {
+    const indexedDB = new IDBFactory(), offline = createOfflineLibrary('alice', { indexedDB }), storage = memoryStorage(), options = { offline, device: { indexedDB }, storage }
+    const value = structuredClone(translation); value.paragraphs[0].text += ' 🌏'
+    value.payloadHash = await sha256(value.paragraphs.map(p => `${p.paragraphId}:${p.text}`).join('\n')); value.revision = await sha256(`${value.artifactId}|${value.payloadHash}`)
+    const paragraph = value.paragraphs[0], end = { paragraphId: paragraph.paragraphId, characterOffset: paragraph.text.length }, split = { ...end, characterOffset: end.characterOffset - 1 }
+    try {
+      await offline.save(value); await rememberTranslationPosition('alice', value, end, options)
+      expect(getTranslationPosition('alice', value, { storage })).toEqual(end)
+      expect((await offline.get(value.recordId))?.anchor).toEqual(end)
+      expect((await openTranslationReading('alice', value, { ...options, storage: memoryStorage() })).anchor).toEqual(end)
+      await expect(offline.setAnchor(value.recordId, split)).rejects.toThrow()
+      await expect(rememberTranslationPosition('alice', value, split, options)).rejects.toThrow()
+      expect((await openTranslationReading('alice', value, { ...options, storage: memoryStorage() })).anchor).toEqual(end)
+    } finally { offline.close() }
+  })
   it("shares the actual note and offline stores after reading a job result and saving it", async () => {
     const indexedDB = new IDBFactory(),
       offline = createOfflineLibrary("alice", { indexedDB }),

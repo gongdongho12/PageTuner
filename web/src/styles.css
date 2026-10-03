@@ -1703,6 +1703,7 @@ input:disabled {
   margin: 0 0 1.1em;
 }
 .reader-paragraph:last-child { margin-bottom: 0; }
+.reader-paragraph-empty { min-height: 1lh; }
 .reader-bottom-rule {
   flex-shrink: 0;
   min-height: 52px;

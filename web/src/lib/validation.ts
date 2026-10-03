@@ -1,4 +1,5 @@
 import { ApiError } from "./errors";
+import { validReadingPosition } from './readingDocument';
 import type {
   ReadingAnchor,
   TranslationPage,
@@ -255,20 +256,5 @@ export function validAnchor(
   value: unknown,
   translation: TranslationResponse,
 ): value is ReadingAnchor {
-  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
-  const anchor = value as Record<string, unknown>;
-  if (
-    Object.keys(anchor).length !== 2 ||
-    typeof anchor.paragraphId !== "string" ||
-    !Number.isSafeInteger(anchor.characterOffset)
-  )
-    return false;
-  const paragraph = translation.paragraphs.find(
-    (item) => item.paragraphId === anchor.paragraphId,
-  );
-  return (
-    !!paragraph &&
-    (anchor.characterOffset as number) >= 0 &&
-    (anchor.characterOffset as number) <= paragraph.text.length
-  );
+  return validReadingPosition(translation, value);
 }
