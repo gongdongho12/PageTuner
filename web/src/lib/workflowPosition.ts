@@ -1,4 +1,4 @@
-import { validAnchor, type ReadingDocument } from "./readingDocument";
+import { validReadingPosition, type ReadingDocument } from "./readingDocument";
 import type { ReadingAnchor } from "./offline";
 const key = (username: string, document: ReadingDocument) =>
   `pageturner.workflow-position:${encodeURIComponent(username)}:${encodeURIComponent(document.id)}`;
@@ -10,7 +10,7 @@ export function getWorkflowPosition(
     const value = JSON.parse(
       localStorage.getItem(key(username, document)) ?? "null",
     );
-    if (value && validAnchor(document, value)) return value;
+    if (validReadingPosition(document, value)) return value;
   } catch {
     /* Optional device progress never prevents reading. */
   }
@@ -20,6 +20,6 @@ export function setWorkflowPosition(
   document: ReadingDocument,
   anchor: ReadingAnchor,
 ) {
-  if (!validAnchor(document, anchor)) return;
+  if (!validReadingPosition(document, anchor)) return;
   localStorage.setItem(key(username, document), JSON.stringify(anchor));
 }

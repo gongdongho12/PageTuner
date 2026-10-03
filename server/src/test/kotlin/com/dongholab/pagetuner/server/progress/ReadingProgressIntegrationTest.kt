@@ -170,6 +170,39 @@ class ReadingProgressIntegrationTest {
             .andExpect(jsonPath("$.anchor.characterOffset").value(end))
     }
 
+    @Test fun `original and translated legacy empty paragraphs and exact ends retain their own anchors`() {
+        val owner = reader(); val original = source(owner)
+        // Existing immutable snapshots can contain empty text even though current source upload
+        // ingress rejects it. Seed a coherent legacy snapshot without changing that upload policy.
+        val paragraphs = listOf(SourceParagraph("p-1", 0, ""), SourceParagraph("p-2", 1, "Original😀"))
+        val legacy = original.copy(paragraphs = paragraphs)
+        jdbc.update("update source_chapter set paragraphs_json=?,source_revision=? where id=? and user_id=?",
+            json.writeValueAsString(paragraphs), legacy.content().sourceRevision, original.recordId, owner)
+        assertEquals(paragraphs, chapters.get(owner, original.recordId).paragraphs)
+        val targetText = "번역😀"
+        val translated = translations.save(owner, SaveTranslationRequest(original.providerId, original.bookId, original.chapterId,
+            legacy.content().sourceRevision, "en", "ko", "legacy-test-provider",
+            paragraphs = listOf(TranslatedParagraphRequest("p-1", ""), TranslatedParagraphRequest("p-2", targetText))))
+        for ((kind, record, text) in listOf(Triple(ReadingProgressKind.ORIGINAL, original.recordId, paragraphs[1].text),
+            Triple(ReadingProgressKind.TRANSLATION, translated.recordId, targetText))) {
+            fun writePosition(value: PutReadingProgressRequest) = mvc.perform(put(path(record, kind)).with(user(owner)).with(csrf())
+                .contentType("application/json").content(json.writeValueAsString(value)))
+            val empty = writePosition(request()).andExpect(status().isOk)
+                .andExpect(jsonPath("$.anchor.paragraphId").value("p-1")).andExpect(jsonPath("$.anchor.characterOffset").value(0))
+                .andReturn().response.contentAsString
+            assertEquals(json.readTree(empty), json.readTree(mvc.perform(get(path(record, kind)).with(user(owner)))
+                .andExpect(status().isOk).andReturn().response.contentAsString))
+            writePosition(request(1, "p-2", text.length)).andExpect(status().isOk)
+                .andExpect(jsonPath("$.anchor.paragraphId").value("p-2")).andExpect(jsonPath("$.anchor.characterOffset").value(text.length))
+            for (invalid in listOf(request(2, "p-1", 1), request(2, "p-2", text.length + 1),
+                request(2, "p-2", text.indexOf("😀") + 1))) {
+                writePosition(invalid).andExpect(status().isBadRequest).andExpect(jsonPath("$.code").value("READING_PROGRESS_INVALID"))
+            }
+            assertEquals(ReadingProgressAnchor("p-2", text.length), progress.get(owner, kind, record).anchor)
+            assertEquals(2, progress.get(owner, kind, record).version)
+        }
+    }
+
     @Test fun `translation positions validate target text and remain independent from originals`() {
         val owner = reader(); val source = source(owner)
         val translated = translations.save(owner, SaveTranslationRequest(source.providerId, source.bookId, source.chapterId,

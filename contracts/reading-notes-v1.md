@@ -69,6 +69,8 @@ All note fields shown above are required, including `range:null` when no range a
 
 Kotlin and JavaScript both count UTF-16 code units. Translation ranges refer to translated text; source text ranges cannot be reused by assuming equal character positions.
 
+The note-anchor rule remains stricter than a reading position: bookmarks, notes and highlight starts cannot point to paragraph end or an empty paragraph, even though [reading-progress-v1](reading-progress-v1.md) and ZIP positions permit those exact boundaries. A client importing ZIP metadata must retain unsupported notes as local metadata; it must not move an anchor, invent a title, truncate text or silently send notes while connecting a reading position.
+
 Legacy Android/ZIP note IDs are not necessarily UUIDs, and native page highlights may have no exact text range. Clients must retain a durable ID mapping and preserve unsupported original metadata. Do not guess an exact highlight range from a shortened or whitespace-normalized preview. Establish a source-mapped range or preserve it explicitly as a note.
 
 ## Authentication, errors and retry

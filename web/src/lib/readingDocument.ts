@@ -22,6 +22,16 @@ export function validAnchor(document: ReadingDocument, anchor: ReadingAnchor): b
     anchor.characterOffset < paragraph.text.length
 }
 
+/** Reading progress is an insertion point; unlike note starts it includes empty and terminal positions. */
+export function validReadingPosition(document: Pick<ReadingDocument, 'paragraphs'>, value: unknown): value is ReadingAnchor {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return false
+  const anchor = value as Record<string, unknown>
+  if (Object.keys(anchor).length !== 2 || typeof anchor.paragraphId !== 'string' || !Number.isSafeInteger(anchor.characterOffset)) return false
+  const paragraph = document.paragraphs.find(item => item.paragraphId === anchor.paragraphId), offset = anchor.characterOffset as number
+  return !!paragraph && offset >= 0 && offset <= paragraph.text.length &&
+    !(offset > 0 && offset < paragraph.text.length && /[\uD800-\uDBFF]/.test(paragraph.text[offset - 1]) && /[\uDC00-\uDFFF]/.test(paragraph.text[offset]))
+}
+
 export function firstAnchor(document: ReadingDocument): ReadingAnchor {
   const paragraph = document.paragraphs[0]
   if (!paragraph) throw new Error('읽을 수 있는 본문이 없습니다.')

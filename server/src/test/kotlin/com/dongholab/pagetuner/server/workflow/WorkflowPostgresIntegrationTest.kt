@@ -10,6 +10,10 @@ import com.dongholab.pagetuner.translation.TranslationProviderException
 import com.dongholab.pagetuner.translation.TranslationProviderFailure
 import java.util.UUID
 import java.util.concurrent.CopyOnWriteArrayList
+import java.util.concurrent.Callable
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.Executors
+import java.util.concurrent.TimeUnit
 import kotlinx.coroutines.CompletableDeferred
 import org.junit.jupiter.api.AfterAll
 import org.junit.jupiter.api.Assertions.*
@@ -122,6 +126,42 @@ class WorkflowPostgresIntegrationTest {
         assertThrows(WorkflowFailure::class.java) { chapters.get("another-reader", first.recordId) }
         assertEquals(2, chapters.list(user, 0, 1).totalPages)
         assertTrue(chapters.list("another-reader", 0, 12).items.isEmpty())
+    }
+
+    @Test fun `source snapshots preserve exact language independently without changing paragraph revisions`() {
+        val snapshots = listOf("en", "EN", "ko").map { language -> chapters.save(user, draft().copy(sourceLanguage = language)) }
+        assertEquals(3, snapshots.map { it.recordId }.distinct().size)
+        assertEquals(1, snapshots.map { it.sourceRevision }.distinct().size)
+        snapshots.forEach { original ->
+            val repeated = chapters.save(user, draft().copy(sourceLanguage = original.sourceLanguage))
+            assertEquals(original, repeated)
+            assertEquals(original, chapters.get(user, original.recordId))
+            assertNotEquals(original.recordId, chapters.save("another-reader", draft().copy(sourceLanguage = original.sourceLanguage)).recordId)
+        }
+    }
+
+    @Test fun `concurrent uploads deduplicate within each exact language only`() {
+        val input = UploadedChapterRequest("book", "Book", "chapter", "Chapter", "en", listOf(SourceParagraph("p1", 0, "Same 😀 source.")))
+        val pool = Executors.newFixedThreadPool(9)
+        val ready = CountDownLatch(9); val go = CountDownLatch(1)
+        try {
+            val writes = (0 until 9).map { index ->
+                val language = listOf("en", "EN", "ko")[index % 3]
+                pool.submit(Callable {
+                    ready.countDown(); check(go.await(10, TimeUnit.SECONDS))
+                    language to chapters.upload(user, input.copy(sourceLanguage = language))
+                })
+            }
+            assertTrue(ready.await(10, TimeUnit.SECONDS)); go.countDown()
+            val stored = writes.map { it.get(20, TimeUnit.SECONDS) }
+            stored.groupBy { it.first }.forEach { (language, sameLanguage) ->
+                assertEquals(1, sameLanguage.map { it.second.recordId }.distinct().size)
+                assertTrue(sameLanguage.all { it.second.sourceLanguage == language })
+            }
+            assertEquals(3, stored.map { it.second.recordId }.distinct().size)
+            assertEquals(1, stored.map { it.second.sourceRevision }.distinct().size)
+            assertEquals(3L, chapters.list(user, 0, 50).totalItems)
+        } finally { go.countDown(); pool.shutdownNow() }
     }
 
     @Test fun `translation completes to real persisted artifact and repeated request avoids provider work`() {

@@ -3,16 +3,16 @@ import type { ChapterSummary, StoredChapter, WorkflowClient } from './workflowAp
 import { validateOriginal, type PersonalLibrary } from './personalLibrary'
 import { validateTranslation } from './validation'
 import type { ReadingAnchor } from './offline'
-import type { ReadingDocument } from './readingDocument'
+import { validReadingPosition, type ReadingDocument } from './readingDocument'
 import { translationReadingDocument } from './translationReading'
 
 export type ComparisonMode = 'translation' | 'original' | 'comparison'
 export type MatchedComparison = { translation: TranslationResponse; source: StoredChapter; original: ReadingDocument; translated: ReadingDocument }
 const mismatch = () => new Error('이 번역에 대응하는 원문을 확인하지 못했습니다. 다른 원문과 대조하지 않습니다.')
 
-export function isComparisonIdentity(source: Pick<ChapterSummary, 'providerId' | 'bookId' | 'chapterId' | 'sourceRevision'>, translation: TranslationResponse) {
+export function isComparisonIdentity(source: Pick<ChapterSummary, 'providerId' | 'bookId' | 'chapterId' | 'sourceRevision' | 'sourceLanguage'>, translation: TranslationResponse) {
   return source.providerId === translation.contentProviderId && source.bookId === translation.bookId &&
-    source.chapterId === translation.chapterId && source.sourceRevision === translation.sourceRevision
+    source.chapterId === translation.chapterId && source.sourceRevision === translation.sourceRevision && source.sourceLanguage === translation.sourceLanguage
 }
 
 /** Both payloads are verified before any source text is exposed as a matching translation. */
@@ -85,8 +85,7 @@ export function comparisonSwitchAnchor(match: MatchedComparison, mode: Compariso
   const index = match.original.paragraphs.findIndex(paragraph => paragraph.paragraphId === paragraphId)
   if (index < 0) return undefined
   if (mode === 'comparison') return { paragraphId: `original:${paragraphId}`, characterOffset: 0 }
-  const paragraph = (mode === 'original' ? match.original : match.translated).paragraphs[index]
-  if (remembered && remembered.paragraphId === paragraphId && Number.isSafeInteger(remembered.characterOffset) && remembered.characterOffset >= 0 && remembered.characterOffset < paragraph.text.length &&
-    !(remembered.characterOffset > 0 && /[\uD800-\uDBFF]/.test(paragraph.text[remembered.characterOffset - 1]) && /[\uDC00-\uDFFF]/.test(paragraph.text[remembered.characterOffset]))) return remembered
+  const document = mode === 'original' ? match.original : match.translated, paragraph = document.paragraphs[index]
+  if (remembered && remembered.paragraphId === paragraphId && validReadingPosition(document, remembered)) return remembered
   return { paragraphId: paragraph.paragraphId, characterOffset: 0 }
 }

@@ -31,7 +31,7 @@ describe('verified original and translation comparison', () => {
     expect(match.translated.id).toBe(translation.recordId)
     expect(match.original.paragraphs.map(p => p.text)).toEqual(source.paragraphs.map(p => p.text))
     for (const changed of [{ ...source, chapterId: 'other' }, { ...source, providerId: 'other' }, { ...source, bookId: 'other' },
-      { ...source, sourceRevision: 'b'.repeat(64) }, { ...source, paragraphs: [{ ...source.paragraphs[0], text: 'tampered' }, source.paragraphs[1]] }]) {
+      { ...source, sourceLanguage: 'ja' }, { ...source, sourceLanguage: 'EN' }, { ...source, sourceRevision: 'b'.repeat(64) }, { ...source, paragraphs: [{ ...source.paragraphs[0], text: 'tampered' }, source.paragraphs[1]] }]) {
       await expect(matchTranslationSource(translation, changed)).rejects.toThrow()
     }
     await expect(matchTranslationSource({ ...translation, paragraphs: [...translation.paragraphs].reverse() }, source)).rejects.toThrow()
@@ -61,6 +61,8 @@ describe('verified original and translation comparison', () => {
     const { source, translation } = await fixture(), match = await matchTranslationSource(translation, source)
     const translatedAnchor = { paragraphId: 'p1', characterOffset: 3 }
     expect(comparisonSwitchAnchor(match, 'translation', 'p1', translatedAnchor)).toEqual(translatedAnchor)
+    const end = { paragraphId: 'p1', characterOffset: match.translated.paragraphs[0].text.length }
+    expect(comparisonSwitchAnchor(match, 'translation', 'p1', end)).toEqual(end)
     expect(comparisonSwitchAnchor(match, 'translation', 'p1', { paragraphId: 'p1', characterOffset: 20 })).toEqual({ paragraphId: 'p1', characterOffset: 0 })
     expect(comparisonSwitchAnchor(match, 'original', 'p1', { paragraphId: 'p1', characterOffset: 7 })).toEqual({ paragraphId: 'p1', characterOffset: 0 }) // Inside the emoji.
     expect(comparisonSwitchAnchor(match, 'original', 'original:p2', translatedAnchor)).toEqual({ paragraphId: 'original:p2', characterOffset: 0 })
@@ -98,5 +100,13 @@ describe('verified original and translation comparison', () => {
     expect(client.chapters).toHaveBeenCalledTimes(2)
     client.chapters.mockImplementation(async (page = 0) => ({ items: [], page, size: 12, totalItems: 0, totalPages: 0, hasNext: false }))
     expect(await findTranslationSource(translation, { client, signal })).toBeUndefined()
+  })
+  it('skips identical revisions in another source language in both device and server searches', async () => {
+    const { source, translation } = await fixture(), foreign = { ...source, recordId: '00000000-0000-4000-8000-000000000002', sourceLanguage: 'ja' }
+    const personal = { originals: vi.fn(async () => ({ books: [{ chapter: foreign, savedAt: source.createdAt }, { chapter: source, savedAt: source.createdAt }], damagedIds: [] })) }, signal = new AbortController().signal
+    expect((await findTranslationSource(translation, { personal, signal }))?.match.source.recordId).toBe(source.recordId)
+    const client = { chapter: vi.fn(async () => source), chapters: vi.fn(async (page = 0) => ({ items: [{ ...(page ? source : foreign), paragraphCount: source.paragraphs.length }], page, size: 1, totalItems: 2, totalPages: 2, hasNext: page === 0 })) }
+    expect((await findTranslationSource(translation, { client, signal }))?.match.source.recordId).toBe(source.recordId)
+    expect(client.chapter).toHaveBeenCalledWith(source.recordId, signal); expect(client.chapters).toHaveBeenCalledTimes(2)
   })
 })

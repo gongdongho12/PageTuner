@@ -24,7 +24,11 @@ PUT accepts exactly these fields:
 
 Successful PUT returns the same view shape with a positive version, its anchor, and the server's UTC ISO 8601 `updatedAt`. `updatedAt` is informational; clients must use the version for concurrency. There is no client timestamp or device-priority rule.
 
-`paragraphId` must identify exactly one paragraph in the owned record, be 1–200 UTF-16 code units, and contain no ISO control characters. `characterOffset` is an integer between zero and that paragraph's text length, measured in UTF-16 code units. Offsets inside a surrogate pair are rejected. For a translation, use the translated text and its persisted paragraph IDs; for an original, use the original text. Paragraph-end offsets are permitted.
+`paragraphId` must identify exactly one paragraph in the owned record, be 1–200 UTF-16 code units, and contain no ISO control characters. `characterOffset` is an integer between zero and that paragraph's text length, measured in UTF-16 code units. Offsets inside a surrogate pair are rejected. For a translation, use the translated text and its persisted paragraph IDs; for an original, use the original text. Paragraph-end offsets are permitted, including offset zero for a persisted empty paragraph. Preserve that exact paragraph ID and offset; a display page or the nearest nonempty paragraph must not replace it.
+
+Original snapshot deduplication includes the exact source language in addition to account, provider/book/chapter identity and paragraph revision. The language is not trimmed or case-folded for deduplication. The same paragraphs in `en`, `EN` and `ko` therefore have independent record UUIDs and reading positions while retaining the same paragraph revision. Existing record UUIDs and reading metadata remain unchanged.
+
+These position bounds are intentionally different from [reading-notes-v1](reading-notes-v1.md), whose note anchor must precede the end of nonempty text. A valid ZIP position is not automatically a valid server note or a server sync binding. ZIP paragraph IDs may be longer than this API's 200-code-unit bound; clients must report unsupported mappings instead of truncating IDs or changing offsets.
 
 Versions are JSON-safe integers. A response version is `0..9007199254740991`; request `expectedVersion` is `0..9007199254740990`. UUIDs use the full hyphenated representation. Request JSON rejects unknown or duplicate fields, missing values, fractional/string-coerced numbers and trailing JSON. The entire request body is limited to 8 KiB, including requests without Content-Length.
 

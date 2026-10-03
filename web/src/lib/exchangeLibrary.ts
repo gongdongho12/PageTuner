@@ -7,7 +7,7 @@ import { createPersonalLibrary } from './personalLibrary'
 import { translationReadingDocument, getTranslationPosition } from './translationReading'
 import { getWorkflowPosition } from './workflowPosition'
 import type { ReadingDocument } from './readingDocument'
-import { validAnchor } from './readingDocument'
+import { validAnchor, validReadingPosition } from './readingDocument'
 import { readingRangeText } from './readingSelection'
 import { originalLibraryIdentity, translationLibraryIdentity, type LibraryDocumentIdentity } from './libraryIdentity'
 
@@ -80,7 +80,7 @@ export function createExchangeLibrary(username: string, options: DeviceDatabaseO
               const notes = tx.objectStore('notes'), previous = notes.get([namespace, row.id, note.id])
               previous.onsuccess = () => { if (!previous.result) notes.add({ ...note, username: namespace, documentId: row.id }) }
             }
-            if (row.document.position && validAnchor(exchangeReadingDocument(row), row.document.position)) {
+            if (row.document.position && validReadingPosition(exchangeReadingDocument(row), row.document.position)) {
               const positions = tx.objectStore('positions'), previous = positions.get([namespace, row.id])
               previous.onsuccess = () => { if (!previous.result) positions.add({ username: namespace, documentId: row.id, anchor: row.document.position }) }
             }
