@@ -1,7 +1,9 @@
 import { translate as t } from "../lib/locale";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { type GlossaryEntry } from "../lib/personalLibrary";
-import { GlossaryEditor } from "./GlossaryEditor";
+import { BookGlossaryWorkspace } from './BookGlossaryWorkspace';
+import { useBookGlossary } from './BookGlossaryProvider';
+import { bookGlossaryScope, selectedBookGlossary } from '../lib/bookGlossaryProjection';
 import { usePersonalLibrary } from "./usePersonalLibrary";
 import type {
   StartTranslation,
@@ -85,11 +87,17 @@ export function TranslationSetup({
     signature: string;
     id: string;
   } | null>(null);
+  const scope = bookGlossaryScope(chapter.providerId, chapter.bookId, target);
+  const accountGlossary = useBookGlossary(username, scope);
+  let effectiveGlossary = glossary, glossaryProblem = '';
+  try { if (!retry && scope && accountGlossary.supported) effectiveGlossary = selectedBookGlossary(accountGlossary.state, glossary); }
+  catch (error) { glossaryProblem = error instanceof Error ? error.message : ''; }
+  const effectiveReady = (accountGlossary.state?.enabled || glossaryReady) && !glossaryProblem;
   const selected = providers.find((p) => p.id === kind);
   const needsKey = selected?.requiresKey && !selected.configured;
   const submit = async (event: FormEvent) => {
     event.preventDefault();
-    if (busy || !glossaryReady) return;
+    if (busy || !effectiveReady) return;
     if (!selected || !target.trim() || !source.trim()) {
       setValidation(t("번역기와 원문\u00B7대상 언어를 선택해 주세요."));
       return;
@@ -119,7 +127,7 @@ export function TranslationSetup({
       providerKind: kind,
       targetLanguage: target.trim(),
       sourceLanguage: source.trim(),
-      glossary,
+      glossary: effectiveGlossary,
       ...(apiKey ? { apiKey } : {}),
       ...(endpoint.trim() ? { endpoint: endpoint.trim() } : {}),
       ...(model.trim() ? { model: model.trim() } : {}),
@@ -143,7 +151,8 @@ export function TranslationSetup({
           </button>
           <h2>{t("책별 용어집")}</h2>
         </div>
-        <GlossaryEditor
+        <BookGlossaryWorkspace
+          username={username} targetLanguage={target}
           storage={personal}
           providerId={chapter.providerId}
           bookId={chapter.bookId}
@@ -156,6 +165,7 @@ export function TranslationSetup({
     );
   return (
     <form className="workflow-form" onSubmit={(event) => void submit(event)}>
+      {glossaryProblem && <p className="workflow-message" role="alert">{t(glossaryProblem)}</p>}
       <div className="workflow-heading">
         <button
           type="button"
@@ -305,7 +315,7 @@ export function TranslationSetup({
         </button>}
         <button
           className="button-primary"
-          disabled={busy || !selected || !glossaryReady}
+          disabled={busy || !selected || !effectiveReady}
         >
           {busy
             ? t("번역 요청 중\u2026")
