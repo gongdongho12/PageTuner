@@ -610,7 +610,11 @@ fun PageTurnerApp() {
     LaunchedEffect(portableViewModel) {
         launch { portableViewModel.exportReady.collect { portableExportLauncher.launch(it) } }
         launch { portableViewModel.opened.collect { opened ->
-            portableOpened = opened
+            portableOpened = opened.takeIf { it.serverReading == null }
+            opened.serverReading?.let { reading ->
+                serverProgressViewModel.retainDocument(reading)
+                serverPreviewTranslatedDocumentId = reading.readerId.takeIf { reading.source.entry.kind == ServerLibraryKind.Translations }
+            }
             readerReturnTab = AppTab.Local
             readerSubPage = com.dongholab.pagetuner.ui.reader.ReaderSubPage.READER
             navHistoryStack.clear()
@@ -893,14 +897,26 @@ fun PageTurnerApp() {
                                     onBack = portableIdentityViewModel.verification::close,
                                     onRecord = { portableIdentityViewModel.verification.updateRecord(portableIdentityState.session, it) },
                                     onCheck = { portableIdentityViewModel.verification.check(portableIdentityState.session,
-                                        serverLibraryViewModel.readingConnection(), portableViewModel::currentDocument) })
+                                        serverLibraryViewModel.readingConnection(), portableViewModel::currentDocument) },
+                                    onBind = { portableIdentityViewModel.verification.bind(portableIdentityState.session,
+                                        serverLibraryViewModel.readingConnection(), portableViewModel::currentDocument, portableViewModel::saveBinding) },
+                                    onUnbind = { portableIdentityViewModel.verification.unbind(portableIdentityState.session,
+                                        serverLibraryViewModel.readingConnection(), portableViewModel::removeBinding) },
+                                    onReadServer = {
+                                        val connection = serverLibraryViewModel.readingConnection()
+                                        val selected = portableIdentityViewModel.verification.state.value
+                                        if (connection != null) selected.entry?.let { entry -> portableViewModel.open(entry, false, connection) {
+                                            portableIdentityViewModel.verification.state.value.session == selected.session &&
+                                                serverLibraryViewModel.readingConnection()?.let { it.accountKey == connection.accountKey && it.client === connection.client } == true
+                                        } }
+                                    })
                                 else PortableLibraryPanel(localBooks, currentBookId, portableState,
                                     onImport = { portableImportLauncher.launch(arrayOf("application/zip", "application/octet-stream", "application/x-zip-compressed")) },
                                     onNativeExport = { book, includeTranslation ->
                                         portableViewModel.prepareNativeExport(book, includeTranslation, settings, activeTranslationProvider.id, activeGlossary)
                                     },
                                     onExport = portableViewModel::prepareExport,
-                                    onOpen = portableViewModel::open,
+                                    onOpen = { entry, originalPdf -> portableViewModel.open(entry, originalPdf) },
                                     onVerify = { portableIdentityViewModel.verification.select(it, serverLibraryViewModel.readingConnection()) })
                             },
                         )

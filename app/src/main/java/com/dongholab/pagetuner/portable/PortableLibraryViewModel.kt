@@ -16,7 +16,7 @@ import com.dongholab.pagetuner.translation.TranslationSettings
 import com.dongholab.pagetuner.translation.glossary.BookGlossary
 import com.dongholab.pagetuner.translation.glossary.BookGlossaryStore
 import com.dongholab.pagetuner.translation.sync.ServerDocumentMapping
-import com.dongholab.pagetuner.translation.sync.ServerLibraryDocument
+import com.dongholab.pagetuner.translation.sync.*
 import java.io.File
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
@@ -29,9 +29,13 @@ import org.json.JSONObject
 
 data class PortableLibraryState(val entries: List<PortableLibraryEntry> = emptyList(), val busy: Boolean = false, val status: Int? = null, val error: String? = null)
 data class PortableOpened(val entry: PortableLibraryEntry, val loaded: LoadedReaderDocument, val mapping: PortableReaderMapping,
-    val pageIndex: Int, val bookmarks: List<ReaderBookmark>, val annotations: List<ReaderAnnotation>, val pdf: Boolean = false)
+    val pageIndex: Int, val bookmarks: List<ReaderBookmark>, val annotations: List<ReaderAnnotation>, val pdf: Boolean = false, val serverReading: ServerReadingDocument? = null)
 
 class PortableLibraryViewModel(private val context: Context, private val local: LocalLibraryStore) : ViewModel() {
+    private val bindings = PortableServerBindingStore(File(context.filesDir, "portable_server_bindings"))
+    fun saveBinding(value: PortableServerBinding) { bindings.save(value) }
+    fun removeBinding(accountKey: String, entry: PortableLibraryEntry) { bindings.remove(accountKey, entry) }
+
     private val store = PortableLibraryStore(File(context.filesDir, "portable_library"))
     private val mutableState = MutableStateFlow(PortableLibraryState())
     val state = mutableState.asStateFlow()
@@ -112,12 +116,42 @@ class PortableLibraryViewModel(private val context: Context, private val local: 
         }
     }
 
-    fun open(entry: PortableLibraryEntry, originalPdf: Boolean = false) {
+    fun open(entry: PortableLibraryEntry, originalPdf: Boolean = false, connection: ServerReadingConnection? = null,
+        isCurrent: () -> Boolean = { true }) {
         operation {
             awaitReaderWrites(entry)
             val value = store.read(entry)
             val document = value.documents[entry.documentIndex]
             val currentEntry = entry.copy(document = document)
+            val binding = connection?.let { bindings.read(it.accountKey, currentEntry) }
+            if (connection != null && binding == null) error(context.getString(R.string.portable_identity_binding_required))
+            if (!originalPdf && binding != null) {
+                val currentConnection = requireNotNull(connection)
+                try {
+                    currentConnection.client.verifyPortableIdentity(binding.recordId, binding.identity)
+                    val source = if (binding.identity.kind == DocumentIdentityKind.ORIGINAL) currentConnection.client.original(binding.recordId)
+                    else {
+                        val stored = currentConnection.client.get(binding.recordId)
+                        val artifact = stored.artifact
+                        ServerLibraryDocument(ServerLibraryEntry(binding.recordId, document.bookTitle, artifact.targetLanguage,
+                            artifact.paragraphs.size, artifact.sourceRevision, ServerLibraryKind.Translations),
+                            artifact.paragraphs.map { it.text }, stored)
+                    }
+                    require(DocumentIdentityJson.fromDocument(PortableDocumentMapper.server(source).documents.single()) == binding.identity)
+                    if (!isCurrent()) return@operation
+                    // A canonical projection has its own reader ID and server journals. ZIP notes and location stay untouched.
+                    val reading = ServerReadingDocument.create(currentConnection.accountKey, source)
+                    mutableOpened.emit(PortableOpened(currentEntry, LoadedReaderDocument(reading.mapping.document), reading.mapping,
+                        0, emptyList(), emptyList(), serverReading = reading))
+                    return@operation
+                } catch (cancelled: CancellationException) { throw cancelled }
+                catch (error: Exception) {
+                    if (!isCurrent()) return@operation
+                    if (error is PortableIdentityVerificationException && error.reason != PortableIdentityFailure.Unavailable ||
+                        error is TranslationStoreException && error.failure == TranslationStoreFailure.NOT_FOUND) bindings.remove(currentConnection.accountKey, currentEntry)
+                    throw error // Opening a saved binding cannot silently become an unrelated local reading session.
+                }
+            }
             if (originalPdf || document.paragraphs.isEmpty() && document.assets.any { it.role == "pdf" }) {
                 val ref = requireNotNull(document.assets.firstOrNull { it.role == "pdf" })
                 val asset = requireNotNull(value.assets.firstOrNull { it.path == ref.path })

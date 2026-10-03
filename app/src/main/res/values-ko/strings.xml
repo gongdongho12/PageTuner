@@ -343,7 +343,7 @@
     <string name="web_catalog_all_languages">모든 언어</string>
     <string name="portable_identity_check">서버 기록 확인</string>
     <string name="portable_identity_back">ZIP 목록으로</string>
-    <string name="portable_identity_description">현재 로그인한 서버의 기록과 ZIP을 비교합니다. 업로드·계정 연결·동기화는 실행하지 않습니다.</string>
+    <string name="portable_identity_description">로그인한 서버 기록과 ZIP을 확인한 뒤 직접 연결하여 계정 기록으로 읽을 수 있습니다. 로컬 기록은 사본에 보존됩니다.</string>
     <string name="portable_identity_ready">비교할 서버 기록을 확인해 주세요. ZIP의 기록 ID는 참고 정보입니다.</string>
     <string name="portable_identity_checking">문서 식별자와 전체 문단 내용을 비교하고 있습니다…</string>
     <string name="portable_identity_verified">식별자·언어·리비전·전체 문단 내용이 일치합니다. 동기화는 활성화되지 않았습니다.</string>
@@ -580,4 +580,14 @@
     <string name="book_glossary_confirm_delete">삭제 확인</string>
     <string name="book_glossary_delete_entry_scope">계정 용어집에서 이 항목을 삭제할까요? 다른 항목의 순서는 유지됩니다.</string>
     <string name="book_glossary_delete_scope">선택한 대상 언어에 해당하는 이 원본 책의 계정 용어집을 삭제할까요? 기기 용어집은 보존됩니다.</string>
+
+    <string name="portable_identity_bind">서버 기록 연결</string>
+    <string name="portable_identity_bound">연결되었습니다. 서버 기록으로 읽기를 선택하면 계정 기록을 사용합니다. 로컬 기록은 사본에 보존됩니다.</string>
+    <string name="portable_identity_binding_failed">연결하지 못했습니다. 문서를 다시 확인해 주세요.</string>
+
+    <string name="portable_identity_read_server">서버 기록으로 읽기</string>
+    <string name="portable_identity_binding_required">먼저 이 문서의 서버 기록을 연결해 주세요.</string>
+
+    <string name="portable_identity_unbind">서버 기록 연결 해제</string>
+    <string name="portable_identity_unbound">연결을 해제했습니다. 로컬 기록은 보존됩니다.</string>
 </resources>

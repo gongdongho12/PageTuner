@@ -343,7 +343,7 @@
     <string name="web_catalog_all_languages">All languages</string>
     <string name="portable_identity_check">Verify server copy</string>
     <string name="portable_identity_back">Back to ZIPs</string>
-    <string name="portable_identity_description">Compare this ZIP with a record on the server you are signed in to. This does not upload, link, or synchronize data.</string>
+    <string name="portable_identity_description">Compare this ZIP with a signed-in server record, then connect explicitly to read account records. Local records stay in this copy.</string>
     <string name="portable_identity_ready">Ready for an explicit comparison. Record IDs from ZIPs are hints only.</string>
     <string name="portable_identity_checking">Comparing document identity and complete paragraph content…</string>
     <string name="portable_identity_verified">Verified: identity, language, revision and complete paragraph content match. Synchronization remains off.</string>
@@ -580,4 +580,14 @@
     <string name="book_glossary_confirm_delete">Confirm deletion</string>
     <string name="book_glossary_delete_entry_scope">Remove this entry from the account dictionary? Other entries keep their order.</string>
     <string name="book_glossary_delete_scope">Delete this source book’s account dictionary for the selected target language? Device dictionaries are preserved.</string>
+
+    <string name="portable_identity_bind">Connect to server records</string>
+    <string name="portable_identity_bound">Connected. Choose Read server records to use account records. Local records remain in this copy.</string>
+    <string name="portable_identity_binding_failed">Connection failed. Check the document again.</string>
+
+    <string name="portable_identity_read_server">Read server records</string>
+    <string name="portable_identity_binding_required">Connect this document to server records first.</string>
+
+    <string name="portable_identity_unbind">Disconnect server records</string>
+    <string name="portable_identity_unbound">Disconnected. Local records are preserved.</string>
 </resources>

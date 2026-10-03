@@ -23,6 +23,7 @@ data class PortableIdentityState(
     val recordId: String = "",
     val session: Long = 0,
     val busy: Boolean = false,
+    val verified: Boolean = false,
     val message: Int = R.string.portable_identity_ready,
 )
 
@@ -48,7 +49,7 @@ class PortableIdentityVerification(
         if (selected != null) { select(selected, value); return }
         connection = value
         invalidate()
-        mutableState.value = state.value.copy(session = generation, busy = false, message = readyMessage(state.value.identity))
+        mutableState.value = state.value.copy(session = generation, busy = false, verified = false, message = readyMessage(state.value.identity))
     }
 
     fun select(entry: PortableLibraryEntry, value: ServerReadingConnection?) {
@@ -60,7 +61,7 @@ class PortableIdentityVerification(
             val (inspected, hint) = withContext(validationDispatcher) { inspect(entry.document) to recordHint(entry.document) }
             if (generation == ticket && matches(value)) mutableState.value = state.value.copy(
                 identity = inspected.first, recordId = hint, busy = false,
-                message = inspected.second ?: readyMessage(inspected.first))
+                verified = false, message = inspected.second ?: readyMessage(inspected.first))
         }
     }
 
@@ -73,7 +74,7 @@ class PortableIdentityVerification(
         if (state.value.session != session) return
         invalidate()
         mutableState.value = state.value.copy(recordId = value, session = generation, busy = false,
-            message = readyMessage(state.value.identity))
+            verified = false, message = readyMessage(state.value.identity))
     }
 
     fun check(session: Long, value: ServerReadingConnection?, currentDocument: suspend (PortableLibraryEntry) -> ExchangeDocument) {
@@ -113,9 +114,46 @@ class PortableIdentityVerification(
                 }
             } catch (_: Exception) { R.string.portable_identity_invalid }
             if (generation == ticket && matches(currentConnection)) {
-                mutableState.value = state.value.copy(busy = false, message = message)
+                mutableState.value = state.value.copy(busy = false, verified = message == R.string.portable_identity_verified, message = message)
             }
         }
+    }
+
+    fun bind(session: Long, value: ServerReadingConnection?, currentDocument: suspend (PortableLibraryEntry) -> ExchangeDocument,
+        save: suspend (PortableServerBinding) -> Unit) {
+        if (!matches(value)) { connect(value); return }
+        val snapshot = state.value
+        val currentConnection = connection ?: return
+        val entry = snapshot.entry ?: return
+        val identity = snapshot.identity ?: return
+        if (snapshot.session != session || snapshot.busy || !snapshot.verified) return
+        val ticket = generation
+        mutableState.value = snapshot.copy(busy = true, verified = false, message = R.string.portable_identity_checking)
+        operation = scope.launch {
+            val message = try {
+                val document = currentDocument(entry)
+                require(document.assets.isEmpty() && DocumentIdentityJson.fromDocument(document) == identity)
+                verify(currentConnection, snapshot.recordId, identity)
+                if (generation != ticket || !matches(currentConnection)) return@launch
+                save(PortableServerBinding(currentConnection.accountKey, entry.key, snapshot.recordId, identity))
+                R.string.portable_identity_bound
+            } catch (cancelled: CancellationException) { throw cancelled }
+            catch (_: Exception) { R.string.portable_identity_binding_failed }
+            if (generation == ticket && matches(currentConnection)) mutableState.value = state.value.copy(busy = false, message = message)
+        }
+    }
+
+    fun unbind(session: Long, value: ServerReadingConnection?, remove: (String, PortableLibraryEntry) -> Unit) {
+        if (!matches(value)) { connect(value); return }
+        val snapshot = state.value
+        val current = connection ?: return
+        val entry = snapshot.entry ?: return
+        if (snapshot.session != session || snapshot.busy) return
+        try {
+            remove(current.accountKey, entry)
+            invalidate()
+            mutableState.value = snapshot.copy(session = generation, verified = false, message = R.string.portable_identity_unbound)
+        } catch (_: Exception) { mutableState.value = snapshot.copy(message = R.string.portable_identity_binding_failed) }
     }
 
     private fun invalidate() { generation++; operation?.cancel(); operation = null }

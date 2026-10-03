@@ -114,18 +114,15 @@ internal object ServerReadingNotesJson {
     }
 }
 
-/** Display separators are valid reading anchors but a note must start at existing source text. */
-internal fun ServerReadingDocument.notePosition(page: Int, characterOffset: Int): Pair<Int, Int>? {
-    // Validate the original UTF-16 position; an image-only/empty mapping has no text anchor.
-    if (anchor(page, characterOffset) == null) return null
-    if (characterOffset < mapping.document.pages[page].plainText.length) return page to characterOffset
-    return mapping.document.pages.drop(page + 1).firstOrNull { it.plainText.isNotEmpty() }?.let { it.index to 0 }
-}
+/** Point notes retain exact terminal and empty paragraph anchors; no next-paragraph remapping. */
+internal fun ServerReadingDocument.notePosition(page: Int, characterOffset: Int): Pair<Int, Int>? =
+    anchor(page, characterOffset)?.let { page to characterOffset }
 
 internal fun ServerReadingDocument.noteContent(kind: ServerReadingNoteKind, page: Int, title: String, text: String, characterOffset: Int = 0): ServerReadingNoteContent {
     val (sourcePage, sourceOffset) = requireNotNull(notePosition(page, characterOffset)) { "No source text at this position." }
     val anchor = requireNotNull(anchor(sourcePage, sourceOffset))
     val length = mapping.document.pages[sourcePage].segments.single().text.length
+    if (kind == ServerReadingNoteKind.HIGHLIGHT) require(sourceOffset < length) { "No source text at this highlight position." }
     val range = if (kind == ServerReadingNoteKind.HIGHLIGHT) ServerReadingNoteRange(anchor, anchor.copy(characterOffset = anchor.characterOffset + length - sourceOffset)) else null
     val note = ServerReadingNoteContent(kind, title.trim(), text.trim(), anchor, range, portableTimestamp())
     return note.copy(excerpt = noteExcerpt(note)).also(ServerReadingNotesJson::validate)
@@ -137,7 +134,7 @@ internal fun ServerReadingDocument.noteExcerpt(note: ServerReadingNoteContent): 
     val paragraphs = source.storedTranslation?.artifact?.paragraphs?.map { it.paragraphId to it.text }
         ?: requireNotNull(source.sourceContent).paragraphs.map { it.paragraphId to it.text }
     val index = paragraphs.indexOfFirst { it.first == note.anchor.paragraphId }
-    require(index >= 0 && note.anchor.characterOffset < paragraphs[index].second.length)
+    require(index >= 0 && note.anchor.characterOffset <= paragraphs[index].second.length)
     val range = note.range
     if (range == null) return paragraphs[index].second.substring(note.anchor.characterOffset).takeUtf16(1000)
     validate(range.end)
