@@ -63,6 +63,19 @@ class ServerSecurityMvcTest {
     }
 
     @Test
+    fun `font license is public for offline shell installation while neighboring paths remain authenticated`() {
+        mvc.perform(get("/fonts/OFL-NotoSerifKR.txt")).andExpect(status().isOk)
+            .andExpect(content().contentTypeCompatibleWith(MediaType.TEXT_PLAIN))
+            .andExpect(content().string(containsString("SIL OPEN FONT LICENSE")))
+        listOf("/fonts/private.txt", "/fonts/OFL-NotoSerifKR.txt/private", "/fonts/OFL-NotoSerifKR.txt.bak").forEach {
+            mvc.perform(get(it)).andExpect(status().isUnauthorized)
+        }
+        mvc.perform(post("/fonts/OFL-NotoSerifKR.txt").with(csrf())).andExpect(status().isUnauthorized)
+        mvc.perform(get("/api/v1/translations")).andExpect(status().isUnauthorized)
+        verifyNoInteractions(service, sources, chapters, workflow, providers)
+    }
+
+    @Test
     fun `anonymous sharing shell can be precached without opening sharing data or other paths`() {
         // A test-only static resource exercises the actual resource handler used by packaged web assets.
         // The cloud service worker fetches this document with credentials omitted during cache.addAll.
