@@ -17,3 +17,5 @@ TEXT는 자산 없이 정확한 문단을 검증한다. PDF는 원본 파일 전
 - 웹 443개/60파일 통과, 생성 API 계약 14개·typecheck·production build 성공. Kotlin과 웹의 공유 fixture digest 및 웹 전체 proof 객체가 일치한다.
 - 독립 검토에서 proof 자체의 framed digest 재검증, 원본 hash에 묶인 PDF pageCount context, 비동기 입력 사본, 반복 payload metadata 일관성을 보완했다.
 - 이번 단위는 새 UI/API를 노출하지 않아 새 화면 조작 검증은 없다. PDF/EPUB 디코딩·실기기·서버 계정 연결을 성공으로 표시하지 않는다. CI는 core-backup 테스트와 웹 verify를 추가해 양쪽 계약 벡터를 함께 실행한다.
+
+[draft PR #36](https://github.com/gongdongho12/PageTuner/pull/36)은 PR #35 위에 쌓았다. 공통/fixture `d1a0d2dd`, 웹 `823d127e`, 문서/CI `d759589b`를 분리했다. 자동 병합하지 않는다.
