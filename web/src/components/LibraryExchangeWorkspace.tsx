@@ -8,13 +8,16 @@ import { AdaptiveCollection } from './AdaptiveCollection'
 import { PagedReader } from './PagedReader'
 import { LocalPdfReader } from './LocalPdfReader'
 import { ExchangeAssetReader } from './ExchangeAssetReader'
+import { LibraryIdentityVerifier } from './LibraryIdentityVerifier'
+import type { LibraryIdentityClient } from '../lib/libraryIdentityApi'
 import './readingTools.css'
 
-export function LibraryExchangeWorkspace({ username, onReadingChange }: { username: string; onReadingChange: (reading: boolean) => void }) {
+export function LibraryExchangeWorkspace({ username, identityClient, onReadingChange }: { username: string; identityClient: LibraryIdentityClient | null; onReadingChange: (reading: boolean) => void }) {
   const storage = useMemo(() => createExchangeLibrary(username), [username]), notes = useMemo(() => createReadingNotes(username), [username])
   const [tab, setTab] = useState<'import' | 'export' | 'books'>('import'), [books, setBooks] = useState<SavedExchange[]>([]), [choices, setChoices] = useState<ExchangeExportChoice[]>([])
   const [selected, setSelected] = useState<string[]>([]), [preview, setPreview] = useState<ExchangePackage>(), [busy, setBusy] = useState(false), [error, setError] = useState(''), [notice, setNotice] = useState('')
   const [reading, setReading] = useState<{ book: SavedExchange; anchor?: ReadingAnchor }>()
+  const [verifying, setVerifying] = useState<SavedExchange>()
   const operation = useRef(0)
   useLayoutEffect(() => { onReadingChange(!!reading); return () => onReadingChange(false) }, [!!reading, onReadingChange])
   useEffect(() => { return () => { operation.current++ } }, [username])
@@ -57,6 +60,7 @@ export function LibraryExchangeWorkspace({ username, onReadingChange }: { userna
       <p>{t('기기에 보관된 책을 선택하세요. 서버 책은 먼저 기기에 보관해 주세요.')}</p>
       {choices.length ? <AdaptiveCollection items={choices} itemKey={c => c.key} rowHeight={104} renderItem={choice => <label className="reading-note-row reading-checkbox"><input type="checkbox" checked={selected.includes(choice.key)} disabled={busy} onChange={event => setSelected(values => event.target.checked ? [...values, choice.key] : values.filter(v => v !== choice.key))}/><strong>{choice.title}</strong><span>{choice.kind}</span></label>}/> : <p>{t('내보낼 기기 보관 문서가 없습니다.')}</p>}
       <div className="reading-filter-actions"><span>{t('{0}개 선택', [selected.length])}</span><button className="button-primary" disabled={busy || selected.length === 0 || selected.length > 100} onClick={exportSelected}>{t('선택한 책을 ZIP으로 내보내기')}</button></div>
-    </> : books.length ? <AdaptiveCollection items={books} itemKey={book => book.id} rowHeight={112} renderItem={book => <div className="reading-note-row"><strong>{book.document.bookTitle}</strong><span>{book.document.chapterTitle} · {book.document.language} · {book.document.organization.folder}</span><button className="button-outline" disabled={busy} onClick={() => void run(async current => { const anchor = await notes.getPosition(exchangeReadingDocument(book)); if (current()) setReading({ book, anchor }) })}>{t('읽기')}</button></div>}/> : <p>{t('ZIP으로 가져온 책이 없습니다.')}</p>}
+    </> : books.length ? <AdaptiveCollection items={books} itemKey={book => book.id} rowHeight={128} renderItem={book => <div className="reading-note-row"><strong>{book.document.bookTitle}</strong><span>{book.document.chapterTitle} · {book.document.language} · {book.document.organization.folder}</span><div className="exchange-book-actions"><button className="button-outline" disabled={busy} onClick={() => void run(async current => { const anchor = await notes.getPosition(exchangeReadingDocument(book)); if (current()) setReading({ book, anchor }) })}>{t('읽기')}</button><button className="button-outline" disabled={busy} onClick={() => setVerifying(book)}>{t('서버 원본 확인')}</button></div></div>}/> : <p>{t('ZIP으로 가져온 책이 없습니다.')}</p>}
+    {verifying && <LibraryIdentityVerifier key={`${username}:${verifying.id}`} book={verifying} username={username} client={identityClient} onClose={() => setVerifying(undefined)}/>}
   </section>
 }

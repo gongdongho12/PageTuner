@@ -1,0 +1,17 @@
+.library-identity-dialog { position: fixed; inset: 0; margin: auto; display: flex; flex-direction: column; width: calc(100vw - 24px); max-width: 900px; height: calc(100dvh - 24px); max-height: none; min-height: 0; padding: 12px; gap: 8px; border: 1px solid var(--line); background: var(--paper); color: var(--ink); overflow: hidden; }
+.library-identity-dialog:not([open]) { display: none; }
+.library-identity-dialog::backdrop { background: var(--paper); }
+.library-identity-toolbar { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 8px; flex: 0 0 auto; }
+.library-identity-toolbar strong { font-size: 14px; min-width: 0; }
+.library-identity-toolbar button, .library-identity-actions button { min-height: 44px; min-width: 44px; padding: 4px 8px; }
+.library-identity-input { display: flex; flex-direction: column; flex: 0 0 auto; gap: 4px; font-size: 13px; }
+.library-identity-input input { min-height: 44px; width: 100%; }
+.library-identity-field { height: 108px; padding: 8px; border: 1px solid var(--line); overflow: hidden; }
+.library-identity-field strong { font-size: 14px; }
+.library-identity-field p { margin: 4px 0 0; font-size: 13px; line-height: 1.35; overflow-wrap: anywhere; white-space: pre-wrap; }
+.library-identity-actions { flex: 0 0 auto; display: flex; }
+.library-identity-actions button { width: 100%; }
+.library-identity-dialog .page-navigation { height: 44px; min-height: 44px; }
+.library-identity-dialog .page-navigation button { min-height: 44px; }
+.exchange-book-actions { display: flex; gap: 8px; grid-column: 1 / -1; }
+.exchange-book-actions button { min-height: 44px; }
