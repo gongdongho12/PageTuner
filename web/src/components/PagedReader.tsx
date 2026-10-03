@@ -23,7 +23,7 @@ import { sha256 } from '../lib/validation';
 import { canonicalReaderPages, glossaryReaderProjection, glossaryReaderParts, type CanonicalReaderRange } from '../lib/glossaryReader';
 import type { GlossaryDisplay, GlossaryDisplayEntry } from '../lib/glossaryDisplay';
 export type { ReadingDocument } from '../lib/readingDocument';
-import { reflowReaderLocation, turnReaderPage, type ReaderLocation, type ReaderFragment, } from "./readerPosition";
+import { reflowReaderLocation, turnReaderPage, visibleReaderFragment, type ReaderLocation, type ReaderFragment, } from "./readerPosition";
 type Fragment = ReaderFragment;
 export type PagedReaderProps = {
     document: ReadingDocument;
@@ -98,7 +98,8 @@ export function paginateReaderParagraphs(paragraphs: ReadingDocument["paragraphs
             element.className = "reader-paragraph";
             measure.append(element);
             const fits = (end: number) => {
-                setMeasuredText(element, paragraph.text.slice(stops[first], stops[end]), stops[first], displays.get(paragraph.paragraphId)?.emphasizedRanges ?? []);
+                const visible = visibleReaderFragment({ paragraphId: paragraph.paragraphId, text: paragraph.text.slice(stops[first], stops[end]), start: stops[first], end: stops[end] }, !fragments.length);
+                setMeasuredText(element, visible.text, visible.start, displays.get(paragraph.paragraphId)?.emphasizedRanges ?? []);
                 return measure.getBoundingClientRect().height <= height - 2;
             };
             let low = first;
@@ -120,7 +121,8 @@ export function paginateReaderParagraphs(paragraphs: ReadingDocument["paragraphs
             const start = stops[first];
             const end = stops[low];
             const text = paragraph.text.slice(start, end);
-            setMeasuredText(element, text, start, displays.get(paragraph.paragraphId)?.emphasizedRanges ?? []);
+            const visible = visibleReaderFragment({ paragraphId: paragraph.paragraphId, text, start, end }, !fragments.length);
+            setMeasuredText(element, visible.text, visible.start, displays.get(paragraph.paragraphId)?.emphasizedRanges ?? []);
             fragments.push({ paragraphId: paragraph.paragraphId, text, start, end });
             first = low;
             if (first < stops.length - 1)
@@ -384,7 +386,7 @@ export function PagedReader({ document: readingDocument, anchor, anchorIsNavigat
           {error ? (<div role="alert" className="reader-error">
               {error}
             </div>) : (<article ref={article} className="reader-typeset reader-page" style={typography} aria-label={t("{0}\uBC88\uC9F8 \uD398\uC774\uC9C0", [page + 1])}>
-              {pages[page]?.map((fragment) => (<p className={`reader-paragraph${fragment.text.length ? '' : ' reader-paragraph-empty'}`} key={`${fragment.paragraphId}:${fragment.start}`} data-paragraph-id={fragment.paragraphId} data-character-offset={fragment.start}>
+              {pages[page]?.map((fragment, index) => visibleReaderFragment(fragment, index === 0)).map((fragment) => (<p className={`reader-paragraph${fragment.text.length ? '' : ' reader-paragraph-empty'}`} key={`${fragment.paragraphId}:${fragment.start}`} data-paragraph-id={fragment.paragraphId} data-character-offset={fragment.start}>
                   {glossaryReaderParts(fragment.text, fragment.start, projection.displays.get(fragment.paragraphId)?.emphasizedRanges ?? [],
                     highlightedReaderParts(projection.document, fragment, displayHighlightRanges, paragraphIndices)).map((part, index) => {
                       const text = part.emphasized ? <strong>{part.text}</strong> : part.text;
