@@ -1,0 +1,36 @@
+.source-favorites { min-height: 0; overflow: hidden; }
+.source-favorite-toolbar, .source-favorite-actions { display: flex; gap: 8px; align-items: center; flex: 0 0 auto; min-width: 0; }
+.source-favorite-toolbar > strong { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.source-favorite-toolbar > button, .source-favorite-actions > button { min-height: 44px; min-width: 44px; }
+.source-favorite-actions > button { flex: 1; }
+.source-favorite-notice { margin: 0; min-width: 0; font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; }
+.source-favorites > .source-favorite-notice { flex: 0 0 auto; }
+.source-favorite-field { height: 108px; overflow: hidden; padding: 8px; box-sizing: border-box; border: 1px solid var(--line); }
+.source-favorite-field p { margin: 4px 0 0; font-size: 13px; line-height: 1.35; overflow-wrap: anywhere; }
+.source-favorite-caption { font-size: 12px; margin: 0; }
+.personal-shelf-tabs button { padding-inline: 6px; }
+.source-favorites-dialog { position: fixed; inset: 0; margin: auto; width: calc(100vw - 24px); max-width: 900px; height: calc(100dvh - 24px); max-height: none; padding: 12px; gap: 8px; border: 1px solid var(--line); background: var(--paper); color: var(--ink); }
+.source-favorites-dialog:not([open]) { display: none; }
+.source-favorites-dialog::backdrop { background: var(--paper); }
+.source-favorite-detail-header { display: flex; flex-direction: column; flex: 0 0 auto; gap: 8px; min-width: 0; }
+.source-favorite-detail-header > .source-favorite-toolbar { flex: 1; }
+.source-favorite-value-tabs { margin: 0; min-height: 44px; }
+.source-favorite-value-tabs > button { min-height: 44px; min-width: 44px; flex: 1; padding-inline: 8px; }
+@media (min-width: 600px) and (max-height: 500px) {
+  .source-favorite-detail-header { flex-direction: row; align-items: center; }
+  .source-favorite-value-tabs { flex: 1; }
+  /* Keep every navigation action while reserving a complete row and pager for the shelf. */
+  .app-shell:has(.personal-shelf) .app-header { height: 48px; flex-basis: 48px; }
+  .app-shell:has(.personal-shelf) .workspace { flex-direction: row; }
+  .app-shell:has(.personal-shelf) .sidebar { width: 144px; height: auto; flex: 0 0 144px; padding: 12px 8px; border-right: 1px solid var(--line); border-bottom: 0; }
+  .app-shell:has(.personal-shelf) .sidebar-label,
+  .app-shell:has(.personal-shelf) .sidebar-bottom { display: none; }
+  .app-shell:has(.personal-shelf) .primary-nav { height: auto; flex-direction: column; gap: 8px; }
+  .app-shell:has(.personal-shelf) .nav-item { height: 44px; min-height: 44px; flex: none; padding-inline: 6px; gap: 8px; }
+  .app-shell:has(.personal-shelf) .main-content { padding: 4px 16px; }
+  .app-shell:has(.personal-shelf) .section-header { padding-bottom: 2px; }
+  .app-shell:has(.personal-shelf) .section-header .eyebrow { display: none; }
+  .app-shell:has(.personal-shelf) .section-header h1 { margin: 0; font-size: 18px; line-height: 22px; letter-spacing: 0; }
+  .app-shell:has(.personal-shelf) .novel-workspace > .workflow-subtabs { min-height: 44px; margin-bottom: 2px; gap: 2px; }
+  .app-shell:has(.personal-shelf) .novel-workspace > .workflow-subtabs button { min-height: 44px; padding-inline: 4px; }
+}
