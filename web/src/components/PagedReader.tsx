@@ -16,6 +16,9 @@ import { captureReadingSelection, highlightedReaderParts, type ReadingSelection 
 import { deviceStorageMessage } from '../lib/deviceReadingDatabase';
 import { usePersonalLibrary } from './usePersonalLibrary';
 import { GlossaryEditor } from './GlossaryEditor';
+import { BookGlossaryWorkspace, glossarySyncNotice } from './BookGlossaryWorkspace';
+import { useBookGlossary } from './BookGlossaryProvider';
+import { bookGlossaryScope, bookGlossaryDisplay } from '../lib/bookGlossaryProjection';
 import { sha256 } from '../lib/validation';
 import { canonicalReaderPages, glossaryReaderProjection, glossaryReaderParts, type CanonicalReaderRange } from '../lib/glossaryReader';
 import type { GlossaryDisplay, GlossaryDisplayEntry } from '../lib/glossaryDisplay';
@@ -41,6 +44,8 @@ export type PagedReaderProps = {
     onAction?: () => void;
     positionNote?: string;
     notesNamespace?: string;
+    glossaryTargetLanguage?: string;
+    glossaryEntriesOverride?: GlossaryDisplayEntry[];
     actionError?: string;
     onAnchorChange: (anchor: ReadingAnchor) => void;
     onPaginationChange?: (value: { documentId: string; pages: readonly (readonly CanonicalReaderRange[])[]; page: number }) => void;
@@ -123,7 +128,7 @@ function setMeasuredText(element: HTMLElement, text: string, start: number, emph
         const node = document.createElement('strong'); node.textContent = part.text; return node;
     }));
 }
-export function PagedReader({ document: readingDocument, anchor, anchorIsNavigation = false, preview = false, readOnly = false, editionLabel, readerLabel, contentKindLabel, saved, saving, onClose, onSave, actionLabel, onAction, positionNote, notesNamespace, actionError, onAnchorChange, onPaginationChange, onPanelChange, onBoundaryPageTurn, hasPreviousBoundary = false, hasNextBoundary = false, }: PagedReaderProps) {
+export function PagedReader({ document: readingDocument, anchor, anchorIsNavigation = false, preview = false, readOnly = false, editionLabel, readerLabel, contentKindLabel, saved, saving, onClose, onSave, actionLabel, onAction, positionNote, notesNamespace, glossaryTargetLanguage, glossaryEntriesOverride, actionError, onAnchorChange, onPaginationChange, onPanelChange, onBoundaryPageTurn, hasPreviousBoundary = false, hasNextBoundary = false, }: PagedReaderProps) {
     const root = useRef<HTMLElement>(null);
     const { preferences, update: updatePreferences, error: preferencesError } = useReaderPreferences(notesNamespace);
     const fullscreen = useReaderFullscreen(root);
@@ -148,17 +153,23 @@ export function PagedReader({ document: readingDocument, anchor, anchorIsNavigat
     const personal = usePersonalLibrary(preview || readOnly ? '' : notesNamespace ?? '');
     const glossaryIdentity = readingDocument.glossaryIdentity ?? (readingDocument.kind === 'local' && readingDocument.local
         ? { providerId: 'uploaded-document', bookId: `local:${readingDocument.local.contentHash}` } : undefined);
+    const accountScope = readingDocument.glossaryIdentity && readingDocument.kind !== 'local' && !preview && !readOnly
+        ? bookGlossaryScope(readingDocument.glossaryIdentity.providerId, readingDocument.glossaryIdentity.bookId, glossaryTargetLanguage ?? readingDocument.language) : undefined;
+    const accountGlossary = useBookGlossary(notesNamespace ?? '', accountScope);
     const [glossaryEntries, setGlossaryEntries] = useState<GlossaryDisplayEntry[]>([]);
+    const displayEntries = useMemo(() => glossaryEntriesOverride ?? (accountScope && accountGlossary.supported ? accountGlossary.state?.enabled
+        ? bookGlossaryDisplay(accountGlossary.state.local) : !accountGlossary.state || accountGlossary.state.errorCode === 'storage' ? [] : glossaryEntries : glossaryEntries), [glossaryEntriesOverride, !!accountScope, accountGlossary.supported, accountGlossary.state, glossaryEntries]);
+    const accountNotice = accountScope && accountGlossary.supported && (!accountGlossary.state || accountGlossary.state.errorCode || accountGlossary.state.status === 'loading') ? glossarySyncNotice(accountGlossary.state) : '';
     const [glossaryError, setGlossaryError] = useState('');
     const { projection, projectionError } = useMemo(() => {
-        try { return { projection: glossaryReaderProjection(readingDocument, glossaryEntries), projectionError: '' }; }
+        try { return { projection: glossaryReaderProjection(readingDocument, displayEntries), projectionError: '' }; }
         catch (error) { return { projection: glossaryReaderProjection(readingDocument, []), projectionError: error instanceof Error ? error.message : '용어의 종류와 표시 설정을 확인해 주세요.' }; }
-    }, [readingDocument, glossaryEntries]);
+    }, [readingDocument, displayEntries]);
     useEffect(() => {
         let active = true;
         setGlossaryEntries([]); setGlossaryError('');
         if (personal && glossaryIdentity) void personal.getGlossary(glossaryIdentity.providerId, glossaryIdentity.bookId)
-            .then(async glossary => Promise.all(glossary.entries.map(async entry => ({ ...entry, id: (await sha256(entry.source.toLowerCase())).slice(0, 24) }))))
+            .then(async glossary => Promise.all(glossary.entries.map(async entry => ({ ...entry, id: entry.id ?? (await sha256(entry.source.toLowerCase())).slice(0, 24) }))))
             .then(entries => { if (active) setGlossaryEntries(entries); })
             .catch(error => { if (active) setGlossaryError(error instanceof Error ? error.message : ''); });
         return () => { active = false; };
@@ -301,7 +312,7 @@ export function PagedReader({ document: readingDocument, anchor, anchorIsNavigat
     if (progressOpen && progress.available) return <ReadingProgressPanel document={readingDocument} progress={progress} onClose={() => setProgressOpen(false)}/>;
     if (glossaryOpen && personal && glossaryIdentity) return <section className="novel-workspace"><div className="workflow-heading">
         <button className="button-quiet" onClick={() => setGlossaryOpen(false)}>{t('읽기로 돌아가기')}</button><h2>{t('책별 용어집')}</h2></div>
-        <GlossaryEditor storage={personal} providerId={glossaryIdentity.providerId} bookId={glossaryIdentity.bookId} onChange={() => {}} /></section>;
+        <>{accountScope ? <BookGlossaryWorkspace username={notesNamespace ?? ''} targetLanguage={accountScope.targetLanguage} storage={personal} providerId={glossaryIdentity.providerId} bookId={glossaryIdentity.bookId} onChange={() => {}}/> : <GlossaryEditor storage={personal} providerId={glossaryIdentity.providerId} bookId={glossaryIdentity.bookId} onChange={() => {}}/>}</></section>;
     if (toolsOpen && notesNamespace) return <ReaderTools namespace={notesNamespace} document={readingDocument}
       anchor={location.current.anchor ?? firstAnchor(readingDocument)} onClose={() => setToolsOpen(false)}
       onJump={anchor => { const moved = reflowReaderLocation(pages, projection.displayAnchor(anchor)); location.current = { ...moved, anchor }; setPage(moved.page); onAnchorChange(anchor); progress.move(anchor); setToolsOpen(false); }}/>
@@ -344,6 +355,7 @@ export function PagedReader({ document: readingDocument, anchor, anchorIsNavigat
       </header>
       {!preview && notes && selection && <button className="button-outline reader-highlight-action" disabled={highlightBusy} onPointerDown={event => event.preventDefault()} onClick={() => void saveHighlight()}>{t(highlightBusy ? '저장 중…' : '선택 강조')}</button>}
       {actionError && <div role="alert" className="workflow-message">{t(actionError)}</div>}
+      {accountNotice && <div role="status" className="workflow-message">{t(accountNotice)}</div>}
       {glossaryError && <div role="alert" className="workflow-message">{t(glossaryError)}</div>}
       {projectionError && <div role="alert" className="workflow-message">{t(projectionError)}</div>}
       {highlightError && <div role="alert" className="workflow-message">{t(highlightError)} <button className="button-text" onClick={() => setHighlightError('')}>{t('닫기')}</button></div>}

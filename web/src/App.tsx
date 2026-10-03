@@ -41,6 +41,8 @@ import { createReaderPreferenceClient, type ReaderPreferenceClient } from './lib
 import { createLibraryOrganizationClient, type LibraryOrganizationClient } from './lib/libraryOrganizationApi';
 import { LibraryOrganizationProvider } from './components/LibraryOrganizationProvider';
 import { createSourceFavoriteClient, type SourceFavoriteClient } from './lib/sourceFavoriteApi';
+import { createBookGlossaryClient, type BookGlossaryClient } from './lib/bookGlossaryApi';
+import { BookGlossaryProvider } from './components/BookGlossaryProvider';
 import { SourceFavoriteProvider } from './components/SourceFavoriteProvider';
 import { LocalWorkspace } from "./components/LocalWorkspace";
 import { LibraryExchangeWorkspace } from "./components/LibraryExchangeWorkspace";
@@ -258,6 +260,8 @@ export default function App() {
   const organizationClientRef = useRef<LibraryOrganizationClient | null>(null);
   const [favoriteClient, setFavoriteClient] = useState<SourceFavoriteClient | null>(null);
   const favoriteClientRef = useRef<SourceFavoriteClient | null>(null);
+  const [glossaryClient, setGlossaryClient] = useState<BookGlossaryClient | null>(null);
+  const glossaryClientRef = useRef<BookGlossaryClient | null>(null);
   const [workflowClient, setWorkflowClient] = useState<WorkflowClient | null>(
     null,
   );
@@ -431,6 +435,7 @@ export default function App() {
       preferenceClientRef.current?.close();
       organizationClientRef.current?.close();
       favoriteClientRef.current?.close();
+      glossaryClientRef.current?.close();
       session.current += 1;
     },
     [],
@@ -459,6 +464,9 @@ export default function App() {
     favoriteClientRef.current?.close();
     favoriteClientRef.current = null;
     setFavoriteClient(null);
+    glossaryClientRef.current?.close();
+    glossaryClientRef.current = null;
+    setGlossaryClient(null);
     setAccountClient(null);
     setAccountProfile(null);
     workflowClientRef.current?.close();
@@ -521,6 +529,9 @@ export default function App() {
       const nextFavoriteClient = createSourceFavoriteClient({ username: profile.username, password: details.password });
       favoriteClientRef.current = nextFavoriteClient;
       setFavoriteClient(nextFavoriteClient);
+      const nextGlossaryClient = createBookGlossaryClient({ username: profile.username, password: details.password });
+      glossaryClientRef.current = nextGlossaryClient;
+      setGlossaryClient(nextGlossaryClient);
       setLocale(profile.locale);
       setUsername(profile.username);
       setFormUsername(profile.username);
@@ -806,6 +817,7 @@ export default function App() {
     <ReadingNoteProvider username={username} client={noteClient}>
     <LibraryOrganizationProvider username={username} client={organizationClient}>
     <SourceFavoriteProvider username={username} client={favoriteClient}>
+    <BookGlossaryProvider username={username} client={glossaryClient}>
       <div className={`app-shell${reading || workflowReading ? ' app-shell-reading' : ''}`}>
         <header className="app-header">
           <a
@@ -1478,6 +1490,7 @@ export default function App() {
           </div>
         )}
       </div>
+    </BookGlossaryProvider>
     </SourceFavoriteProvider>
     </LibraryOrganizationProvider>
     </ReadingNoteProvider>

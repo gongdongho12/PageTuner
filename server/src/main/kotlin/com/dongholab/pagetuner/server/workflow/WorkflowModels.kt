@@ -46,7 +46,7 @@ data class ChapterSummary(
 @com.fasterxml.jackson.annotation.JsonInclude(com.fasterxml.jackson.annotation.JsonInclude.Include.NON_NULL)
 data class WorkflowGlossaryEntry(
     val source: String, val target: String, val kind: String? = null, val displayTerm: String? = null,
-    val caseSensitive: Boolean? = null, val enabled: Boolean? = null,
+    val caseSensitive: Boolean? = null, val enabled: Boolean? = null, val id: String? = null,
 )
 
 // Deliberately not a data class: never generate a toString containing credentials.

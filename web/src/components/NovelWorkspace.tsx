@@ -487,6 +487,7 @@ export function NovelWorkspace({
         workflowClient={client}
         sourceRecordId={reader.sourceRecordId}
         notesNamespace={username}
+        glossaryTargetLanguage={reader.translation?.targetLanguage ?? defaultTargetLanguage}
         anchor={reader.anchor}
         saved={
           reader.chapter

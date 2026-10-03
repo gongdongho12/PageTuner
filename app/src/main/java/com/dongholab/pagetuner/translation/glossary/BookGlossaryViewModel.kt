@@ -10,6 +10,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 
 data class BookGlossaryUiState(
@@ -22,16 +23,24 @@ class BookGlossaryViewModel(private val store: BookGlossaryStore) : ViewModel() 
     private val _uiState = MutableStateFlow(BookGlossaryUiState())
     val uiState: StateFlow<BookGlossaryUiState> = _uiState.asStateFlow()
 
+    private var selection = 0L
+    private var selectedBookId: String? = null
+    private val writes = kotlinx.coroutines.sync.Mutex()
+
     fun selectBook(bookId: String?) {
+        if (selectedBookId == bookId && (_uiState.value.glossary != null || _uiState.value.busy)) return
+        selectedBookId = bookId
+        val ticket = ++selection
         if (bookId == null) {
             _uiState.value = BookGlossaryUiState()
             return
         }
-        if (_uiState.value.glossary?.bookId == bookId) return
         viewModelScope.launch {
             _uiState.value = BookGlossaryUiState(busy = true)
-            val glossary = withContext(Dispatchers.IO) { store.load(bookId) }
-            _uiState.value = BookGlossaryUiState(glossary = glossary)
+            val result = runCatching { withContext(Dispatchers.IO) { store.load(bookId) } }
+            if (ticket == selection) _uiState.value = result.fold(
+                onSuccess = { BookGlossaryUiState(glossary = it) },
+                onFailure = { BookGlossaryUiState(error = it.message ?: "Unable to read dictionary.") })
         }
     }
 
@@ -51,8 +60,8 @@ class BookGlossaryViewModel(private val store: BookGlossaryStore) : ViewModel() 
         glossary.copy(entries = glossary.entries.filterNot { it.id == entryId })
     }
 
-    fun mergeLlmCharacterAliases(suggestions: List<CharacterAliasSuggestion>) = mutate { glossary ->
-        BookGlossaryMerger.mergeCharacterAliases(glossary, suggestions)
+    fun mergeLlmCharacterAliases(bookId: String, suggestions: List<CharacterAliasSuggestion>) {
+        mutate(expectedBookId = bookId) { glossary -> BookGlossaryMerger.mergeCharacterAliases(glossary, suggestions) }
     }
 
     fun importSharedDictionary(raw: String): Boolean {
@@ -69,15 +78,19 @@ class BookGlossaryViewModel(private val store: BookGlossaryStore) : ViewModel() 
             )
     }
 
-    private fun mutate(transform: (BookGlossary) -> BookGlossary) {
-        val current = _uiState.value.glossary ?: return
-        val updated = transform(current)
-        if (updated == current) return
-        _uiState.update { it.copy(glossary = updated, busy = true, error = null) }
+    private fun mutate(expectedBookId: String? = null, transform: (BookGlossary) -> BookGlossary) {
+        val ticket = selection
         viewModelScope.launch {
-            runCatching { withContext(Dispatchers.IO) { store.save(updated) } }
+            if (selection != ticket || _uiState.value.busy || _uiState.value.error != null) return@launch
+            val current = _uiState.value.glossary ?: return@launch
+            if (expectedBookId != null && (current.bookId != expectedBookId || selectedBookId != expectedBookId)) return@launch
+            val updated = transform(current)
+            if (updated == current) return@launch
+            _uiState.update { it.copy(glossary = updated, busy = true, error = null) }
+            val result = runCatching { writes.withLock { withContext(Dispatchers.IO) { store.save(updated) } } }
+            if (selection == ticket) result
                 .onSuccess { _uiState.update { state -> state.copy(busy = false) } }
-                .onFailure { error -> _uiState.update { state -> state.copy(busy = false, error = error.message) } }
+                .onFailure { error -> _uiState.update { state -> state.copy(glossary = current, busy = false, error = error.message) } }
         }
     }
 

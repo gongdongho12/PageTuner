@@ -1,5 +1,6 @@
 import type { components } from '../generated/workflow';
 import { kotlinTrim, sha256 } from './validation';
+import { glossaryText } from './bookGlossaryApi';
 
 export type GlossaryEntry = components['schemas']['GlossaryEntry'];
 export type PersonalGlossary = { entries: GlossaryEntry[]; revision: string; updatedAt: string };
@@ -9,28 +10,37 @@ export function normalizeGlossary(value: unknown): GlossaryEntry[] {
   if (!Array.isArray(value) || value.length > 200) throw new Error('용어집은 최대 200개까지 사용할 수 있습니다.');
   const entries: GlossaryEntry[] = value.map(v => {
     if (!v || typeof v !== 'object' || typeof v.source !== 'string' || typeof v.target !== 'string') throw new Error('용어집의 원문과 번역을 확인해 주세요.');
-    const source = kotlinTrim(v.source), target = kotlinTrim(v.target);
+    if (v.id !== undefined && (typeof v.id !== 'string' || !v.id || v.id.length > 200 || v.id !== v.id.trim())) throw new Error('용어 식별자를 확인해 주세요.');
+    if (v.id !== undefined) { glossaryText(v.id, 1, 200); glossaryText(v.source, 1, 200); glossaryText(v.target, 1, 200); glossaryText(v.displayTerm ?? '', 0, 200); }
+    const source = v.id !== undefined ? v.source : kotlinTrim(v.source), target = v.id !== undefined ? v.target : kotlinTrim(v.target);
     if (!source || !target || source.length > 200 || target.length > 200) throw new Error('각 용어와 번역은 1~200자로 입력해 주세요.');
     if ((v.kind !== undefined && !['Character', 'Place', 'Term'].includes(v.kind)) ||
       (v.displayTerm !== undefined && (typeof v.displayTerm !== 'string' || kotlinTrim(v.displayTerm).length > 200)) ||
       (v.caseSensitive !== undefined && typeof v.caseSensitive !== 'boolean') || (v.enabled !== undefined && typeof v.enabled !== 'boolean')) {
       throw new Error('용어의 종류와 표시 설정을 확인해 주세요.');
     }
+    if (v.id !== undefined) return { id: v.id, source, target, kind: v.kind ?? 'Character', displayTerm: v.displayTerm ?? '', caseSensitive: v.caseSensitive ?? false, enabled: v.enabled ?? true };
     return { source, target, ...(v.kind && v.kind !== 'Character' ? { kind: v.kind } : {}),
       ...(v.displayTerm && kotlinTrim(v.displayTerm) ? { displayTerm: kotlinTrim(v.displayTerm) } : {}),
       ...(v.caseSensitive === true ? { caseSensitive: true } : {}), ...(v.enabled === false ? { enabled: false } : {}) };
   });
-  if (new Set(entries.map(e => e.source.toLowerCase())).size !== entries.length) throw new Error('중복된 원문 용어가 있습니다. 대소문자를 구분하지 않습니다.');
-  return entries.sort((a, b) => a.source < b.source ? -1 : a.source > b.source ? 1 : 0);
+  const explicit = entries.filter(e => e.id !== undefined);
+  if (new Set(explicit.map(e => e.id)).size !== explicit.length) throw new Error('중복된 용어 식별자가 있습니다.');
+  for (const entry of entries) {
+    const group = entries.filter(e => kotlinTrim(e.source).toLowerCase() === kotlinTrim(entry.source).toLowerCase());
+    if (group.length > 1 && group.some(e => e.id === undefined)) throw new Error('중복된 원문 용어가 있습니다. 대소문자를 구분하지 않습니다.');
+  }
+  return explicit.length ? entries : entries.sort((a, b) => a.source < b.source ? -1 : a.source > b.source ? 1 : 0);
 }
 
 /** Mirrors the server's stable entry IDs and BookGlossary.translationFingerprint. */
 export async function glossaryRevision(value: unknown): Promise<string> {
   const entries = normalizeGlossary(value).filter(e => e.enabled !== false);
   if (!entries.length) return '';
-  const rows = await Promise.all(entries.map(async e => ({ id: (await sha256(e.source.toLowerCase())).slice(0, 24), ...e })));
+  const rows = await Promise.all(entries.map(async e => ({ ...e, id: e.id ?? (await sha256(e.source.toLowerCase())).slice(0, 24) })));
+  if (new Set(rows.map(e => e.id)).size !== rows.length) throw new Error('중복된 용어 식별자가 있습니다.');
   rows.sort((a, b) => a.id < b.id ? -1 : a.id > b.id ? 1 : 0);
-  return (await sha256(rows.map(e => [e.id, e.source, e.target, String(e.caseSensitive ?? false)].join('\u001f')).join('\n'))).slice(0, 16);
+  return (await sha256(rows.map(e => [e.id, kotlinTrim(e.source), kotlinTrim(e.target), String(e.caseSensitive ?? false)].join('\u001f')).join('\n'))).slice(0, 16);
 }
 
 export function parseGlossaryFile(text: string): GlossaryEntry[] {

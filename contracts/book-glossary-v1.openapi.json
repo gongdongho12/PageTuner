@@ -1,0 +1,89 @@
+{
+  "openapi": "3.0.3",
+  "info": {"title":"PageTurner Book Glossary Synchronization","version":"1.0.0","description":"Full-fidelity ordered glossary snapshots scoped to account and exact provider/book/target language. See book-glossary-v1.md. All text lengths are UTF-16 units."},
+  "paths": {
+    "/api/v1/book-glossary/query": {
+      "post": {
+        "operationId":"queryBookGlossary","security":[{"basicAuth":[]}],
+        "description":"Read-only query with the same result as GET. Use for all identities to avoid URL request-line limits for long percent-encoded IDs. Requires CSRF but does not consume the write rate limit or create rows.",
+        "parameters":[{"name":"X-CSRF-TOKEN","in":"header","required":true,"schema":{"type":"string"},"description":"Use /api/v1/csrf with matching session cookie."}],
+        "requestBody":{"required":true,"description":"Strict JSON at most 16 KiB.","content":{"application/json":{"schema":{"$ref":"#/components/schemas/BookGlossaryQuery"}}}},
+        "responses": {
+          "200":{"description":"Current snapshot or absent version 0; read-only.","headers":{"Cache-Control":{"schema":{"type":"string","enum":["no-store"]}}},"content":{"application/json":{"schema":{"$ref":"#/components/schemas/BookGlossaryView"}}}},
+          "400":{"$ref":"#/components/responses/BookGlossaryError"},"401":{"description":"Authentication required."},"403":{"description":"Missing or invalid CSRF token."},"413":{"$ref":"#/components/responses/BookGlossaryError"}
+        }
+      }
+    },
+    "/api/v1/book-glossary": {
+      "get": {
+        "operationId":"getBookGlossary","security":[{"basicAuth":[]}],
+        "parameters":[
+          {"name":"providerId","in":"query","required":true,"schema":{"type":"string","minLength":1,"maxLength":100}},
+          {"name":"bookId","in":"query","required":true,"schema":{"type":"string","minLength":1,"maxLength":2000}},
+          {"name":"targetLanguage","in":"query","required":true,"schema":{"$ref":"#/components/schemas/TargetLanguage"}}
+        ],
+        "responses": {
+          "200":{"description":"Current account snapshot; absent is version 0, entries null, updatedAt null. No row is created.","headers":{"Cache-Control":{"schema":{"type":"string","enum":["no-store"]}}},"content":{"application/json":{"schema":{"$ref":"#/components/schemas/BookGlossaryView"}}}},
+          "400":{"$ref":"#/components/responses/BookGlossaryError"},"401":{"description":"Authentication required."}
+        }
+      },
+      "put": {
+        "operationId":"putBookGlossary","security":[{"basicAuth":[]}],
+        "parameters":[{"name":"X-CSRF-TOKEN","in":"header","required":true,"schema":{"type":"string"},"description":"Use /api/v1/csrf with matching session cookie."}],
+        "requestBody":{"required":true,"description":"Strict JSON at most 1 MiB. Retain exact payload and mutationId until acknowledged.","content":{"application/json":{"schema":{"$ref":"#/components/schemas/PutBookGlossaryRequest"}}}},
+        "responses": {
+          "200":{"description":"Persisted snapshot or exact latest mutation replay.","headers":{"Cache-Control":{"schema":{"type":"string","enum":["no-store"]}}},"content":{"application/json":{"schema":{"$ref":"#/components/schemas/BookGlossaryView"}}}},
+          "400":{"$ref":"#/components/responses/BookGlossaryError"},"401":{"description":"Authentication required."},"403":{"description":"Missing or invalid CSRF token."},
+          "409":{"description":"BOOK_GLOSSARY_CONFLICT includes current; BOOK_GLOSSARY_EXHAUSTED does not. Preserve pending local data.","content":{"application/problem+json":{"schema":{"$ref":"#/components/schemas/BookGlossaryProblem"}}}},
+          "413":{"$ref":"#/components/responses/BookGlossaryError"},
+          "429":{"description":"At most 120 writes per account per minute, including replays.","headers":{"Retry-After":{"required":true,"schema":{"type":"integer","minimum":1,"maximum":60}}},"content":{"application/problem+json":{"schema":{"$ref":"#/components/schemas/BookGlossaryProblem"}}}}
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes":{"basicAuth":{"type":"http","scheme":"basic"}},
+    "responses":{"BookGlossaryError":{"description":"Request rejected; no partial changes.","headers":{"Cache-Control":{"schema":{"type":"string","enum":["no-store"]}}},"content":{"application/problem+json":{"schema":{"$ref":"#/components/schemas/BookGlossaryProblem"}}}}},
+    "schemas": {
+      "BookGlossaryQuery": {
+        "type":"object","additionalProperties":false,"required":["providerId","bookId","targetLanguage"],
+        "properties":{"providerId":{"type":"string","minLength":1,"maxLength":100},"bookId":{"type":"string","minLength":1,"maxLength":2000},"targetLanguage":{"$ref":"#/components/schemas/TargetLanguage"}}
+      },
+      "TargetLanguage":{"type":"string","minLength":2,"maxLength":24,"pattern":"^[a-z]{2,8}(?:-[a-z0-9]{1,8})*$","description":"Lowercase concrete language tag. auto is forbidden; never silently lowercase or trim."},
+      "BookGlossaryEntry": {
+        "type":"object","additionalProperties":false,"required":["id","sourceTerm","translatedTerm","displayTerm","kind","caseSensitive","enabled"],
+        "properties": {
+          "id":{"type":"string","minLength":1,"maxLength":200,"description":"Exact opaque existing entry ID. No boundary ECMAScript whitespace, controls or unpaired surrogates. Unique within the snapshot."},
+          "sourceTerm":{"type":"string","minLength":1,"maxLength":200,"description":"Nonblank source text, preserving outer whitespace; no controls or unpaired surrogates."},
+          "translatedTerm":{"type":"string","minLength":1,"maxLength":200,"description":"Nonblank translation text, preserving outer whitespace; no controls or unpaired surrogates."},
+          "displayTerm":{"type":"string","maxLength":200,"description":"Display-only alias, including empty or whitespace; preserved exactly. No controls or unpaired surrogates."},
+          "kind":{"type":"string","enum":["Character","Place","Term"]},"caseSensitive":{"type":"boolean"},"enabled":{"type":"boolean"}
+        }
+      },
+      "PutBookGlossaryRequest": {
+        "type":"object","additionalProperties":false,"required":["providerId","bookId","targetLanguage","expectedVersion","mutationId","entries"],
+        "properties": {
+          "providerId":{"type":"string","minLength":1,"maxLength":100,"description":"Exact original ID; reject boundary ECMAScript whitespace, controls and unpaired surrogates."},
+          "bookId":{"type":"string","minLength":1,"maxLength":2000,"description":"Exact original ID; same canonical identity checks. Never replace with title, document UUID or storage digest."},
+          "targetLanguage":{"$ref":"#/components/schemas/TargetLanguage"},
+          "expectedVersion":{"type":"integer","minimum":0,"maximum":9007199254740990},"mutationId":{"type":"string","format":"uuid"},
+          "entries":{"type":"array","nullable":true,"maxItems":500,"items":{"$ref":"#/components/schemas/BookGlossaryEntry"},"description":"Ordered full snapshot including disabled entries; duplicate source terms are allowed. Null is a versioned deletion; [] is a present empty glossary."}
+        }
+      },
+      "BookGlossaryView": {
+        "type":"object","additionalProperties":false,"required":["providerId","bookId","targetLanguage","version","entries","updatedAt"],
+        "properties": {
+          "providerId":{"type":"string","minLength":1,"maxLength":100},"bookId":{"type":"string","minLength":1,"maxLength":2000},"targetLanguage":{"$ref":"#/components/schemas/TargetLanguage"},
+          "version":{"type":"integer","minimum":0,"maximum":9007199254740991},
+          "entries":{"type":"array","nullable":true,"maxItems":500,"items":{"$ref":"#/components/schemas/BookGlossaryEntry"}},
+          "updatedAt":{"type":"string","format":"date-time","nullable":true,"description":"UTC timestamp, null exactly for absent version 0 (which also has null entries)."}
+        }
+      },
+      "BookGlossaryProblem": {
+        "type":"object","required":["type","title","status","detail"],
+        "properties":{"type":{"type":"string"},"title":{"type":"string"},"status":{"type":"integer"},"detail":{"type":"string"},"instance":{"type":"string"},
+          "code":{"type":"string","enum":["BOOK_GLOSSARY_INVALID","BOOK_GLOSSARY_CONFLICT","BOOK_GLOSSARY_MUTATION_REUSED","BOOK_GLOSSARY_EXHAUSTED","BOOK_GLOSSARY_LIMIT"]},"current":{"$ref":"#/components/schemas/BookGlossaryView"}}
+      }
+    }
+  }
+}

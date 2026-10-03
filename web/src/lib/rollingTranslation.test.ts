@@ -157,6 +157,19 @@ describe('reading translation windows and transport', () => {
     session.configure({ paceMode: 'READING', readingWordsPerMinute: 210, glossary, targetLanguage: 'ko', providerKind: 'GOOGLE_WEB_TRANSLATE_HTML' })
     expect(latest.items).toHaveLength(1); expect(inputs).toHaveLength(count); await session.stop()
   })
+  it('keeps prepared translations for account alias and kind edits while applying later term changes', async () => {
+    const { client, inputs } = immediateClient(); let latest!: RollingSnapshot
+    let glossary: NonNullable<ReadingTranslationSettings['glossary']> = [{ id: 'stable-term', source: ' Page ', target: ' 쪽 ', displayTerm: '첫 별칭', kind: 'Character' }]
+    const session = new RollingTranslationSession(chapter, { ...settings, glossary }, client, state => { latest = state }, { uuid, sleep: async () => {}, readGlossary: async () => glossary })
+    session.setPagination(pagination()); session.start(); await vi.waitFor(() => expect(latest.running).toBe(false))
+    expect(inputs).toHaveLength(10)
+    glossary = [{ ...glossary[0], displayTerm: '새 별칭', kind: 'Place' }]
+    session.configure({ ...settings, glossary }); expect(latest.cacheCount).toBe(10)
+    session.setPagination(pagination(1)); await vi.waitFor(() => expect(latest.running).toBe(false)); expect(inputs).toHaveLength(10)
+    glossary = [{ ...glossary[0], target: '새 번역' }]
+    session.setPagination(pagination(2)); await vi.waitFor(() => expect(latest.running).toBe(false)); expect(inputs).toHaveLength(20)
+    await session.stop()
+  })
   it('waits a bounded time for cancelled provider cleanup and reuses the unaccepted request ID', async () => {
     const { client, inputs } = immediateClient(); let latest!: RollingSnapshot, busy = 2
     const ids: string[] = [], delays: number[] = [], start = client.startReadingTranslation

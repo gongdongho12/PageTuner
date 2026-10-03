@@ -1,6 +1,7 @@
 import type { StoredChapter } from './workflowTypes'
 import { normalizeGlossary, type GlossaryEntry } from './glossary'
 import { ApiError } from './errors'
+import { kotlinTrim } from './validation'
 import { providerFailureMessage } from './providerCheck'
 import { readingFragmentKey, readingFragmentText, verifyReadingTranslation, type ReadingFragment, type ReadingPagination, type ReadingPace,
   type ReadingTranslationClient, type ReadingTranslationItem, type ReadingTranslationRequest, type ReadingTranslationSettings } from './readingTranslation'
@@ -28,6 +29,12 @@ function copySettings(value: ReadingTranslationSettings): ReadingTranslationSett
   return { providerKind: value.providerKind, sourceLanguage: value.sourceLanguage, targetLanguage: value.targetLanguage,
     endpoint: value.endpoint, model: value.model, apiKey: value.apiKey, glossary: normalizeGlossary(value.glossary ?? []),
     readingWordsPerMinute: value.readingWordsPerMinute, paceMode: value.paceMode }
+}
+/** Display aliases/kind and disabled entries never change translation input or cached translated text. */
+function translationSettingsKey(value: ReadingTranslationSettings): string {
+  return JSON.stringify({ ...value, glossary: (value.glossary ?? []).filter(entry => entry.enabled !== false)
+    .map(entry => ({ id: entry.id ?? `legacy:${entry.source.toLowerCase()}`, source: kotlinTrim(entry.source), target: kotlinTrim(entry.target), caseSensitive: entry.caseSensitive ?? false }))
+    .sort((a, b) => a.id < b.id ? -1 : a.id > b.id ? 1 : 0) })
 }
 const sleep = (milliseconds: number, signal: AbortSignal) => new Promise<void>((resolve, reject) => {
   if (signal.aborted) { reject(new DOMException('Aborted', 'AbortError')); return }
@@ -106,6 +113,7 @@ export class RollingTranslationSession {
   configure(settings: ReadingTranslationSettings): void {
     const copied = copySettings(settings)
     if (JSON.stringify(copied) === JSON.stringify(this.settings)) return
+    if (translationSettingsKey(copied) === translationSettingsKey(this.settings)) { this.settings = copied; return }
     this.settings = copied; this.refreshPending = true
     this.generation++; this.controller?.abort(); this.cache.clear(); this.cacheCharacters = 0; this.deferredPages.clear(); this.error = ''; this.emit(); this.kick()
   }
@@ -172,9 +180,9 @@ export class RollingTranslationSession {
         if (this.readGlossary) {
           const glossary = await this.readGlossary(); controller.signal.throwIfAborted()
           const latest = copySettings({ ...this.settings, glossary })
-          if (JSON.stringify(latest) !== JSON.stringify(this.settings)) {
+          if (translationSettingsKey(latest) !== translationSettingsKey(this.settings)) {
             this.settings = latest; this.cache.clear(); this.cacheCharacters = 0; this.deferredPages.clear(); this.emit()
-          }
+          } else this.settings = latest
         }
         const fragments = this.nextBatch(); if (!fragments.length) return
         if (previousWords) { this.waiting = true; this.emit(); await this.wait(readingPacingDelay(previousWords, this.settings.readingWordsPerMinute, this.settings.paceMode), controller.signal); this.waiting = false }
