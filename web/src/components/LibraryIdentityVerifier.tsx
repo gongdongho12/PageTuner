@@ -21,7 +21,19 @@ const unsupported = {
   assets: 'PDF·이미지가 있는 문서는 아직 서버 원본 확인을 지원하지 않습니다. 읽기와 ZIP 내보내기는 계속 사용할 수 있습니다.',
 }
 function fields(items: { label: string; value: string }[]) {
-  return items.flatMap((item, index) => (item.value.match(/[\s\S]{1,48}/gu) ?? ['']).map((value, part) => ({ id: `${index}:${part}`, label: item.label, value })))
+  return items.flatMap((item, index) => {
+    const points = Array.from(item.value), parts: string[] = []
+    for (let start = 0; start < points.length;) {
+      let end = Math.min(start + 48, points.length)
+      if (end < points.length && !/\s/u.test(points[end - 1]) && !/\s/u.test(points[end])) {
+        let boundary = end
+        while (boundary > start && !/\s/u.test(points[boundary - 1])) boundary--
+        if (boundary > start && points.slice(start, boundary).some(point => !/\s/u.test(point))) end = boundary
+      }
+      parts.push(points.slice(start, end).join('')); start = end
+    }
+    return (parts.length ? parts : ['']).map((value, part) => ({ id: `${index}:${part}`, label: item.label, value }))
+  })
 }
 const identityLabels: Record<string, string> = { version: '규격 버전', kind: '문서 종류', contentProviderId: '원본 소스 식별자', bookId: '책 식별자', chapterId: '장 식별자', sourceRevision: '원문 revision', sourceLanguage: '원문 언어', paragraphHash: '전체 문단 hash', targetLanguage: '번역 언어', translationProviderId: '번역 제공자', modelId: '모델 식별자', promptRevision: '프롬프트 revision', glossaryRevision: '용어집 revision', artifactId: '번역 식별 hash', revision: '번역 revision', payloadHash: '번역 본문 hash' }
 export function LibraryIdentityVerifier({ book, username, client, onClose }: { book: SavedExchange; username: string; client: LibraryIdentityClient | null; onClose: () => void }) {
@@ -40,7 +52,7 @@ export function LibraryIdentityVerifier({ book, username, client, onClose }: { b
     request.current?.abort(); const operation = new AbortController(); request.current = operation; setBusy(true); setOutcome('')
     try {
       await client.verify(recordId, ready.identity, operation.signal)
-      if (!operation.signal.aborted) setOutcome('서버 원본과 일치합니다. 확인만 완료했으며 자동 동기화 연결이나 업로드는 하지 않았습니다.')
+      if (!operation.signal.aborted) setOutcome('서버 원본과 일치합니다. 동기화 연결은 아직 설정되지 않았습니다.')
     } catch (error) { if (!operation.signal.aborted) setOutcome(error instanceof LibraryIdentityError ? failure[error.code] ?? failure.network : failure['invalid-response']) }
     finally { if (!operation.signal.aborted) { setBusy(false); request.current = null } }
   }

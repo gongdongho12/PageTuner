@@ -17,7 +17,7 @@ export const englishMessages: Record<string, string> = {
   'ZIP 본문과 원본 확인 정보를 검증하고 있습니다.': 'Checking ZIP text and provenance.',
   '현재 계정으로 서버에 연결한 뒤 원본을 확인해 주세요.': 'Connect the current account to the server to verify this document.',
   'UUID는 찾기 힌트입니다. 현재 계정의 서버 문서와 전체 내용을 대조합니다.': 'The UUID is a lookup hint. Verification compares the full document within the current account.',
-  '서버 원본과 일치합니다. 확인만 완료했으며 자동 동기화 연결이나 업로드는 하지 않았습니다.': 'The server copy matches. Verification is complete; no sync binding or upload was created.',
+  '서버 원본과 일치합니다. 동기화 연결은 아직 설정되지 않았습니다.': 'Server copy matches. Sync is not connected yet.',
   '확인 상태': 'Verification status',
   '서버 원본을 확인하고 있습니다.': 'Verifying the server copy.',
   '확인 범위': 'Verification scope',
