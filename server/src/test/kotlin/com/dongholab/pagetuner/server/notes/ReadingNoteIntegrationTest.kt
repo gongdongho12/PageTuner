@@ -211,7 +211,7 @@ class ReadingNoteIntegrationTest {
         val range = ReadingNoteRange(start, ReadingProgressAnchor("p-1", 3))
         val invalid = listOf(note().copy(title = " "), note().copy(title = "x".repeat(201)), note(text = "x".repeat(4001)), note(text = " "),
             note(anchor = ReadingProgressAnchor("missing", 0)), note(anchor = ReadingProgressAnchor("p-1", 2)), note(anchor = ReadingProgressAnchor("p-1", -1)),
-            note(anchor = ReadingProgressAnchor("p-1", "A😀 quiet garden.".length)), note().copy(range = range),
+            note(anchor = ReadingProgressAnchor("p-1", "A😀 quiet garden.".length + 1)), note().copy(range = range),
             note(ReadingNoteKind.HIGHLIGHT, ""), note(ReadingNoteKind.HIGHLIGHT, "", start, range.copy(end = start)),
             note(ReadingNoteKind.HIGHLIGHT, "", start, range.copy(end = ReadingProgressAnchor("p-1", 2))),
             note(ReadingNoteKind.HIGHLIGHT, "", start, range.copy(start = ReadingProgressAnchor("p-1", 1))),
@@ -231,6 +231,37 @@ class ReadingNoteIntegrationTest {
         val later = timestamp.plusSeconds(5)
         val edited = service.put(user, original, record, id, request(1, note().copy(createdAt = later)))
         assertEquals(later, edited.note!!.createdAt)
+    }
+
+    @Test fun `point notes preserve empty and terminal UTF16 anchors without moving to another paragraph`() {
+        val user = owner(); val chapter = source(user, listOf("Legacy", "A😀"))
+        // Existing immutable snapshots can have empty text; current source uploads reject it.
+        val paragraphs = listOf(SourceParagraph("p-1", 0, ""), SourceParagraph("p-2", 1, "A😀"))
+        val revision = chapter.copy(paragraphs = paragraphs).content().sourceRevision
+        jdbc.update("update source_chapter set paragraphs_json=?,source_revision=? where id=? and user_id=?",
+            json.writeValueAsString(paragraphs), revision, chapter.recordId, user)
+        val translated = translations.save(user, SaveTranslationRequest(chapter.providerId, chapter.bookId, chapter.chapterId, revision,
+            "en", "ko", "test-provider", paragraphs = listOf(TranslatedParagraphRequest("p-1", ""), TranslatedParagraphRequest("p-2", "책😀"))))
+        for ((kind, record) in listOf(original to chapter.recordId, ReadingProgressKind.TRANSLATION to translated.recordId)) {
+            for (anchor in listOf(ReadingProgressAnchor("p-1", 0), ReadingProgressAnchor("p-2", 3))) {
+                for (noteKind in listOf(ReadingNoteKind.NOTE, ReadingNoteKind.BOOKMARK)) {
+                    val input = note(noteKind, if (noteKind == ReadingNoteKind.NOTE) "At this exact boundary." else "", anchor)
+                    val item = service.put(user, kind, record, UUID.randomUUID(), request(note = input))
+                    assertEquals(anchor, item.note!!.anchor)
+                    assertEquals("", item.note!!.excerpt)
+                    assertEquals(item, service.changes(user, kind, record).items.last())
+                }
+            }
+            val end = ReadingProgressAnchor("p-2", 3)
+            writeJson(user, path(record, kind) + "/${UUID.randomUUID()}", json.writeValueAsString(request(note =
+                note(ReadingNoteKind.HIGHLIGHT, "", end, ReadingNoteRange(end, end)))))
+                .andExpect(status().isBadRequest)
+            for (offset in listOf(2, 4)) {
+                writeJson(user, path(record, kind) + "/${UUID.randomUUID()}", json.writeValueAsString(request(note =
+                    note(anchor = ReadingProgressAnchor("p-2", offset)))))
+                    .andExpect(status().isBadRequest)
+            }
+        }
     }
 
     @Test fun `translations validate against target text and cascade notes independently of source records`() {
