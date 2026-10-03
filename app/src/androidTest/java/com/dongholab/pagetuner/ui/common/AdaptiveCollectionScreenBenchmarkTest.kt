@@ -77,7 +77,7 @@ class AdaptiveCollectionScreenBenchmarkTest {
 
     @Test
     fun benchmarkPagedAndTouchScrollForEveryAdaptiveCollectionScreen() {
-        assertEquals(28, ScreenFixtures.size)
+        assertEquals(29, ScreenFixtures.size)
 
         val activeScenario = mutableStateOf(
             BenchmarkScenario(ScreenFixtures.first(), ListLayoutMode.Paged, runId = 0),
@@ -241,7 +241,8 @@ private data class ScreenFixture(
 )
 
 private val ScreenFixtures = listOf(
-    ScreenFixture("portable_library", "Local · ZIP exchange", "PortableLibraryPanel", 124, 3, 48, 3, 3),
+    ScreenFixture("portable_library", "Local · ZIP exchange", "PortableLibraryPanel", 168, 3, 48, 3, 4, fontScaleAwareHeight = true),
+    ScreenFixture("portable_identity", "Local · Verify server copy", "PortableIdentityPanel", 116, 3, 13, 4, 1, fontScaleAwareHeight = true),
     ScreenFixture("local_sharing", "Settings · Device sharing", "LocalSharingPanel", 160, 3, 6, 4, 1, fontScaleAwareHeight = true),
     ScreenFixture("local_library", "Local · Library", "LocalLibraryPanel", 124, 3, 48, 4, 2),
     ScreenFixture("local_directory", "Local · Device files", "LocalDirectoryBrowserPanel", 64, 5, 48, 1, 0),

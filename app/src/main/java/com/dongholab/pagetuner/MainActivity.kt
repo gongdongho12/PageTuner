@@ -198,6 +198,7 @@ fun PageTurnerApp() {
     val readerViewModel: ReaderViewModel = viewModel(factory = ReaderViewModel.Factory(context.sampleDocument()))
     val libraryViewModel: LibraryViewModel = viewModel(factory = LibraryViewModel.Factory(localLibraryStore))
     val portableViewModel: PortableLibraryViewModel = viewModel(factory = PortableLibraryViewModel.Factory(context, localLibraryStore))
+    val portableIdentityViewModel: com.dongholab.pagetuner.portable.PortableIdentityViewModel = viewModel()
     val webCatalogViewModel: WebCatalogViewModel = viewModel(
         factory = WebCatalogViewModel.Factory(cache = remoteCatalogCache, accountStore = remoteSourceAccountStore),
     )
@@ -228,11 +229,13 @@ fun PageTurnerApp() {
     val readerState by readerViewModel.uiState.collectAsState()
     val libraryState by libraryViewModel.uiState.collectAsState()
     val portableState by portableViewModel.state.collectAsState()
+    val portableIdentityState by portableIdentityViewModel.verification.state.collectAsState()
     val webCatalogState by webCatalogViewModel.uiState.collectAsState()
     val translationState by translationViewModel.uiState.collectAsState()
     val serverLibraryState by serverLibraryViewModel.state.collectAsState()
     val observedServerReaderPreferencesState by serverReaderPreferencesViewModel.sync.state.collectAsState()
     val serverReadingConnection = serverLibraryViewModel.readingConnection()
+    LaunchedEffect(serverReadingConnection) { portableIdentityViewModel.verification.connect(serverReadingConnection) }
     // Compose can observe a switched server before the actor handles Connect. Hide the previous
     // account immediately and reject controls from that intermediate frame using an invalid ticket.
     val serverReaderPreferencesState = observedServerReaderPreferencesState.takeIf {
@@ -884,13 +887,21 @@ fun PageTurnerApp() {
                                 libraryViewModel.importBook(Uri.fromFile(file))
                             },
                             transferContent = {
-                                PortableLibraryPanel(localBooks, currentBookId, portableState,
+                                if (portableIdentityState.entry != null) com.dongholab.pagetuner.portable.PortableIdentityPanel(
+                                    portableIdentityState, serverReadingConnection != null,
+                                    portableIdentityViewModel.verification.matches(serverReadingConnection),
+                                    onBack = portableIdentityViewModel.verification::close,
+                                    onRecord = { portableIdentityViewModel.verification.updateRecord(portableIdentityState.session, it) },
+                                    onCheck = { portableIdentityViewModel.verification.check(portableIdentityState.session,
+                                        serverLibraryViewModel.readingConnection(), portableViewModel::currentDocument) })
+                                else PortableLibraryPanel(localBooks, currentBookId, portableState,
                                     onImport = { portableImportLauncher.launch(arrayOf("application/zip", "application/octet-stream", "application/x-zip-compressed")) },
                                     onNativeExport = { book, includeTranslation ->
                                         portableViewModel.prepareNativeExport(book, includeTranslation, settings, activeTranslationProvider.id, activeGlossary)
                                     },
                                     onExport = portableViewModel::prepareExport,
-                                    onOpen = portableViewModel::open)
+                                    onOpen = portableViewModel::open,
+                                    onVerify = { portableIdentityViewModel.verification.select(it, serverLibraryViewModel.readingConnection()) })
                             },
                         )
                         AppTab.Favorites -> FavoritesScreen(

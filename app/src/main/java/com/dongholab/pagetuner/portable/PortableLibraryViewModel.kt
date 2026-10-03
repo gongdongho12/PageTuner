@@ -66,6 +66,12 @@ class PortableLibraryViewModel(private val context: Context, private val local: 
         }
     }
 
+    /** Re-read the validated archive after pending reader writes before any server comparison. */
+    suspend fun currentDocument(entry: PortableLibraryEntry): ExchangeDocument {
+        awaitReaderWrites(entry)
+        return withContext(Dispatchers.IO) { store.read(entry).documents[entry.documentIndex] }
+    }
+
     fun prepareNativeExport(book: LocalBook, translation: Boolean = false, settings: TranslationSettings? = null,
         cacheProviderId: String? = null, currentGlossary: BookGlossary? = null) = operation {
         val result = local.openBook(book.id)

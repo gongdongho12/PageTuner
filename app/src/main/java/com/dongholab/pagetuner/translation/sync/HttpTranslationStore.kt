@@ -3,6 +3,8 @@ package com.dongholab.pagetuner.translation.sync
 import com.dongholab.pagetuner.core.content.BookIdentity
 import com.dongholab.pagetuner.core.content.ChapterIdentity
 import com.dongholab.pagetuner.core.model.library.LibraryFilter
+import com.dongholab.pagetuner.core.backup.exchange.DocumentIdentity
+import com.dongholab.pagetuner.core.backup.exchange.DocumentIdentityJson
 import com.dongholab.pagetuner.core.translation.StoredTranslation
 import com.dongholab.pagetuner.core.translation.TranslatedParagraph
 import com.dongholab.pagetuner.core.translation.TranslationArtifact
@@ -278,6 +280,21 @@ class HttpTranslationStore(
         decode { ServerBookGlossaryJson.view(JSONObject(response.body), identity) }
     }
 
+    /** Explicit comparison only; this endpoint cannot create records or activate synchronization. */
+    suspend fun verifyPortableIdentity(recordId: String, identity: DocumentIdentity): DocumentIdentity = withContext(Dispatchers.IO) {
+        require(java.util.UUID.fromString(recordId).toString() == recordId)
+        val body = JSONObject().put("kind", identity.kind.name).put("recordId", recordId)
+            .put("identity", DocumentIdentityJson.encode(identity))
+        require(body.toString().toByteArray(Charsets.UTF_8).size <= 65_536)
+        val response = writeWithCsrf("/api/v1/library-identity/verify", "POST", body, true)
+        decode {
+            val json = JSONObject(response.body)
+            require(json.keys().asSequence().toSet() == setOf("kind", "recordId", "verified", "identity"))
+            require(json.get("kind") == identity.kind.name && json.get("recordId") == recordId && json.get("verified") == true)
+            DocumentIdentityJson.decode(json.getJSONObject("identity")).also { require(it == identity) }
+        }
+    }
+
     suspend fun saveBookGlossary(identity: com.dongholab.pagetuner.core.model.glossary.BookGlossarySyncIdentity, mutation: BookGlossaryMutation): ServerBookGlossary = withContext(Dispatchers.IO) {
         val response = writeWithCsrf("/api/v1/book-glossary", "PUT", ServerBookGlossaryJson.encode(identity, mutation), true)
         decode { ServerBookGlossaryJson.view(JSONObject(response.body), identity).also {
@@ -369,6 +386,9 @@ class HttpTranslationStore(
             throw TranslationStoreException(TranslationStoreFailure.NETWORK)
         }
         currentCoroutineContext().ensureActive()
+        if (path == "/api/v1/library-identity/verify" && response.body.toByteArray(Charsets.UTF_8).size > 131_072) {
+            throw TranslationStoreException(TranslationStoreFailure.INVALID_RESPONSE)
+        }
         if (path.startsWith("/api/v1/library-organization/") && response.body.toByteArray(Charsets.UTF_8).size > 8192) {
             throw TranslationStoreException(TranslationStoreFailure.INVALID_RESPONSE)
         }
@@ -379,6 +399,17 @@ class HttpTranslationStore(
             throw TranslationStoreException(TranslationStoreFailure.INVALID_RESPONSE)
         }
         if (response.status !in 200..299) {
+            if (path == "/api/v1/library-identity/verify" && response.status in setOf(404, 409)) {
+                val code = decode { JSONObject(response.body).get("code") as String }
+                val reason = when (code) {
+                    "LIBRARY_IDENTITY_NOT_FOUND" -> PortableIdentityFailure.NotFound.takeIf { response.status == 404 }
+                    "LIBRARY_IDENTITY_MISMATCH" -> PortableIdentityFailure.Mismatch.takeIf { response.status == 409 }
+                    "LIBRARY_IDENTITY_UNAVAILABLE" -> PortableIdentityFailure.Unavailable.takeIf { response.status == 409 }
+                    else -> null
+                }
+                if (reason != null) throw PortableIdentityVerificationException(reason)
+                throw TranslationStoreException(TranslationStoreFailure.INVALID_RESPONSE)
+            }
             if (path.substringBefore('?') in setOf("/api/v1/book-glossary", "/api/v1/book-glossary/query") && response.status == 429) {
                 val seconds = response.headers.entries.firstOrNull { it.key.equals("Retry-After", true) }?.value?.firstOrNull()
                     ?.toLongOrNull()?.takeIf { it in 1..86_400 } ?: 60L
