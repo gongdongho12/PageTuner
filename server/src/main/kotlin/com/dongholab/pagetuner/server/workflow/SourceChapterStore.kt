@@ -58,12 +58,12 @@ class SourceChapterStore(private val jdbc: JdbcTemplate, private val json: Objec
         jdbc.update("""
             insert into source_chapter(id,user_id,identity_key,provider_id,book_id,book_title,book_url,chapter_id,chapter_title,
                 chapter_url,source_language,source_revision,paragraphs_json,created_at)
-            values(?,?,?,?,?,?,?,?,?,?,?,?,?,?) on conflict(user_id,identity_key,source_revision) do nothing
+            values(?,?,?,?,?,?,?,?,?,?,?,?,?,?) on conflict(user_id,identity_key,source_revision,source_language) do nothing
         """.trimIndent(), result.recordId, user, identity, result.providerId, result.bookId, result.bookTitle, result.bookUrl,
             result.chapterId, result.chapterTitle, result.chapterUrl, result.sourceLanguage, result.sourceRevision,
             json.writeValueAsString(chapter.paragraphs), java.sql.Timestamp.from(result.createdAt))
-        return jdbc.query("select * from source_chapter where user_id=? and identity_key=? and source_revision=?", mapper,
-            user, identity, result.sourceRevision).single()
+        return jdbc.query("select * from source_chapter where user_id=? and identity_key=? and source_revision=? and source_language=?", mapper,
+            user, identity, result.sourceRevision, result.sourceLanguage).single()
     }
 
     fun get(user: String, id: UUID): StoredChapter = jdbc.query("select * from source_chapter where id=? and user_id=?", mapper, id, user)
