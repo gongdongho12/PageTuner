@@ -27,7 +27,7 @@ object WebNovelBookHierarchyResolver : RemoteBookHierarchyResolver {
         val detail = source.loadNovelDetail()
         val chapters = source.list()
         return RemoteBookHierarchy(
-            book = book.copy(
+            book = book.withResolvedSourceIdentity(source.sourceProviderId).copy(
                 title = detail.title.ifBlank { book.title },
                 authors = listOf(detail.author).filter(String::isNotBlank),
                 coverUrl = detail.coverUrl ?: book.coverUrl,
@@ -56,3 +56,10 @@ class RoutingRemoteBookHierarchyResolver(
         }
     }
 }
+
+/** A resolved metadata URL may change independently of an already known original identity. */
+internal fun RemoteBookItem.withResolvedSourceIdentity(providerId: String): RemoteBookItem =
+    if (sourceProviderId != null && sourceBookId != null) this else copy(
+        sourceProviderId = providerId,
+        sourceBookId = com.dongholab.pagetuner.source.webnovel.WebNovelSeriesKeys.fromUrl(downloadUrl),
+    )

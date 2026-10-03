@@ -59,7 +59,7 @@ class HttpTranslationStore(
     private val auth: TranslationStoreBasicAuth? = null,
     private val transport: TranslationStoreHttpTransport = DefaultTranslationStoreHttpTransport(),
     allowInsecureDevelopmentHttp: Boolean = false,
-) : TranslationStore {
+) : TranslationStore, SourceBookFavoritesRemote {
     private val base: URI = URI(baseUrl).also { uri ->
         require(uri.scheme in setOf("https", "http") && !uri.host.isNullOrBlank()) { "A HTTP(S) server origin is required." }
         require(uri.userInfo == null && uri.rawQuery == null && uri.rawFragment == null) { "Credentials, query and fragment are not allowed in the server URL." }
@@ -242,6 +242,21 @@ class HttpTranslationStore(
         decode { require(response.status == 204 && response.body.isEmpty()) }
     }
 
+    override suspend fun sourceBookFavorites(afterRevision: Long, limit: Int, untilRevision: Long?): SourceFavoritesPage = withContext(Dispatchers.IO) {
+        require(afterRevision in 0..MaxReadingVersion && limit in 1..100 && (untilRevision == null || untilRevision in afterRevision..MaxReadingVersion))
+        val path = "/api/v1/source-book-favorites?afterRevision=$afterRevision&limit=$limit" + (untilRevision?.let { "&untilRevision=$it" } ?: "")
+        val response = execute(path, "GET")
+        decode { SourceFavoritesJson.page(JSONObject(response.body), afterRevision, limit, untilRevision) }
+    }
+
+    override suspend fun saveSourceBookFavorite(mutation: SourceFavoriteMutation): SourceBookFavorite = withContext(Dispatchers.IO) {
+        val response = writeWithCsrf("/api/v1/source-book-favorites", "PUT", SourceFavoritesJson.encode(mutation), true)
+        decode { SourceFavoritesJson.item(JSONObject(response.body)).also {
+            require(it.identity == mutation.desired.identity && it.version == mutation.expectedVersion + 1 &&
+                it.deleted == mutation.desired.deleted && it.book == mutation.desired.book)
+        } }
+    }
+
     suspend fun libraryOrganization(kind: String, recordId: String): ServerLibraryOrganization = withContext(Dispatchers.IO) {
         ServerReadingProgressJson.validateTarget(kind, recordId)
         val response = execute("/api/v1/library-organization/$kind/$recordId", "GET")
@@ -343,7 +358,24 @@ class HttpTranslationStore(
         if (path.startsWith("/api/v1/library-organization/") && response.body.toByteArray(Charsets.UTF_8).size > 8192) {
             throw TranslationStoreException(TranslationStoreFailure.INVALID_RESPONSE)
         }
+        if (path.substringBefore('?') == "/api/v1/source-book-favorites" && response.body.toByteArray(Charsets.UTF_8).size > 2_097_152) {
+            throw TranslationStoreException(TranslationStoreFailure.INVALID_RESPONSE)
+        }
         if (response.status !in 200..299) {
+            if (path.substringBefore('?') == "/api/v1/source-book-favorites" && response.status == 429) {
+                val seconds = response.headers.entries.firstOrNull { it.key.equals("Retry-After", true) }?.value?.firstOrNull()
+                    ?.toLongOrNull()?.takeIf { it in 1..86_400 } ?: 60L
+                throw SourceFavoritesRateLimited(seconds)
+            }
+            if (path == "/api/v1/source-book-favorites" && method == "PUT" && response.status == 409) {
+                val value = decode { JSONObject(response.body) }
+                if (value.optString("code") == "SOURCE_BOOK_FAVORITE_CONFLICT") {
+                    val current = decode { SourceFavoritesJson.item(value.getJSONObject("current")).also {
+                        require(it.identity == SourceFavoritesJson.identity(JSONObject(requireNotNull(body))))
+                    } }
+                    throw SourceFavoriteConflict(current)
+                }
+            }
             if (path.startsWith("/api/v1/library-organization/") && response.status == 429) {
                 val seconds = response.headers.entries.firstOrNull { it.key.equals("Retry-After", true) }?.value?.firstOrNull()
                     ?.toLongOrNull()?.takeIf { it in 1..86_400 } ?: 60L

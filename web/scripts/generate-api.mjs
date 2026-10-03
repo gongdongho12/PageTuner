@@ -13,3 +13,4 @@ await generateContract('reading-notes-v1.openapi.json', 'readingNotes.ts', check
 await generateContract('reader-preferences-v1.openapi.json', 'readerPreferences.ts', check);
 await generateContract('library-organization-v1.openapi.json', 'libraryOrganization.ts', check);
 await generateContract('local-sharing-v1.openapi.json', 'localSharing.ts', check);
+await generateContract('source-book-favorites-v1.openapi.json', 'sourceBookFavorites.ts', check);

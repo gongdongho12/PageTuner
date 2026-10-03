@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -17,7 +18,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Book
 import androidx.compose.material.icons.filled.Star
-import androidx.compose.material.icons.filled.StarBorder
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -26,9 +26,12 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.dongholab.pagetuner.R
 import com.dongholab.pagetuner.display.DisplayMode
 import com.dongholab.pagetuner.source.RemoteBookItem
 import com.dongholab.pagetuner.ui.common.AdaptiveCollection
@@ -36,7 +39,6 @@ import com.dongholab.pagetuner.ui.common.EinkViewportSurface
 import com.dongholab.pagetuner.ui.theme.EinkInk
 import com.dongholab.pagetuner.ui.theme.EinkLine
 import com.dongholab.pagetuner.ui.theme.EinkMuted
-import com.dongholab.pagetuner.ui.theme.EinkPanel
 import com.dongholab.pagetuner.ui.theme.EinkSoft
 
 @Composable
@@ -46,7 +48,11 @@ fun FavoritesPanel(
     busy: Boolean,
     onOpenNovelDetail: (RemoteBookItem) -> Unit,
     onRemoveFavorite: (RemoteBookItem) -> Unit,
+    openLabel: String = stringResource(R.string.source_favorites_open),
+    canOpen: (RemoteBookItem) -> Boolean = { true },
+    canRemove: Boolean = true,
 ) {
+    val rowHeight = 116.dp * LocalDensity.current.fontScale.coerceAtLeast(1f)
     EinkViewportSurface(
         modifier = Modifier.fillMaxSize(),
         contentPadding = PaddingValues(14.dp),
@@ -59,7 +65,7 @@ fun FavoritesPanel(
             ) {
                 Icon(Icons.Filled.Star, contentDescription = null, tint = EinkInk, modifier = Modifier.size(20.dp))
                 Text(
-                    text = "Bookmarked Favorites (${favorites.size})",
+                    text = stringResource(R.string.source_favorites_count, favorites.size),
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
                     color = EinkInk,
@@ -68,7 +74,7 @@ fun FavoritesPanel(
 
             if (favorites.isEmpty()) {
                 Text(
-                    text = "No bookmarked favorite novels yet. Tap '★ Add Favorite' on any novel page to save it here for instant access!",
+                    text = stringResource(R.string.source_favorites_empty),
                     style = MaterialTheme.typography.bodySmall,
                     color = EinkMuted,
                 )
@@ -76,14 +82,14 @@ fun FavoritesPanel(
                 AdaptiveCollection(
                     items = favorites,
                     modifier = Modifier.weight(1f),
-                    estimatedPagedItemHeight = 116.dp,
+                    estimatedPagedItemHeight = rowHeight,
                     fallbackPageSize = 3,
                     busy = busy,
                 ) { item ->
                     Surface(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(116.dp),
+                            .height(rowHeight),
                         color = EinkSoft,
                         shape = RoundedCornerShape(4.dp),
                         border = BorderStroke(1.dp, EinkLine),
@@ -97,7 +103,7 @@ fun FavoritesPanel(
                             Column(
                                 modifier = Modifier
                                     .weight(1f)
-                                    .clickable(enabled = !busy) { onOpenNovelDetail(item) },
+                                    .clickable(enabled = !busy && canOpen(item)) { onOpenNovelDetail(item) },
                                 verticalArrangement = Arrangement.spacedBy(2.dp),
                             ) {
                                 Text(
@@ -109,7 +115,7 @@ fun FavoritesPanel(
                                     overflow = TextOverflow.Ellipsis,
                                 )
                                 Text(
-                                    text = "Author: ${item.authors.firstOrNull() ?: "WTR-Lab Author"} | Language: ${item.language ?: "en"}",
+                                    text = "${item.authors.joinToString()} · ${item.language ?: "auto"}",
                                     style = MaterialTheme.typography.bodySmall,
                                     color = EinkMuted,
                                     maxLines = 2,
@@ -119,17 +125,19 @@ fun FavoritesPanel(
                             Column(horizontalAlignment = Alignment.End) {
                                 TextButton(
                                     onClick = { onOpenNovelDetail(item) },
-                                    enabled = !busy,
+                                    enabled = !busy && canOpen(item),
+                                    modifier = Modifier.heightIn(min = 44.dp),
                                 ) {
-                                    Text("Details & Chapters 📂")
+                                    Text(openLabel, maxLines = 1)
                                 }
                                 TextButton(
                                     onClick = { onRemoveFavorite(item) },
-                                    enabled = !busy,
+                                    enabled = !busy && canRemove,
+                                    modifier = Modifier.heightIn(min = 44.dp),
                                 ) {
-                                    Icon(Icons.Filled.Star, contentDescription = "Remove Favorite", tint = EinkInk, modifier = Modifier.size(16.dp))
+                                    Icon(Icons.Filled.Star, contentDescription = null, tint = EinkInk, modifier = Modifier.size(16.dp))
                                     Spacer(Modifier.width(4.dp))
-                                    Text("Remove ★", style = MaterialTheme.typography.labelSmall, color = EinkInk)
+                                    Text(stringResource(R.string.source_favorites_remove), style = MaterialTheme.typography.labelSmall, color = EinkInk)
                                 }
                             }
                         }

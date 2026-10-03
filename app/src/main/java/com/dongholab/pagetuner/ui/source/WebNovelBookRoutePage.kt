@@ -37,6 +37,9 @@ fun WebNovelBookRoutePage(
     onReadOriginalChapter: (RemoteBookItem) -> Unit,
     onReadChapter: (RemoteBookItem) -> Unit,
     onBatchDownloadChapters: (List<RemoteBookItem>) -> Unit,
+    isFavorite: (RemoteBookItem) -> Boolean = { false },
+    onToggleFavorite: (RemoteBookItem) -> Unit = {},
+    onBookResolved: (RemoteBookItem) -> Unit = {},
 ) {
     var loadState by remember(route.book.identity) {
         mutableStateOf<WebNovelBookPageLoadState>(WebNovelBookPageLoadState.Loading(route.book))
@@ -61,6 +64,9 @@ fun WebNovelBookRoutePage(
         is WebNovelBookPageLoadState.Content -> current.hierarchy.book
         is WebNovelBookPageLoadState.Error -> current.seedBook
     }
+    LaunchedEffect(rawBook) {
+        if (loadState is WebNovelBookPageLoadState.Content) onBookResolved(rawBook)
+    }
     val translation = translatedItems[rawBook.translationKey()]
     val displayedBook = rawBook.copy(
         title = translation?.title ?: rawBook.title,
@@ -79,6 +85,8 @@ fun WebNovelBookRoutePage(
         canTranslate = canTranslate,
         loadError = loadError,
         batchProgress = batchDownloadProgress,
+        isFavorite = isFavorite(rawBook),
+        onToggleFavorite = { onToggleFavorite(rawBook) },
         onBackToList = onBackToCatalog,
         onReadOriginalChapter = onReadOriginalChapter,
         onReadChapter = onReadChapter,

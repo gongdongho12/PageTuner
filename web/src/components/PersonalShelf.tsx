@@ -3,6 +3,7 @@ import type { FavoriteBook, PersonalLibrary } from "../lib/personalLibrary";
 import type { NovelSource } from "../lib/workflowTypes";
 import { translate as t } from "../lib/locale";
 import { AdaptiveCollection } from "./AdaptiveCollection";
+import { SourceFavoriteShelf } from "./SourceFavoriteShelf";
 export function PersonalShelf({
   storage,
   sources,
@@ -14,7 +15,7 @@ export function PersonalShelf({
   onOpenBook: (url: string) => void;
   onOpenSource: (sourceId: string, url: string) => void;
 }) {
-  const [mode, setMode] = useState<"books" | "sources" | "add">("books"),
+  const [mode, setMode] = useState<"books" | "account" | "sources" | "add">("books"),
     [items, setItems] = useState<FavoriteBook[]>([]),
     [damaged, setDamaged] = useState<string[]>([]),
     [error, setError] = useState(""),
@@ -22,6 +23,7 @@ export function PersonalShelf({
   const [sourceId, setSourceId] = useState(sources[0]?.id ?? ""),
     [title, setTitle] = useState(""),
     [url, setUrl] = useState("");
+  const [adoption, setAdoption] = useState<FavoriteBook>();
   const requestVersion = useRef(0);
   const refresh = async (next: typeof mode = mode) => {
     const version = ++requestVersion.current;
@@ -44,7 +46,7 @@ export function PersonalShelf({
     }
   };
   useEffect(() => {
-    if (mode !== "add") void refresh();
+    if (mode !== "add" && mode !== "account") void refresh();
     return () => {
       requestVersion.current++;
     };
@@ -52,29 +54,31 @@ export function PersonalShelf({
   useEffect(() => {
     if (!sourceId && sources[0]) setSourceId(sources[0].id);
   }, [sources, sourceId]);
+  if (adoption) return <SourceFavoriteShelf key={JSON.stringify([adoption.sourceId, adoption.bookId])} adoption={adoption} onBack={() => setAdoption(undefined)} onOpenBook={onOpenBook}/>;
   return (
-    <section className="novel-workspace">
-      <nav className="workflow-subtabs">
+    <section className="novel-workspace personal-shelf">
+      <nav className="workflow-subtabs personal-shelf-tabs">
         <button
           aria-pressed={mode === "books"}
           disabled={busy}
           onClick={() => setMode("books")}
         >
-          {t("즐겨찾는 책")}
+          {t("기기 책")}
         </button>
+        <button disabled={busy} aria-pressed={mode === "account"} onClick={() => setMode("account")}>{t("계정 책")}</button>
         <button
           aria-pressed={mode === "sources"}
           disabled={busy}
           onClick={() => setMode("sources")}
         >
-          {t("저장한 소스")}
+          {t("소스")}
         </button>
         <button
           disabled={busy}
           aria-pressed={mode === "add"}
           onClick={() => setMode("add")}
         >
-          {t("소스 주소 추가")}
+          {t("주소 추가")}
         </button>
       </nav>
       {error && (
@@ -82,7 +86,7 @@ export function PersonalShelf({
           {t(error)}
         </div>
       )}
-      {mode === "add" ? (
+      {mode === "account" ? <SourceFavoriteShelf onOpenBook={onOpenBook}/> : mode === "add" ? (
         <form
           className="workflow-form"
           onSubmit={(e) => {
@@ -171,7 +175,7 @@ export function PersonalShelf({
           ) : items.length ? (
             <AdaptiveCollection
               items={items}
-              itemKey={(item) => `${item.sourceId}:${item.bookId}`}
+              itemKey={(item) => JSON.stringify([item.sourceId, item.bookId])}
               rowHeight={104}
               renderItem={(item) => (
                 <div className="workflow-row">
@@ -186,6 +190,7 @@ export function PersonalShelf({
                     <strong>{item.title}</strong>
                     <span>{item.sourceId}</span>
                   </button>
+                  {mode === "books" && <button className="button-quiet" onClick={() => setAdoption(item)}>{t("계정 추가")}</button>}
                   <button
                     className="button-quiet"
                     onClick={() => {

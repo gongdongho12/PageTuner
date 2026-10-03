@@ -147,8 +147,13 @@ class ServerReadingNotesTest {
         val shown = sync.state.first { it.phase == ReadingProgressPhase.Conflict }.conflicts.single()
         sync.edit(doc.readerId, noteId, "Newer device change", "New body")
         store.await { it.queued[noteId]?.note?.title == "Newer device change" }
-        sync.resolve(doc.readerId, noteId, false, shown); runCurrent()
-        assertEquals("Newer device change", sync.state.value.items.single().note!!.title)
+        // Storage writes on Dispatchers.IO signal before persist resumes and publishes the UI.
+        // runCurrent only drains the test dispatcher, so wait for the actor's published edit
+        // and rejection instead of racing its return from the real IO dispatcher.
+        sync.state.first { it.conflicts.singleOrNull()?.local?.note?.title == "Newer device change" }
+        sync.resolve(doc.readerId, noteId, false, shown)
+        val rejected = sync.state.first { it.staleActionRejected }
+        assertEquals("Newer device change", rejected.items.single().note!!.title)
         advanceTimeBy(30_001); runCurrent()
         val newer = sync.state.first { it.conflicts.singleOrNull()?.remote?.version == 3L }.conflicts.single()
         sync.resolve(doc.readerId, noteId, false, shown); runCurrent()
