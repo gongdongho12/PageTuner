@@ -33,4 +33,16 @@ jobs:
       - name: Run unit tests
         run: |
           chmod +x gradlew
-          ./gradlew testDebugUnitTest
+          ./gradlew :core-backup:test testDebugUnitTest
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - name: Verify web and shared proof vectors
+        run: |
+          npm --prefix web ci
+          npm --prefix web run verify

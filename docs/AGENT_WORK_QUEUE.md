@@ -31,7 +31,8 @@
 | S4a | S4 하위 | 완료 | ZIP 원본 식별자 보존과 서버 동일성 확인 | 공통 provenance/ordered 문단 digest와 원래 provider/book/chapter/revision 보존, 현재 계정 서버 문서의 읽기 전용 확인. 서버 185개·웹 416개·앱 469개와 실제 웹→공통 Android runtime→웹 ZIP 왕복 확인. 자동 연결은 S4b, 실기기는 V3. [근거](PORTABLE_DOCUMENT_IDENTITY.md) |
 | S4b | S4 하위 | 진행 | 검증된 로컬·ZIP 문서의 명시적 서버 연결 | S4b1 텍스트 ZIP 연결 완료. PDF/EPUB 자산·물리 위치와 원본 proof 없는 기기 파일은 S4b2에 남김 |
 | S4b1 | S4b 하위 | 완료 | 검증된 텍스트 ZIP의 계정 기록 연결 | 계정·origin·사본·전체 identity별 명시적 binding, 읽기 전 재검증, 로컬/계정 기록 분리, S1~S3 canonical reader. 서버 190개·앱 475개·웹 428개 및 실제 웹 보존/삭제 검증. [근거](PORTABLE_DOCUMENT_BINDING.md) |
-| S4b2 | S4b 하위 | 대기 | 자산 문서와 독립 기기 파일의 안전한 연결 | PDF/EPUB 물리 페이지·텍스트 anchor 구분, 전체 파일/본문 proof와 서버 대응 계약을 먼저 설계. 현재 거절 범위는 S4b1 완료와 구분하고 페이지로 추정하지 않음 |
+| S4b2 | S4b 하위 | 진행 | 자산 문서와 독립 기기 파일의 안전한 연결 | S4b2a 공통 전체 내용 proof와 정확한 anchor 검증 완료. 서버 자산 저장·재검증과 앱/웹 명시적 연결은 S4b2b 후속. 현재 거절 범위는 유지하고 페이지로 추정하지 않음 |
+| S4b2a | S4b2 하위 | 완료 | 전체 파일·본문·자산 proof와 위치 계약 | Kotlin/웹 동일 framed SHA-256, 전체 원본 bytes와 ordered 자산 참조, proof-bound UTF-16/PDF anchor. 순수 계약·검증 단위이며 계정 연결을 활성화하지 않음. [근거](PORTABLE_CONTENT_PROOF.md) |
 | S4c | S4 하위 | 대기 | 최신 동기화 기록의 ZIP 내보내기·가져오기 | 현재 위치·메모·분류·원래 ID와 언어 범위가 있는 용어집의 무손실 스냅샷, 충돌/대기 상태 구분, 자격 증명·CAS/outbox mutation 이전 금지 |
 | W1 | 5 | 대기 | 웹 로컬 번역 캐시의 서버 업로드·복원 | 전체 문단 검증, 원문 revision 대응, 미완성/다른 제공자 충돌 처리, 앱에서 재조회 |
 | W2 | 6 | 대기 | 웹 진단 화면 | 민감정보 제거된 제한 크기 로그, 번역/수집/동기화 오류 구분, 복사/내보내기·삭제, 작은 화면 페이지 탐색 |
@@ -126,3 +127,6 @@ WTR/NovelBuddy 수집·서버 번역·원문/번역 서재·Google 웹 번역 �
 S4b1 재구현 없이 공유 실제 로컬 책 확인, 공유 본문 선택 방지, 내장 폰트, Gemini 공통 제공자 지원을 진행했다. 일반 계정 메모 선택과 기존 사용자 데이터를 보존한다. Typesafe Jev는 텍스트 생성 API가 아니며 추가하지 않는다. S4b2/S4c는 기존 미완료 상태를 유지한다. 최종 검증 결과는 후속 기록에 남긴다.
 
 후속 최종 자동 검증: 웹 432개 통과/1개 제외, 공유 HTTP 20개, 번역 runtime 45개, 서버 191개 통과, Android 475개 통과/15개 기존 opt-in 제외. APK·계측 소스·lint 빌드 성공. Gemini 추가에 따른 loopback 예상 호출 수와 raw HTTP framed-body 읽기 경합을 수정하고 재검증했다. 공유 폰트 라이선스도 실제 Android HTTP 200으로 확인했다. 수정 후 Chrome 터치/물리 볼륨 확인과 최신 CI는 별도 대기 상태다.
+
+- 2026-10-03 17시 heartbeat: PR #35 최종 `54236c48`의 [Android CI](https://github.com/gongdongho12/PageTuner/actions/runs/37107551444)가 4분13초에 성공했다. 다른 채팅의 `.gitignore`, `frontend/`, `scripts/`, 로컬 개선 기록을 보존하고 `codex/portable-content-proof`에서 S4b2a 선행 계약을 분리했다. 공통 Kotlin·웹 구현과 독립 검토를 병행했고 같은 Gradle 출력을 동시에 빌드하지 않았다. 이전 공유 Chrome 터치/볼륨 확인은 답변이 없어 미검증 상태를 유지하며 만료된 공유 코드를 재사용하지 않는다.
+- S4b2a 검증 완료: core-backup 14개, backup-runtime 16개, 웹 443개/60파일·계약 14개/typecheck/build, Android 475개 통과/15개 기존 opt-in 제외 및 APK/lint. 전체 원본 bytes·ordered 참조의 Kotlin/웹 증명을 독립 Python 벡터 3개와 대조했다. proof 자체 metadata 변조와 정확한 위치 계약을 독립 검토로 보완했다. 다음 S4b2b는 실제 서버 자산 보관·전체 재검증과 명시적 연결 UI이며 이번 단위로 연결 지원이 완료됐다고 표시하지 않는다.
