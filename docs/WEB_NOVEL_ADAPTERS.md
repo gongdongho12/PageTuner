@@ -9,6 +9,8 @@ The complete catalog-to-offline runtime and its pure Kotlin integration-test
 boundary are documented in [Web Novel End-to-End Flow](WEB_NOVEL_END_TO_END_FLOW.md).
 Executed test results and the real-site verification diagram are in
 [Web Novel Provider Test Report](WEB_NOVEL_TEST_REPORT.md).
+The installable manifest + adapter factory contract is documented in
+[Web Novel Provider Plugins](WEB_NOVEL_PROVIDER_PLUGINS.md).
 
 Web novel support is split into a site-independent source orchestrator and
 site-specific adapters. Adding a site must not require conditionals in

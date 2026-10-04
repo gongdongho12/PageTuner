@@ -79,10 +79,7 @@ data class WebCatalogUiState(
     val visibleItems: List<RemoteBookItem> = emptyList(),
     val coverThumbnails: Map<String, ByteArray> = emptyMap(),
     val cachedCatalogs: List<CachedWebCatalog> = emptyList(),
-    val sourceAccounts: List<RemoteSourceAccount> = listOf(
-        defaultWtrLabAccount(),
-        defaultNovelBuddyAccount(),
-    ),
+    val sourceAccounts: List<RemoteSourceAccount> = defaultWebNovelAccounts(),
     val translatedItems: Map<String, CatalogItemTranslation> = emptyMap(),
     val catalogTranslationProgress: CatalogTranslationProgress? = null,
     val batchDownloadProgress: BatchDownloadProgress? = null,
@@ -586,7 +583,7 @@ class WebCatalogViewModel(
             runCatching {
                 accountStore.list()
             }.onSuccess { accounts ->
-                val finalAccounts = (accounts + defaultWtrLabAccount() + defaultNovelBuddyAccount())
+                val finalAccounts = (accounts + defaultWebNovelAccounts())
                     .distinctBy(RemoteSourceAccount::id)
                 _uiState.update { state -> state.copy(sourceAccounts = finalAccounts) }
             }
@@ -833,8 +830,10 @@ class WebCatalogViewModel(
     }
 
     private fun accountIdForCatalog(url: String): String {
-        if (url.contains("wtr-lab.com", ignoreCase = true)) return defaultWtrLabAccount().id
-        if (url.contains("novelbuddy.me", ignoreCase = true)) return defaultNovelBuddyAccount().id
+        com.dongholab.pagetuner.source.webnovel.WebNovelProviderPlugins.findDiscoverableByUrl(url)
+            ?.manifest
+            ?.accountId
+            ?.let { return it }
         return _uiState.value.sourceAccounts.firstOrNull { account ->
             account.endpoint.substringBefore('?').trimEnd('/') == url.substringBefore('?').trimEnd('/')
         }?.id ?: "web_novel"

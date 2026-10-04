@@ -177,6 +177,10 @@ class WebNovelSiteAdapterRegistry(
         registered.add(0, adapter)
     }
 
+    fun register(plugin: WebNovelProviderPlugin) {
+        register(plugin.createAdapter())
+    }
+
     @Synchronized
     fun resolve(url: String): WebNovelSiteAdapter {
         return registered.firstOrNull { it.supports(url) }
@@ -189,10 +193,10 @@ class WebNovelSiteAdapterRegistry(
     companion object {
         val default: WebNovelSiteAdapterRegistry by lazy { WebNovelSiteAdapterRegistry() }
 
-        private fun defaultAdapters(): List<WebNovelSiteAdapter> = listOf(
-            WtrLabSiteAdapter(),
-            NovelBuddySiteAdapter(),
-            GenericWebNovelSiteAdapter(),
-        )
+        fun fromPlugins(plugins: List<WebNovelProviderPlugin>): WebNovelSiteAdapterRegistry =
+            WebNovelSiteAdapterRegistry(plugins.map(WebNovelProviderPlugin::createAdapter))
+
+        private fun defaultAdapters(): List<WebNovelSiteAdapter> =
+            WebNovelProviderPlugins.builtIn.map(WebNovelProviderPlugin::createAdapter)
     }
 }
