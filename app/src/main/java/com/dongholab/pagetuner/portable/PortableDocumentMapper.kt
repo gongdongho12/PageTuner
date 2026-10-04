@@ -34,11 +34,33 @@ internal fun portableMillis(value: String): Long = runCatching {
 }.getOrDefault(0L)
 
 data class PortablePageAnchor(val paragraphId: String, val startOffset: Int)
+data class PortableReaderPosition(val pageIndex: Int, val characterOffset: Int)
 data class PortableReaderMapping(val document: ReaderDocument, val anchors: List<PortablePageAnchor?>) {
-    fun pageFor(anchor: ExchangeAnchor): Int = anchors.indices.lastOrNull { index ->
-        anchors[index]?.let { it.paragraphId == anchor.paragraphId && it.startOffset <= anchor.characterOffset } == true
-    } ?: 0
-    fun anchorFor(pageIndex: Int): ExchangeAnchor? = anchors.getOrNull(pageIndex)?.let { ExchangeAnchor(it.paragraphId, it.startOffset) }
+    fun positionFor(anchor: ExchangeAnchor): PortableReaderPosition {
+        val page = requireNotNull(anchors.indices.lastOrNull { index ->
+            anchors[index]?.let { it.paragraphId == anchor.paragraphId && it.startOffset <= anchor.characterOffset } == true
+        }) { "The paragraph does not belong to this reader mapping." }
+        val offset = anchor.characterOffset - requireNotNull(anchors[page]).startOffset
+        validateOffset(page, offset)
+        return PortableReaderPosition(page, offset)
+    }
+    fun pageFor(anchor: ExchangeAnchor): Int = positionFor(anchor).pageIndex
+    fun anchorFor(pageIndex: Int, characterOffset: Int = 0): ExchangeAnchor? = anchors.getOrNull(pageIndex)?.let {
+        validateOffset(pageIndex, characterOffset)
+        ExchangeAnchor(it.paragraphId, it.startOffset + characterOffset)
+    }
+    fun initialPosition(anchor: ExchangeAnchor?, pageOverride: Int? = null): PortableReaderPosition {
+        val saved = anchor?.let(::positionFor)
+        // Other clients update the portable anchor but leave this passive Android extension alone.
+        // Only an image/physical page without an anchor can take priority over a saved text position.
+        val page = pageOverride?.takeIf { saved == null || anchors.getOrNull(it) == null } ?: saved?.pageIndex ?: 0
+        require(page in document.pages.indices)
+        return PortableReaderPosition(page, saved?.takeIf { it.pageIndex == page }?.characterOffset ?: 0)
+    }
+    private fun validateOffset(page: Int, offset: Int) {
+        val text = document.pages[page].plainText
+        require(offset in 0..text.length && !(offset in 1 until text.length && text[offset - 1].isHighSurrogate() && text[offset].isLowSurrogate()))
+    }
 }
 
 /** Explicit book content projection: settings, credentials, server account IDs and API keys never enter a package. */
@@ -158,7 +180,7 @@ object PortableDocumentMapper {
 
     /** Existing imported ranges, timestamps and hidden metadata survive an unchanged Android reader projection. */
     fun mergeReader(value: ExchangeDocument, mapping: PortableReaderMapping, pageIndex: Int,
-        bookmarks: List<ReaderBookmark>, annotations: List<ReaderAnnotation>): ExchangeDocument {
+        bookmarks: List<ReaderBookmark>, annotations: List<ReaderAnnotation>, characterOffset: Int? = null): ExchangeDocument {
         val initialBookmarks = PortableDocumentMapper.bookmarks(value, mapping).associateBy { it.id }
         val initialAnnotations = PortableDocumentMapper.annotations(value, mapping).associateBy { it.id }
         val originals = value.notes.associateBy { it.id }
@@ -170,7 +192,8 @@ object PortableDocumentMapper {
             else mapping.anchorFor(note.pageIndex)?.let { ExchangeNote(note.id, if (note.type == ReaderAnnotationType.Highlight) "highlight" else "note", "", note.text,
                 if (note.type == ReaderAnnotationType.Highlight) note.text else "", it, createdAt = portableTimestamp(note.createdAtMillis)) }
         } + value.notes.filter { it.kind != "bookmark" && it.id !in initialAnnotations }
-        val position = value.position?.takeIf { mapping.pageFor(it) == pageIndex } ?: mapping.anchorFor(pageIndex) ?: value.position
+        val position = if (characterOffset != null) mapping.anchorFor(pageIndex, characterOffset) ?: value.position
+            else value.position?.takeIf { mapping.pageFor(it) == pageIndex } ?: mapping.anchorFor(pageIndex) ?: value.position
         val byId = notes.associateBy { it.id }
         val orderedNotes = value.notes.mapNotNull { byId[it.id] } + notes.filter { it.id !in originals }
         return value.copy(position = position, notes = orderedNotes)

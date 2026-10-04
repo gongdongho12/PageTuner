@@ -59,6 +59,59 @@ class ServerReadingProgressTest {
         assertThrows(IllegalArgumentException::class.java) { document.anchor(1, 1) }
     }
 
+    @Test fun paragraphEndsAndEmptyParagraphsRestoreExactlyWithoutEchoingWritesForEitherRecordKind() = runTest {
+        val original = document(texts = listOf("", "a".repeat(1099) + "😀z", "", "last"))
+        val source = original.source.sourceContent!!
+        val artifact = com.dongholab.pagetuner.core.translation.TranslationArtifact(source.identity, source.sourceRevision,
+            "en", "ko", "test", "", "", "", source.paragraphs.map {
+                com.dongholab.pagetuner.core.translation.TranslatedParagraph(it.paragraphId, it.text)
+            })
+        val stored = com.dongholab.pagetuner.core.translation.StoredTranslation(id, artifact, timestamp)
+        val translation = ServerReadingDocument.create(original.accountKey, ServerLibraryDocument(
+            original.source.entry.copy(language = "ko", kind = ServerLibraryKind.Translations), original.source.paragraphs, stored))
+        val anchors = listOf(ServerReadingAnchor("p1", 0), ServerReadingAnchor("p2", 1099),
+            ServerReadingAnchor("p2", 1102), ServerReadingAnchor("p3", 0), ServerReadingAnchor("p4", 4))
+        for (document in listOf(original, translation)) for (anchor in anchors) {
+            val store = MemoryStore()
+            var puts = 0
+            val remote = progress(3, anchor.paragraphId, anchor.characterOffset).copy(kind = document.source.entry.kind.progressKind())
+            val connection = connection { request -> if (request.method == "PUT") puts++; response(remote) }
+            val sync = ServerReadingProgressSync(backgroundScope, store)
+            val reader = com.dongholab.pagetuner.reader.ReaderViewModel(document.mapping.document)
+            sync.open(document, connection, 0)
+            val restored = sync.state.first { it.phase == ReadingProgressPhase.Synced }.restore!!
+            assertTrue(applyServerReadingProgressRestore(reader, sync, restored))
+            val current = reader.uiState.value
+            assertEquals(anchor, document.anchor(current.safePageIndex, current.characterOffset))
+            sync.pageChanged(document.readerId, current.safePageIndex, current.pageChangeRevision, current.characterOffset)
+            advanceTimeBy(1000); runCurrent()
+            assertEquals(0, puts)
+            assertNull(store.records.getValue(document.key).pending)
+            assertEquals(anchor, store.records.getValue(document.key).remote!!.anchor)
+            sync.connect(null)
+            sync.state.first { it.phase == ReadingProgressPhase.Inactive }
+        }
+    }
+
+    @Test fun invalidSurrogateAndUnknownParagraphNeverResolveToAConvenientPageOrPublish() = runTest {
+        val document = document(texts = listOf("😀", ""))
+        listOf(ServerReadingAnchor("p1", 1), ServerReadingAnchor("p1", 3), ServerReadingAnchor("missing", 0)).forEach { anchor ->
+            assertThrows(IllegalArgumentException::class.java) { document.page(anchor) }
+            assertThrows(IllegalArgumentException::class.java) { document.characterOffset(anchor) }
+        }
+        val store = MemoryStore()
+        var puts = 0
+        val connection = connection { request -> if (request.method == "PUT") puts++; response(progress(0)) }
+        val sync = ServerReadingProgressSync(backgroundScope, store)
+        sync.open(document, connection, 0)
+        sync.state.first { it.phase == ReadingProgressPhase.Synced }
+        sync.pageChanged(document.readerId, 0, 1, 1)
+        sync.state.first { it.phase == ReadingProgressPhase.DeviceError }
+        advanceTimeBy(1000); runCurrent()
+        assertEquals(0, puts)
+        assertNull(store.records.getValue(document.key).pending)
+    }
+
     @Test fun unresolvedBackwardPageCannotPublishTemporaryOffsetThroughLateRestoreGuard() = runTest {
         val store = MemoryStore()
         val document = document()

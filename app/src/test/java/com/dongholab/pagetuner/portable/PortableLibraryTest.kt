@@ -95,6 +95,81 @@ class PortableLibraryTest {
         assertFalse(exported.documents.single().extensionsJson!!.contains("account", ignoreCase = true))
     }
 
+    @Test fun zipOpenAndUnchangedReaderPersistenceKeepEndAndEmptyAnchorsThroughReexport() {
+        val paragraphs = listOf(ExchangeParagraph("empty-first", ""), ExchangeParagraph("split", "x".repeat(1099) + "🌏z"),
+            ExchangeParagraph("empty-middle", ""), ExchangeParagraph("last", "Done🌏"))
+        val anchors = listOf(ExchangeAnchor("empty-first", 0), ExchangeAnchor("split", 1099), ExchangeAnchor("split", 1101),
+            ExchangeAnchor("split", 1102), ExchangeAnchor("empty-middle", 0), ExchangeAnchor("last", 6))
+        for (anchor in anchors) {
+            val note = ExchangeNote("kept", "note", "At a boundary", "Device note", "", anchor, "2026-09-15T00:00:00Z")
+            val original = simplePackage().documents.single().copy(paragraphs = paragraphs, position = anchor, notes = listOf(note))
+            val store = PortableLibraryStore(temporary.newFolder())
+            val imported = store.importArchive(LibraryExchangeCodec.write(simplePackage().copy(documents = listOf(original)))).entries.single()
+            val mapping = PortableDocumentMapper.reader(imported.document, emptyList(), imported.readerId)
+            val pageState = PortablePageMetadata.read(imported.document, mapping, pdf = false)
+            val position = mapping.initialPosition(imported.document.position, pageState.pageIndex)
+            val bookmarks = PortableDocumentMapper.bookmarks(imported.document, mapping)
+            val annotations = PortableDocumentMapper.annotations(imported.document, mapping)
+            val reader = com.dongholab.pagetuner.reader.ReaderViewModel(mapping.document)
+            reader.applyLoadedDocument(LoadedReaderDocument(mapping.document), null, position.pageIndex, bookmarks, annotations, position.characterOffset)
+            val opened = reader.uiState.value
+            assertEquals(anchor, mapping.anchorFor(opened.safePageIndex, opened.characterOffset))
+            store.update(imported) { value ->
+                val pageMetadata = PortablePageMetadata.merge(value, mapping, opened.safePageIndex, opened.bookmarks, opened.annotations, false)
+                PortableDocumentMapper.mergeReader(pageMetadata, mapping, opened.safePageIndex, opened.bookmarks, opened.annotations, opened.characterOffset)
+            }
+            val exported = LibraryExchangeCodec.read(store.export(imported)).documents.single()
+            assertEquals(anchor, exported.position)
+            assertEquals(listOf(note), exported.notes)
+            assertEquals(paragraphs, exported.paragraphs)
+        }
+    }
+
+    @Test fun portableRelativeOffsetsRejectInvalidBoundariesAndPersistMovementWithinOnePage() {
+        val value = simplePackage().documents.single().copy(paragraphs = listOf(ExchangeParagraph("p", "A🌏B")), position = ExchangeAnchor("p", 1))
+        val mapping = PortableDocumentMapper.reader(value, emptyList(), "reader")
+        listOf(ExchangeAnchor("p", 2), ExchangeAnchor("p", 5), ExchangeAnchor("missing", 0)).forEach { anchor ->
+            assertThrows(IllegalArgumentException::class.java) { mapping.positionFor(anchor) }
+        }
+        assertThrows(IllegalArgumentException::class.java) { mapping.anchorFor(0, 2) }
+        val changed = PortableDocumentMapper.mergeReader(value, mapping, 0, emptyList(), emptyList(), 4)
+        assertEquals(ExchangeAnchor("p", 4), changed.position)
+        assertEquals(PortableReaderPosition(0, 4), mapping.initialPosition(changed.position))
+    }
+
+    @Test fun latestPortableAnchorWinsOverPassiveTextPageWhileImagePagePositionAndNotesSurvive() {
+        val fixture = requireNotNull(javaClass.classLoader?.getResourceAsStream("library-exchange-v1/portable-v1.zip"))
+            .use { LibraryExchangeCodec.read(it.readBytes()) }
+        val image = fixture.assets.first { it.mimeType == "image/png" }
+        val original = simplePackage().documents.single().copy(
+            paragraphs = listOf(ExchangeParagraph("first", "Previous page"), ExchangeParagraph("last", "Done🌏")),
+            position = ExchangeAnchor("first", 2), assets = listOf(ExchangeAssetReference(image.path, "image")))
+        val mapping = PortableDocumentMapper.reader(original, listOf(image), "reader")
+        val imageBookmark = ReaderBookmark("image-bookmark", 2, "Illustration", 1L)
+        val androidSaved = PortablePageMetadata.merge(original, mapping, 0, listOf(imageBookmark), emptyList(), false)
+        // A web reader edits the canonical anchor, retaining unknown Android metadata unchanged.
+        val webEdited = androidSaved.copy(position = ExchangeAnchor("last", 6))
+        val decoded = LibraryExchangeCodec.read(LibraryExchangeCodec.write(
+            simplePackage().copy(documents = listOf(webEdited), assets = listOf(image)))).documents.single()
+        val passive = PortablePageMetadata.read(decoded, mapping, pdf = false)
+        assertEquals(0, passive.pageIndex)
+        assertEquals(listOf(imageBookmark), passive.bookmarks)
+        val position = mapping.initialPosition(decoded.position, passive.pageIndex)
+        assertEquals(PortableReaderPosition(1, 6), position)
+        val metadata = PortablePageMetadata.merge(decoded, mapping, position.pageIndex, passive.bookmarks, emptyList(), false)
+        val saved = PortableDocumentMapper.mergeReader(metadata, mapping, position.pageIndex, passive.bookmarks, emptyList(), position.characterOffset)
+        assertEquals(ExchangeAnchor("last", 6), saved.position)
+        assertEquals(listOf(imageBookmark), PortablePageMetadata.read(saved, mapping, pdf = false).bookmarks)
+
+        // An actual image-only page has no portable anchor, so its explicit page state still wins.
+        val imageSaved = PortablePageMetadata.merge(saved, mapping, 2, passive.bookmarks, emptyList(), false)
+        val imageState = PortablePageMetadata.read(imageSaved, mapping, pdf = false)
+        assertEquals(PortableReaderPosition(2, 0), mapping.initialPosition(imageSaved.position, imageState.pageIndex))
+        val unchangedImage = PortableDocumentMapper.mergeReader(imageSaved, mapping, 2, imageState.bookmarks, emptyList(), 0)
+        assertEquals(ExchangeAnchor("last", 6), unchangedImage.position)
+        assertEquals(listOf(imageBookmark), PortablePageMetadata.read(unchangedImage, mapping, pdf = false).bookmarks)
+    }
+
     @Test fun missingPdfOrEpubImagesFailBeforeProducingAnIncompleteArchive() {
         val pdf = ReaderDocument("pdf", "PDF", DocumentFormat.PDF, listOf(ReaderPage(0, emptyList())))
         assertThrows(IllegalArgumentException::class.java) { PortableDocumentMapper.native(nativeBook(), pdf) }
