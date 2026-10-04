@@ -1,4 +1,27 @@
 <resources>
+    <string name="portable_glossary_value_absent">용어집 미등록 값입니다.</string>
+    <string name="portable_glossary_value_deleted">용어집 삭제를 기록한 값입니다.</string>
+    <string name="portable_glossary_value_present">용어집 목록 값입니다. 빈 목록도 보존합니다.</string>
+    <string name="portable_glossary_review">ZIP 용어집 계정 채택 검토</string>
+    <string name="portable_glossary_adoption_description">ZIP 범위를 선택하고 전체 항목을 서버·기기 값과 비교한 뒤 채택을 명시적으로 확인하세요.</string>
+    <string name="portable_glossary_compare">이 범위 정확히 비교</string>
+    <string name="portable_glossary_compared">비교 완료. ZIP·계정·기기 탭을 검토한 뒤 확인하세요.</string>
+    <string name="portable_glossary_entry_count">항목 수 (null은 목록 없음)</string>
+    <string name="portable_glossary_destination_account">대상 서버와 계정</string>
+    <string name="portable_glossary_no_snapshots">이 ZIP에 지원되는 계정 용어집 스냅샷이 없습니다.</string>
+    <string name="portable_glossary_no_device_record">기기에 캐시된 계정 용어집이 없습니다.</string>
+    <string name="portable_glossary_absent_info">미등록 스냅샷은 정보만 제공합니다. 계정 용어집을 만들거나 삭제할 수 없습니다.</string>
+    <string name="portable_glossary_fresh_server">비교 시점에 서버에서 읽은 값입니다. 최종 확인할 때 다시 검사합니다.</string>
+    <string name="portable_glossary_device_cache">비교용 기기 계정 캐시입니다. 기기 전용 사전은 바꾸지 않습니다.</string>
+    <string name="portable_glossary_device_selected">이 기기에서 계정 용어집 사용 선택됨</string>
+    <string name="portable_glossary_confirm_warning">위 범위의 계정 용어집 전체를 교체합니다. ZIP의 모든 항목과 설정을 그대로 보존합니다.</string>
+    <string name="portable_glossary_confirm_delete">이 계정 용어집 삭제 확정</string>
+    <string name="portable_glossary_confirm_replace">이 계정 용어집 교체 확정</string>
+    <string name="portable_glossary_scope">범위</string>
+    <string name="portable_glossary_zip">ZIP</string>
+    <string name="portable_glossary_account">계정</string>
+    <string name="portable_glossary_device">기기</string>
+    <string name="portable_glossary_confirm">확인</string>
     <string name="portable_glossary_export">최신 계정 용어집 포함 ZIP 내보내기</string>
     <string name="portable_glossary_export_description">문서를 먼저 서버에 연결하세요. 선택 언어의 최신 계정 용어집을 읽습니다. 대기 중인 수정과 충돌은 먼저 해결하세요.</string>
     <string name="portable_glossary_export_replace">내보낼 사본의 선택 용어집만 교체하고 다른 언어는 보존합니다. ZIP을 가져오기만 하면 용어집이 적용되거나 삭제되지 않습니다.</string>
