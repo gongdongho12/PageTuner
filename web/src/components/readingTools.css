@@ -27,6 +27,8 @@
 .reading-field label { font-weight:700; }
 .reading-field input,.reading-field select,.reading-field textarea { width:100%; min-height:44px; border:1px solid #777; border-radius:0; padding:8px; background:#fff; color:#111; font:inherit; }
 .reading-field textarea { resize:none; height:64px; }
+.glossary-adoption-field textarea { height:72px; min-height:72px; white-space:pre-wrap; overflow-wrap:anywhere; font:16px/24px monospace; }
+.glossary-adoption-panel button { min-width:44px; min-height:44px; }
 .reading-field p { margin:0; line-height:1.6; }
 .reading-item,.reading-note-item { height:100%; width:100%; padding:12px 16px; display:flex; align-items:center; gap:16px; overflow:hidden; }
 .reading-note-copy { flex:1; min-width:0; display:flex; flex-direction:column; gap:8px; }
@@ -64,6 +66,8 @@
 .exchange-export-actions { flex:none; flex-wrap:wrap; align-items:center; gap:4px 8px; }
 .exchange-export-actions > :first-child { flex:1 1 auto; }
 .exchange-export-actions > :last-child { flex:1 1 100%; }
+.reading-workspace .exchange-book-actions { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); }
+.reading-workspace .exchange-book-actions button { height:44px; padding:4px; font-size:12px; line-height:16px; }
 @media(min-width:640px) {
   .exchange-export-actions { flex-wrap:nowrap; }
   .exchange-export-actions > :last-child { flex:1 1 auto; }

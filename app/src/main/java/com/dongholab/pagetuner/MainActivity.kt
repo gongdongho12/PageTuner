@@ -248,6 +248,7 @@ fun PageTurnerApp() {
     val readerState by readerViewModel.uiState.collectAsState()
     val libraryState by libraryViewModel.uiState.collectAsState()
     val portableState by portableViewModel.state.collectAsState()
+    val portableAdoptionState by portableViewModel.glossaryAdoption.state.collectAsState()
     val portableIdentityState by portableIdentityViewModel.verification.state.collectAsState()
     val webCatalogState by webCatalogViewModel.uiState.collectAsState()
     val translationState by translationViewModel.uiState.collectAsState()
@@ -735,9 +736,14 @@ fun PageTurnerApp() {
         serverGlossaryViewModel.sync.connect(serverReadingConnection)
         serverReaderPreferencesViewModel.sync.connect(serverReadingConnection)
     }
-    LaunchedEffect(glossaryTarget, serverReadingConnection) {
+    // A confirmed ZIP intent owns the visible sync panel only while its local-library screen is shown.
+    // Returning to the reader restores its original glossary even when its document did not change.
+    val focusedGlossaryTarget = portableAdoptionState.comparison?.snapshot?.identity?.takeIf {
+        portableAdoptionState.committed && selectedTab == AppTab.Local && portableViewModel.glossaryAdoption.matches(serverReadingConnection)
+    }?.let { identity -> serverReadingConnection?.let { com.dongholab.pagetuner.translation.sync.BookGlossaryTarget(it.accountKey, identity) } } ?: glossaryTarget
+    LaunchedEffect(focusedGlossaryTarget, serverReadingConnection) {
         val connection = serverReadingConnection
-        if (glossaryTarget != null && connection != null) serverGlossaryViewModel.sync.open(glossaryTarget, connection)
+        if (focusedGlossaryTarget != null && connection != null) serverGlossaryViewModel.sync.open(focusedGlossaryTarget, connection)
         else serverGlossaryViewModel.sync.close()
     }
     LaunchedEffect(serverReadingDocument, serverReadingConnection, document.id) {
@@ -966,7 +972,21 @@ fun PageTurnerApp() {
                                 libraryViewModel.importBook(Uri.fromFile(file))
                             },
                             transferContent = {
-                                if (portableIdentityState.entry != null) com.dongholab.pagetuner.portable.PortableIdentityPanel(
+                                if (portableAdoptionState.entry != null) com.dongholab.pagetuner.portable.PortableGlossaryAdoptionPanel(
+                                    state = portableAdoptionState,
+                                    accountLabel = "${serverLibraryState.connection.endpoint} · ${serverLibraryState.profile?.username ?: serverLibraryState.connection.username}",
+                                    current = portableViewModel.glossaryAdoption.matches(serverReadingConnection),
+                                    onBack = portableViewModel.glossaryAdoption::close,
+                                    onCompare = { portableViewModel.glossaryAdoption.compare(it, serverLibraryViewModel::readingConnection) },
+                                    onConfirm = { portableViewModel.glossaryAdoption.confirm(it, serverLibraryViewModel::readingConnection, serverGlossaryViewModel.sync) },
+                                    syncContent = {
+                                        val target = portableAdoptionState.comparison?.snapshot?.identity
+                                        if (observedServerGlossaryState.accountKey == serverReadingConnection?.accountKey && observedServerGlossaryState.target?.identity == target)
+                                            com.dongholab.pagetuner.ui.translation.ServerBookGlossaryPanel(observedServerGlossaryState,
+                                                serverGlossaryViewModel.sync, localBooks, glossaryStore)
+                                        else Text(stringResource(R.string.book_glossary_unavailable))
+                                    })
+                                else if (portableIdentityState.entry != null) com.dongholab.pagetuner.portable.PortableIdentityPanel(
                                     portableIdentityState, serverReadingConnection != null,
                                     portableIdentityViewModel.verification.matches(serverReadingConnection),
                                     onBack = portableIdentityViewModel.verification::close,
@@ -978,6 +998,9 @@ fun PageTurnerApp() {
                                     onUnbind = { portableIdentityViewModel.verification.unbind(portableIdentityState.session,
                                         serverLibraryViewModel.readingConnection(), portableViewModel::removeBinding) },
                                     exportState = portableState,
+                                    onReviewGlossary = { portableIdentityState.entry?.let { entry ->
+                                        portableViewModel.glossaryAdoption.select(entry, serverLibraryViewModel.readingConnection(), serverLibraryViewModel::readingConnection)
+                                    } },
                                     onExportGlossary = { language ->
                                         val connection = serverLibraryViewModel.readingConnection()
                                         val selected = portableIdentityViewModel.verification.state.value

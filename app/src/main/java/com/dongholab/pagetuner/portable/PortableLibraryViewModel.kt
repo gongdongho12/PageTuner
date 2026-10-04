@@ -35,8 +35,8 @@ data class PortableOpened(val entry: PortableLibraryEntry, val loaded: LoadedRea
 
 class PortableLibraryViewModel(private val context: Context, private val local: LocalLibraryStore) : ViewModel() {
     private val bindings = PortableServerBindingStore(File(context.filesDir, "portable_server_bindings"))
-    fun saveBinding(value: PortableServerBinding) { bindings.save(value) }
-    fun removeBinding(accountKey: String, entry: PortableLibraryEntry) { bindings.remove(accountKey, entry) }
+    fun saveBinding(value: PortableServerBinding) { glossaryAdoption.close(); bindings.save(value) }
+    fun removeBinding(accountKey: String, entry: PortableLibraryEntry) { glossaryAdoption.close(); bindings.remove(accountKey, entry) }
 
     private val store = PortableLibraryStore(File(context.filesDir, "portable_library"))
     private val mutableState = MutableStateFlow(PortableLibraryState())
@@ -45,6 +45,8 @@ class PortableLibraryViewModel(private val context: Context, private val local: 
     val opened = mutableOpened.asSharedFlow()
     private val exportTickets = PortableExportTickets()
     private val glossaryJournal = FileServerBookGlossaryStore(File(context.filesDir, "server-book-glossaries"))
+    val glossaryAdoption = PortableGlossaryAdoption(viewModelScope, ::currentDocument,
+        { entry -> store.read(entry).documents[entry.documentIndex] }, bindings::read, glossaryJournal::read)
     private var exportConnection: ServerReadingConnection? = null
     private val readerGenerations = mutableMapOf<String, Long>()
     private val readerWrites = mutableMapOf<String, Deferred<Result<Unit>>>()
@@ -53,6 +55,7 @@ class PortableLibraryViewModel(private val context: Context, private val local: 
 
     init { refresh() }
     fun connect(value: ServerReadingConnection?) {
+        glossaryAdoption.connect(value)
         exportTickets.connect(value)
         if (exportConnection != value) {
             exportConnection = value

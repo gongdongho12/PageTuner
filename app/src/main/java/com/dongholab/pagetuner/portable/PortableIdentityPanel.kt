@@ -22,7 +22,7 @@ private data class IdentityRow(val key: String, val content: @Composable (Modifi
 @Composable
 fun PortableIdentityPanel(state: PortableIdentityState, connected: Boolean, currentSession: Boolean,
     onBack: () -> Unit, onRecord: (String) -> Unit, onCheck: () -> Unit, onBind: () -> Unit = {}, onReadServer: () -> Unit = {}, onUnbind: () -> Unit = {},
-    exportState: PortableLibraryState = PortableLibraryState(), onExportGlossary: (String) -> Unit = {}, modifier: Modifier = Modifier) {
+    exportState: PortableLibraryState = PortableLibraryState(), onExportGlossary: (String) -> Unit = {}, onReviewGlossary: () -> Unit = {}, modifier: Modifier = Modifier) {
     val rowHeight = 116.dp * LocalDensity.current.fontScale.coerceAtLeast(1f)
     var glossaryLanguage by remember(state.entry?.key, state.session, state.identity) { mutableStateOf(state.identity?.targetLanguage ?: "ko") }
     val exportEnabled = connected && currentSession && !state.busy && !exportState.busy && state.identity?.let { identity ->
@@ -63,6 +63,9 @@ fun PortableIdentityPanel(state: PortableIdentityState, connected: Boolean, curr
         enabled = currentSession && !state.busy && !exportState.busy, modifier = row) }
     rows += IdentityRow("glossary_export") { row -> OutlinedButton(onClick = { onExportGlossary(glossaryLanguage) },
         enabled = exportEnabled, modifier = row.heightIn(min = 44.dp)) { Text(stringResource(R.string.portable_glossary_export)) } }
+    rows += IdentityRow("glossary_adoption") { row -> OutlinedButton(onClick = onReviewGlossary,
+        enabled = connected && currentSession && !state.busy && !exportState.busy && state.identity != null,
+        modifier = row.heightIn(min = 44.dp)) { Text(stringResource(R.string.portable_glossary_review)) } }
     val exportStatus = when {
         exportState.busy -> stringResource(R.string.portable_busy)
         exportState.error != null -> exportState.error

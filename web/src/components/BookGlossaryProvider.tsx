@@ -1,9 +1,10 @@
-import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from 'react'
+import { createContext, useContext, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 import { createBookGlossaryStore, listBookGlossaryRecords } from '../lib/bookGlossaryStore'
 import { createBookGlossaryController, type BookGlossaryState } from '../lib/bookGlossarySync'
 import { BookGlossaryError, type BookGlossaryClient, type BookGlossaryScope } from '../lib/bookGlossaryApi'
 import { validateBookGlossaryScope, validateBookGlossaryView, sameBookGlossaryScope, sameBookGlossaryView, bookGlossaryKey, type BookGlossaryView } from '../lib/bookGlossaryApi'
 import { glossaryExportErrors, type FreshBookGlossaryReader } from '../lib/portableGlossaryExport'
+import { createPortableGlossaryAdoption, glossaryAdoptionErrors } from '../lib/portableGlossaryAdoption'
 
 type Controller = ReturnType<typeof createBookGlossaryController>
 const keyFor = (scope: BookGlossaryScope) => bookGlossaryKey(scope)
@@ -95,6 +96,17 @@ export class GlossaryRegistry {
       },
     }
   }
+  adoptionSession(current: () => boolean) {
+    const assertCurrent = () => { if (this.closed || !current()) throw new Error(glossaryAdoptionErrors.stale) }
+    return createPortableGlossaryAdoption({ username: this.username, api: this.api, assertCurrent,
+      onQueued: scope => {
+        assertCurrent()
+        // Only an explicitly confirmed, durably queued intent may start/reuse the outbox controller.
+        const entry = this.entry(scope)
+        void entry.ready.then(() => { if (!this.closed && current()) return entry.controller.refresh() }).catch(() => undefined)
+      },
+    })
+  }
   async drain() {
     if (!this.api || this.closed || this.draining) return
     this.draining = true
@@ -127,6 +139,19 @@ export class GlossaryRegistry {
 }
 
 const GlossaryContext = createContext<GlossaryRegistry | null | undefined>(undefined)
+
+export function usePortableGlossaryAdoption(namespace: string) {
+  const registry = useContext(GlossaryContext), active = registry?.username === namespace ? registry : null
+  const latest = useRef(active); latest.current = active
+  useLayoutEffect(() => { latest.current = active; return () => { latest.current = null } }, [active])
+  return { available: !!active?.api, session: active,
+    begin: () => {
+      if (!active?.api) throw new Error(glossaryAdoptionErrors.offline)
+      const origin = window.location.origin
+      return active.adoptionSession(() => latest.current === active && window.location.origin === origin)
+    },
+  }
+}
 
 /** The captured ticket expires even if an account is switched away and then selected again. */
 export function useFreshBookGlossary(namespace: string) {

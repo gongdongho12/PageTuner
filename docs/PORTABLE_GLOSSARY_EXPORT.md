@@ -22,6 +22,6 @@
 
 ## 남은 범위
 
-S4c2b의 명시적 채택은 별도다. 가져오기만으로 계정 연결·변경·삭제하지 않는다. absent는 적용 명령으로 바꾸지 않으며 deleted/present 채택은 현재 계정의 정확한 원본 scope를 확인하고 별도 사용자 선택·충돌 보존을 적용해야 한다. S1/S2/분류의 최신 ZIP 통합, 실제 자산의 서버 보관·연결도 미완료다. Android 실기기 SAF·회전/프로세스 재생성·핫스팟/절전 검증은 V3에 남긴다. workflow 추가 권한은 V5, 유료 API는 V2, 기존 용어집 JSON/조사/강조 화면 회귀는 V1이다.
+S4c2b의 [별도 명시적 채택](PORTABLE_GLOSSARY_ADOPTION.md)은 PR #41에 연결했다. 가져오기만으로 계정 연결·변경·삭제하지 않으며 absent는 정보만 표시한다. S1/S2/분류의 최신 ZIP 통합, 실제 자산의 서버 보관·연결도 미완료다. Android 실기기 SAF·회전/프로세스 재생성·핫스팟/절전 검증은 V3에 남긴다. workflow 추가 권한은 V5, 유료 API는 V2, 기존 용어집 JSON/조사/강조 화면 회귀는 V1이다.
 
-후속 구현에서 웹 `adoptLegacy()`는 ID 매핑/재생성 때문에 사용하지 않는다. `update()`와 Android `adopt()`도 기존 대기열 재사용·queued 추가·동일 null의 조기 반환이 있어 그대로 쓰지 않는다. 현재 target·서버 base·기기 base 전체와 pending/queued/conflict 부재를 원자적으로 검사하는 별도 정확한 snapshot 채택 명령이 필요하다. 특히 deleted를 absent 계정(version 0)에 채택할 때는 명시적 null tombstone mutation을 만들어야 한다. 기존 서버 PUT은 이를 지원한다. 500항목 계정 스냅샷을 200항목 workflow 정규화에 통과시키지 않는다.
+S4c2b 구현에서 웹 `adoptLegacy()`는 ID 매핑/재생성 때문에 사용하지 않는다. `update()`와 Android `adopt()`도 기존 대기열 재사용·queued 추가·동일 null의 조기 반환이 있어 그대로 쓰지 않는다. 현재 target·서버 base·기기 base 전체와 pending/queued/conflict 부재를 원자적으로 검사하는 별도 정확한 snapshot 채택 명령을 사용한다. 특히 deleted를 absent 계정(version 0)에 채택할 때는 명시적 null tombstone mutation을 만들어야 한다. 기존 서버 PUT은 이를 지원한다. 500항목 계정 스냅샷을 200항목 workflow 정규화에 통과시키지 않는다.

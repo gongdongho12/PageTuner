@@ -1,4 +1,27 @@
 <resources>
+    <string name="portable_glossary_value_absent">No glossary was registered in this value.</string>
+    <string name="portable_glossary_value_deleted">This value records a deleted glossary.</string>
+    <string name="portable_glossary_value_present">This value contains a glossary, including a possibly empty list.</string>
+    <string name="portable_glossary_review">Review ZIP glossary for account adoption</string>
+    <string name="portable_glossary_adoption_description">Choose a ZIP scope, compare its complete entries with the server and device, then explicitly confirm adoption.</string>
+    <string name="portable_glossary_compare">Compare this exact scope</string>
+    <string name="portable_glossary_compared">Comparison ready. Review ZIP, account and device tabs before confirming.</string>
+    <string name="portable_glossary_entry_count">Entry count (null means no list)</string>
+    <string name="portable_glossary_destination_account">Destination server and account</string>
+    <string name="portable_glossary_no_snapshots">No supported account glossary snapshots in this ZIP.</string>
+    <string name="portable_glossary_no_device_record">No cached account glossary on this device.</string>
+    <string name="portable_glossary_absent_info">Absent is information only. It cannot create or delete an account glossary.</string>
+    <string name="portable_glossary_fresh_server">Server value from the latest comparison. It will be checked again on confirmation.</string>
+    <string name="portable_glossary_device_cache">Device account cache for comparison. Native device dictionaries stay unchanged.</string>
+    <string name="portable_glossary_device_selected">Account glossary selected on this device</string>
+    <string name="portable_glossary_confirm_warning">This replaces the entire account glossary for the exact scope above. Every ZIP entry and flag is retained.</string>
+    <string name="portable_glossary_confirm_delete">Confirm deletion of this account glossary</string>
+    <string name="portable_glossary_confirm_replace">Confirm replacing this account glossary</string>
+    <string name="portable_glossary_scope">Scope</string>
+    <string name="portable_glossary_zip">ZIP</string>
+    <string name="portable_glossary_account">Account</string>
+    <string name="portable_glossary_device">Device</string>
+    <string name="portable_glossary_confirm">Confirm</string>
     <string name="portable_glossary_export">Export ZIP with latest account glossary</string>
     <string name="portable_glossary_export_description">Connect this document first. Read the chosen language from the current server account; pending edits and conflicts must be resolved.</string>
     <string name="portable_glossary_export_replace">Replace only the chosen glossary snapshot in the exported copy. Other languages stay. Importing this ZIP does not apply or delete a glossary.</string>

@@ -3,6 +3,11 @@ package com.dongholab.pagetuner.translation.sync
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import com.dongholab.pagetuner.core.backup.exchange.BookGlossarySnapshot
+import com.dongholab.pagetuner.core.backup.exchange.BookGlossarySnapshotPresence
+import com.dongholab.pagetuner.core.backup.exchange.BookGlossarySnapshotValidation
+import com.dongholab.pagetuner.translation.glossary.BookGlossaryEntry
+import com.dongholab.pagetuner.translation.glossary.GlossaryTermKind
 import java.util.UUID
 import kotlinx.coroutines.*
 import kotlinx.coroutines.channels.Channel
@@ -29,6 +34,9 @@ class ServerBookGlossarySync(private val scope: CoroutineScope, private val stor
         data class Edit(val session: Long, val value: BookGlossaryValue, val base: BookGlossaryEditBase, val adoption: Boolean = false) : Action
         data class Choose(val session: Long, val local: Boolean, val shown: BookGlossaryChoice) : Action
         data class Select(val session: Long, val base: BookGlossaryEditBase, val selected: Boolean) : Action
+        data class AdoptSnapshot(val id: String, val target: BookGlossaryTarget, val connection: ServerReadingConnection,
+            val device: DeviceBookGlossary, val remote: ServerBookGlossary, val snapshot: BookGlossarySnapshot,
+            val guard: () -> Unit, val result: CompletableDeferred<Result<Unit>>) : Action
         data class Received(val session: Long, val target: BookGlossaryTarget, val mutation: BookGlossaryMutation?,
             val result: Result<ServerBookGlossary>) : Action
     }
@@ -51,6 +59,7 @@ class ServerBookGlossarySync(private val scope: CoroutineScope, private val stor
     private var stale = false
     private var invalid = false
     private var editRevision = 0L
+    private val consumedSnapshotRequests = mutableSetOf<String>()
 
     init { scope.launch {
         for (action in actions) {
@@ -68,6 +77,20 @@ class ServerBookGlossarySync(private val scope: CoroutineScope, private val stor
     fun choose(session: Long, local: Boolean, shown: BookGlossaryChoice) { actions.trySend(Action.Choose(session, local, shown)) }
     fun selectAccount(session: Long, base: BookGlossaryEditBase) { actions.trySend(Action.Select(session, base, true)) }
     fun selectDevice(session: Long, base: BookGlossaryEditBase) { actions.trySend(Action.Select(session, base, false)) }
+    /** Only an explicitly confirmed comparison may install a fresh CAS intent; never append to an old outbox. */
+    suspend fun adoptSnapshot(id: String, target: BookGlossaryTarget, connection: ServerReadingConnection,
+        device: DeviceBookGlossary, remote: ServerBookGlossary, snapshot: BookGlossarySnapshot, guard: () -> Unit): Result<Unit> {
+        val result = CompletableDeferred<Result<Unit>>()
+        return try {
+            val capturedDevice = withContext(Dispatchers.IO) { decodeBookGlossaryJournal(encodeBookGlossaryJournal(target, device), target) }
+            val capturedRemote = ServerBookGlossaryJson.view(ServerBookGlossaryJson.encode(remote), target.identity)
+            val capturedSnapshot = snapshot.copy(entries = snapshot.entries?.map { it.copy() })
+            guard()
+            actions.send(Action.AdoptSnapshot(id, target, connection, capturedDevice, capturedRemote, capturedSnapshot, guard, result))
+            result.await()
+        } catch (cancelled: CancellationException) { throw cancelled }
+        catch (error: Exception) { Result.failure(error) }
+    }
     fun appendAliases(session: Long, base: BookGlossaryEditBase, suggestions: List<com.dongholab.pagetuner.translation.glossary.CharacterAliasSuggestion>) {
         val current = base.local ?: return
         val value = appendBookGlossaryAliases(current, suggestions)
@@ -76,6 +99,7 @@ class ServerBookGlossarySync(private val scope: CoroutineScope, private val stor
 
     private suspend fun handle(action: Action) {
         when (action) {
+            is Action.AdoptSnapshot -> adoptSnapshot(action)
             is Action.Connect -> {
                 if (connection?.client === action.connection?.client && !failedStorage) return
                 requestedTarget = null
@@ -180,6 +204,37 @@ class ServerBookGlossarySync(private val scope: CoroutineScope, private val stor
                 pump()
             }
         }
+    }
+    private suspend fun adoptSnapshot(action: Action.AdoptSnapshot) {
+        try {
+            require(consumedSnapshotRequests.add(action.id)) { "This adoption request was already used. Compare again." }
+            require(!failedStorage && connection?.accountKey == action.connection.accountKey && connection?.client === action.connection.client)
+            require(action.target.accountKey == action.connection.accountKey && action.remote.identity == action.target.identity &&
+                action.snapshot.identity == action.target.identity)
+            BookGlossarySnapshotValidation.validateSnapshot(action.snapshot)
+            require(action.snapshot.presence != BookGlossarySnapshotPresence.ABSENT) { "An absent snapshot is information only." }
+            require(action.device.pending == null && action.device.queued == null && action.device.conflict == null)
+            require(action.remote.version < MaxReadingVersion)
+            action.device.remote?.let { old -> require(newest(old, action.remote) == action.remote) }
+            records[action.target.key]?.let { require(it == action.device) { "The device glossary changed. Compare again." } }
+            val value = BookGlossaryValue(action.snapshot.entries?.map { entry -> BookGlossaryEntry(entry.id, entry.sourceTerm,
+                entry.translatedTerm, entry.displayTerm, GlossaryTermKind.valueOf(entry.kind.name), entry.caseSensitive, entry.enabled) })
+            ServerBookGlossaryJson.validateRequest(action.target.identity, value)
+            val next = action.device.copy(remote = action.remote, pending = mutation(action.remote.version, value), selected = true)
+            withContext(Dispatchers.IO) {
+                require(storage.read(action.target) == action.device) { "The device glossary changed. Compare again." }
+                action.guard() // Live account, binding and complete ZIP snapshot checked at the actual write boundary.
+                storage.write(action.target, next)
+            }
+            // The confirmed intent is durable even if logout happened during the atomic file write.
+            stop(); requestedTarget = action.target; active = action.target; targets[action.target.key] = action.target
+            records[action.target.key] = next; terminal.remove(action.target.key); retryAt.remove(action.target.key)
+            fetchNeeded = false; nextPollAt = clock() + 30_000; stale = false; invalid = false; editRevision++
+            publish(); action.result.complete(Result.success(Unit))
+            // Do not start a request with the old account when it changed during storage IO.
+            if (runCatching(action.guard).isSuccess) pump()
+        } catch (cancelled: CancellationException) { action.result.cancel(cancelled); throw cancelled }
+        catch (error: Exception) { stale = true; publish(); action.result.complete(Result.failure(error)) }
     }
     private suspend fun configure(value: ServerReadingConnection?) {
         stop(); connection = value; active = null; targets.clear(); records.clear(); terminal.clear(); retryAt.clear()

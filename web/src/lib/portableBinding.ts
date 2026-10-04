@@ -15,9 +15,14 @@ export function createPortableBindings(username: string, origin: string, storage
       const check = await inspectPortableIdentity(book.document)
       if (check.status !== 'ready' || !result.verified || result.kind !== check.identity.kind || !validRecordId(result.recordId) || !sameLibraryIdentity(check.identity, result.identity)) throw new Error('서버 연결 정보를 다시 확인해 주세요.')
       if (signal?.aborted) throw new Error('서버 연결 확인이 취소되었습니다.')
-      storage.setItem(key(book), JSON.stringify(result))
+      storage.setItem(key(book), JSON.stringify({ ...result, bindingNonce: crypto.randomUUID() }))
     },
     remove(book: SavedExchange) { storage.removeItem(key(book)) },
+    /** Local-only generation, never transferred to ZIP. Unlink/relink invalidates an old review. */
+    ticket(book: SavedExchange) {
+      const storageKey = key(book), captured = storage.getItem(storageKey)
+      return captured === null ? undefined : { current: () => storage.getItem(storageKey) === captured }
+    },
     async open(book: SavedExchange, client: LibraryIdentityClient | null, signal?: AbortSignal): Promise<ReadingDocument | undefined> {
       const raw = storage.getItem(key(book)); if (!raw) return undefined
       const check = await inspectPortableIdentity(book.document)
