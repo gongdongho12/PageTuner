@@ -24,6 +24,21 @@ async function identityExtension(recordId: string, create: () => Promise<Library
 async function contentId(doc: ExchangeDocument) { return `exchange:${await localFileHash(bytes(doc))}` }
 async function checksum(doc: ExchangeDocument, assets: ExchangeAsset[]) { return localFileHash(bytes([doc, await Promise.all(assets.map(async a => [a.path, a.mimeType, await localFileHash(a.bytes)]))])) }
 
+/** Validates a single captured database row without consulting cached reader objects. */
+export async function validateSavedExchangePdfContent(row: Row, namespace: string, id: string, signal?: AbortSignal) {
+  const current = () => { if (signal?.aborted) throw new PdfContentError('aborted') }
+  current()
+  const doc = validateExchangeDocument(row.document), paths = new Set(doc.assets.map(a => a.path))
+  if (row.username !== namespace || row.id !== id || !Array.isArray(row.assets) || row.assets.length !== paths.size || row.assets.some(a => !a || !paths.has(a.path))) throw new PdfContentError('invalid-request')
+  const prepared = await preparePdfContentFromExchange({ createdAt: row.importedAt, documents: [doc], assets: row.assets }, 0, signal)
+  current()
+  if (row.id !== await contentId(doc)) throw new PdfContentError('invalid-request')
+  current()
+  if (row.checksum !== await checksum(doc, row.assets)) throw new PdfContentError('invalid-request')
+  current()
+  return prepared
+}
+
 function supportedNote(note: ExchangeDocument['notes'][number], reading: ReadingDocument) {
   if (!note.title.trim() || note.title.length > 200 || note.text.length > 4000 || note.excerpt.length > (note.kind === 'highlight' ? 4000 : 1000) || !validAnchor(reading, note.anchor)) return false
   if (note.kind !== 'highlight') return !note.range
@@ -60,15 +75,7 @@ export function createExchangeLibrary(username: string, options: DeviceDatabaseO
       }, options)
       current()
       if (!row) throw new PdfContentError('not-found')
-      const doc = validateExchangeDocument(row.document), paths = new Set(doc.assets.map(a => a.path))
-      if (row.username !== namespace || row.id !== id || !Array.isArray(row.assets) || row.assets.length !== paths.size || row.assets.some(a => !a || !paths.has(a.path))) throw new PdfContentError('invalid-request')
-      const prepared = await preparePdfContentFromExchange({ createdAt: row.importedAt, documents: [doc], assets: row.assets }, 0, signal)
-      current()
-      if (row.id !== await contentId(doc)) throw new PdfContentError('invalid-request')
-      current()
-      if (row.checksum !== await checksum(doc, row.assets)) throw new PdfContentError('invalid-request')
-      current()
-      return prepared
+      return validateSavedExchangePdfContent(row, namespace, id, signal)
     },
     async list(): Promise<SavedExchange[]> {
       const rows = await readingTransaction<Row[]>(['exchanges'], 'readonly', (tx, done) => { const r = tx.objectStore('exchanges').index('username').getAll(namespace); r.onsuccess = () => done(r.result) }, options)
