@@ -10,7 +10,9 @@ import kotlinx.coroutines.withContext
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
+import okhttp3.RequestBody
 import okhttp3.RequestBody.Companion.toRequestBody
+import okio.BufferedSink
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 
@@ -43,7 +45,15 @@ class PasswordChangeTranslationStoreHttpTransport : TranslationStoreHttpTranspor
 
 private object NonRetryingAccountHttpTransport : TranslationStoreHttpTransport {
     override suspend fun execute(request: TranslationStoreHttpRequest): TranslationStoreHttpResponse = withContext(Dispatchers.IO) {
-        val body = requireNotNull(request.body).toRequestBody("application/json; charset=utf-8".toMediaType())
+        val encoded = requireNotNull(request.body).toRequestBody("application/json; charset=utf-8".toMediaType())
+        // OkHttp's 503/421 follow-ups are independent of retryOnConnectionFailure(false).
+        // Preserve the exact encoded body while forbidding a second transmission of this mutation.
+        val body = object : RequestBody() {
+            override fun contentType() = encoded.contentType()
+            override fun contentLength() = encoded.contentLength()
+            override fun writeTo(sink: BufferedSink) = encoded.writeTo(sink)
+            override fun isOneShot() = true
+        }
         val builder = Request.Builder().url(request.url).method(request.method, body)
         request.headers.forEach { (name, value) -> builder.header(name, value) }
         val call = client.newCall(builder.build())

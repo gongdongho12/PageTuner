@@ -35,6 +35,6 @@ Android는 PDF 전용 transport와 strict JSON codec을 사용한다. 기존 번
 
 다음 웹 화면은 `LibraryExchangeWorkspace`의 PDF 행에서 별도 전체 화면 패널로 진입하도록 한다. 기존 버튼 수를 늘리지 않고 최신 준비·사용자 업로드·서버 재검증·별도 연결 확인을 나눈다. 준비 결과는 읽은 시점의 사본이므로 연결 저장 직전에 최신 row와 기존 연결 nonce를 같은 IndexedDB transaction에서 비교해야 한다. 계정 A→B→A, client 교체, 다른 탭의 해제/재연결, 검토 중 파일 삭제/변경을 거절한다. `portableBinding.open`은 text의 serverProgress/glossaryIdentity 권한을 만들기 때문에 PDF에 재사용하지 않는다. Android도 reader 쓰기 완료 후 다시 준비하고 별도 binding namespace를 사용한다.
 
-PDF transport 검토에서 발견한 기존 비밀번호/PATCH transport의 자동 HTTP follow-up 가능성은 큐 Q1에 별도 기록했다. PDF 전용 수정이 기존 계정 transport의 수정까지 완료했다는 뜻은 아니다.
+PDF transport 검토에서 발견한 기존 비밀번호/PATCH transport의 자동 HTTP follow-up은 후속 큐 Q1·[PR #44](https://github.com/gongdongho12/PageTuner/pull/44)에서 실제 503 이중 전송을 재현하고 수정했다. PDF 전용 PR #43과 별도 변경이며 [검증 근거](ACCOUNT_MUTATION_TRANSPORT.md)를 구분한다.
 
 Q1의 대상은 `DefaultTranslationStoreHttpTransport`가 보내는 프로필 PATCH와 비밀번호 POST다. 현재 body가 있는 이 두 경로는 한 번만 쓸 수 있는 RequestBody를 적용하고 실제 소켓의 503/421·응답 유실·리다이렉션으로 확인한다. 가입은 별도 UrlConnectionTransport이므로 같은 OkHttp 결함이라고 표시하지 않는다. CSRF 조회와 기존 비밀번호 결과 불명확 처리·자격 증명 제거 정책도 구분해 보존한다.
