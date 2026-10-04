@@ -35,7 +35,8 @@ class ApiRequestBodyLimitTest {
     }
 
     @Test fun `exact boundary is accepted and job and chapter budgets are separate`() {
-        for ((path, budget) in listOf("/api/v1/accounts/me/password" to 4 * 1024, "/api/v1/accounts/me" to 16 * 1024, "/api/v1/translation-jobs" to 512 * 1024, "/api/v1/catalog-translations" to 512 * 1024, "/api/v1/chapters/upload" to 8 * 1024 * 1024)) {
+        for ((path, budget) in listOf("/api/v1/accounts/me/password" to 4 * 1024, "/api/v1/accounts/me" to 16 * 1024, "/api/v1/translation-jobs" to 512 * 1024, "/api/v1/catalog-translations" to 512 * 1024, "/api/v1/chapters/upload" to 8 * 1024 * 1024,
+            "/api/v1/pdf-content" to 8 * 1024 * 1024, "/api/v1/pdf-content/00000000-0000-0000-0000-000000000001/verify" to 2 * 1024 * 1024)) {
             var invoked = false
             ApiRequestBodyLimit().doFilter(request(path, ByteArray(budget), true), MockHttpServletResponse()) { wrapped, _ ->
                 invoked = true
@@ -45,6 +46,30 @@ class ApiRequestBodyLimitTest {
             val response = MockHttpServletResponse()
             ApiRequestBodyLimit().doFilter(request(path, ByteArray(budget + 1), true), response) { _, _ -> fail<Unit>("Limit was bypassed") }
             assertEquals(413, response.status)
+            if (path.startsWith("/api/v1/pdf-content")) assertEquals("PDF_CONTENT_TOO_LARGE",
+                com.fasterxml.jackson.databind.ObjectMapper().readTree(response.contentAsString)["code"].textValue())
         }
+        val repeated = MockHttpServletResponse()
+        ApiRequestBodyLimit().doFilter(request("/api/v1/pdf-content", "{}".toByteArray()).apply {
+            addHeader("Content-Encoding", "identity"); addHeader("Content-Encoding", "identity")
+        }, repeated) { _, _ -> fail<Unit>("Stacked encodings reached binding") }
+        assertEquals(415, repeated.status)
+    }
+
+    @Test fun `PDF compressed or mixed content encodings cannot reach JSON binding`() {
+        for (encoding in listOf("gzip", "br", "identity,gzip", "", "gzip,identity")) {
+            val response = MockHttpServletResponse()
+            ApiRequestBodyLimit().doFilter(request("/api/v1/pdf-content", byteArrayOf(31, -117), true).apply {
+                addHeader("Content-Encoding", encoding)
+            }, response) { _, _ -> fail<Unit>("Encoded body reached binding") }
+            assertEquals(415, response.status)
+            assertEquals("no-store", response.getHeader("Cache-Control"))
+            assertEquals("PDF_CONTENT_ENCODING", com.fasterxml.jackson.databind.ObjectMapper().readTree(response.contentAsString)["code"].textValue())
+        }
+        var invoked = false
+        ApiRequestBodyLimit().doFilter(request("/api/v1/pdf-content", "{}".toByteArray(), true).apply {
+            addHeader("Content-Encoding", "identity")
+        }, MockHttpServletResponse()) { _, _ -> invoked = true }
+        assertTrue(invoked)
     }
 }
