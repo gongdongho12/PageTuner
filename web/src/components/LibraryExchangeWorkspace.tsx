@@ -12,24 +12,27 @@ import { LocalPdfReader } from './LocalPdfReader'
 import { ExchangeAssetReader } from './ExchangeAssetReader'
 import { LibraryIdentityVerifier } from './LibraryIdentityVerifier'
 import { PortableGlossaryAdoptionPanel } from './PortableGlossaryAdoptionPanel'
+import { PortablePdfContentPanel } from './PortablePdfContentPanel'
+import type { PdfContentClient } from '../lib/pdfContentApi'
 import type { LibraryIdentityClient } from '../lib/libraryIdentityApi'
 import { useFreshBookGlossary } from './BookGlossaryProvider'
 import { glossaryExportErrorMessage, prepareFreshGlossaryExport, type FreshBookGlossaryReader } from '../lib/portableGlossaryExport'
 import './readingTools.css'
 
-export function LibraryExchangeWorkspace({ username, identityClient, targetLanguage, onReadingChange }: { username: string; identityClient: LibraryIdentityClient | null; targetLanguage: string; onReadingChange: (reading: boolean) => void }) {
+export function LibraryExchangeWorkspace({ username, identityClient, pdfContentClient, targetLanguage, onReadingChange }: { username: string; identityClient: LibraryIdentityClient | null; pdfContentClient: PdfContentClient | null; targetLanguage: string; onReadingChange: (reading: boolean) => void }) {
   const storage = useMemo(() => createExchangeLibrary(username), [username]), notes = useMemo(() => createReadingNotes(username), [username])
   const [tab, setTab] = useState<'import' | 'export' | 'books'>('import'), [books, setBooks] = useState<SavedExchange[]>([]), [choices, setChoices] = useState<ExchangeExportChoice[]>([])
   const [selected, setSelected] = useState<string[]>([]), [preview, setPreview] = useState<ExchangePackage>(), [busy, setBusy] = useState(false), [error, setError] = useState(''), [notice, setNotice] = useState('')
   const [reading, setReading] = useState<{ book: SavedExchange; anchor?: ReadingAnchor; accountDocument?: ReadingDocument }>()
   const [verifying, setVerifying] = useState<SavedExchange>()
   const [adopting, setAdopting] = useState<SavedExchange>()
+  const [pdfCopyId, setPdfCopyId] = useState<string>()
   const [exportOptions, setExportOptions] = useState(false), [includeGlossary, setIncludeGlossary] = useState(false), [glossaryLanguage, setGlossaryLanguage] = useState(targetLanguage)
   const freshGlossary = useFreshBookGlossary(username)
   const bindings = useMemo(() => createPortableBindings(username, window.location.origin), [username])
   const accountRequest = useRef<AbortController | null>(null)
   const operation = useRef(0)
-  const session = useMemo(() => ({ username, identityClient, glossary: freshGlossary.session }), [username, identityClient, freshGlossary.session])
+  const session = useMemo(() => ({ username, identityClient, pdfContentClient, glossary: freshGlossary.session }), [username, identityClient, pdfContentClient, freshGlossary.session])
   const currentSession = useRef(session); currentSession.current = session
   useLayoutEffect(() => {
     operation.current++; accountRequest.current?.abort(); setBusy(false); setChoices([]); setSelected([])
@@ -37,7 +40,7 @@ export function LibraryExchangeWorkspace({ username, identityClient, targetLangu
   }, [session])
   // ZIP export and imported-book actions need the same bounded full-height workspace as the reader. The shell
   // hides its navigation here, including its header on short landscape screens.
-  useLayoutEffect(() => { onReadingChange(!!reading || !!adopting || tab === 'export' || tab === 'books'); return () => onReadingChange(false) }, [!!reading, !!adopting, tab, onReadingChange])
+  useLayoutEffect(() => { onReadingChange(!!reading || !!adopting || !!pdfCopyId || tab === 'export' || tab === 'books'); return () => onReadingChange(false) }, [!!reading, !!adopting, !!pdfCopyId, tab, onReadingChange])
   useEffect(() => { return () => { operation.current++ } }, [username])
   const run = async (action: (current: () => boolean) => Promise<void>) => {
     if (busy) return
@@ -70,6 +73,7 @@ export function LibraryExchangeWorkspace({ username, identityClient, targetLangu
     setNotice(t('ZIP 파일을 내보냈습니다. 앱이나 다른 PC의 ZIP 가져오기에서 열어 주세요.'))
   })
   if (adopting) return <PortableGlossaryAdoptionPanel book={adopting} username={username} identityClient={identityClient} bindings={bindings} onClose={() => setAdopting(undefined)}/>
+  if (pdfCopyId) return <PortablePdfContentPanel copyId={pdfCopyId} username={username} client={pdfContentClient} onClose={() => setPdfCopyId(undefined)} onRead={book => { setPdfCopyId(undefined); setReading({ book }) }}/>
   if (reading) {
     if (reading.book.document.assets.some(a => a.role === 'pdf') || (reading.book.document.assets.length > 0 && !reading.book.document.paragraphs.some(p => p.text.trim()))) return <ExchangeAssetReader saved={reading.book} username={username} onClose={() => setReading(undefined)}/>
     const document = reading.accountDocument ?? exchangeReadingDocument(reading.book), pdf = exchangePdfDocument(reading.book)
@@ -97,7 +101,7 @@ export function LibraryExchangeWorkspace({ username, identityClient, targetLangu
       <p className="reading-tools-caption">{t('기기에 보관된 책을 선택하세요. 서버 책은 먼저 기기에 보관해 주세요.')}</p>
       {choices.length ? <AdaptiveCollection items={choices} itemKey={c => c.key} rowHeight={104} renderItem={choice => <label className="reading-note-row reading-checkbox"><input type="checkbox" checked={selected.includes(choice.key)} disabled={busy} onChange={event => setSelected(values => event.target.checked ? [...values, choice.key] : values.filter(v => v !== choice.key))}/><strong>{choice.title}</strong><span>{choice.kind}</span></label>}/> : <p>{t('내보낼 기기 보관 문서가 없습니다.')}</p>}
       <div className="reading-filter-actions exchange-export-actions"><button disabled={busy} onClick={() => setExportOptions(true)}>{t(includeGlossary ? '내보내기 설정 · 계정 용어집 포함' : '내보내기 설정')}</button><span>{t('{0}개 선택', [selected.length])}</span><button className="button-primary" disabled={busy || selected.length === 0 || selected.length > 100 || includeGlossary && (!freshGlossary.available || !identityClient)} onClick={exportSelected}>{t('선택한 책을 ZIP으로 내보내기')}</button></div>
-    </> : books.length ? <AdaptiveCollection items={books} itemKey={book => book.id} rowHeight={208} renderItem={book => <div className="reading-note-row"><strong>{book.document.bookTitle}</strong><span>{book.document.chapterTitle} · {book.document.language} · {book.document.organization.folder}</span><div className="exchange-book-actions"><button className="button-outline" disabled={busy} onClick={() => void run(async current => { const anchor = await notes.getPosition(exchangeReadingDocument(book)); if (current()) setReading({ book, anchor }) })}>{t('읽기')}</button><button className="button-outline" disabled={busy} onClick={() => setVerifying(book)}>{t('서버 원본 확인')}</button><button className="button-outline" disabled={busy} onClick={() => void run(async current => { const request = new AbortController(); accountRequest.current?.abort(); accountRequest.current = request; const accountDocument = await bindings.open(book, identityClient, request.signal); if (!accountDocument) throw new Error('먼저 서버 원본을 확인하고 계정 기록에 연결해 주세요.'); const anchor = await notes.getPosition(accountDocument); if (current()) setReading({ book, anchor, accountDocument }) })}>{t('계정 기록으로 읽기')}</button><button className="button-outline" disabled={busy} onClick={() => setAdopting(book)}>{t('ZIP 용어집 채택')}</button></div></div>}/> : <p>{t('ZIP으로 가져온 책이 없습니다.')}</p>}
+    </> : books.length ? <AdaptiveCollection items={books} itemKey={book => book.id} rowHeight={208} renderItem={book => <div className="reading-note-row"><strong>{book.document.bookTitle}</strong><span>{book.document.chapterTitle} · {book.document.language} · {book.document.organization.folder}</span><div className="exchange-book-actions"><button className="button-outline" disabled={busy} onClick={() => void run(async current => { const anchor = await notes.getPosition(exchangeReadingDocument(book)); if (current()) setReading({ book, anchor }) })}>{t('읽기')}</button><button className="button-outline" disabled={busy} onClick={() => book.document.assets.some(a => a.role === 'pdf') ? setPdfCopyId(book.id) : setVerifying(book)}>{t(book.document.assets.some(a => a.role === 'pdf') ? 'PDF 서버 보관·연결' : '서버 원본 확인')}</button><button className="button-outline" disabled={busy} onClick={() => void run(async current => { const request = new AbortController(); accountRequest.current?.abort(); accountRequest.current = request; const accountDocument = await bindings.open(book, identityClient, request.signal); if (!accountDocument) throw new Error('먼저 서버 원본을 확인하고 계정 기록에 연결해 주세요.'); const anchor = await notes.getPosition(accountDocument); if (current()) setReading({ book, anchor, accountDocument }) })}>{t('계정 기록으로 읽기')}</button><button className="button-outline" disabled={busy} onClick={() => setAdopting(book)}>{t('ZIP 용어집 채택')}</button></div></div>}/> : <p>{t('ZIP으로 가져온 책이 없습니다.')}</p>}
     {verifying && <LibraryIdentityVerifier key={`${username}:${verifying.id}`} book={verifying} username={username} client={identityClient} onConfirm={(result, signal) => bindings.confirm(verifying, result, signal)} onUnbind={() => bindings.remove(verifying)} onClose={() => setVerifying(undefined)}/>}
   </section>
 }

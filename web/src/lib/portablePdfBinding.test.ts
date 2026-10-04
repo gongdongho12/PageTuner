@@ -1,4 +1,4 @@
-import { IDBFactory, IDBObjectStore } from 'fake-indexeddb'
+import { IDBFactory, IDBObjectStore, IDBDatabase } from 'fake-indexeddb'
 import { describe, expect, it, vi } from 'vitest'
 import vector from '../../../contracts/fixtures/pdf-content-v1.json'
 import { createExchangeLibrary, exchangeReadingDocument } from './exchangeLibrary'
@@ -100,11 +100,24 @@ describe('explicit ZIP PDF binding', () => {
     })
     try { await expect(review.confirm()).rejects.toThrow(); expect(await s.rows()).toEqual([]) } finally { put.mockRestore() }
   })
-  it('compares exact latest row and binding in one transaction, including between final readonly check and commit', async () => {
+  it('refuses an earlier review after another session has linked the copy', async () => {
     const s = await setup(), review = await s.session().prepare(s.saved.id); await review.compare(recordId)
     // The second session wins after both reviewed absence. The first must never overwrite its binding.
     const other = await s.session().prepare(s.saved.id); await other.compare(recordId); await other.confirm()
     const expected = await s.rows(); await expect(review.confirm()).rejects.toThrow(pdfBindingErrors.stale); expect(await s.rows()).toEqual(expected)
+  })
+  it('rejects a binding writer queued between the final readonly check and the atomic commit', async () => {
+    const s = await setup(), review = await s.session().prepare(s.saved.id); await review.compare(recordId)
+    const tombstone = { version: 1, username: 'reader', origin: 'https://example.test', copyId: s.saved.id, nonce: crypto.randomUUID(), link: null }
+    const original = IDBDatabase.prototype.transaction; let injected = false
+    const transactions = vi.spyOn(IDBDatabase.prototype, 'transaction').mockImplementation(function (this: IDBDatabase, ...args) {
+      if (!injected && args[1] === 'readwrite' && Array.from(args[0]).includes('pdfContentBindings')) {
+        injected = true
+        const writer = original.call(this, ['pdfContentBindings'], 'readwrite'); writer.objectStore('pdfContentBindings').put(tombstone)
+      }
+      return original.apply(this, args)
+    })
+    try { await expect(review.confirm()).rejects.toThrow(pdfBindingErrors.stale); expect(injected).toBe(true); expect(await s.rows()).toEqual([tombstone]) } finally { transactions.mockRestore() }
   })
   it('keeps an unlink tombstone so absent → linked → unlinked cannot authorize an old review', async () => {
     const s = await setup(), first = await s.session().prepare(s.saved.id), second = await s.session().prepare(s.saved.id)
