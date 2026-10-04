@@ -91,6 +91,7 @@ describe('live IndexedDB ZIP PDF preparation', () => {
     cached.document.language = 'EN'; cached.document.paragraphs[0].text = 'reader-normalized'; cached.assets[0].bytes.fill(0)
     const prepared = await library.preparePdfContent(id)
     expect(prepared).toEqual({ content: vector.upload.content, proof: vector.expected.proof })
+    await expect(library.preparePdfContent(before.find(b => b.document.id === 'other')!.id)).rejects.toMatchObject({ code: 'invalid-request' })
     expect((await library.list()).find(b => b.id === id)!.document.paragraphs).toEqual(vector.upload.content.paragraphs)
     expect((await library.list()).length).toBe(2)
   })
@@ -100,6 +101,14 @@ describe('live IndexedDB ZIP PDF preparation', () => {
     await readingTransaction(['exchanges'], 'readwrite', (tx, done) => { tx.objectStore('exchanges').delete(['reader', saved.id]); done(undefined) }, options)
     await expect(library.preparePdfContent(saved.id)).rejects.toMatchObject({ code: 'not-found' })
     await expect(library.preparePdfContent('fixture:pdf')).rejects.toMatchObject({ code: 'invalid-request' })
+  })
+  it('keeps a valid larger ZIP readable while refusing a PDF storage snapshot above its 4MiB profile', async () => {
+    const { library } = setup(), value = fixture(), bytes = new Uint8Array(pdfContentLimits.payloadBytes + 1)
+    bytes.set(new TextEncoder().encode('%PDF-')); const pdf = asset(bytes, 'application/pdf')
+    value.assets = [pdf]; value.documents[0].assets = [{ path: pdf.path, role: 'pdf' }]
+    await library.importPackage(value); const saved = (await library.list())[0]
+    await expect(library.preparePdfContent(saved.id)).rejects.toMatchObject({ code: 'invalid-request' })
+    expect(Buffer.from((await library.list())[0].assets[0].bytes).equals(Buffer.from(bytes))).toBe(true)
   })
   it('rejects live missing/changed bytes, wrong byte type, metadata changes and checksums', async () => {
     const changes: ((row: StoredRow) => void)[] = [r => { r.assets.pop() }, r => { r.assets[0].bytes[0] ^= 1 },
