@@ -249,12 +249,15 @@ fun PageTurnerApp() {
     val libraryState by libraryViewModel.uiState.collectAsState()
     val portableState by portableViewModel.state.collectAsState()
     val portableAdoptionState by portableViewModel.glossaryAdoption.state.collectAsState()
+    val portablePdfState by portableViewModel.pdfStorage.state.collectAsState()
     val portableIdentityState by portableIdentityViewModel.verification.state.collectAsState()
     val webCatalogState by webCatalogViewModel.uiState.collectAsState()
     val translationState by translationViewModel.uiState.collectAsState()
     val serverLibraryState by serverLibraryViewModel.state.collectAsState()
     val observedServerReaderPreferencesState by serverReaderPreferencesViewModel.sync.state.collectAsState()
     val serverReadingConnection = serverLibraryViewModel.readingConnection()
+    val pdfStorageConnection = serverLibraryViewModel.pdfConnection()
+    LaunchedEffect(pdfStorageConnection) { portableViewModel.pdfStorage.connect(pdfStorageConnection) }
     LaunchedEffect(serverReadingConnection) {
         portableIdentityViewModel.verification.connect(serverReadingConnection)
         portableViewModel.connect(serverReadingConnection)
@@ -660,6 +663,7 @@ fun PageTurnerApp() {
             }
         } }
         launch { portableViewModel.opened.collect { opened ->
+            if (runCatching { opened.validateOpen?.invoke() }.isFailure) return@collect
             portableOpened = opened.takeIf { it.serverReading == null }
             opened.serverReading?.let { reading ->
                 serverProgressViewModel.retainDocument(reading)
@@ -972,7 +976,19 @@ fun PageTurnerApp() {
                                 libraryViewModel.importBook(Uri.fromFile(file))
                             },
                             transferContent = {
-                                if (portableAdoptionState.entry != null) com.dongholab.pagetuner.portable.PortableGlossaryAdoptionPanel(
+                                val pdfPanelSession = portablePdfState.session
+                                if (portablePdfState.entry != null) com.dongholab.pagetuner.portable.PortablePdfStoragePanel(
+                                    portablePdfState,
+                                    "${pdfStorageConnection?.origin.orEmpty()} · ${serverLibraryState.profile?.username.orEmpty()}",
+                                    portableViewModel.pdfStorage.matches(pdfStorageConnection),
+                                    onBack = { portableViewModel.pdfStorage.close(pdfPanelSession) },
+                                    onUpload = { portableViewModel.pdfStorage.upload(pdfPanelSession, serverLibraryViewModel::pdfConnection) },
+                                    onRecord = { portableViewModel.pdfStorage.updateRecord(it, pdfPanelSession) },
+                                    onCheck = { portableViewModel.pdfStorage.check(pdfPanelSession, serverLibraryViewModel::pdfConnection) },
+                                    onBind = { portableViewModel.pdfStorage.bind(pdfPanelSession, serverLibraryViewModel::pdfConnection) },
+                                    onUnbind = { portableViewModel.pdfStorage.unbind(pdfPanelSession, serverLibraryViewModel::pdfConnection) },
+                                    onOpen = { portableViewModel.pdfStorage.open(pdfPanelSession, serverLibraryViewModel::pdfConnection) })
+                                else if (portableAdoptionState.entry != null) com.dongholab.pagetuner.portable.PortableGlossaryAdoptionPanel(
                                     state = portableAdoptionState,
                                     accountLabel = "${serverLibraryState.connection.endpoint} · ${serverLibraryState.profile?.username ?: serverLibraryState.connection.username}",
                                     current = portableViewModel.glossaryAdoption.matches(serverReadingConnection),
@@ -1023,7 +1039,11 @@ fun PageTurnerApp() {
                                     },
                                     onExport = portableViewModel::prepareExport,
                                     onOpen = { entry, originalPdf -> portableViewModel.open(entry, originalPdf) },
-                                    onVerify = { portableIdentityViewModel.verification.select(it, serverLibraryViewModel.readingConnection()) })
+                                    onVerify = {
+                                        if (it.document.assets.any { asset -> asset.role == "pdf" })
+                                            portableViewModel.pdfStorage.select(it, serverLibraryViewModel.pdfConnection(), serverLibraryViewModel::pdfConnection)
+                                        else portableIdentityViewModel.verification.select(it, serverLibraryViewModel.readingConnection())
+                                    })
                             },
                         )
                         AppTab.Favorites -> FavoritesScreen(

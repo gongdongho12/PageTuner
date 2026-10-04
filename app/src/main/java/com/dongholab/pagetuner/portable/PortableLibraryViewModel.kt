@@ -31,7 +31,7 @@ data class PortableLibraryState(val entries: List<PortableLibraryEntry> = emptyL
     val error: String? = null, val glossaryPresence: BookGlossarySnapshotPresence? = null)
 data class PortableOpened(val entry: PortableLibraryEntry, val loaded: LoadedReaderDocument, val mapping: PortableReaderMapping,
     val pageIndex: Int, val bookmarks: List<ReaderBookmark>, val annotations: List<ReaderAnnotation>, val pdf: Boolean = false,
-    val serverReading: ServerReadingDocument? = null, val characterOffset: Int = 0)
+    val serverReading: ServerReadingDocument? = null, val characterOffset: Int = 0, val validateOpen: (() -> Unit)? = null)
 
 class PortableLibraryViewModel(private val context: Context, private val local: LocalLibraryStore) : ViewModel() {
     private val bindings = PortableServerBindingStore(File(context.filesDir, "portable_server_bindings"))
@@ -39,6 +39,8 @@ class PortableLibraryViewModel(private val context: Context, private val local: 
     fun removeBinding(accountKey: String, entry: PortableLibraryEntry) { glossaryAdoption.close(); bindings.remove(accountKey, entry) }
 
     private val store = PortableLibraryStore(File(context.filesDir, "portable_library"))
+    private val pdfBindings = PortablePdfBindingStore(store, File(context.filesDir, "portable_pdf_bindings"))
+    val pdfStorage = PortablePdfStorage(viewModelScope, ::currentPdfContent, pdfBindings, ::openVerifiedPdf)
     private val mutableState = MutableStateFlow(PortableLibraryState())
     val state = mutableState.asStateFlow()
     private val mutableOpened = MutableSharedFlow<PortableOpened>(extraBufferCapacity = 1)
@@ -52,6 +54,38 @@ class PortableLibraryViewModel(private val context: Context, private val local: 
     private val readerWrites = mutableMapOf<String, Deferred<Result<Unit>>>()
     private val mutableExportReady = MutableSharedFlow<PortableExportRequest>(extraBufferCapacity = 1)
     val exportReady = mutableExportReady.asSharedFlow()
+
+    private suspend fun openVerifiedPdf(entry: PortableLibraryEntry, archive: LibraryExchangePackage, guard: () -> Unit) {
+        val opened = withContext(Dispatchers.IO) {
+            guard()
+            val document = archive.documents[entry.documentIndex]
+            val ref = document.assets.single { it.role == "pdf" }
+            val asset = archive.assets.single { it.path == ref.path }
+            val file = File(context.cacheDir, "portable-pdf/${asset.sha256}.pdf")
+            file.parentFile?.mkdirs()
+            val cachedHash = if (file.exists() && file.length() <= PdfContentValidation.MAX_PAYLOAD_BYTES) runCatching {
+                file.inputStream().use { DocumentIds.sha256(readPortableBytes(it, PdfContentValidation.MAX_PAYLOAD_BYTES)) }
+            }.getOrNull() else null
+            if (cachedHash != asset.sha256) {
+                val temporary = File(file.parentFile, "${java.util.UUID.randomUUID()}.tmp")
+                try {
+                    temporary.writeBytes(asset.bytes)
+                    guard()
+                    com.dongholab.pagetuner.storage.replaceFileAtomically(temporary, file)
+                } finally { temporary.delete() }
+            }
+            guard()
+            val loaded = context.readReaderDocument(Uri.fromFile(file), document.bookTitle, DocumentFormat.PDF)
+            guard()
+            val reader = loaded.document.copy(id = entry.readerId)
+            val mapping = PortableReaderMapping(reader, List(reader.pageCount) { null })
+            val pageState = PortablePageMetadata.read(document, mapping, pdf = true)
+            PortableOpened(entry.copy(document = document), loaded.copy(document = reader), mapping, pageState.pageIndex ?: 0,
+                pageState.bookmarks, pageState.annotations, pdf = true, validateOpen = guard)
+        }
+        guard()
+        mutableOpened.emit(opened)
+    }
 
     init { refresh() }
     fun connect(value: ServerReadingConnection?) {

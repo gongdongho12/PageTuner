@@ -43,6 +43,7 @@ import { LibraryOrganizationProvider } from './components/LibraryOrganizationPro
 import { createSourceFavoriteClient, type SourceFavoriteClient } from './lib/sourceFavoriteApi';
 import { createBookGlossaryClient, type BookGlossaryClient } from './lib/bookGlossaryApi';
 import { createLibraryIdentityClient, type LibraryIdentityClient } from './lib/libraryIdentityApi';
+import { createPdfContentClient, type PdfContentClient } from './lib/pdfContentApi';
 import { BookGlossaryProvider } from './components/BookGlossaryProvider';
 import { SourceFavoriteProvider } from './components/SourceFavoriteProvider';
 import { LocalWorkspace } from "./components/LocalWorkspace";
@@ -265,6 +266,8 @@ export default function App() {
   const glossaryClientRef = useRef<BookGlossaryClient | null>(null);
   const [identityClient, setIdentityClient] = useState<LibraryIdentityClient | null>(null);
   const identityClientRef = useRef<LibraryIdentityClient | null>(null);
+  const [pdfContentClient, setPdfContentClient] = useState<PdfContentClient | null>(null);
+  const pdfContentClientRef = useRef<PdfContentClient | null>(null);
   const [workflowClient, setWorkflowClient] = useState<WorkflowClient | null>(
     null,
   );
@@ -440,6 +443,7 @@ export default function App() {
       favoriteClientRef.current?.close();
       glossaryClientRef.current?.close();
       identityClientRef.current?.close();
+      pdfContentClientRef.current?.close();
       session.current += 1;
     },
     [],
@@ -474,6 +478,9 @@ export default function App() {
     identityClientRef.current?.close();
     identityClientRef.current = null;
     setIdentityClient(null);
+    pdfContentClientRef.current?.close();
+    pdfContentClientRef.current = null;
+    setPdfContentClient(null);
     setAccountClient(null);
     setAccountProfile(null);
     workflowClientRef.current?.close();
@@ -542,6 +549,9 @@ export default function App() {
       const nextIdentityClient = createLibraryIdentityClient({ username: profile.username, password: details.password });
       identityClientRef.current = nextIdentityClient;
       setIdentityClient(nextIdentityClient);
+      const nextPdfContentClient = createPdfContentClient({ username: profile.username, password: details.password });
+      pdfContentClientRef.current = nextPdfContentClient;
+      setPdfContentClient(nextPdfContentClient);
       setLocale(profile.locale);
       setUsername(profile.username);
       setFormUsername(profile.username);
@@ -1069,7 +1079,7 @@ export default function App() {
                     onBrowse={() => selectTab("novels")}
                   /></>
                 ) : tab === 'device' && deviceView === 'exchange' && username ? (
-                  <LibraryExchangeWorkspace key={username} username={username} identityClient={identityClient} targetLanguage={accountProfile?.targetLanguage ?? "ko"} onReadingChange={setWorkflowReading}/>
+                  <LibraryExchangeWorkspace key={username} username={username} identityClient={identityClient} pdfContentClient={pdfContentClient} targetLanguage={accountProfile?.targetLanguage ?? "ko"} onReadingChange={setWorkflowReading}/>
                 ) : tab === "device" && deviceView === "files" && username ? (
                   <LocalWorkspace
                     key={username}

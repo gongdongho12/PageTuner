@@ -77,7 +77,7 @@ class AdaptiveCollectionScreenBenchmarkTest {
 
     @Test
     fun benchmarkPagedAndTouchScrollForEveryAdaptiveCollectionScreen() {
-        assertEquals(30, ScreenFixtures.size)
+        assertEquals(31, ScreenFixtures.size)
 
         val activeScenario = mutableStateOf(
             BenchmarkScenario(ScreenFixtures.first(), ListLayoutMode.Paged, runId = 0),
@@ -241,6 +241,7 @@ private data class ScreenFixture(
 )
 
 private val ScreenFixtures = listOf(
+    ScreenFixture("portable_pdf_storage", "Local · PDF account storage", "PortablePdfStoragePanel", 116, 3, 905, 2, 1, fontScaleAwareHeight = true),
     ScreenFixture("portable_library", "Local · ZIP exchange", "PortableLibraryPanel", 168, 3, 48, 3, 4, fontScaleAwareHeight = true),
     ScreenFixture("portable_identity", "Local · Verify server copy", "PortableIdentityPanel", 116, 3, 13, 4, 1, fontScaleAwareHeight = true),
     // Full 500-entry ZIP review: seven field rows per entry, plus presence and entry count.

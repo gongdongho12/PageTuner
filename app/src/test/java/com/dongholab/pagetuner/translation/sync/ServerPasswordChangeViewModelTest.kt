@@ -21,6 +21,26 @@ import org.junit.Test
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class ServerPasswordChangeViewModelTest {
+    @Test fun pdfConnectionHasOneLifetimeAndClosesOnInputDisconnectAndPasswordChange() = accountTest {
+        val vm = createModel { TranslationStoreHttpResponse(204) }
+        vm.registerFixture()
+        val first = requireNotNull(vm.pdfConnection())
+        assertSame(first, vm.pdfConnection())
+        assertEquals("https://reader.example", first.origin)
+        vm.updateUsername("other")
+        assertNull(vm.pdfConnection())
+        assertThrows(kotlinx.coroutines.CancellationException::class.java) { first.current { } }
+        vm.registerFixture()
+        val second = requireNotNull(vm.pdfConnection()); assertNotSame(first, second)
+        vm.disconnect(); assertNull(vm.pdfConnection())
+        assertThrows(kotlinx.coroutines.CancellationException::class.java) { second.current { } }
+        vm.registerFixture()
+        val third = requireNotNull(vm.pdfConnection())
+        vm.updatePasswordDraft(validDraft()); vm.changePassword(); vm.state.first { !it.busy }
+        assertNull(vm.pdfConnection())
+        assertThrows(kotlinx.coroutines.CancellationException::class.java) { third.current { } }
+    }
+
     @Test fun confirmedChangeClearsEveryCredentialWithoutChangingPreferencesOrIssuingMoreRequests() = accountTest {
         val requests = mutableListOf<TranslationStoreHttpRequest>()
         val vm = createModel { request ->

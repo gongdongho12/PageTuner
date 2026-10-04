@@ -70,6 +70,12 @@ class PortableLibraryStore(private val directory: File) {
         PdfContentDocuments.fromPackage(source, entry.documentIndex)
     }
 
+    /** The PDF binding CAS and current archive proof share the reader-write lock. */
+    internal fun <T> withPdfContent(entry: PortableLibraryEntry, block: (LibraryExchangePackage, ValidatedPdfContent) -> T): T = synchronized(lock) {
+        val source = LibraryExchangeCodec.read(readBounded(file(entry.packageId)))
+        block(source, PdfContentDocuments.fromPackage(source, entry.documentIndex))
+    }
+
     fun export(entry: PortableLibraryEntry): ByteArray = synchronized(lock) {
         val source = read(entry)
         val document = source.documents[entry.documentIndex]
