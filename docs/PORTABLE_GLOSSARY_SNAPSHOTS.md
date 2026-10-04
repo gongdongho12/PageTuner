@@ -4,7 +4,7 @@ S4c의 첫 공통 단위다. `extensions.bookGlossarySnapshots` v1은 원래 pro
 
 기존 `glossary` 배열은 계속 보존하며 새 스냅샷과 임의 병합하지 않는다. 미등록(`absent`), 저장된 삭제(`deleted`), 실제 빈 목록(`present` + `[]`)을 구분한다. 가져오기만으로 용어집이 변경되거나 삭제되지 않으며, 계정 ID·서버 주소·인증 정보·CAS version·outbox mutation을 옮기지 않는다.
 
-이 단위에는 최신 서버 GET·화면의 내보내기/채택·S1/S2/S3 분류 기록 통합이 없다. 스냅샷의 출처와 현재 계정 소유권·최신성은 별도 검증 대상이다. S4c 전체와 앱/웹 최신 계정 용어집 내보내기가 완료됐다는 뜻이 아니다.
+이 계약 단위 자체에는 최신 서버 조회·화면의 내보내기/채택·S1/S2/S3 분류 기록 통합이 없다. 이후 S4c2a에서 [최신 계정 조회와 앱/웹 내보내기](PORTABLE_GLOSSARY_EXPORT.md)를 연결했다. 명시적 채택 S4c2b와 S4c 전체는 여전히 미완료다.
 
 기존 ZIP extensions 전체 256 KiB 제한을 유지한다. 500항목/100개 scope 이내여도 전체 JSON이 한도를 넘으면 명시적으로 거절하며 항목을 자르지 않는다. 모든 최대 크기 계정 용어집을 담을 수 있는 더 큰 교환 형식은 후속 결정이 필요하다.
 
@@ -20,4 +20,4 @@ S4c의 첫 공통 단위다. `extensions.bookGlossarySnapshots` v1은 원래 pro
 
 ## 다음 연결 단위
 
-S4c2는 선택한 원래 provider/book/targetLanguage에 대해 실제 최신 계정 GET을 하고, 계정/origin/client가 바뀐 지연 응답을 폐기하는 export adapter와 앱/웹 화면이다. 캐시·pending·충돌 후보를 최신 서버 값으로 표시하지 않는다. 용어집을 적용할 때에는 별도 명시적 채택과 대상 identity 확인이 필요하며, 삭제 snapshot을 가져왔다고 서버를 삭제하지 않는다. 기존 256 KiB 한도를 넘는 계정 snapshot은 이유를 알리고 데이터 전체를 보존해야 한다. S1/S2/분류 기록 통합과 자산 문서의 실제 서버 보관·연결도 남아 있다.
+S4c2a 최신 조회 export는 [PR #40](https://github.com/gongdongho12/PageTuner/pull/40)에 있다. 다음 S4c2b에서는 별도 명시적 채택과 대상 identity 확인이 필요하며, 삭제 snapshot을 가져왔다고 서버를 삭제하지 않는다. 기존 256 KiB 한도를 넘는 계정 snapshot은 이유를 알리고 데이터 전체를 보존해야 한다. S1/S2/분류 기록 통합과 자산 문서의 실제 서버 보관·연결도 남아 있다.
