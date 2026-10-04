@@ -2,10 +2,10 @@ package com.dongholab.pagetuner.core.backup.exchange
 
 /** org.json differs across Android/JVM; accept the same strict JSON grammar on both. */
 internal object StrictExchangeJson {
-    fun validate(text: String) = Parser(text).validate()
+    fun validate(text: String, integerNumbersOnly: Boolean = false) = Parser(text, integerNumbersOnly).validate()
     fun normalize(text: String): String = Parser(text).normalize()
 
-    private class Parser(private val text: String) {
+    private class Parser(private val text: String, private val integerNumbersOnly: Boolean = false) {
         private var cursor = 0
         private val numbers = mutableListOf<Triple<Int, Int, String>>()
         fun normalize(): String {
@@ -97,6 +97,7 @@ internal object StrictExchangeJson {
                 require(peek() in '0'..'9') { "Missing JSON exponent." }; digits()
             }
             val token = text.substring(start, cursor)
+            require(!integerNumbersOnly || token.none { it == '.' || it == 'e' || it == 'E' }) { "This JSON contract requires integer literals." }
             val number = token.toDoubleOrNull() ?: error("Invalid binary64 JSON number.")
             require(number.isFinite()) { "Non-finite JSON number." }
             require(number % 1.0 != 0.0 || kotlin.math.abs(number) <= 9_007_199_254_740_991.0) { "JSON integer exceeds the portable safe range." }
