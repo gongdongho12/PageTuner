@@ -2,6 +2,7 @@ package com.dongholab.pagetuner.server.pdf
 
 import com.dongholab.pagetuner.core.backup.exchange.*
 import com.fasterxml.jackson.core.JsonParser
+import com.fasterxml.jackson.core.JsonToken
 import com.fasterxml.jackson.databind.DeserializationFeature
 import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.databind.ObjectMapper
@@ -10,7 +11,33 @@ import com.fasterxml.jackson.databind.ObjectMapper
 internal class PdfContentJson(private val json: ObjectMapper) {
     private val reader = json.readerFor(JsonNode::class.java).with(DeserializationFeature.FAIL_ON_TRAILING_TOKENS)
         .with(JsonParser.Feature.STRICT_DUPLICATE_DETECTION)
-    fun tree(bytes: ByteArray): JsonNode = reader.readValue(bytes)
+    fun tree(bytes: ByteArray): JsonNode {
+        // Wire byte limits alone still allow millions of tiny values. Bound the object graph
+        // with streaming tokens before allocating JsonNodes or copying arrays into DTO lists.
+        json.factory.createParser(bytes).use { parser ->
+            parser.enable(JsonParser.Feature.STRICT_DUPLICATE_DETECTION)
+            val containers = mutableListOf<Int>() // -1: object; otherwise the current array's entry count.
+            var values = 0
+            while (true) {
+                val token = parser.nextToken() ?: break
+                if (token.isStructStart || token.isScalarValue) {
+                    require(values < 32_768) { "PDF JSON exceeds the total value limit." }; values++
+                    if (containers.lastOrNull()?.let { it >= 0 } == true) {
+                        val index = containers.lastIndex
+                        require(containers[index] < PdfContentValidation.MAX_PARAGRAPHS) { "PDF JSON array exceeds the entry limit." }
+                        containers[index]++
+                    }
+                }
+                when (token) {
+                    JsonToken.START_OBJECT -> containers.add(-1)
+                    JsonToken.START_ARRAY -> containers.add(0)
+                    JsonToken.END_OBJECT, JsonToken.END_ARRAY -> containers.removeAt(containers.lastIndex)
+                    else -> Unit
+                }
+            }
+        }
+        return reader.readValue(bytes)
+    }
     fun upload(bytes: ByteArray): PdfContentUpload {
         val root = tree(bytes); fields(root, "uploadId", "content")
         return PdfContentUpload(string(root["uploadId"]), content(root["content"]))
