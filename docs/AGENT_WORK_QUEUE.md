@@ -33,11 +33,13 @@
 | S4b1 | S4b 하위 | 완료 | 검증된 텍스트 ZIP의 계정 기록 연결 | 계정·origin·사본·전체 identity별 명시적 binding, 읽기 전 재검증, 로컬/계정 기록 분리, S1~S3 canonical reader. 서버 190개·앱 475개·웹 428개 및 실제 웹 보존/삭제 검증. [근거](PORTABLE_DOCUMENT_BINDING.md) |
 | S4b2 | S4b 하위 | 진행 | 자산 문서와 독립 기기 파일의 안전한 연결 | S4b2a 공통 전체 내용 proof와 정확한 anchor 검증 완료. 서버 자산 저장·재검증과 앱/웹 명시적 연결은 S4b2b 후속. 현재 거절 범위는 유지하고 페이지로 추정하지 않음 |
 | S4b2a | S4b2 하위 | 완료 | 전체 파일·본문·자산 proof와 위치 계약 | Kotlin/웹 동일 framed SHA-256, 전체 원본 bytes와 ordered 자산 참조, proof-bound UTF-16/PDF anchor. 순수 계약·검증 단위이며 계정 연결을 활성화하지 않음. [근거](PORTABLE_CONTENT_PROOF.md) |
+| S4b2b1 | S4b2 하위 | 대기 | PDF 원본의 계정별 불변 보관·전체 내용 재검증 API | 실제 PDF bytes·표시 내용·순서 있는 자산 참조로 서버가 proof를 계산하고 보관 후 재검증. 계정 격리·변조/소실·크기 한도·동시 저장 검사. 기존 텍스트 binding 및 S1~S3를 열지 않음 |
+| S4b2b2 | S4b2 하위 | 대기 | 보관 자산의 앱·웹 명시적 연결과 위치 대응 | S4b2b1 이후 정확한 원본 proof·계정/client 세대로 연결. PDF decoder 기반 물리 위치 계약은 별도 검증하며 EPUB 원본 bytes 보존·전달 형식은 선행 보완 필요 |
 | S4c | S4 하위 | 진행 | 최신 동기화 기록의 ZIP 내보내기·가져오기 | 현재 위치·메모·분류·원래 ID와 언어 범위가 있는 용어집의 무손실 스냅샷, 충돌/대기 상태 구분, 자격 증명·CAS/outbox mutation 이전 금지 |
 | S4c1 | S4c 하위 | 완료 | 용어집 passive ZIP snapshot 계약·codec | 원래 scope/ID/순서/공백/별칭/종류/활성/대소문자, 미등록/삭제/빈목록 구분. Kotlin·웹·실제 ZIP JVM 왕복 검증. 계정 GET·화면·채택은 S4c2. 전체 extensions 256 KiB 초과는 거절. [근거](PORTABLE_GLOSSARY_SNAPSHOTS.md) |
-| S4c2 | S4c 하위 | 진행 | 최신 계정 용어집 ZIP export·명시적 채택 | S4c2a 내보내기와 S4c2b 채택을 분리한다. S1/S2/분류 통합은 이후 S4c 잔여 범위 |
+| S4c2 | S4c 하위 | 완료 / 실기기 검증 대기 | 최신 계정 용어집 ZIP export·명시적 채택 | S4c2a 내보내기와 S4c2b 명시적 채택 완료. S1/S2/분류 통합은 이후 S4c 잔여 범위 |
 | S4c2a | S4c2 하위 | 완료 / 실기기 검증 대기 | 최신 계정 용어집의 명시적 ZIP 내보내기 | 직접 읽기 전용 조회·원본 identity/언어/binding 확인·계정/client 세대 및 SAF 요청 티켓. pending/conflict/더 최신 journal·미지원 확장/256 KiB 초과를 거절한다. 웹 484·앱 511 통과/15 opt-in 제외, 실제 서버 변경 후 다운로드 ZIP의 무손실 반영 확인. [근거](PORTABLE_GLOSSARY_EXPORT.md) |
-| S4c2b | S4c2 하위 | 대기 | ZIP 계정 용어집의 명시적 채택 | absent는 정보만 표시. deleted/present는 현재 계정의 정확한 원본 scope와 최신 서버를 확인한 뒤 별도 선택·CAS/outbox로 채택한다. pending/conflict와 항목 전체 속성을 보존하며 스냅샷만으로 연결·자동 전송하지 않음 |
+| S4c2b | S4c2 하위 | 완료 / 실기기 검증 대기 | ZIP 계정 용어집의 명시적 채택 | readonly 비교·최종 서버/기기/base 재검증·정확한 새 CAS/outbox. absent 정보만 표시, deleted/빈목록 구분. 웹 506·앱 523 통과/15 opt-in 제외, 실제 500항목 무손실 채택과 오래된 비교 거절 확인. [근거](PORTABLE_GLOSSARY_ADOPTION.md) |
 | W1 | 5 | 대기 | 웹 로컬 번역 캐시의 서버 업로드·복원 | 전체 문단 검증, 원문 revision 대응, 미완성/다른 제공자 충돌 처리, 앱에서 재조회 |
 | W2 | 6 | 대기 | 웹 진단 화면 | 민감정보 제거된 제한 크기 로그, 번역/수집/동기화 오류 구분, 복사/내보내기·삭제, 작은 화면 페이지 탐색 |
 | W3 | 7 | 대기 | 번역 작업 제어와 묶음 범위 개선 | 앱·웹 일시정지/재개 동작 통일 가능 범위, 현재 20회차 제한의 서버 큐 확장, 재시작·중복 제출·취소 검증 |
@@ -62,6 +64,12 @@
 WTR/NovelBuddy 수집·서버 번역·원문/번역 서재·Google 웹 번역 실호출, 4개 제공자 공통 구현, 표준 ZIP 교환, 회원가입·언어 설정·비밀번호 변경은 기존 PR 체인에 있다. 제공자 구현이 실제 유료 키 검증을 뜻하지는 않는다. 계정 비밀번호 변경은 PR #23, 기반 목록 페이지 수정은 PR #22다.
 
 ## 현재 실행 기록
+
+- 2026-10-05 S4c2b: [draft PR #41](https://github.com/gongdongho12/PageTuner/pull/41), base `codex/fresh-glossary-zip-export`(#40). 웹 `bb62563`과 Android `913cb1e`를 별도 검증·커밋·푸시했고 각각의 CI가 성공했다(Android [실행](https://github.com/gongdongho12/PageTuner/actions/runs/37211449440), 3분25초). 웹 506개/64파일·계약 14개·typecheck·production/sharing build, Android 523개 통과/15 opt-in 제외·APK/lint/계측 소스/모듈 경계 성공. 벤치마크 fixture 누락과 용어집 actor의 리더 복귀·버튼 폭 결함을 보완했다. 실제 격리 서버/웹에서 500항목 전체 속성, absent/deleted/빈 배열, 다른 원본·미지원 extension·오래된 비교 거절, 390×844/844×390을 확인했다. [상세 검증](PORTABLE_GLOSSARY_ADOPTION.md).
+- S4c2 용어집 단위만 완료됐으며 **S4 전체는 미완료**다. 다음은 S4b2b의 실제 자산 원본 보관·서버 재검증을 작은 단위로 진행하고, S1/S2/분류의 최신 ZIP 통합을 이어간다. 원본 폴더의 미커밋 변경을 보존한다. PR #41의 최종 head CI를 먼저 확인하며 기존 PR 체인과 자동 병합 금지를 유지한다.
+- S4b2b 선행 조사: 첫 단위 S4b2b1은 PDF부터 시작한다. `PortableContentProofs.compute`에 실제 보관 bytes를 전달해 재검증하고 assertion digest의 `validate`만으로 대체하지 않는다. 기존 `SourceChapterStore` 텍스트 upload와 identity-v1은 자산 저장에 재사용하지 않는다. `ApiRequestBodyLimit`의 기본 8 MiB 메모리 버퍼를 전역 해제하지 말고 bounded 업로드 계약을 설계한다. 웹 EPUB는 파싱 후 원본 bytes를 버리고 ZIP v1은 EPUB 원본 MIME을 지원하지 않으므로 EPUB 보관·연결은 별도 미완료다. S1/S2의 문단 anchor를 PDF 화면 쪽 번호로 바꾸지 않으며 실제 decoder의 검증 문맥이 필요하다.
+
+- 2026-10-04 S4c2b 시작: PR #40 최종 `e373a5e`의 [CI](https://github.com/gongdongho12/PageTuner/actions/runs/37209529885)가 3분8초에 성공했고 첨부 작업 트리가 깨끗함을 확인했다. `codex/portable-glossary-adoption`에서 웹·Android의 읽기 전용 비교 준비와 별도 정확한 스냅샷 채택을 분담한다. 서버의 기존 CAS PUT은 absent→deleted tombstone과 500항목을 지원하므로 API/DB 규격 변경은 필요하지 않다.
 
 - 2026-10-04 S4c2a: [draft PR #40](https://github.com/gongdongho12/PageTuner/pull/40), base `codex/spring-boot-backend-foundation`(#5). 웹 `e481528`, Android `03848de`를 분리해 검증 후 각각 푸시했다. #5 최종 `fb7760e`의 Android/Frontend CI 모두 성공. #40 최종 head CI는 문서·화면 수정까지 반영한 후 확인한다. [실제 검증·남은 범위](PORTABLE_GLOSSARY_EXPORT.md).
 - 다음은 **S4c2b 명시적 채택**이며 S4 전체는 미완료다. S4b2b 자산의 실제 서버 보관/연결, S1/S2/분류 ZIP 통합과 나머지 큐를 유지한다. 원본 `F:/workspace/PageTuner`의 PR34 기반 미커밋 변경은 수정하거나 다시 커밋하지 않았다. 작업은 첨부 `C:/Users/gongd/.codex/worktrees/glossary-portable-snapshot/PageTuner`에서 이어간다.

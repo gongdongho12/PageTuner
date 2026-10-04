@@ -92,7 +92,7 @@ export function PortableGlossaryAdoptionPanel({ book, username, identityClient, 
     finally { if (id === operation.current && latest.current === started) { setBusy(false); running.current = false } }
   }
   const fields = useMemo(() => review ? glossaryAdoptionFields(review, side, { username, origin: window.location.origin }) : [], [review, side, username])
-  return <section className="reading-workspace" aria-label={t('ZIP 계정 용어집 채택')}>
+  return <section className="reading-workspace glossary-adoption-panel" aria-label={t('ZIP 계정 용어집 채택')}>
     <header className="reading-tools-header"><strong>{t(panel === 'confirm' ? '계정 변경 최종 확인' : 'ZIP 계정 용어집 채택')}</strong><button disabled={busy} onClick={onClose}>{t('닫기')}</button></header>
     {error && <div className="workflow-message" role="alert">{t(error)}<button onClick={() => setError('')}>{t('닫기')}</button></div>}
     {snapshots.error && <p className="reading-tools-caption" role="alert">{t(snapshots.error)}</p>}
