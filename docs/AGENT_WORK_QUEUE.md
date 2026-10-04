@@ -33,7 +33,9 @@
 | S4b1 | S4b 하위 | 완료 | 검증된 텍스트 ZIP의 계정 기록 연결 | 계정·origin·사본·전체 identity별 명시적 binding, 읽기 전 재검증, 로컬/계정 기록 분리, S1~S3 canonical reader. 서버 190개·앱 475개·웹 428개 및 실제 웹 보존/삭제 검증. [근거](PORTABLE_DOCUMENT_BINDING.md) |
 | S4b2 | S4b 하위 | 진행 | 자산 문서와 독립 기기 파일의 안전한 연결 | S4b2a 공통 전체 내용 proof와 정확한 anchor 검증 완료. 서버 자산 저장·재검증과 앱/웹 명시적 연결은 S4b2b 후속. 현재 거절 범위는 유지하고 페이지로 추정하지 않음 |
 | S4b2a | S4b2 하위 | 완료 | 전체 파일·본문·자산 proof와 위치 계약 | Kotlin/웹 동일 framed SHA-256, 전체 원본 bytes와 ordered 자산 참조, proof-bound UTF-16/PDF anchor. 순수 계약·검증 단위이며 계정 연결을 활성화하지 않음. [근거](PORTABLE_CONTENT_PROOF.md) |
-| S4c | S4 하위 | 대기 | 최신 동기화 기록의 ZIP 내보내기·가져오기 | 현재 위치·메모·분류·원래 ID와 언어 범위가 있는 용어집의 무손실 스냅샷, 충돌/대기 상태 구분, 자격 증명·CAS/outbox mutation 이전 금지 |
+| S4c | S4 하위 | 진행 | 최신 동기화 기록의 ZIP 내보내기·가져오기 | 현재 위치·메모·분류·원래 ID와 언어 범위가 있는 용어집의 무손실 스냅샷, 충돌/대기 상태 구분, 자격 증명·CAS/outbox mutation 이전 금지 |
+| S4c1 | S4c 하위 | 완료 | 용어집 passive ZIP snapshot 계약·codec | 원래 scope/ID/순서/공백/별칭/종류/활성/대소문자, 미등록/삭제/빈목록 구분. Kotlin·웹·실제 ZIP JVM 왕복 검증. 계정 GET·화면·채택은 S4c2. 전체 extensions 256 KiB 초과는 거절. [근거](PORTABLE_GLOSSARY_SNAPSHOTS.md) |
+| S4c2 | S4c 하위 | 대기 | 최신 계정 용어집 ZIP export·명시적 채택 | fresh GET·계정/origin/client 지연 응답 폐기, 원본 scope 확인, pending/conflict 구분, 크기 초과 안내와 무손실 유지. S1/S2/분류 통합은 이후 S4c 잔여 범위 |
 | W1 | 5 | 대기 | 웹 로컬 번역 캐시의 서버 업로드·복원 | 전체 문단 검증, 원문 revision 대응, 미완성/다른 제공자 충돌 처리, 앱에서 재조회 |
 | W2 | 6 | 대기 | 웹 진단 화면 | 민감정보 제거된 제한 크기 로그, 번역/수집/동기화 오류 구분, 복사/내보내기·삭제, 작은 화면 페이지 탐색 |
 | W3 | 7 | 대기 | 번역 작업 제어와 묶음 범위 개선 | 앱·웹 일시정지/재개 동작 통일 가능 범위, 현재 20회차 제한의 서버 큐 확장, 재시작·중복 제출·취소 검증 |
@@ -137,3 +139,9 @@ S4b1 재구현 없이 공유 실제 로컬 책 확인, 공유 본문 선택 방�
 - 폰트 공개 경로 후속 [draft PR #37](https://github.com/gongdongho12/PageTuner/pull/37): `codex/public-font-license` → `codex/portable-content-proof`(#36). 수정 `c019502b`, 검증 기록 `0e280646`를 분리해 push했다. CI 최종 head를 확인하고 다음 실행에서 S4c passive 용어집 snapshot의 독립 가능한 단위를 진행한다. 자동 병합하지 않는다.
 
 - 2026-10-04 미완성 변경 대조: 최신 PR #37 `74e83cd` 최종 CI 성공(5분10초)을 확인했다. 원래 작업 폴더의 Android ZIP 문자 위치 수정 7파일이 PR #34에서 미커밋으로 남아 #35~37에도 없음을 확인했다. 원본 변경을 보존하고 managed worktree `C:/Users/gongd/.codex/worktrees/glossary-portable-snapshot/PageTuner`의 `codex/portable-reading-position`에서 최신 계정 연결과 합쳤다. Android 480개 통과/15개 opt-in 제외, APK/lint/계측 소스/경계 성공. 오래된 Android 텍스트 페이지가 웹 canonical anchor를 덮는 결함도 수정했다. [검증](PORTABLE_READING_POSITION.md). 다음 독립 단위는 기존 큐의 S4c passive 용어집 snapshot이며 S4b2b/S4c 전체는 미완료다.
+
+- 2026-10-04 Android 위치 후속 [draft PR #38](https://github.com/gongdongho12/PageTuner/pull/38) `b996a36` → PR #37. 최종 [CI](https://github.com/gongdongho12/PageTuner/actions/runs/37181094875) 4분48초 성공. 원본 F:/workspace/PageTuner의 미커밋 7파일은 보존용으로 남아 있지만 최신 managed worktree/PR에 해당 수정과 추가 stale-page 결함 수정이 반영됐으므로 다시 만들지 않는다.
+- S4c1 [draft PR #39](https://github.com/gongdongho12/PageTuner/pull/39)은 `codex/portable-glossary-snapshots` → `codex/portable-reading-position`(#38). core/runtime `ba7a91b`, 웹 `ffbc7fb`를 나눠 푸시했다. 공통 모델15·core-backup19·backup-runtime24·웹453/61파일·Android480 통과/15개 opt-in 제외, APK/lint/계측소스/경계 성공. 실제 웹 ZIP→공통 JVM runtime→웹 왕복으로 전체 문서와 모든 glossary 필드를 대조했다. [근거·한계](PORTABLE_GLOSSARY_SNAPSHOTS.md).
+- 검토에서 Unicode sibling 치환 결함을 수정했고 최종 blocking finding 없음. CI workflow task 추가는 OAuth `workflow` 권한 부족으로 거절돼 기능 변경과 분리했다. `.gradle-home/portable-glossary-ci.patch`는 F:/workspace/PageTuner에 보존하며 V5는 미완료다. 새 UI/API/미리보기 DB 변경은 없고 Android 실기기는 연결 장치가 없어 V3에 남는다.
+- 다음 실행은 PR #39 최종 head CI·최신 큐와 첨부 worktree 상태부터 확인한 뒤 S4c2 fresh 계정 용어집 export/명시적 채택을 진행한다. S4c1 codec만으로 최신 계정 기록 내보내기나 S4 전체를 완료 표시하지 않는다. S4b2b 실제 원본 자산의 서버 보관·연결, S1/S2/분류의 ZIP 통합, V1/V2/V3 및 나머지 큐가 남아 있어 반복 실행을 유지한다. 현재 작업 경로는 C:/Users/gongd/.codex/worktrees/glossary-portable-snapshot/PageTuner이며 원래 F:/workspace/PageTuner의 별도 변경은 그대로 보호한다.
+

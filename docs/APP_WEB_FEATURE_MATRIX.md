@@ -152,3 +152,5 @@ Android **Local → ZIP**, 웹 **On this device → App · Web ZIP transfer**에
 내장 폰트 서버 배포 후속: 익명 오프라인 캐시 설치에 필요한 정확한 OFL GET 경로를 공개했다. 실제 배포 자산 68개와 서버 종료 후 브라우저 읽기·페이지 이동을 확인했다. [근거](BUNDLED_READER_FONTS.md).
 
 Android ZIP 문자 위치 후속: 문단 안 offset·끝·빈 문단과 웹에서 바뀐 canonical anchor를 복원/저장한다. 최신 계정 reader와 기기 ZIP 기록은 분리 유지하며 물리 이미지/PDF 위치를 임의 변환하지 않는다. Android 480개 검사 및 APK 검증 완료, 실기기는 V3. [근거](PORTABLE_READING_POSITION.md).
+
+S4c1 passive 용어집 snapshot은 Kotlin/runtime/웹 계약·codec 완료다. 원래 provider/book/targetLanguage·ordered 항목 ID와 전체 속성·미등록/삭제/빈목록을 보존하며 실제 웹→JVM→웹 ZIP 왕복을 검증했다. 최신 계정 GET·화면 export/채택 및 나머지 동기화 기록 통합은 S4c2 이후이며 extensions256 KiB 초과는 절단 없이 거절한다. [검증](PORTABLE_GLOSSARY_SNAPSHOTS.md).
