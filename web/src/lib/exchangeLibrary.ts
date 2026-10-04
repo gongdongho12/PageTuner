@@ -10,6 +10,8 @@ import type { ReadingDocument } from './readingDocument'
 import { validAnchor, validReadingPosition } from './readingDocument'
 import { readingRangeText } from './readingSelection'
 import { originalLibraryIdentity, translationLibraryIdentity, type LibraryDocumentIdentity } from './libraryIdentity'
+import { preparePdfContentFromExchange } from './exchangePdfContent'
+import { PdfContentError } from './pdfContentApi'
 
 export type SavedExchange = { id: string; document: ExchangeDocument; assets: ExchangeAsset[]; importedAt: string; checksum: string; integratedNoteIds: string[] }
 type Row = SavedExchange & { username: string }
@@ -48,6 +50,26 @@ export function exchangeReadingDocument(saved: SavedExchange): ReadingDocument {
 export function createExchangeLibrary(username: string, options: DeviceDatabaseOptions = {}) {
   const namespace = readingNamespace(username)
   return {
+    /** Read canonical metadata and actual payloads together; a cached list/reader object is never an upload source. */
+    async preparePdfContent(id: string, signal?: AbortSignal) {
+      const current = () => { if (signal?.aborted) throw new PdfContentError('aborted') }
+      current()
+      if (typeof id !== 'string' || !/^exchange:[a-f0-9]{64}$/.test(id)) throw new PdfContentError('invalid-request')
+      const row = await readingTransaction<Row | undefined>(['exchanges'], 'readonly', (tx, done) => {
+        const request = tx.objectStore('exchanges').get([namespace, id]); request.onsuccess = () => done(request.result)
+      }, options)
+      current()
+      if (!row) throw new PdfContentError('not-found')
+      const doc = validateExchangeDocument(row.document), paths = new Set(doc.assets.map(a => a.path))
+      if (row.username !== namespace || row.id !== id || !Array.isArray(row.assets) || row.assets.length !== paths.size || row.assets.some(a => !a || !paths.has(a.path))) throw new PdfContentError('invalid-request')
+      const prepared = await preparePdfContentFromExchange({ createdAt: row.importedAt, documents: [doc], assets: row.assets }, 0, signal)
+      current()
+      if (row.id !== await contentId(doc)) throw new PdfContentError('invalid-request')
+      current()
+      if (row.checksum !== await checksum(doc, row.assets)) throw new PdfContentError('invalid-request')
+      current()
+      return prepared
+    },
     async list(): Promise<SavedExchange[]> {
       const rows = await readingTransaction<Row[]>(['exchanges'], 'readonly', (tx, done) => { const r = tx.objectStore('exchanges').index('username').getAll(namespace); r.onsuccess = () => done(r.result) }, options)
       const result: SavedExchange[] = []

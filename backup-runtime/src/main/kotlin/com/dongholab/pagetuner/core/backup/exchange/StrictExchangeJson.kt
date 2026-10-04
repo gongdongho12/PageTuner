@@ -2,18 +2,24 @@ package com.dongholab.pagetuner.core.backup.exchange
 
 /** org.json differs across Android/JVM; accept the same strict JSON grammar on both. */
 internal object StrictExchangeJson {
-    fun validate(text: String) = Parser(text).validate()
-    fun normalize(text: String): String = Parser(text).normalize()
+    fun validate(text: String, integerNumbersOnly: Boolean = false, maxArrayEntries: Int = Int.MAX_VALUE,
+        maxValues: Int = Int.MAX_VALUE) = Parser(text, integerNumbersOnly, maxArrayEntries, maxValues).validate()
+    fun normalize(text: String): String = Parser(text, collectNumbers = true).normalize()
 
-    private class Parser(private val text: String) {
+    private class Parser(private val text: String, private val integerNumbersOnly: Boolean = false,
+        private val maxArrayEntries: Int = Int.MAX_VALUE, private val maxValues: Int = Int.MAX_VALUE,
+        collectNumbers: Boolean = false) {
         private var cursor = 0
-        private val numbers = mutableListOf<Triple<Int, Int, String>>()
+        private var valueCount = 0
+        private val numbers = if (collectNumbers) mutableListOf<Triple<Int, Int, String>>() else null
+        init { require(maxArrayEntries >= 0 && maxValues > 0) }
         fun normalize(): String {
             validate()
-            if (numbers.isEmpty()) return text
+            val replacements = requireNotNull(numbers)
+            if (replacements.isEmpty()) return text
             return buildString {
                 var copied = 0
-                numbers.forEach { (start, end, value) -> append(text, copied, start); append(value); copied = end }
+                replacements.forEach { (start, end, value) -> append(text, copied, start); append(value); copied = end }
                 append(text, copied, text.length)
             }
         }
@@ -23,6 +29,8 @@ internal object StrictExchangeJson {
         }
         private fun value(depth: Int) {
             require(depth <= 32) { "JSON is nested too deeply." }
+            // Count containers and scalar values before org.json can allocate their object graph.
+            require(valueCount < maxValues) { "JSON exceeds the total value limit." }; valueCount++
             whitespace()
             when (peek()) {
                 '{' -> objectValue(depth)
@@ -52,7 +60,9 @@ internal object StrictExchangeJson {
             require(depth < 32) { "JSON is nested too deeply." }
             cursor++; whitespace()
             if (take(']')) return
+            var entries = 0
             while (true) {
+                require(entries < maxArrayEntries) { "JSON array exceeds the entry limit." }; entries++
                 value(depth + 1); whitespace()
                 if (take(']')) return
                 require(take(',')) { "Missing JSON comma." }; whitespace()
@@ -97,13 +107,15 @@ internal object StrictExchangeJson {
                 require(peek() in '0'..'9') { "Missing JSON exponent." }; digits()
             }
             val token = text.substring(start, cursor)
+            require(!integerNumbersOnly || token.none { it == '.' || it == 'e' || it == 'E' }) { "This JSON contract requires integer literals." }
             val number = token.toDoubleOrNull() ?: error("Invalid binary64 JSON number.")
             require(number.isFinite()) { "Non-finite JSON number." }
             require(number % 1.0 != 0.0 || kotlin.math.abs(number) <= 9_007_199_254_740_991.0) { "JSON integer exceeds the portable safe range." }
             val mantissa = token.substringBefore('e').substringBefore('E')
             require(number != 0.0 || mantissa.none { it in '1'..'9' }) { "Nonzero JSON number underflows binary64." }
             // Match JavaScript number semantics before org.json can retain arbitrary decimal precision.
-            numbers.add(Triple(start, cursor, if (number == 0.0) "0" else number.toString()))
+            // Validation needs no retained replacement tokens; only ZIP normalization collects them.
+            numbers?.add(Triple(start, cursor, if (number == 0.0) "0" else number.toString()))
         }
         private fun digits() { while (peek() in '0'..'9') cursor++ }
         private fun literal(value: String) { require(text.startsWith(value, cursor)) { "Invalid JSON literal." }; cursor += value.length }

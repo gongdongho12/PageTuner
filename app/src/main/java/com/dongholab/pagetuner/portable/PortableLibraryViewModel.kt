@@ -123,6 +123,12 @@ class PortableLibraryViewModel(private val context: Context, private val local: 
         mutableExportReady.emit(request)
     }
 
+    /** Future explicit upload UI must await queued reader edits before preparing the committed ZIP. */
+    suspend fun currentPdfContent(entry: PortableLibraryEntry): ValidatedPdfContent {
+        awaitReaderWrites(entry)
+        return withContext(Dispatchers.IO) { store.preparePdfContent(entry) }
+    }
+
     /** The account connection is read live after every suspension and again when SAF returns. */
     fun prepareAccountGlossaryExport(entry: PortableLibraryEntry, targetLanguage: String, connection: ServerReadingConnection,
         currentConnection: () -> ServerReadingConnection?) = operation {

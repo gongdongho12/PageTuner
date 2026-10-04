@@ -64,6 +64,12 @@ class PortableLibraryStore(private val directory: File) {
         LibraryExchangeCodec.read(readBounded(file(entry.packageId)))
     }
 
+    /** Prepare only: reread the chosen document and its exact asset bytes from the same committed ZIP. */
+    fun preparePdfContent(entry: PortableLibraryEntry): ValidatedPdfContent = synchronized(lock) {
+        val source = LibraryExchangeCodec.read(readBounded(file(entry.packageId)))
+        PdfContentDocuments.fromPackage(source, entry.documentIndex)
+    }
+
     fun export(entry: PortableLibraryEntry): ByteArray = synchronized(lock) {
         val source = read(entry)
         val document = source.documents[entry.documentIndex]
