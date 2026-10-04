@@ -63,7 +63,9 @@ class ServerLibraryViewModel(
     val state = mutableState.asStateFlow()
     private val mutableEvents = MutableSharedFlow<ServerLibraryEvent>(extraBufferCapacity = 1)
     val events = mutableEvents.asSharedFlow()
-    private var store: HttpTranslationStore? = null
+    @Volatile private var pdfStore: PdfStorageConnection? = null
+    @Volatile private var store: HttpTranslationStore? = null
+        set(value) { pdfStore?.close(); pdfStore = null; field = value }
     private var operation: Job? = null
     private var jobPolling: Job? = null
     private var generation = 0
@@ -73,6 +75,20 @@ class ServerLibraryViewModel(
         ServerReadingConnection(serverReadingAccountKey(state.value.connection.endpoint,
             state.value.profile?.username ?: state.value.connection.username), client)
     }
+
+    /** A read-only lookup: a late worker cannot create a client using another session's credentials. */
+    fun pdfConnection(): PdfStorageConnection? = pdfStore?.takeIf { store != null && state.value.connected }
+
+    private fun installPdfConnection(input: ServerConnectionInput, username: String) {
+        val uri = java.net.URI(input.endpoint.trim())
+        val scheme = uri.scheme.lowercase(java.util.Locale.ROOT)
+        val port = uri.port.takeUnless { it == -1 || it == 443 && scheme == "https" || it == 80 && scheme == "http" } ?: -1
+        val origin = java.net.URI(scheme, null, uri.host.lowercase(java.util.Locale.ROOT), port, null, null, null).toString()
+        pdfStore = PdfStorageConnection(serverReadingAccountKey(input.endpoint, username), origin,
+            HttpPdfContentStore(origin, TranslationStoreBasicAuth(username, input.password)))
+    }
+
+    override fun onCleared() { pdfStore?.close(); pdfStore = null; super.onCleared() }
 
     fun updateEndpoint(value: String) = updateInput(value, state.value.connection.username, state.value.connection.password)
     fun updateUsername(value: String) = updateInput(state.value.connection.endpoint, value, state.value.connection.password)
@@ -95,6 +111,7 @@ class ServerLibraryViewModel(
         val page = client.list(state.value.kind, filter = state.value.filter)
         currentCoroutineContext().ensureActive()
         store = client
+        installPdfConnection(input, profile.username)
         mutableState.update { it.copy(connected = true, page = page, profile = profile, profileDraft = profile.draft(),
             uiLocale = profile.effectiveLocale, status = ServerLibraryMessage(R.string.server_status_connected, listOf(page.totalItems))) }
     }
@@ -119,6 +136,7 @@ class ServerLibraryViewModel(
         val profile = clientFactory(input.endpoint.trim(), null).registerAccount(username, input.password, state.value.profileDraft)
         currentCoroutineContext().ensureActive()
         store = clientFactory(input.endpoint.trim(), TranslationStoreBasicAuth(profile.username, input.password))
+        installPdfConnection(input, profile.username)
         mutableState.update { it.copy(connection = ServerConnectionInput(input.endpoint, profile.username, input.password),
             connected = true, profile = profile, profileDraft = profile.draft(), page = null, selected = null,
             uiLocale = profile.effectiveLocale, status = ServerLibraryMessage(R.string.server_status_registered)) }

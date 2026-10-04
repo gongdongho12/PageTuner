@@ -1,7 +1,6 @@
 package com.dongholab.pagetuner.translation.sync
 
 import com.dongholab.pagetuner.core.backup.exchange.*
-import java.io.Closeable
 import java.io.IOException
 import java.net.HttpCookie
 import java.net.URI
@@ -26,14 +25,14 @@ class PdfContentClientException(val failure: PdfContentClientFailure, val status
 /** Explicit storage operations only. An account/origin change must close this credentials-bound client. */
 class HttpPdfContentStore(baseUrl: String, private val auth: TranslationStoreBasicAuth,
     private val transport: PdfContentHttpTransport = DefaultPdfContentHttpTransport(),
-    allowInsecureDevelopmentHttp: Boolean = false) : Closeable {
+    allowInsecureDevelopmentHttp: Boolean = false) : PdfContentClient {
     private val base = safeOrigin(baseUrl, allowInsecureDevelopmentHttp)
     private val lock = Any()
     private var generation = 0L
     private var closed = false
     private val jobs = mutableSetOf<Job>()
 
-    suspend fun upload(request: PdfContentUpload): PdfContentReceipt {
+    override suspend fun upload(request: PdfContentUpload): PdfContentReceipt {
         requestValue {
             require(request.content.paragraphs.size <= PdfContentValidation.MAX_PARAGRAPHS)
             require(request.content.assets.size in 1..PdfContentValidation.MAX_REFERENCES)
@@ -50,7 +49,7 @@ class HttpPdfContentStore(baseUrl: String, private val auth: TranslationStoreBas
         }
     }
 
-    suspend fun get(recordId: String): PdfContentRecord = operation { ticket ->
+    override suspend fun get(recordId: String): PdfContentRecord = operation { ticket ->
         requestValue { PdfContentValidation.validateUuid(recordId) }
         val response = execute(ticket, "/api/v1/pdf-content/$recordId", "GET", limit = 12 * 1024 * 1024)
         decode { PdfContentWireJson.decodeRecord(response.body, recordId) }

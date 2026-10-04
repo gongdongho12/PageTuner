@@ -65,7 +65,8 @@ fun PortableLibraryPanel(books: List<LocalBook>, currentBookId: String?, state: 
                     }
                     if (row is PortableRow.Imported) Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
                         TextButton(onClick = { onVerify(row.entry) }, enabled = !state.busy,
-                            modifier = Modifier.heightIn(min = 44.dp)) { Text(stringResource(R.string.portable_identity_check)) }
+                            modifier = Modifier.heightIn(min = 44.dp)) { Text(stringResource(
+                                if (row.entry.document.assets.any { it.role == "pdf" }) R.string.pdf_storage_manage else R.string.portable_identity_check)) }
                         if (row.entry.document.assets.any { it.role == "pdf" } && row.entry.document.paragraphs.isNotEmpty()) TextButton(onClick = { onOpen(row.entry, true) },
                             enabled = !state.busy, modifier = Modifier.heightIn(min = 44.dp)) { Text("PDF") }
                     }
