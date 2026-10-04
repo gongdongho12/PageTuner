@@ -164,6 +164,10 @@ sequenceDiagram
 
 ## 후속 브랜치 제안
 
+서버와 웹 리더까지 확장하는 방향은
+[웹 서비스 및 Drive 백업 계획](WEB_SERVICE_AND_DRIVE_BACKUP_PLAN.md)에 정리했습니다.
+특히 기기 간 번역본 공유를 위해 화면 페이지와 영속 문단 ID를 분리해야 합니다.
+
 각 변경의 회귀 범위를 작게 유지하기 위해 아래 작업은 별도 브랜치로 진행합니다.
 
 1. `codex/catalog-feature-coordinators`

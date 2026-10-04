@@ -1,5 +1,6 @@
 package com.dongholab.pagetuner.translation
 
+import com.dongholab.pagetuner.document.DocumentIds
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -9,6 +10,22 @@ import org.junit.Test
 import org.junit.rules.TemporaryFolder
 
 class JsonFileTranslationCacheTest {
+    @Test
+    fun cacheKeyKeepsTheLegacyHashAfterMovingIdentityToSharedCore() {
+        val key = testCacheKey("segment-1")
+        val legacyId = DocumentIds.sha256(
+            listOf(
+                key.documentId,
+                key.segmentId,
+                key.sourceLanguage,
+                key.targetLanguage,
+                key.providerId,
+            ).joinToString("|"),
+        )
+
+        assertEquals(legacyId, key.id)
+    }
+
     @get:Rule
     val temporaryFolder = TemporaryFolder()
 

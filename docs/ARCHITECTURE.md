@@ -16,6 +16,18 @@ core-model/ (pure Kotlin; no Android or Compose dependency)
   -> immutable page metadata and list slices
   -> aligned reader-page windows
 
+core-content/ (shared by app, server, and future web API schema)
+  -> provider/book/chapter/paragraph identities
+  -> source revisions and device-independent reading anchors
+
+core-translation/
+  -> stable translation identities and content revisions
+  -> translated paragraph artifacts
+
+core-backup/
+  -> backup keys and duplicate-upload decisions
+  -> already-backed-up / active-job / enqueue states
+
 MainActivity
   -> Compose app assembly and renderer side effects
 
