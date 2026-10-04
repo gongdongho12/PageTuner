@@ -141,7 +141,7 @@ Android **Local → ZIP**, 웹 **On this device → App · Web ZIP transfer**에
 | --- | --- | --- |
 | 원문·번역·PDF·삽화 교환 | 완료 | 문단 ID와 실제 파일 bytes 보존, 전체 ZIP 검증 후 원자적 저장 |
 | 기존 기기/ZIP의 북마크·메모·강조·읽던 위치·분류·용어집 | 완료 / 표현 범위 차이 보존 | 플랫폼이 직접 편집하지 못하는 속성은 ZIP 재출력에 보존. PDF 물리 페이지 기록과 텍스트 위치를 임의 변환하지 않는다. 새 계정 동기화 저장소의 최신 기록까지 내보낸다는 뜻은 아니다. |
-| 최신 계정 동기화 기록의 ZIP 통합 | 진행 / S4c | 언어별 용어집 passive snapshot 계약·codec은 S4c1에서 완료했다. 최신 계정 GET·화면 export/채택과 S1~S3 위치·메모·분류 통합은 남아 있다. 기존 파일 교환의 완료와 구분한다. |
+| 최신 계정 동기화 기록의 ZIP 통합 | 진행 / S4c | 용어집 passive snapshot 계약·codec(S4c1), 최신 계정 조회와 명시적 앱/웹 export(S4c2a)는 완료했다. 실제 다운로드의 정확한 항목·별칭·서버 최신 변경을 확인했다. 채택(S4c2b)과 S1~S3 위치·메모·분류 통합은 남아 있다. Android SAF 실기기 검증은 V3다. [근거](PORTABLE_GLOSSARY_EXPORT.md) |
 | ZIP 텍스트 원본 식별자·서버 동일성 확인 | 완료 / S4a·실기기 검증 대기 | 원래 provider/book/chapter/언어/revision/전체 문단을 보존하고 현재 계정의 서버 문서와 명시적으로 비교한다. 실제 웹→Android 공통 runtime→웹 왕복 검증. 영속 텍스트 연결은 S4b1, PDF/이미지·독립 로컬 대응은 S4b2이며 확인만으로 기록을 병합하지 않는다. [근거](PORTABLE_DOCUMENT_IDENTITY.md) |
 | 중복·변경본 처리 | 완료 | 같은 snapshot은 기존 기록 유지, 변경본은 별도 사본. 기존 책을 덮어쓰지 않음 |
 | 실제 양방향 확인 | 완료 / 브라우저 UI·Android 어댑터 | Android 출력 ZIP을 웹 UI에서 가져와 본문·북마크 확인. 웹 UI 다운로드 ZIP을 Android 저장소·리더 mapper에서 읽고 재출력 확인. Android 실기기 화면 검증은 별도 |
@@ -157,4 +157,4 @@ Android **Local → ZIP**, 웹 **On this device → App · Web ZIP transfer**에
 
 Android ZIP 문자 위치 후속: 문단 안 offset·끝·빈 문단과 웹에서 바뀐 canonical anchor를 복원/저장한다. 최신 계정 reader와 기기 ZIP 기록은 분리 유지하며 물리 이미지/PDF 위치를 임의 변환하지 않는다. Android 480개 검사 및 APK 검증 완료, 실기기는 V3. [근거](PORTABLE_READING_POSITION.md).
 
-S4c1 passive 용어집 snapshot은 Kotlin/runtime/웹 계약·codec 완료다. 원래 provider/book/targetLanguage·ordered 항목 ID와 전체 속성·미등록/삭제/빈목록을 보존하며 실제 웹→JVM→웹 ZIP 왕복을 검증했다. 최신 계정 GET·화면 export/채택 및 나머지 동기화 기록 통합은 S4c2 이후이며 extensions256 KiB 초과는 절단 없이 거절한다. [검증](PORTABLE_GLOSSARY_SNAPSHOTS.md).
+S4c1 passive 용어집 snapshot과 S4c2a 최신 계정 export가 완료됐다. 원래 provider/book/targetLanguage·ordered 항목 ID와 전체 속성·미등록/삭제/빈목록을 보존한다. 최신 조회는 읽기 전용 POST이며 sync controller/outbox를 시작하지 않는다. 계정/client 변경·pending/conflict·미지원 확장·extensions256 KiB 초과는 절단 없이 거절한다. 명시적 채택과 나머지 동기화 기록 통합은 후속이며 자동 연결/삭제하지 않는다. [계약](PORTABLE_GLOSSARY_SNAPSHOTS.md), [실제 export 검증](PORTABLE_GLOSSARY_EXPORT.md).

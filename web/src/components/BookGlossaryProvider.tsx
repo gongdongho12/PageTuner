@@ -2,7 +2,8 @@ import { createContext, useContext, useEffect, useRef, useState, type ReactNode 
 import { createBookGlossaryStore, listBookGlossaryRecords } from '../lib/bookGlossaryStore'
 import { createBookGlossaryController, type BookGlossaryState } from '../lib/bookGlossarySync'
 import { BookGlossaryError, type BookGlossaryClient, type BookGlossaryScope } from '../lib/bookGlossaryApi'
-import { validateBookGlossaryScope, bookGlossaryKey } from '../lib/bookGlossaryApi'
+import { validateBookGlossaryScope, validateBookGlossaryView, sameBookGlossaryScope, sameBookGlossaryView, bookGlossaryKey, type BookGlossaryView } from '../lib/bookGlossaryApi'
+import { glossaryExportErrors, type FreshBookGlossaryReader } from '../lib/portableGlossaryExport'
 
 type Controller = ReturnType<typeof createBookGlossaryController>
 const keyFor = (scope: BookGlossaryScope) => bookGlossaryKey(scope)
@@ -62,6 +63,38 @@ export class GlossaryRegistry {
     if (this.closed) throw new BookGlossaryError('aborted')
     return entry.controller.snapshot()
   }
+  /** Export never starts a controller or modifies a journal, including for unopened scopes. */
+  freshReader(current: () => boolean): FreshBookGlossaryReader {
+    const observed = new Map<string, BookGlossaryView>()
+    const assertCurrent = () => {
+      if (this.closed || !current()) throw new Error(glossaryExportErrors.stale)
+      if (!this.api) throw new Error(glossaryExportErrors.offline)
+    }
+    const checkReady = async (input: BookGlossaryScope, signal?: AbortSignal) => {
+      assertCurrent(); if (signal?.aborted) throw new Error(glossaryExportErrors.stale)
+      const scope = validateBookGlossaryScope(input), store = createBookGlossaryStore(this.username, scope)
+      try {
+        const record = await store.snapshot()
+        assertCurrent(); if (signal?.aborted) throw new Error(glossaryExportErrors.stale)
+        if (record?.pending || record?.conflict) throw new Error(glossaryExportErrors.pending)
+        const read = observed.get(keyFor(scope)), known = record?.remote
+        if (read && known && (known.version > read.version || known.version === read.version && !sameBookGlossaryView(known, read))) throw new Error(glossaryExportErrors.response)
+      } finally { store.close() }
+    }
+    return { assertCurrent, checkReady,
+      read: async (input, signal) => {
+        const scope = validateBookGlossaryScope(input)
+        await checkReady(scope, signal); assertCurrent()
+        const value = await this.api!.get(scope, signal); assertCurrent()
+        if (signal?.aborted) throw new Error(glossaryExportErrors.stale)
+        const view = validateBookGlossaryView(value)
+        if (!sameBookGlossaryScope(scope, view)) throw new Error(glossaryExportErrors.response)
+        observed.set(keyFor(scope), view)
+        await checkReady(scope, signal); assertCurrent()
+        return structuredClone(view)
+      },
+    }
+  }
   async drain() {
     if (!this.api || this.closed || this.draining) return
     this.draining = true
@@ -94,6 +127,20 @@ export class GlossaryRegistry {
 }
 
 const GlossaryContext = createContext<GlossaryRegistry | null | undefined>(undefined)
+
+/** The captured ticket expires even if an account is switched away and then selected again. */
+export function useFreshBookGlossary(namespace: string) {
+  const registry = useContext(GlossaryContext)
+  const active = registry?.username === namespace ? registry : null
+  const latest = useRef(active); latest.current = active
+  return { available: !!active?.api, session: active,
+    begin: () => {
+      if (!active?.api) throw new Error(glossaryExportErrors.offline)
+      const origin = window.location.origin
+      return active.freshReader(() => latest.current === active && window.location.origin === origin)
+    },
+  }
+}
 export function BookGlossaryProvider({ username, client, children }: { username: string; client: BookGlossaryClient | null; children: ReactNode }) {
   const [registry, setRegistry] = useState<GlossaryRegistry | null>(null)
   useEffect(() => {

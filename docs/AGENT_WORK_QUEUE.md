@@ -35,7 +35,9 @@
 | S4b2a | S4b2 하위 | 완료 | 전체 파일·본문·자산 proof와 위치 계약 | Kotlin/웹 동일 framed SHA-256, 전체 원본 bytes와 ordered 자산 참조, proof-bound UTF-16/PDF anchor. 순수 계약·검증 단위이며 계정 연결을 활성화하지 않음. [근거](PORTABLE_CONTENT_PROOF.md) |
 | S4c | S4 하위 | 진행 | 최신 동기화 기록의 ZIP 내보내기·가져오기 | 현재 위치·메모·분류·원래 ID와 언어 범위가 있는 용어집의 무손실 스냅샷, 충돌/대기 상태 구분, 자격 증명·CAS/outbox mutation 이전 금지 |
 | S4c1 | S4c 하위 | 완료 | 용어집 passive ZIP snapshot 계약·codec | 원래 scope/ID/순서/공백/별칭/종류/활성/대소문자, 미등록/삭제/빈목록 구분. Kotlin·웹·실제 ZIP JVM 왕복 검증. 계정 GET·화면·채택은 S4c2. 전체 extensions 256 KiB 초과는 거절. [근거](PORTABLE_GLOSSARY_SNAPSHOTS.md) |
-| S4c2 | S4c 하위 | 대기 | 최신 계정 용어집 ZIP export·명시적 채택 | fresh GET·계정/origin/client 지연 응답 폐기, 원본 scope 확인, pending/conflict 구분, 크기 초과 안내와 무손실 유지. S1/S2/분류 통합은 이후 S4c 잔여 범위 |
+| S4c2 | S4c 하위 | 진행 | 최신 계정 용어집 ZIP export·명시적 채택 | S4c2a 내보내기와 S4c2b 채택을 분리한다. S1/S2/분류 통합은 이후 S4c 잔여 범위 |
+| S4c2a | S4c2 하위 | 완료 / 실기기 검증 대기 | 최신 계정 용어집의 명시적 ZIP 내보내기 | 직접 읽기 전용 조회·원본 identity/언어/binding 확인·계정/client 세대 및 SAF 요청 티켓. pending/conflict/더 최신 journal·미지원 확장/256 KiB 초과를 거절한다. 웹 484·앱 511 통과/15 opt-in 제외, 실제 서버 변경 후 다운로드 ZIP의 무손실 반영 확인. [근거](PORTABLE_GLOSSARY_EXPORT.md) |
+| S4c2b | S4c2 하위 | 대기 | ZIP 계정 용어집의 명시적 채택 | absent는 정보만 표시. deleted/present는 현재 계정의 정확한 원본 scope와 최신 서버를 확인한 뒤 별도 선택·CAS/outbox로 채택한다. pending/conflict와 항목 전체 속성을 보존하며 스냅샷만으로 연결·자동 전송하지 않음 |
 | W1 | 5 | 대기 | 웹 로컬 번역 캐시의 서버 업로드·복원 | 전체 문단 검증, 원문 revision 대응, 미완성/다른 제공자 충돌 처리, 앱에서 재조회 |
 | W2 | 6 | 대기 | 웹 진단 화면 | 민감정보 제거된 제한 크기 로그, 번역/수집/동기화 오류 구분, 복사/내보내기·삭제, 작은 화면 페이지 탐색 |
 | W3 | 7 | 대기 | 번역 작업 제어와 묶음 범위 개선 | 앱·웹 일시정지/재개 동작 통일 가능 범위, 현재 20회차 제한의 서버 큐 확장, 재시작·중복 제출·취소 검증 |
@@ -60,6 +62,9 @@
 WTR/NovelBuddy 수집·서버 번역·원문/번역 서재·Google 웹 번역 실호출, 4개 제공자 공통 구현, 표준 ZIP 교환, 회원가입·언어 설정·비밀번호 변경은 기존 PR 체인에 있다. 제공자 구현이 실제 유료 키 검증을 뜻하지는 않는다. 계정 비밀번호 변경은 PR #23, 기반 목록 페이지 수정은 PR #22다.
 
 ## 현재 실행 기록
+
+- 2026-10-04 S4c2a: [draft PR #40](https://github.com/gongdongho12/PageTuner/pull/40), base `codex/spring-boot-backend-foundation`(#5). 웹 `e481528`, Android `03848de`를 분리해 검증 후 각각 푸시했다. #5 최종 `fb7760e`의 Android/Frontend CI 모두 성공. #40 최종 head CI는 문서·화면 수정까지 반영한 후 확인한다. [실제 검증·남은 범위](PORTABLE_GLOSSARY_EXPORT.md).
+- 다음은 **S4c2b 명시적 채택**이며 S4 전체는 미완료다. S4b2b 자산의 실제 서버 보관/연결, S1/S2/분류 ZIP 통합과 나머지 큐를 유지한다. 원본 `F:/workspace/PageTuner`의 PR34 기반 미커밋 변경은 수정하거나 다시 커밋하지 않았다. 작업은 첨부 `C:/Users/gongd/.codex/worktrees/glossary-portable-snapshot/PageTuner`에서 이어간다.
 
 - 2026-10-04 통합 재개: 이전 직접 병합 요청으로 PR #39와 #1~4는 병합됐고 `main=5eeb183`의 [CI](https://github.com/gongdongho12/PageTuner/actions/runs/37182401294)가 성공했다. #5를 제외한 당시 모든 PR head의 내용은 main에 포함되어 있지만 중간 PR의 GitHub 상태는 별개다. 이후 사용자 지시는 자동 병합 금지이므로 나머지를 추가로 병합하지 않는다.
 - 중단된 PR #5 통합의 13개 충돌과 DB 버전 중복, Next.js 인증·늦은 계정 응답, Android 메모리 캐시/목록 키 탐색 결함을 수정했다. 공통 175·서버 213·web 453·Next 21+브라우저 20·Python 9, Android 497 통과/15 opt-in 제외, bootJar/APK/lint/계측 소스/경계 성공. 기존 `main`의 V1~V14는 보존하고 새 서재만 V15로 추가한다. [범위·검증과 제약](CI_STACK_INTEGRATION.md). 최신 변경은 draft PR #5에 보관하며 원본 폴더의 미커밋 변경을 보존한다.

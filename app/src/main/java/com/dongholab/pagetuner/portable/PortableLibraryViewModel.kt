@@ -27,7 +27,8 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
 
-data class PortableLibraryState(val entries: List<PortableLibraryEntry> = emptyList(), val busy: Boolean = false, val status: Int? = null, val error: String? = null)
+data class PortableLibraryState(val entries: List<PortableLibraryEntry> = emptyList(), val busy: Boolean = false, val status: Int? = null,
+    val error: String? = null, val glossaryPresence: BookGlossarySnapshotPresence? = null)
 data class PortableOpened(val entry: PortableLibraryEntry, val loaded: LoadedReaderDocument, val mapping: PortableReaderMapping,
     val pageIndex: Int, val bookmarks: List<ReaderBookmark>, val annotations: List<ReaderAnnotation>, val pdf: Boolean = false,
     val serverReading: ServerReadingDocument? = null, val characterOffset: Int = 0)
@@ -42,13 +43,23 @@ class PortableLibraryViewModel(private val context: Context, private val local: 
     val state = mutableState.asStateFlow()
     private val mutableOpened = MutableSharedFlow<PortableOpened>(extraBufferCapacity = 1)
     val opened = mutableOpened.asSharedFlow()
-    private var preparedExport: ByteArray? = null
+    private val exportTickets = PortableExportTickets()
+    private val glossaryJournal = FileServerBookGlossaryStore(File(context.filesDir, "server-book-glossaries"))
+    private var exportConnection: ServerReadingConnection? = null
     private val readerGenerations = mutableMapOf<String, Long>()
     private val readerWrites = mutableMapOf<String, Deferred<Result<Unit>>>()
-    private val mutableExportReady = MutableSharedFlow<String>(extraBufferCapacity = 1)
+    private val mutableExportReady = MutableSharedFlow<PortableExportRequest>(extraBufferCapacity = 1)
     val exportReady = mutableExportReady.asSharedFlow()
 
     init { refresh() }
+    fun connect(value: ServerReadingConnection?) {
+        exportTickets.connect(value)
+        if (exportConnection != value) {
+            exportConnection = value
+            mutableState.update { it.copy(glossaryPresence = null, status = null) }
+        }
+    }
+    fun cancelExport(id: String) { exportTickets.cancel(id) }
     fun refresh() = operation { mutableState.update { it.copy(entries = store.list()) } }
 
     fun importArchive(uri: Uri) = operation {
@@ -65,9 +76,10 @@ class PortableLibraryViewModel(private val context: Context, private val local: 
 
     fun prepareExport(entry: PortableLibraryEntry) {
         operation {
+            val request = exportTickets.begin("PageTurner-${entry.document.bookTitle.portableFilename()}.ptlibrary.zip")
             awaitReaderWrites(entry)
-            preparedExport = store.export(entry)
-            mutableExportReady.emit("PageTurner-${entry.document.bookTitle.portableFilename()}.ptlibrary.zip")
+            exportTickets.prepare(request, store.export(entry), null)
+            mutableExportReady.emit(request)
         }
     }
 
@@ -79,6 +91,7 @@ class PortableLibraryViewModel(private val context: Context, private val local: 
 
     fun prepareNativeExport(book: LocalBook, translation: Boolean = false, settings: TranslationSettings? = null,
         cacheProviderId: String? = null, currentGlossary: BookGlossary? = null) = operation {
+        val request = exportTickets.begin("PageTurner-${book.title.portableFilename()}.ptlibrary.zip")
         val result = local.openBook(book.id)
         val document = result.loadedDocument.document
         val pdfBytes = if (document.format == DocumentFormat.PDF) {
@@ -103,16 +116,31 @@ class PortableLibraryViewModel(private val context: Context, private val local: 
                     .put("modelId", artifact.modelId).put("promptRevision", artifact.promptRevision).put("glossaryRevision", artifact.glossaryRevision)).toString())
             value = value.copy(documents = value.documents + translated)
         }
-        preparedExport = LibraryExchangeCodec.write(value)
-        mutableExportReady.emit("PageTurner-${book.title.portableFilename()}.ptlibrary.zip")
+        exportTickets.prepare(request, LibraryExchangeCodec.write(value), null)
+        mutableExportReady.emit(request)
     }
 
-    fun writeExport(uri: Uri?) {
-        if (uri == null) { preparedExport = null; return }
+    /** The account connection is read live after every suspension and again when SAF returns. */
+    fun prepareAccountGlossaryExport(entry: PortableLibraryEntry, targetLanguage: String, connection: ServerReadingConnection,
+        currentConnection: () -> ServerReadingConnection?) = operation {
+        val request = exportTickets.begin("PageTurner-${entry.document.bookTitle.portableFilename()}-account-glossary.ptlibrary.zip", connection)
+        val adapter = PortableAccountGlossaryExport(::currentDocument,
+            { selected -> store.read(selected).documents[selected.documentIndex] }, bindings::read, glossaryJournal::read)
+        try {
+            val prepared = adapter.prepare(entry, targetLanguage, connection) { exportTickets.check(request, currentConnection()) }
+            val bytes = LibraryExchangeCodec.write(LibraryExchangePackage(portableTimestamp(), listOf(prepared.document)))
+            exportTickets.prepare(request, bytes, currentConnection(), prepared.checkBeforeWrite)
+            exportTickets.check(request, currentConnection())
+            mutableState.update { it.copy(glossaryPresence = prepared.snapshot.presence) }
+            mutableExportReady.emit(request)
+        } catch (error: Exception) { exportTickets.cancel(request.id); throw error }
+    }
+
+    fun writeExport(uri: Uri?, requestId: String?, currentConnection: () -> ServerReadingConnection?) {
+        if (requestId == null) return
+        if (uri == null) { exportTickets.cancel(requestId); return }
         operation {
-            val bytes = requireNotNull(preparedExport)
-            try { context.contentResolver.openOutputStream(uri, "wt")?.use { it.write(bytes) } ?: error(context.getString(R.string.portable_error_write)) }
-            finally { preparedExport = null }
+            exportTickets.write(requestId, currentConnection) { context.contentResolver.openOutputStream(uri, "wt") }
             mutableState.update { it.copy(status = R.string.portable_exported) }
         }
     }
@@ -212,11 +240,12 @@ class PortableLibraryViewModel(private val context: Context, private val local: 
 
     private fun operation(work: suspend () -> Unit) {
         if (state.value.busy) return
-        mutableState.update { it.copy(busy = true, error = null, status = null) }
+        mutableState.update { it.copy(busy = true, error = null, status = null, glossaryPresence = null) }
         viewModelScope.launch {
             try { withContext(Dispatchers.IO) { work() } }
             catch (cancelled: CancellationException) { throw cancelled }
-            catch (error: Exception) { mutableState.update { it.copy(error = error.message ?: context.getString(R.string.portable_error_read)) } }
+            catch (error: Exception) { mutableState.update { it.copy(error = if (error is PortableExportExpired)
+                context.getString(R.string.portable_export_expired) else error.message ?: context.getString(R.string.portable_error_read)) } }
             finally { mutableState.update { it.copy(busy = false) } }
         }
     }

@@ -254,7 +254,10 @@ fun PageTurnerApp() {
     val serverLibraryState by serverLibraryViewModel.state.collectAsState()
     val observedServerReaderPreferencesState by serverReaderPreferencesViewModel.sync.state.collectAsState()
     val serverReadingConnection = serverLibraryViewModel.readingConnection()
-    LaunchedEffect(serverReadingConnection) { portableIdentityViewModel.verification.connect(serverReadingConnection) }
+    LaunchedEffect(serverReadingConnection) {
+        portableIdentityViewModel.verification.connect(serverReadingConnection)
+        portableViewModel.connect(serverReadingConnection)
+    }
     // Compose can observe a switched server before the actor handles Connect. Hide the previous
     // account immediately and reject controls from that intermediate frame using an invalid ticket.
     val serverReaderPreferencesState = observedServerReaderPreferencesState.takeIf {
@@ -639,11 +642,22 @@ fun PageTurnerApp() {
     val portableImportLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri: Uri? ->
         uri?.let(portableViewModel::importArchive)
     }
+    var portableExportRequestId by rememberSaveable { mutableStateOf<String?>(null) }
     val portableExportLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/zip")) { uri: Uri? ->
-        portableViewModel.writeExport(uri)
+        val requestId = portableExportRequestId
+        portableExportRequestId = null
+        portableViewModel.writeExport(uri, requestId, serverLibraryViewModel::readingConnection)
     }
     LaunchedEffect(portableViewModel) {
-        launch { portableViewModel.exportReady.collect { portableExportLauncher.launch(it) } }
+        launch { portableViewModel.exportReady.collect { request ->
+            // A prior picker owns its callback until it returns, even after account changes.
+            if (portableExportRequestId != null) portableViewModel.cancelExport(request.id)
+            else {
+                portableExportRequestId = request.id
+                try { portableExportLauncher.launch(request.filename) }
+                catch (error: Exception) { portableExportRequestId = null; portableViewModel.cancelExport(request.id); throw error }
+            }
+        } }
         launch { portableViewModel.opened.collect { opened ->
             portableOpened = opened.takeIf { it.serverReading == null }
             opened.serverReading?.let { reading ->
@@ -963,6 +977,14 @@ fun PageTurnerApp() {
                                         serverLibraryViewModel.readingConnection(), portableViewModel::currentDocument, portableViewModel::saveBinding) },
                                     onUnbind = { portableIdentityViewModel.verification.unbind(portableIdentityState.session,
                                         serverLibraryViewModel.readingConnection(), portableViewModel::removeBinding) },
+                                    exportState = portableState,
+                                    onExportGlossary = { language ->
+                                        val connection = serverLibraryViewModel.readingConnection()
+                                        val selected = portableIdentityViewModel.verification.state.value
+                                        if (connection != null && selected.session == portableIdentityState.session) selected.entry?.let { entry ->
+                                            portableViewModel.prepareAccountGlossaryExport(entry, language, connection, serverLibraryViewModel::readingConnection)
+                                        }
+                                    },
                                     onReadServer = {
                                         val connection = serverLibraryViewModel.readingConnection()
                                         val selected = portableIdentityViewModel.verification.state.value

@@ -194,12 +194,17 @@ class ServerReadingNotesTest {
         val first = sync.state.value.items.single()
         sync.edit(doc.readerId, noteId, "Latest device edit", "Latest body", first)
         store.await { it.queued[noteId]?.note?.title == "Latest device edit" }
+        // The IO store signals before persist resumes on the actor dispatcher and publishes.
+        // Observe that publication before submitting stale controls; runCurrent cannot wait for IO.
+        sync.state.first { it.items.singleOrNull()?.note?.title == "Latest device edit" }
         sync.edit(doc.readerId, noteId, "Stale edit", "Old form", original)
         sync.delete(doc.readerId, noteId, first)
-        runCurrent()
-        assertEquals("Latest device edit", sync.state.value.items.single().note!!.title)
-        assertTrue(sync.state.value.staleActionRejected)
+        val rejected = sync.state.first { it.staleActionRejected }
+        assertEquals("Latest device edit", rejected.items.single().note!!.title)
+        assertTrue(rejected.staleActionRejected)
         assertEquals("Latest device edit", store.records.getValue(doc.key).queued[noteId]?.note?.title)
+        // Both stale controls precede the first acknowledgement in the actor queue, so Synced
+        // below confirms the delete was processed too, even if its rejection publishes equal UI state.
         release.complete(Unit)
         val saved = sync.state.first { it.phase == ReadingProgressPhase.Synced }
         assertEquals("Latest device edit", saved.items.single().note!!.title)
