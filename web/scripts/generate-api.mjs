@@ -16,3 +16,4 @@ await generateContract('local-sharing-v1.openapi.json', 'localSharing.ts', check
 await generateContract('source-book-favorites-v1.openapi.json', 'sourceBookFavorites.ts', check);
 await generateContract('book-glossary-v1.openapi.json', 'bookGlossary.ts', check);
 await generateContract('library-identity-v1.openapi.json', 'libraryIdentity.ts', check);
+await generateContract('pdf-content-v1.openapi.json', 'pdfContent.ts', check);
