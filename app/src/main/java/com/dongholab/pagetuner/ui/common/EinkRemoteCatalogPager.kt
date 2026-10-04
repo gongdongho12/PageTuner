@@ -61,6 +61,7 @@ fun EinkRemoteCatalogPager(
     onPageSelected: (Int) -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val totalItems = paging.totalItems
     Surface(
         modifier = modifier.fillMaxWidth(),
         color = EinkPanel,
@@ -73,13 +74,13 @@ fun EinkRemoteCatalogPager(
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             Text(
-                text = if (paging.totalItems != null) {
+                text = if (totalItems != null) {
                     stringResource(
                         R.string.web_catalog_remote_page_summary,
                         paging.currentPage,
                         paging.totalPages ?: paging.currentPage,
                         paging.pageItemCount,
-                        paging.totalItems,
+                        totalItems,
                     )
                 } else {
                     stringResource(

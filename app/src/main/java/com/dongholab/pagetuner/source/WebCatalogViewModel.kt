@@ -5,6 +5,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.dongholab.pagetuner.common.DiagnosticLogger
+import com.dongholab.pagetuner.core.paging.PageMetadata
 import com.dongholab.pagetuner.source.offline.OfflineNovelStorageStore
 import com.dongholab.pagetuner.translation.ContentTranslationServiceFactory
 import com.dongholab.pagetuner.translation.TranslationPaceMode
@@ -21,7 +22,9 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 private const val DefaultCatalogUrl = "https://wtr-lab.com/en/novel-list"
 private const val MaxThumbnailBytes = 2 * 1024 * 1024
@@ -55,19 +58,7 @@ data class WebCatalogLoading(
     val page: Int = 1,
 )
 
-data class RemoteCatalogPagingState(
-    val currentPage: Int = 1,
-    val totalPages: Int? = null,
-    val totalItems: Int? = null,
-    val pageItemCount: Int = 0,
-    val hasPreviousPage: Boolean = false,
-    val hasNextPage: Boolean = false,
-)
-
-private data class LoadedWebNovelCatalog(
-    val catalog: PageTurnerCatalog,
-    val paging: RemoteCatalogPagingState,
-)
+typealias RemoteCatalogPagingState = PageMetadata
 
 data class WebCatalogUiState(
     val catalogUrl: String = DefaultCatalogUrl,
@@ -147,11 +138,12 @@ sealed interface WebCatalogEvent {
 class WebCatalogViewModel(
     private val cache: RemoteCatalogCache,
     private val accountStore: RemoteSourceAccountStore,
+    private val pageService: WebCatalogPageService = DefaultWebCatalogPageService(),
 ) : ViewModel() {
     private var offlineDownloadJob: Job? = null
     private var catalogTranslationJob: Job? = null
     private var catalogPreloadJob: Job? = null
-    private val catalogPageMemoryCache = mutableMapOf<String, LoadedWebNovelCatalog>()
+    private var coverThumbnailJob: Job? = null
     private val _uiState = MutableStateFlow(WebCatalogUiState())
     val uiState: StateFlow<WebCatalogUiState> = _uiState.asStateFlow()
 
@@ -289,10 +281,12 @@ class WebCatalogViewModel(
                 applyCachedCatalog(cached, busy = false)
             }
             runCatching {
-                loadWebNovelCatalog(
-                    url = DefaultCatalogUrl,
-                    accountId = defaultWtrLabAccount().id,
-                    page = 1,
+                pageService.load(
+                    WebCatalogPageRequest(
+                        url = DefaultCatalogUrl,
+                        accountId = defaultWtrLabAccount().id,
+                        pageNumber = 1,
+                    ),
                     onStep = ::updateCatalogLoadStep,
                 ).also { loaded -> cache.saveStructured(DefaultCatalogUrl, loaded.catalog) }
             }.onSuccess { loaded ->
@@ -321,7 +315,7 @@ class WebCatalogViewModel(
 
     fun loadCachedCatalog(cached: CachedWebCatalog) {
         if (_uiState.value.busy) return
-        applyCachedCatalog(cached, busy = false)
+        viewModelScope.launch { applyCachedCatalog(cached, busy = false) }
     }
 
     fun loadSourceAccount(account: RemoteSourceAccount) {
@@ -341,11 +335,13 @@ class WebCatalogViewModel(
                         )
                     }
                     runCatching {
-                        loadWebNovelCatalog(
-                            account.endpoint,
-                            account.id,
-                            page,
-                            ::updateCatalogLoadStep,
+                        pageService.load(
+                            request = WebCatalogPageRequest(
+                                url = account.endpoint,
+                                accountId = account.id,
+                                pageNumber = page,
+                            ),
+                            onStep = ::updateCatalogLoadStep,
                         ).also { loaded ->
                             if (loaded.paging.currentPage == 1) {
                                 cache.saveStructured(account.endpoint, loaded.catalog)
@@ -709,15 +705,17 @@ class WebCatalogViewModel(
         }
     }
 
-    private fun applyCachedCatalog(cached: CachedWebCatalog, busy: Boolean) {
+    private suspend fun applyCachedCatalog(cached: CachedWebCatalog, busy: Boolean) {
         val catalog = runCatching {
-            if (cached.storageFormat == RemoteCatalogSnapshotJson.StorageFormat) {
-                RemoteCatalogSnapshotJson.decode(cached.rawJson)
-            } else {
-                PageTurnerWebCatalogParser.parse(
-                    rawJson = cached.rawJson,
-                    catalogUrl = cached.url,
-                )
+            withContext(Dispatchers.Default) {
+                if (cached.storageFormat == RemoteCatalogSnapshotJson.StorageFormat) {
+                    RemoteCatalogSnapshotJson.decode(cached.rawJson)
+                } else {
+                    PageTurnerWebCatalogParser.parse(
+                        rawJson = cached.rawJson,
+                        catalogUrl = cached.url,
+                    )
+                }
             }
         }.getOrElse { error ->
             _uiState.update { state ->
@@ -766,40 +764,31 @@ class WebCatalogViewModel(
             val adapter = runCatching {
                 com.dongholab.pagetuner.source.webnovel.WebNovelSiteAdapterRegistry.default.resolve(url)
             }.getOrNull()
-            val cacheKey = "$accountId|${adapter?.catalogPageUrl(url, page) ?: "$url|$page"}"
-            val inMemory = if (forceRefresh) {
-                catalogPageMemoryCache.remove(cacheKey)
-                null
-            } else {
-                catalogPageMemoryCache[cacheKey]
-            }
-            if (inMemory != null) {
-                DiagnosticLogger.log(
-                    "[WEB CATALOG CACHE HIT]",
-                    "provider=${adapter?.id ?: "unknown"} page=$page items=${inMemory.catalog.items.size}",
-                )
-                applyLoadedWebNovelCatalog(inMemory)
-                return@launch
-            }
-
             val startedAtNanos = System.nanoTime()
             DiagnosticLogger.log(
                 "[WEB CATALOG START]",
                 "provider=${adapter?.id ?: "unknown"} page=$page forceRefresh=$forceRefresh",
             )
             runCatching {
-                loadWebNovelCatalog(
-                    url = url,
-                    accountId = accountId,
-                    page = page,
+                pageService.load(
+                    request = WebCatalogPageRequest(
+                        url = url,
+                        accountId = accountId,
+                        pageNumber = page,
+                        forceRefresh = forceRefresh,
+                    ),
                     onStep = ::updateCatalogLoadStep,
                 )
             }.onSuccess { loaded ->
+                val logStep = if (loaded.fromMemoryCache) {
+                    "[WEB CATALOG CACHE HIT]"
+                } else {
+                    "[WEB CATALOG SUCCESS]"
+                }
                 DiagnosticLogger.log(
-                    "[WEB CATALOG SUCCESS]",
-                    "provider=${adapter?.id ?: "unknown"} page=${loaded.paging.currentPage}/${loaded.paging.totalPages} items=${loaded.catalog.items.size} total=${loaded.paging.totalItems} durationMs=${(System.nanoTime() - startedAtNanos) / 1_000_000L}",
+                    logStep,
+                    "provider=${loaded.providerId} page=${loaded.paging.currentPage}/${loaded.paging.totalPages} items=${loaded.catalog.items.size} total=${loaded.paging.totalItems} durationMs=${(System.nanoTime() - startedAtNanos) / 1_000_000L}",
                 )
-                catalogPageMemoryCache[cacheKey] = loaded
                 if (loaded.paging.currentPage == 1) {
                     cache.saveStructured(url, loaded.catalog)
                 }
@@ -837,7 +826,7 @@ class WebCatalogViewModel(
     }
 
     private fun applyLoadedWebNovelCatalog(
-        loaded: LoadedWebNovelCatalog,
+        loaded: WebCatalogPageData,
         cachedCatalogs: List<CachedWebCatalog>? = null,
     ) {
         _uiState.update { state ->
@@ -888,32 +877,6 @@ class WebCatalogViewModel(
         return adapter.catalogSearchUrl(this, request) != null
     }
 
-    private suspend fun loadWebNovelCatalog(
-        url: String,
-        accountId: String,
-        page: Int,
-        onStep: (RemoteCatalogLoadStep) -> Unit = {},
-    ): LoadedWebNovelCatalog {
-        val source = WebNovelRemoteBookSource(accountId = accountId, endpointUrl = url)
-        val remotePage = source.loadCatalogPage(page, onStep)
-        return LoadedWebNovelCatalog(
-            catalog = PageTurnerCatalog(
-                version = PageTurnerWebCatalogParser.Version,
-                id = accountId,
-                title = remotePage.title,
-                items = remotePage.items,
-            ),
-            paging = RemoteCatalogPagingState(
-                currentPage = remotePage.currentPage,
-                totalPages = remotePage.totalPages,
-                totalItems = remotePage.totalItems,
-                pageItemCount = remotePage.items.size,
-                hasPreviousPage = remotePage.hasPreviousPage,
-                hasNextPage = remotePage.hasNextPage,
-            ),
-        )
-    }
-
     private fun prefetchCoverThumbnails(items: List<RemoteBookItem>) {
         val urls = items
             .take(5)
@@ -922,7 +885,9 @@ class WebCatalogViewModel(
             .distinct()
         if (urls.isEmpty()) return
 
-        viewModelScope.launch {
+        coverThumbnailJob?.cancel()
+        coverThumbnailJob = viewModelScope.launch {
+            val loadedThumbnails = linkedMapOf<String, ByteArray>()
             urls.forEach { url ->
                 DiagnosticLogger.log("[COVER STEP 1: FETCH START]", "Requesting thumbnail: $url")
                 runCatching {
@@ -932,20 +897,15 @@ class WebCatalogViewModel(
                     )
                 }.onSuccess { bytes ->
                     DiagnosticLogger.log("[COVER STEP 2: FETCH OK]", "Downloaded ${bytes.size} bytes from $url")
-                    // STEP 3: Verify BitmapFactory can decode
-                    val bitmap = runCatching {
-                        android.graphics.BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
-                    }.getOrNull()
-                    if (bitmap != null) {
-                        DiagnosticLogger.log("[COVER STEP 3: DECODE OK]", "Bitmap decoded ${bitmap.width}x${bitmap.height} from $url")
-                    } else {
-                        DiagnosticLogger.log("[COVER STEP 3: DECODE FAIL]", "BitmapFactory returned null for $url — bytes may not be a valid image")
-                    }
-                    _uiState.update { state ->
-                        state.copy(coverThumbnails = state.coverThumbnails + (url to bytes))
-                    }
+                    loadedThumbnails[url] = bytes
                 }.onFailure { error ->
+                    if (error is CancellationException) throw error
                     DiagnosticLogger.log("[COVER STEP 2: FETCH FAIL]", "$url → ${error.javaClass.simpleName}: ${error.message}")
+                }
+            }
+            if (loadedThumbnails.isNotEmpty()) {
+                _uiState.update { state ->
+                    state.copy(coverThumbnails = state.coverThumbnails + loadedThumbnails)
                 }
             }
         }

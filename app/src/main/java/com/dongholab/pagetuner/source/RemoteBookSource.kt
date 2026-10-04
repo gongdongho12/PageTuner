@@ -1,5 +1,8 @@
 package com.dongholab.pagetuner.source
 
+import com.dongholab.pagetuner.core.paging.PageLoader
+import com.dongholab.pagetuner.core.paging.PageRequest
+import com.dongholab.pagetuner.core.paging.PageResult
 import com.dongholab.pagetuner.document.DocumentFormat
 
 enum class RemoteSourceType {
@@ -65,20 +68,23 @@ enum class RemoteCatalogLoadStep {
 data class RemoteCatalogPage(
     val title: String,
     val url: String,
-    val items: List<RemoteBookItem>,
-    val currentPage: Int = 1,
-    val totalPages: Int? = null,
-    val totalItems: Int? = null,
-    val hasPreviousPage: Boolean = currentPage > 1,
-    val hasNextPage: Boolean = totalPages?.let { currentPage < it } ?: false,
-)
+    override val items: List<RemoteBookItem>,
+    override val currentPage: Int = 1,
+    override val totalPages: Int? = null,
+    override val totalItems: Int? = null,
+    override val hasPreviousPage: Boolean = currentPage > 1,
+    override val hasNextPage: Boolean = totalPages?.let { currentPage < it } ?: false,
+) : PageResult<RemoteBookItem>
 
 /** Optional capability for sources whose catalogs are paged by the remote website. */
-interface PaginatedRemoteBookSource {
+interface PaginatedRemoteBookSource : PageLoader<RemoteBookItem> {
     suspend fun loadCatalogPage(
         page: Int,
         onStep: (RemoteCatalogLoadStep) -> Unit = {},
     ): RemoteCatalogPage
+
+    override suspend fun loadPage(request: PageRequest): PageResult<RemoteBookItem> =
+        loadCatalogPage(request.pageNumber)
 }
 
 interface RemoteBookSource {

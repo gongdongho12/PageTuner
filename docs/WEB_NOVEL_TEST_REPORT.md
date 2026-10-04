@@ -49,6 +49,20 @@ content, reopened it, and verified that reopening required no further web
 request. The translation provider in this network test is deterministic so a
 third-party translator outage cannot obscure crawler regressions.
 
+## Core paging verification (2026-09-05)
+
+The UI-free `WebCatalogPageService` was executed against the live WTR-LAB
+catalog after the `:core-model` extraction. The response returned HTTP 200,
+235,516 bytes, 10 normalized books on page 1, and 9,317 remote pages. The first
+fetch plus DOM mapping took 804 ms on the test host; the immediate same-page
+memory lookup took less than 1 ms and returned the same remote IDs. These are a
+functional timing snapshot, not a physical E-Ink rendering benchmark.
+
+```bash
+RUN_LIVE_WEB_NOVEL_TESTS=1 ./gradlew :app:testDebugUnitTest \
+  --tests 'com.dongholab.pagetuner.source.WebCatalogPageServiceTest.liveWtrPageLoadsAndThenUsesTheUiFreeMemoryCache'
+```
+
 ## Commands
 
 ```bash

@@ -82,8 +82,8 @@ whole document immediately:
 3. Every page has a runtime flag: `Queued`, `Translating`, `Ready`, or `Failed`.
 4. When the reader enters the fifth visible page in that window (index 4 for a
    window starting at index 0), the next non-overlapping 10-page window is queued.
-5. A large page jump starts a new window at the current page rather than filling
-   every skipped window.
+5. A large page jump loads the aligned 10-page block containing the destination
+   without filling every skipped block.
 6. The rolling worker does not set the application's blocking `busy` flag, so
    page turns and reading remain available while look-ahead pages are cached.
 
@@ -91,6 +91,17 @@ whole document immediately:
 provider dependency. `TranslationViewModel` owns runtime flags and the single
 background worker. `TranslationRepository` remains the only cache/provider
 boundary.
+
+Aligned windows come from the pure Kotlin `:core-model` module:
+
+```text
+open page 1  -> translate pages 1-10
+enter page 5 -> prefetch pages 11-20
+jump page 25 -> translate the containing block, pages 21-30
+```
+
+This prevents a jump to page 25 from starting an arbitrary `25-34` range while
+leaving pages 21-24 unavailable.
 
 The flags themselves are process state. `Ready` is durable because the actual
 translation is written to `TranslationCache`; after an app restart, a queued
@@ -212,10 +223,11 @@ rolling translation completion, and terminal states.
 
 `RollingTranslationWorkflowInstrumentedTest` runs the complete rolling path on
 an Android device: `TranslationViewModel -> TranslationRepository -> provider
--> cache`. Its 25-page scenario verifies that pages 1-10 use one request, page
-4 does not queue more work, entering page 5 queues pages 11-20, and repeated
-page-change callbacks do not create duplicate requests. Each checkpoint is
-written to the `PageTurnerWorkflowTest` Logcat tag for ADB verification.
+-> cache`. Its 35-page scenario verifies that pages 1-10 use one request, page
+4 does not queue more work, entering page 5 queues pages 11-20, repeated
+page-change callbacks do not create duplicate requests, and jumping to page 25
+selects the aligned 21-30 block. Each checkpoint is written to the
+`PageTurnerWorkflowTest` Logcat tag for ADB verification.
 
 Repeatable commands:
 
