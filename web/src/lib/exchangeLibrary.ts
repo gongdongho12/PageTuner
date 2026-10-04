@@ -99,7 +99,10 @@ export function createExchangeLibrary(username: string, options: DeviceDatabaseO
   }
 }
 
-export type ExchangeExportChoice = { key: string; title: string; kind: string; load: () => Promise<ExchangePackage> }
+export type ExchangeExportChoice = { key: string; title: string; kind: string; load: () => Promise<ExchangePackage>
+  /** Provenance stays in memory; a ZIP record hint alone never grants account access. */
+  glossarySource?: { kind: 'server'; recordId: string } | { kind: 'portable'; book: SavedExchange }
+}
 /** All candidates are explicit, verified reading content belonging to the selected device account. */
 export async function exchangeExportChoices(username: string): Promise<ExchangeExportChoice[]> {
   const personal = createPersonalLibrary(username), offline = createOfflineLibrary(username), notes = createReadingNotes(username), portable = createExchangeLibrary(username)
@@ -125,9 +128,9 @@ export async function exchangeExportChoices(username: string): Promise<ExchangeE
     }
     return [
       ...local.books.map(book => ({ key: `local:${book.document.id}`, title: book.document.bookTitle, kind: book.document.local.format.toUpperCase(), load: () => prepare(book.document, { organization: book.organization }) })),
-      ...translations.books.map(book => ({ key: `translation:${book.translation.recordId}`, title: book.translation.bookTitle || book.translation.bookId, kind: 'translation', load: async () => prepare(translationReadingDocument(book.translation), { anchor: getTranslationPosition(username, book.translation) ?? book.anchor, extensions: { translation: metadata(book.translation), ...await identityExtension(book.translation.recordId, () => translationLibraryIdentity(book.translation)) }, glossaryIdentity: { providerId: book.translation.contentProviderId, bookId: book.translation.bookId } }) })),
-      ...originals.books.map(book => { const c = book.chapter; const reading: ReadingDocument = { id: `original:${c.recordId}:${c.sourceRevision}`, kind: 'original', bookTitle: c.bookTitle, chapterTitle: c.chapterTitle, language: c.sourceLanguage, paragraphs: c.paragraphs }; return { key: `original:${c.recordId}`, title: c.bookTitle, kind: 'original', load: async () => prepare(reading, { anchor: getWorkflowPosition(username, reading), extensions: { source: metadata(c), ...await identityExtension(c.recordId, () => originalLibraryIdentity(c)) }, glossaryIdentity: { providerId: c.providerId, bookId: c.bookId } }) } }),
-      ...exchanged.map(book => ({ key: book.id, title: book.document.bookTitle, kind: 'ZIP', load: () => portable.exportDocument(book) })),
+      ...translations.books.map(book => ({ key: `translation:${book.translation.recordId}`, title: book.translation.bookTitle || book.translation.bookId, kind: 'translation', glossarySource: { kind: 'server' as const, recordId: book.translation.recordId }, load: async () => prepare(translationReadingDocument(book.translation), { anchor: getTranslationPosition(username, book.translation) ?? book.anchor, extensions: { translation: metadata(book.translation), ...await identityExtension(book.translation.recordId, () => translationLibraryIdentity(book.translation)) }, glossaryIdentity: { providerId: book.translation.contentProviderId, bookId: book.translation.bookId } }) })),
+      ...originals.books.map(book => { const c = book.chapter; const reading: ReadingDocument = { id: `original:${c.recordId}:${c.sourceRevision}`, kind: 'original', bookTitle: c.bookTitle, chapterTitle: c.chapterTitle, language: c.sourceLanguage, paragraphs: c.paragraphs }; return { key: `original:${c.recordId}`, title: c.bookTitle, kind: 'original', glossarySource: { kind: 'server' as const, recordId: c.recordId }, load: async () => prepare(reading, { anchor: getWorkflowPosition(username, reading), extensions: { source: metadata(c), ...await identityExtension(c.recordId, () => originalLibraryIdentity(c)) }, glossaryIdentity: { providerId: c.providerId, bookId: c.bookId } }) } }),
+      ...exchanged.map(book => ({ key: book.id, title: book.document.bookTitle, kind: 'ZIP', glossarySource: { kind: 'portable' as const, book }, load: () => portable.exportDocument(book) })),
     ]
   } finally { personal.close(); offline.close() }
 }

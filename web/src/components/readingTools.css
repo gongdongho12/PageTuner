@@ -61,6 +61,9 @@
 .reading-field .reading-checkbox input { width:24px; min-height:24px; height:24px; }
 .reading-filter-actions { display:flex; gap:12px; padding:8px; }
 .reading-filter-actions button { flex:1; min-height:48px; }
+.exchange-export-actions { flex:none; flex-wrap:wrap; align-items:center; gap:4px 8px; }
+.exchange-export-actions > :first-child { flex:1 1 auto; }
+.exchange-export-actions > :last-child { flex:1 1 100%; }
 .reader:fullscreen,.reading-workspace:fullscreen { width:100vw; height:100vh; }
 .reader-highlight { color:inherit; background:#e5e5e5; text-decoration:underline; text-decoration-thickness:1px; }
 .local-pdf-viewport { flex:1; min-height:0; overflow:hidden; display:flex; justify-content:center; align-items:flex-start; background:#f5f5f5; }
