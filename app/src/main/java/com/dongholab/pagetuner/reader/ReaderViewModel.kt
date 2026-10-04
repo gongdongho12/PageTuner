@@ -92,11 +92,18 @@ class ReaderViewModel(
         requestedPageIndex: Int,
         bookmarks: List<ReaderBookmark> = emptyList(),
         annotations: List<ReaderAnnotation> = emptyList(),
+        characterOffset: Int = 0,
     ) {
         _uiState.update { current ->
+            val page = requestedPageIndex.coerceIn(0, loaded.document.pageCount - 1)
+            val text = loaded.document.pages[page].plainText
+            val offset = characterOffset.coerceIn(0, text.length).let {
+                if (it in 1 until text.length && text[it - 1].isHighSurrogate() && text[it].isLowSurrogate()) it - 1 else it
+            }
             ReaderUiState(
                 document = loaded.document,
-                pageIndex = requestedPageIndex.coerceIn(0, loaded.document.pageCount - 1),
+                pageIndex = page,
+                characterOffset = offset,
                 pdfSourceUri = loaded.pdfSourceUri,
                 currentBookId = localBookId,
                 controlsVisible = false,

@@ -37,13 +37,12 @@ data class ServerReadingDocument(val accountKey: String, val source: ServerLibra
         require(characterOffset in 0..text.length)
         ServerReadingAnchor(it.paragraphId, it.startOffset + characterOffset).also(::validate)
     }
-    fun page(anchor: ServerReadingAnchor) = mapping.pageFor(com.dongholab.pagetuner.core.backup.exchange.ExchangeAnchor(anchor.paragraphId, anchor.characterOffset))
-    fun characterOffset(anchor: ServerReadingAnchor): Int {
+    private fun position(anchor: ServerReadingAnchor): com.dongholab.pagetuner.portable.PortableReaderPosition {
         validate(anchor)
-        val page = page(anchor)
-        val start = requireNotNull(mapping.anchors[page]).startOffset
-        return (anchor.characterOffset - start).coerceIn(0, mapping.document.pages[page].plainText.length)
+        return mapping.positionFor(com.dongholab.pagetuner.core.backup.exchange.ExchangeAnchor(anchor.paragraphId, anchor.characterOffset))
     }
+    fun page(anchor: ServerReadingAnchor) = position(anchor).pageIndex
+    fun characterOffset(anchor: ServerReadingAnchor): Int = position(anchor).characterOffset
     fun validate(anchor: ServerReadingAnchor) {
         ServerReadingProgressJson.validateAnchor(anchor)
         val paragraphs = source.storedTranslation?.artifact?.paragraphs?.map { it.paragraphId to it.text }

@@ -628,12 +628,13 @@ fun PageTurnerApp() {
             pendingTranslationDocumentId = null
             translationViewModel.resetForDocument()
             pdfPageBitmap = null; pdfPageCache = emptyMap()
-            readerViewModel.applyLoadedDocument(opened.loaded, null, opened.pageIndex, opened.bookmarks, opened.annotations)
+            readerViewModel.applyLoadedDocument(opened.loaded, null, opened.pageIndex, opened.bookmarks, opened.annotations, opened.characterOffset)
         } }
     }
-    LaunchedEffect(document.id, pageIndex, bookmarks, annotations) {
+    LaunchedEffect(document.id, pageIndex, readerState.characterOffset, readerDisplayPosition.fromEnd, bookmarks, annotations) {
+        if (readerDisplayPosition.fromEnd) return@LaunchedEffect
         portableOpened?.takeIf { it.entry.readerId == document.id }?.let {
-            portableViewModel.persistReader(it, pageIndex, bookmarks, annotations)
+            portableViewModel.persistReader(it, pageIndex, bookmarks, annotations, readerState.characterOffset)
         }
     }
 

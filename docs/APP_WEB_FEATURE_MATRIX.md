@@ -150,3 +150,5 @@ Android **Local → ZIP**, 웹 **On this device → App · Web ZIP transfer**에
 | 자산 문서 전체 proof·위치 계약 | 공통 검증 완료 / S4b2a | 공통 검증 완료 / S4b2a | 전체 PDF/EPUB 원본 bytes·본문·순서 있는 자산 참조를 비교하고 정확한 UTF-16/물리 PDF namespace를 구분한다. 기존 서버 계정 연결은 아직 자산을 거절하며 UI·원본 자산 보관·재검증은 S4b2 후속이다. [계약과 근거](PORTABLE_CONTENT_PROOF.md) |
 
 내장 폰트 서버 배포 후속: 익명 오프라인 캐시 설치에 필요한 정확한 OFL GET 경로를 공개했다. 실제 배포 자산 68개와 서버 종료 후 브라우저 읽기·페이지 이동을 확인했다. [근거](BUNDLED_READER_FONTS.md).
+
+Android ZIP 문자 위치 후속: 문단 안 offset·끝·빈 문단과 웹에서 바뀐 canonical anchor를 복원/저장한다. 최신 계정 reader와 기기 ZIP 기록은 분리 유지하며 물리 이미지/PDF 위치를 임의 변환하지 않는다. Android 480개 검사 및 APK 검증 완료, 실기기는 V3. [근거](PORTABLE_READING_POSITION.md).

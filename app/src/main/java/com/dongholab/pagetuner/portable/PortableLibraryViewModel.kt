@@ -29,7 +29,8 @@ import org.json.JSONObject
 
 data class PortableLibraryState(val entries: List<PortableLibraryEntry> = emptyList(), val busy: Boolean = false, val status: Int? = null, val error: String? = null)
 data class PortableOpened(val entry: PortableLibraryEntry, val loaded: LoadedReaderDocument, val mapping: PortableReaderMapping,
-    val pageIndex: Int, val bookmarks: List<ReaderBookmark>, val annotations: List<ReaderAnnotation>, val pdf: Boolean = false, val serverReading: ServerReadingDocument? = null)
+    val pageIndex: Int, val bookmarks: List<ReaderBookmark>, val annotations: List<ReaderAnnotation>, val pdf: Boolean = false,
+    val serverReading: ServerReadingDocument? = null, val characterOffset: Int = 0)
 
 class PortableLibraryViewModel(private val context: Context, private val local: LocalLibraryStore) : ViewModel() {
     private val bindings = PortableServerBindingStore(File(context.filesDir, "portable_server_bindings"))
@@ -167,15 +168,17 @@ class PortableLibraryViewModel(private val context: Context, private val local: 
             } else {
                 val mapping = PortableDocumentMapper.reader(document, value.assets, entry.readerId)
                 val pageState = PortablePageMetadata.read(document, mapping, pdf = false)
+                val position = mapping.initialPosition(document.position, pageState.pageIndex)
                 mutableOpened.emit(PortableOpened(currentEntry, LoadedReaderDocument(mapping.document), mapping,
-                    pageState.pageIndex ?: document.position?.let(mapping::pageFor) ?: 0,
+                    position.pageIndex,
                     PortableDocumentMapper.bookmarks(document, mapping) + pageState.bookmarks,
-                    PortableDocumentMapper.annotations(document, mapping) + pageState.annotations))
+                    PortableDocumentMapper.annotations(document, mapping) + pageState.annotations, characterOffset = position.characterOffset))
             }
         }
     }
 
-    fun persistReader(opened: PortableOpened, pageIndex: Int, bookmarks: List<ReaderBookmark>, annotations: List<ReaderAnnotation>) {
+    fun persistReader(opened: PortableOpened, pageIndex: Int, bookmarks: List<ReaderBookmark>, annotations: List<ReaderAnnotation>,
+        characterOffset: Int? = null) {
         val generation = synchronized(readerGenerations) {
             ((readerGenerations[opened.entry.key] ?: 0L) + 1L).also { readerGenerations[opened.entry.key] = it }
         }
@@ -185,7 +188,7 @@ class PortableLibraryViewModel(private val context: Context, private val local: 
                     store.update(opened.entry) { value ->
                         if (synchronized(readerGenerations) { readerGenerations[opened.entry.key] } != generation) return@update value
                         val pageState = PortablePageMetadata.merge(value, opened.mapping, pageIndex, bookmarks, annotations, opened.pdf)
-                        if (opened.pdf) pageState else PortableDocumentMapper.mergeReader(pageState, opened.mapping, pageIndex, bookmarks, annotations)
+                        if (opened.pdf) pageState else PortableDocumentMapper.mergeReader(pageState, opened.mapping, pageIndex, bookmarks, annotations, characterOffset)
                     }
                 }
                 Result.success(Unit)
