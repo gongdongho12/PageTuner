@@ -1,10 +1,21 @@
 import { describe, expect, it } from 'vitest'
 import vector from '../../../contracts/fixtures/pdf-content-v1.json'
-import { pdfCopyReviewFields } from './PortablePdfContentPanel'
+import { pdfCopyReviewFields, pdfPanelMessageFields } from './PortablePdfContentPanel'
 import type { PdfCopyReview } from '../lib/portablePdfBinding'
 import { setLocale, translate } from '../lib/locale'
 
 describe('bounded PDF copy review fields', () => {
+  it('pages explanatory prose at whitespace while retaining bounded Unicode and long-token fallback', () => {
+    const text = 'PDF storage and linking do not enable position, note, organization or glossary sync. Device reading remains available.'
+    const fields = pdfPanelMessageFields(text, 'info')
+    expect(fields.map(f => f.value).join('')).toBe(text)
+    expect(fields.every(f => Array.from(f.value).length <= 64)).toBe(true)
+    for (let index = 0; index < fields.length - 1; index++) expect(/\s$/.test(fields[index].value) || /^\s/.test(fields[index + 1].value)).toBe(true)
+    expect(fields.some(f => f.value.includes('organization'))).toBe(true)
+    const unbroken = '😀'.repeat(130), fallback = pdfPanelMessageFields(unbroken, 'error')
+    expect(fallback.map(f => f.value).join('')).toBe(unbroken)
+    expect(fallback.map(f => Array.from(f.value).length)).toEqual([64, 64, 2])
+  })
   it('keeps full IDs, whitespace, empty/null distinctions and Unicode on discrete pages', () => {
     setLocale('ko')
     const value = '  ' + '책😀 '.repeat(30) + '  '

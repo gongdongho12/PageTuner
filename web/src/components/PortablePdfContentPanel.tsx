@@ -9,10 +9,22 @@ import './readingTools.css'
 
 type Field = { id: string; label: string; value: string; display?: string }
 type Panel = 'menu' | 'details' | 'upload' | 'existing' | 'link' | 'unlink' | 'result'
-const messageFields = (message: string, prefix: string): Field[] => {
-  const text = Array.from(message), count = Math.max(1, Math.ceil(text.length / 64))
-  return Array.from({ length: count }, (_, index) => ({ id: `${prefix}:${index}`, label: `${index + 1}/${count}`, value: text.slice(index * 64, (index + 1) * 64).join('') }))
+export const pdfPanelMessageFields = (message: string, prefix: string): Field[] => {
+  const text = Array.from(message), parts: string[] = []
+  for (let start = 0; start < text.length;) {
+    let end = Math.min(start + 64, text.length)
+    if (end < text.length && !/\s/.test(text[end])) {
+      // Explanatory prose should keep words together. Long unbroken tokens still use bounded pages.
+      for (let boundary = end - 1; boundary > start; boundary--) {
+        if (/\s/.test(text[boundary])) { end = boundary + 1; break }
+      }
+    }
+    parts.push(text.slice(start, end).join('')); start = end
+  }
+  if (!parts.length) parts.push('')
+  return parts.map((value, index) => ({ id: `${prefix}:${index}`, label: `${index + 1}/${parts.length}`, value }))
 }
+const messageFields = pdfPanelMessageFields
 /** Escape controls for inspection, keeping raw pieces lossless and each display within 24 monospace cells. */
 function inspectableParts(value: string) {
   const parts: { value: string; display: string }[] = []; let raw = '', shown = '', cells = 0
