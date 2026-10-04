@@ -202,6 +202,10 @@ tasks.register<Test>("translationServerIntegrationTest") {
 
 // Optional browser/native bridge fixtures must invalidate Gradle's test cache.
 tasks.withType<Test>().configureEach {
+    // An explicitly opted-in server check always runs; credentials never become Gradle inputs.
+    val pdfClientLiveEnabled = providers.environmentVariable("PAGETUNER_PDF_CLIENT_LIVE_URL").map { it.isNotBlank() }.orElse(false)
+    inputs.property("pdfClientLiveEnabled", pdfClientLiveEnabled)
+    if (pdfClientLiveEnabled.get()) outputs.upToDateWhen { false }
     val browserFixture = providers.environmentVariable("PAGETUNER_BROWSER_EXCHANGE_FIXTURE")
     inputs.property("browserExchangeFixturePath", browserFixture.orElse(""))
     if (browserFixture.isPresent) {
