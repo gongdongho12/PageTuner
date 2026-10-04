@@ -43,7 +43,7 @@ function comparisonFields(scope: BookGlossaryScope, entries: BookGlossary) {
     ]) : [{ label: '용어집', value: t('아직 저장한 용어가 없습니다.') }])]
   return fields.flatMap((field, index) => (field.value.match(/[\s\S]{1,48}/gu) ?? ['']).map((value, part) => ({ id: `${index}:${part}`, label: field.label, value })))
 }
-function AccountGlossaryEditor({ username, storage, scope, onClose }: Props & { scope: BookGlossaryScope; onClose: () => void }) {
+export function AccountGlossaryEditor({ username, storage, scope, onClose }: Props & { scope: BookGlossaryScope; onClose: () => void }) {
   const { state, controller } = useBookGlossary(username, scope)
   const dialog = useRef<HTMLDialogElement>(null), titleId = useId()
   const [panel, setPanel] = useState<'list' | 'compare' | 'edit'>('list'), [side, setSide] = useState<'local' | 'server' | 'legacy'>('server')

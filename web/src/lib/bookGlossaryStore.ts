@@ -79,7 +79,7 @@ export function createBookGlossaryStore(username: string, inputScope: BookGlossa
     }).catch(error => { database = undefined; throw error })
     return database
   }
-  async function transaction(reducer?: (record: BookGlossaryRecord | null) => BookGlossaryRecord): Promise<BookGlossaryRecord | null> {
+  async function transaction(reducer?: (record: BookGlossaryRecord | null) => BookGlossaryRecord, preserveRejection = false): Promise<BookGlossaryRecord | null> {
     const db = await open()
     if (closed) throw new BookGlossaryError('storage')
     let changed = false
@@ -94,7 +94,7 @@ export function createBookGlossaryStore(username: string, inputScope: BookGlossa
         } catch (failure) { error = failure; tx.abort() }
       }
       tx.oncomplete = () => resolve(result)
-      tx.onerror = tx.onabort = () => reject(error instanceof BookGlossaryError ? error : new BookGlossaryError('storage'))
+      tx.onerror = tx.onabort = () => reject(error instanceof BookGlossaryError || preserveRejection && error instanceof Error ? error : new BookGlossaryError('storage'))
     })
     if (changed && !closed) notify()
     return result
@@ -106,6 +106,8 @@ export function createBookGlossaryStore(username: string, inputScope: BookGlossa
       return (await transaction(current => current ?? { enabled: false, selected: false, local, remote: null, pending: null, legacyIds: {}, conflict: null, retryAfterUntil: null }))!
     },
     snapshot: () => transaction(),
+    /** Exact snapshot adoption can atomically establish the first journal after readonly review. */
+    transactNullable: (reducer: (record: BookGlossaryRecord | null) => BookGlossaryRecord) => transaction(reducer, true) as Promise<BookGlossaryRecord>,
     async transact(reducer: (record: BookGlossaryRecord) => BookGlossaryRecord) {
       return (await transaction(current => { if (!current) throw new BookGlossaryError('storage'); return reducer(current) }))!
     },
