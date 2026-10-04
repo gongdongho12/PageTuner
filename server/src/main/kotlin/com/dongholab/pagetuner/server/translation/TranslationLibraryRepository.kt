@@ -11,20 +11,20 @@ import org.springframework.stereotype.Repository
 /** Bounded library projections: source text and translated bodies never leave PostgreSQL. */
 @Repository
 class TranslationLibraryRepository(private val jdbc: JdbcTemplate) {
-    fun count(userId: String, filter: LibraryFilter = LibraryFilter()): Long {
+    fun count(userId: String, filter: LibraryFilter = LibraryFilter(), lookup: TranslationLookupFilter = TranslationLookupFilter()): Long {
         val query = LibraryFilterSql(filter, LibraryOrganizationKind.TRANSLATION)
         return requireNotNull(jdbc.queryForObject(
         """
             select count(*) from translation_artifact document ${query.join}
             where document.user_id = ? and document.content_provider_id is not null and document.book_id is not null
-            ${query.predicates}
+            ${query.predicates} ${lookup.predicates}
         """.trimIndent(),
         Long::class.java,
-        *(listOf(userId) + query.arguments).toTypedArray(),
+        *(listOf(userId) + query.arguments + lookup.arguments).toTypedArray(),
     ))
     }
 
-    fun list(userId: String, size: Int, offset: Long, filter: LibraryFilter = LibraryFilter()): List<TranslationSummary> {
+    fun list(userId: String, size: Int, offset: Long, filter: LibraryFilter = LibraryFilter(), lookup: TranslationLookupFilter = TranslationLookupFilter()): List<TranslationSummary> {
         val query = LibraryFilterSql(filter, LibraryOrganizationKind.TRANSLATION)
         return jdbc.query(
         """
@@ -40,7 +40,7 @@ class TranslationLibraryRepository(private val jdbc: JdbcTemplate) {
                        document.paragraphs_json, document.book_title, document.chapter_title
                 from translation_artifact document ${query.join}
                 where document.user_id = ? and document.content_provider_id is not null and document.book_id is not null
-                ${query.predicates}
+                ${query.predicates} ${lookup.predicates}
                 order by document.created_at desc, document.id desc
                 limit ? offset ?
             ) as library_page
@@ -68,7 +68,7 @@ class TranslationLibraryRepository(private val jdbc: JdbcTemplate) {
                 chapterTitle = row.getString("chapter_title"),
             )
         },
-        *(listOf(userId) + query.arguments + listOf(size, offset)).toTypedArray(),
+        *(listOf(userId) + query.arguments + lookup.arguments + listOf(size, offset)).toTypedArray(),
     )
     }
 }

@@ -16,6 +16,7 @@ import androidx.compose.ui.unit.dp
 import com.dongholab.pagetuner.settings.ListLayoutMode
 
 val LocalListLayoutMode = staticCompositionLocalOf { ListLayoutMode.Paged }
+val LocalActiveListPagingStateConsumer = staticCompositionLocalOf<((EinkPagingState?) -> Unit)?> { null }
 
 /**
  * One collection contract for both E-Ink discrete pages and opt-in touch scrolling.
@@ -32,12 +33,27 @@ fun <T> AdaptiveCollection(
     fallbackPageSize: Int = 3,
     busy: Boolean = false,
     pagingState: EinkPagingState = rememberEinkPagingState(),
+    onPageBoundaryPrevious: (() -> Unit)? = null,
+    onPageBoundaryNext: (() -> Unit)? = null,
+    onFastBoundaryPrevious: (() -> Unit)? = null,
+    onFastBoundaryNext: (() -> Unit)? = null,
+    pageInfoPrefix: String? = null,
+    onPageInfoClick: (() -> Unit)? = null,
     itemKey: ((T) -> Any)? = null,
     onInsufficientHeight: ((Dp?) -> Unit)? = null,
     emptyContent: @Composable () -> Unit = {},
     scrollItemContent: (@Composable (T) -> Unit)? = null,
     pagedItemContent: @Composable (T) -> Unit,
 ) {
+    val onRegisterPagingState = LocalActiveListPagingStateConsumer.current
+    val layoutMode = LocalListLayoutMode.current
+    androidx.compose.runtime.DisposableEffect(pagingState, layoutMode) {
+        if (layoutMode == ListLayoutMode.Paged) onRegisterPagingState?.invoke(pagingState)
+        onDispose {
+            if (layoutMode == ListLayoutMode.Paged) onRegisterPagingState?.invoke(null)
+        }
+    }
+
     val scrollState = rememberLazyListState()
     when (LocalListLayoutMode.current) {
         ListLayoutMode.Paged -> EinkAutoFitPagingContainer(
@@ -48,6 +64,12 @@ fun <T> AdaptiveCollection(
             fallbackPageSize = fallbackPageSize,
             busy = busy,
             state = pagingState,
+            onPageBoundaryPrevious = onPageBoundaryPrevious,
+            onPageBoundaryNext = onPageBoundaryNext,
+            onFastBoundaryPrevious = onFastBoundaryPrevious,
+            onFastBoundaryNext = onFastBoundaryNext,
+            pageInfoPrefix = pageInfoPrefix,
+            onPageInfoClick = onPageInfoClick,
             itemKey = itemKey,
             onInsufficientHeight = onInsufficientHeight,
             emptyContent = emptyContent,

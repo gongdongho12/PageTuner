@@ -1,0 +1,39 @@
+{
+  "name": "pageturner-frontend",
+  "version": "0.1.0",
+  "private": true,
+  "engines": {
+    "node": ">=22.13.0"
+  },
+  "scripts": {
+    "dev": "next dev --hostname 127.0.0.1",
+    "build": "next build --webpack",
+    "start": "next start --hostname 127.0.0.1",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:e2e": "playwright test",
+    "postinstall": "node scripts/copy-worker.mjs",
+    "local:deploy": "python3 ../scripts/local_stack.py deploy",
+    "local:verify": "python3 ../scripts/local_stack.py check",
+    "local:status": "python3 ../scripts/local_stack.py status",
+    "local:down": "python3 ../scripts/local_stack.py down"
+  },
+  "dependencies": {
+    "fflate": "^0.8.2",
+    "idb-keyval": "^6.2.2",
+    "next": "^16.1.6",
+    "pdfjs-dist": "^6.3.289",
+    "react": "^19.2.4",
+    "react-dom": "^19.2.4",
+    "zod": "^4.3.6"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.58.2",
+    "@types/node": "^22.19.11",
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3",
+    "typescript": "^5.9.3",
+    "vitest": "^4.0.18"
+  },
+  "type": "module"
+}

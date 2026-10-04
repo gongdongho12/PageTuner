@@ -30,18 +30,20 @@ class TranslationApplicationService(
     private val library: TranslationLibraryRepository,
 ) {
     @Transactional(readOnly = true, isolation = Isolation.REPEATABLE_READ)
-    fun list(userId: String, page: Int, size: Int, filter: LibraryFilter = LibraryFilter()): TranslationListResponse {
+    fun list(userId: String, page: Int, size: Int, filter: LibraryFilter = LibraryFilter(),
+        lookup: TranslationLookupFilter = TranslationLookupFilter()): TranslationListResponse {
         require(userId.isNotBlank()) { "userId must not be blank." }
         filter.validate()
+        lookup.validate()
         require(page >= 0) { "page must be zero or greater." }
         require(size in 1..50) { "size must be between 1 and 50." }
         val offset = page.toLong() * size
         require(offset <= Int.MAX_VALUE) { "The requested page offset is too large." }
-        val totalItems = library.count(userId, filter)
+        val totalItems = library.count(userId, filter, lookup)
         val totalPages = totalItems / size + if (totalItems % size == 0L) 0 else 1
         check(totalPages <= Int.MAX_VALUE) { "The translation library exceeds the supported page count." }
         return TranslationListResponse(
-            items = library.list(userId, size, offset, filter),
+            items = library.list(userId, size, offset, filter, lookup),
             page = page,
             size = size,
             totalItems = totalItems,
@@ -85,6 +87,36 @@ class TranslationApplicationService(
     fun get(userId: String, recordId: UUID): TranslationResponse =
         (artifacts.findByIdAndUserId(recordId, userId) ?: throw TranslationNotFound())
             .toResponse(created = false)
+
+    @Transactional(readOnly = true)
+    fun exportBackup(userId: String, recordId: UUID): TranslationBackupDocument {
+        val entity = artifacts.findByIdAndUserId(recordId, userId) ?: throw TranslationNotFound()
+        val verified = entity.toResponse(created = false)
+        if (verified.paragraphs.isEmpty() || verified.paragraphs.any { it.text.isBlank() }) {
+            throw TranslationBackupUnavailable()
+        }
+        return TranslationBackupDocument(
+            schemaVersion = 1,
+            artifactId = entity.artifactId,
+            revision = entity.revision,
+            payloadHash = entity.payloadHash,
+            translation = SaveTranslationRequest(
+                contentProviderId = verified.contentProviderId,
+                bookId = verified.bookId,
+                chapterId = entity.chapterId,
+                sourceRevision = entity.sourceRevision,
+                sourceLanguage = entity.sourceLanguage,
+                targetLanguage = entity.targetLanguage,
+                translationProviderId = entity.translationProviderId,
+                modelId = entity.modelId,
+                promptRevision = entity.promptRevision,
+                glossaryRevision = entity.glossaryRevision,
+                paragraphs = verified.paragraphs,
+                bookTitle = verified.bookTitle,
+                chapterTitle = verified.chapterTitle,
+            ),
+        ).also { it.verifiedRequest() }
+    }
 
     @Transactional
     fun planBackup(

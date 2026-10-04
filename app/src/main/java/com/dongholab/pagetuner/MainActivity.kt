@@ -103,6 +103,8 @@ import com.dongholab.pagetuner.ui.LanguagePreset
 import com.dongholab.pagetuner.ui.common.AppTab
 import com.dongholab.pagetuner.ui.common.AppTabNavigation
 import com.dongholab.pagetuner.ui.common.ComingSoonPanel
+import com.dongholab.pagetuner.ui.common.EinkPagingState
+import com.dongholab.pagetuner.ui.common.LocalActiveListPagingStateConsumer
 import com.dongholab.pagetuner.ui.common.LocalListLayoutMode
 import com.dongholab.pagetuner.ui.common.StatusStrip
 import com.dongholab.pagetuner.ui.common.EinkSegmentedControl
@@ -114,6 +116,7 @@ import com.dongholab.pagetuner.ui.reader.ReaderFullscreenSystemBars
 import com.dongholab.pagetuner.ui.reader.ReaderPager
 import com.dongholab.pagetuner.ui.reader.ReaderSearchPanel
 import com.dongholab.pagetuner.ui.reader.ReaderSurface
+import com.dongholab.pagetuner.ui.reader.ReaderTypographyDialog
 import com.dongholab.pagetuner.ui.reader.forReaderPage
 import com.dongholab.pagetuner.ui.reader.isReaderPageTurnBlocked
 import com.dongholab.pagetuner.ui.reader.readerViewportPolicy
@@ -149,6 +152,22 @@ class MainActivity : ComponentActivity() {
                 }
             }
         }
+    }
+
+    override fun onKeyDown(keyCode: Int, event: android.view.KeyEvent?): Boolean {
+        if (keyCode == android.view.KeyEvent.KEYCODE_VOLUME_UP ||
+            keyCode == android.view.KeyEvent.KEYCODE_VOLUME_DOWN) {
+            return true
+        }
+        return super.onKeyDown(keyCode, event)
+    }
+
+    override fun onKeyUp(keyCode: Int, event: android.view.KeyEvent?): Boolean {
+        if (keyCode == android.view.KeyEvent.KEYCODE_VOLUME_UP ||
+            keyCode == android.view.KeyEvent.KEYCODE_VOLUME_DOWN) {
+            return true
+        }
+        return super.onKeyUp(keyCode, event)
     }
 }
 
@@ -275,6 +294,16 @@ fun PageTurnerApp() {
     var webCatalogRoute by remember { mutableStateOf<RemoteCatalogRoute>(RemoteCatalogRoute.SourceSystems) }
     var readerFullscreen by rememberSaveable { mutableStateOf(false) }
     var revealReaderCacheLookup by remember { mutableStateOf(false) }
+    var showTypographyDialog by rememberSaveable { mutableStateOf(false) }
+    var einkFlashPulse by remember { mutableStateOf(false) }
+
+    LaunchedEffect(readerState.manualRefreshToken) {
+        if (readerState.manualRefreshToken > 0) {
+            einkFlashPulse = true
+            delay(50L)
+            einkFlashPulse = false
+        }
+    }
     var webNovelSection by remember { mutableStateOf("웹소설") }
     var serverPreviewTranslatedDocumentId by remember { mutableStateOf<String?>(null) }
     var portableOpened by remember { mutableStateOf<PortableOpened?>(null) }
@@ -426,7 +455,7 @@ fun PageTurnerApp() {
     val currentChapterIndex = tableOfContents.indexOfLast { it.pageIndex <= currentPage.index }
     val canTranslateCurrentPage = settings.isProviderConfigured && currentPage.hasText && serverGlossaryReady && localGlossaryReady
     val translationCacheStatus = translationState.cacheStatus
-    val currentPageTranslation = translationState.translation.forReaderPage(currentPage)
+    val currentPageTranslation = translationState.pageTranslationFor(currentPage)
     val currentReaderTranslationLoad = translationState.readerLoad.takeIf {
         it.matches(document.id, pageIndex)
     }
@@ -782,11 +811,15 @@ fun PageTurnerApp() {
     }
 
     LaunchedEffect(document.id, pageIndex, pdfSourceUri, displayMode, readerState.manualRefreshToken) {
-        pdfPageBitmap = null
         val source = pdfSourceUri ?: return@LaunchedEffect
         if (document.format != DocumentFormat.PDF) return@LaunchedEffect
         val currentKey = PdfPageCacheKey(source, pageIndex, displayMode)
-        pdfPageBitmap = pdfPageCache[currentKey]
+        val cached = pdfPageCache[currentKey]
+        if (cached != null) {
+            pdfPageBitmap = cached
+        } else {
+            pdfPageBitmap = null
+        }
         runCatching {
             withContext(Dispatchers.IO) {
                 (pageIndex - 1..pageIndex + 1)
@@ -808,20 +841,39 @@ fun PageTurnerApp() {
         }
     }
 
+    var activeListPagingState by remember { mutableStateOf<EinkPagingState?>(null) }
     // ─── UI ──────────────────────────────────────────────────────────────
     ReaderFullscreenSystemBars(readerFullscreenActive)
-    CompositionLocalProvider(LocalListLayoutMode provides readerSettings.listLayoutMode) {
+    CompositionLocalProvider(
+        LocalListLayoutMode provides readerSettings.listLayoutMode,
+        LocalActiveListPagingStateConsumer provides { activeListPagingState = it },
+    ) {
     Scaffold(
         modifier = Modifier
             .fillMaxSize()
             .focusRequester(focusRequester)
             .focusable()
             .onPreviewKeyEvent { ev ->
-                if (ev.type != KeyEventType.KeyDown || readerPageTurnBlocked) return@onPreviewKeyEvent false
-                when (ev.key) {
-                    Key.DirectionLeft, Key.PageUp -> { previousDisplayPage(); true }
-                    Key.DirectionRight, Key.PageDown, Key.Spacebar -> { nextDisplayPage(); true }
+                if (ev.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
+                val isPrev = when (ev.key) {
+                    Key.DirectionLeft, Key.PageUp, Key.VolumeUp -> true
                     else -> false
+                }
+                val isNext = when (ev.key) {
+                    Key.DirectionRight, Key.PageDown, Key.VolumeDown, Key.Spacebar -> true
+                    else -> false
+                }
+                if (!isPrev && !isNext) return@onPreviewKeyEvent false
+
+                if (!controlsVisible || readerFullscreenActive) {
+                    if (readerPageTurnBlocked) return@onPreviewKeyEvent false
+                    if (isPrev) previousDisplayPage() else nextDisplayPage()
+                    true
+                } else {
+                    val activePager = activeListPagingState
+                    // Remote boundaries belong to the visible collection. A chapter or saved-book
+                    // pager reaching its edge must never navigate the hidden catalog underneath it.
+                    if (isPrev) activePager?.previousPage() == true else activePager?.nextPage() == true
                 }
             },
         containerColor = paperColor,
@@ -830,10 +882,11 @@ fun PageTurnerApp() {
             com.dongholab.pagetuner.ui.splash.PageTurnerSplashScreen()
             return@Scaffold
         }
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(paperColor)
+        androidx.compose.foundation.layout.Box(modifier = Modifier.fillMaxSize()) {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(paperColor)
                 .padding(if (readerFullscreenActive) PaddingValues(0.dp) else innerPadding)
                 .padding(viewportPolicy.rootPaddingDp.dp),
             verticalArrangement = Arrangement.spacedBy(
@@ -862,6 +915,7 @@ fun PageTurnerApp() {
                         if (controlsVisible) readerViewModel.toggleControls()
                         readerFullscreen = true
                     },
+                    onShowTypography = { showTypographyDialog = true },
                 )
             }
 
@@ -1077,6 +1131,7 @@ fun PageTurnerApp() {
                             onFontSizeChange = { serverReaderPreferencesViewModel.sync.edit(serverReaderPreferencesState.session, ReaderPreferencesPatch(fontSize = it)) },
                             onLineSpacingChange = { serverReaderPreferencesViewModel.sync.edit(serverReaderPreferencesState.session, ReaderPreferencesPatch(lineHeightPercent = (it * 100).roundToInt())) },
                             onPageMarginChange = { serverReaderPreferencesViewModel.sync.edit(serverReaderPreferencesState.session, ReaderPreferencesPatch(pageMargin = it)) },
+                            onFontFamilyChange = settingsViewModel::updateReaderFontFamily,
                             onProviderKindChange = settingsViewModel::updateProviderKind,
                             onApiKeyChange = translationViewModel::updateApiKey,
                             onLlmEndpointChange = settingsViewModel::updateLlmEndpoint,
@@ -1228,6 +1283,7 @@ fun PageTurnerApp() {
                             fontSizeSp = readerSettings.readerFontSizeSp,
                             lineSpacing = readerSettings.readerLineSpacing,
                             pageMarginDp = viewportPolicy.pageMarginDp,
+                            fontFamily = readerSettings.readerFontFamily,
                             onPreviousPage = previousDisplayPage,
                             onNextPage = nextDisplayPage,
                             fullScreen = readerFullscreenActive,
@@ -1383,6 +1439,15 @@ fun PageTurnerApp() {
                 }
             }
         }
+
+        if (einkFlashPulse) {
+            androidx.compose.foundation.layout.Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(androidx.compose.ui.graphics.Color.Black),
+            )
+        }
+    }
     }
     }
 
@@ -1392,6 +1457,20 @@ fun PageTurnerApp() {
             currentBook = currentBook,
             pageIndex = pageIndex,
             onDismiss = readerViewModel::hideDocumentDetails,
+        )
+    }
+
+    if (showTypographyDialog) {
+        ReaderTypographyDialog(
+            fontSizeSp = readerSettings.readerFontSizeSp,
+            lineSpacing = readerSettings.readerLineSpacing,
+            pageMarginDp = readerSettings.readerPageMarginDp,
+            fontFamily = readerSettings.readerFontFamily,
+            onFontSizeChange = { serverReaderPreferencesViewModel.sync.edit(serverReaderPreferencesState.session, ReaderPreferencesPatch(fontSize = it)) },
+            onLineSpacingChange = { serverReaderPreferencesViewModel.sync.edit(serverReaderPreferencesState.session, ReaderPreferencesPatch(lineHeightPercent = (it * 100).roundToInt())) },
+            onPageMarginChange = { serverReaderPreferencesViewModel.sync.edit(serverReaderPreferencesState.session, ReaderPreferencesPatch(pageMargin = it)) },
+            onFontFamilyChange = settingsViewModel::updateReaderFontFamily,
+            onDismiss = { showTypographyDialog = false },
         )
     }
 

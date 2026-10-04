@@ -14,6 +14,35 @@ import org.junit.Test
 
 class EinkAutoFitPagingContainerTest {
     @Test
+    fun remoteBatchBoundariesReserveNavigationEvenWhenAllRowsWouldFit() {
+        val plan = calculateEinkAutoFitPagePlan(300f, 104f, 6f, 3, 2, requireNavigation = true)
+        assertTrue(plan.showNavigation)
+        assertEquals(2, plan.pageSize)
+        val short = calculateEinkAutoFitPagePlan(104f, 104f, 6f, 3, 1, requireNavigation = true)
+        assertEquals(0, short.pageSize)
+        assertEquals(170f, short.requiredHeight)
+    }
+
+    @Test
+    fun hardwareTurnsReplaceResizeAnchorAndRespectLoadingLock() {
+        val items = (0 until 100).toList()
+        val state = EinkPagingState()
+        state.moveTo(4, items, 5) { it }
+        val resized = state.resolve(items, 8) { it }
+        state.rememberAnchor(resized, resized.index / 8)
+        state.pageCount = 13
+        assertTrue(state.nextPage())
+        assertEquals(24, state.resolve(items, 8) { it }.index)
+        state.rememberAnchor(state.resolve(items, 8) { it }, state.currentPageIndex)
+        state.navigationEnabled = false
+        assertFalse(state.previousPage())
+        assertEquals(24, state.resolve(items, 8) { it }.index)
+        state.navigationEnabled = true
+        assertTrue(state.previousPage())
+        assertEquals(16, state.resolve(items, 8) { it }.index)
+    }
+
+    @Test
     fun boundedViewportUsesAllCompleteRowsWithoutAnArbitraryCap() {
         listOf(400f to 5, 600f to 8, 900f to 13, 1600f to 24).forEach { (height, expected) ->
             val size = calculateEinkAutoFitPageSize(height, 58f, 6f, 3)
@@ -160,5 +189,51 @@ class EinkAutoFitPagingContainerTest {
         assertEquals(24, state.resolve(items, 8) { it }.index)
         state.reset()
         assertEquals(0, state.resolve(items, 8) { it }.index)
+    }
+
+    @Test
+    fun einkPagingState_nextPageAndPreviousPage_withinBounds() {
+        val state = com.dongholab.pagetuner.ui.common.EinkPagingState(initialPageIndex = 0)
+        state.pageCount = 3
+
+        assertTrue(state.nextPage())
+        assertEquals(1, state.currentPageIndex)
+
+        assertTrue(state.nextPage())
+        assertEquals(2, state.currentPageIndex)
+
+        // At end without boundary action
+        assertEquals(false, state.nextPage())
+        assertEquals(2, state.currentPageIndex)
+
+        assertTrue(state.previousPage())
+        assertEquals(1, state.currentPageIndex)
+
+        assertTrue(state.previousPage())
+        assertEquals(0, state.currentPageIndex)
+
+        // At start without boundary action
+        assertEquals(false, state.previousPage())
+        assertEquals(0, state.currentPageIndex)
+    }
+
+    @Test
+    fun einkPagingState_boundaryTransitions_triggerActions() {
+        val state = com.dongholab.pagetuner.ui.common.EinkPagingState(initialPageIndex = 1)
+        state.pageCount = 2
+        var boundaryNextCalled = false
+        var boundaryPrevCalled = false
+        state.canBoundaryNext = true
+        state.canBoundaryPrevious = true
+        state.boundaryNextAction = { boundaryNextCalled = true }
+        state.boundaryPreviousAction = { boundaryPrevCalled = true }
+
+        // Currently on page 1 of 2 (last page)
+        assertTrue(state.nextPage())
+        assertTrue("Boundary next action should be called at last page", boundaryNextCalled)
+
+        state.reset()
+        assertTrue(state.previousPage())
+        assertTrue("Boundary prev action should be called at first page", boundaryPrevCalled)
     }
 }

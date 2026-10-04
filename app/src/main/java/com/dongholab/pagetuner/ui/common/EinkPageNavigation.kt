@@ -2,6 +2,7 @@ package com.dongholab.pagetuner.ui.common
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxHeight
@@ -59,6 +60,12 @@ internal fun EinkPageNavigation(
     busy: Boolean,
     onPrevious: () -> Unit,
     onNext: () -> Unit,
+    canPrevious: Boolean = pageIndex > 0 && !busy,
+    canNext: Boolean = pageIndex < pageCount - 1 && !busy,
+    infoPrefix: String? = null,
+    onInfoClick: (() -> Unit)? = null,
+    onFastPrevious: (() -> Unit)? = null,
+    onFastNext: (() -> Unit)? = null,
     height: Dp = einkPageNavigationHeight(),
 ) {
     Surface(
@@ -67,6 +74,9 @@ internal fun EinkPageNavigation(
         shape = RoundedCornerShape(4.dp),
         border = BorderStroke(1.dp, EinkLine),
     ) {
+        BoxWithConstraints(Modifier.fillMaxSize()) {
+        // The jump dialog retains the same shortcuts when a narrow bar cannot fit five targets.
+        val hasFastNav = maxWidth >= 360.dp && (onFastPrevious != null || onFastNext != null)
         Row(
             modifier = Modifier
                 .fillMaxSize()
@@ -74,10 +84,28 @@ internal fun EinkPageNavigation(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically,
         ) {
+            if (hasFastNav && onFastPrevious != null) {
+                TextButton(
+                    onClick = onFastPrevious,
+                    enabled = !busy,
+                    modifier = Modifier.weight(0.14f).fillMaxHeight(),
+                    contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 2.dp, vertical = 0.dp),
+                ) {
+                    Text(
+                        text = "◀ 10",
+                        maxLines = 1,
+                        overflow = TextOverflow.Clip,
+                        style = MaterialTheme.typography.labelSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = if (!busy) EinkInk else EinkMuted,
+                    )
+                }
+            }
+
             TextButton(
                 onClick = onPrevious,
-                enabled = pageIndex > 0 && !busy,
-                modifier = Modifier.weight(0.26f).fillMaxHeight(),
+                enabled = canPrevious,
+                modifier = Modifier.weight(if (hasFastNav) 0.20f else 0.26f).fillMaxHeight(),
                 contentPadding = PaddingValues(0.dp),
             ) {
                 Text(
@@ -86,26 +114,58 @@ internal fun EinkPageNavigation(
                     overflow = TextOverflow.Clip,
                     style = MaterialTheme.typography.labelMedium,
                     fontWeight = FontWeight.Bold,
-                    color = if (pageIndex > 0 && !busy) EinkInk else EinkMuted,
+                    color = if (canPrevious) EinkInk else EinkMuted,
                 )
             }
 
-            Text(
-                text = "$startIndex–$endIndex / $itemCount\n${pageIndex + 1} / $pageCount",
-                modifier = Modifier.weight(0.48f),
-                maxLines = 2,
-                overflow = TextOverflow.Clip,
-                textAlign = TextAlign.Center,
-                style = MaterialTheme.typography.labelSmall,
-                fontWeight = FontWeight.SemiBold,
-                fontFamily = FontFamily.Monospace,
-                color = EinkInk,
-            )
+            val centerText = buildString {
+                if (!infoPrefix.isNullOrBlank()) {
+                    append(infoPrefix)
+                }
+                append("$startIndex–$endIndex / $itemCount\n${pageIndex + 1} / $pageCount")
+                if (onInfoClick != null) {
+                    append(" ▾")
+                }
+            }
+
+            val centerWeight = if (hasFastNav) 0.32f else 0.48f
+
+            if (onInfoClick != null) {
+                TextButton(
+                    onClick = onInfoClick,
+                    enabled = !busy,
+                    modifier = Modifier.weight(centerWeight).fillMaxHeight(),
+                    contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 2.dp, vertical = 0.dp),
+                ) {
+                    Text(
+                        text = centerText,
+                        maxLines = 2,
+                        overflow = TextOverflow.Clip,
+                        textAlign = TextAlign.Center,
+                        style = MaterialTheme.typography.labelSmall,
+                        fontWeight = FontWeight.SemiBold,
+                        fontFamily = FontFamily.Monospace,
+                        color = EinkInk,
+                    )
+                }
+            } else {
+                Text(
+                    text = centerText,
+                    modifier = Modifier.weight(centerWeight),
+                    maxLines = 2,
+                    overflow = TextOverflow.Clip,
+                    textAlign = TextAlign.Center,
+                    style = MaterialTheme.typography.labelSmall,
+                    fontWeight = FontWeight.SemiBold,
+                    fontFamily = FontFamily.Monospace,
+                    color = EinkInk,
+                )
+            }
 
             TextButton(
                 onClick = onNext,
-                enabled = pageIndex < pageCount - 1 && !busy,
-                modifier = Modifier.weight(0.26f).fillMaxHeight(),
+                enabled = canNext,
+                modifier = Modifier.weight(if (hasFastNav) 0.20f else 0.26f).fillMaxHeight(),
                 contentPadding = PaddingValues(0.dp),
             ) {
                 Text(
@@ -114,9 +174,28 @@ internal fun EinkPageNavigation(
                     overflow = TextOverflow.Clip,
                     style = MaterialTheme.typography.labelMedium,
                     fontWeight = FontWeight.Bold,
-                    color = if (pageIndex < pageCount - 1 && !busy) EinkInk else EinkMuted,
+                    color = if (canNext) EinkInk else EinkMuted,
                 )
+            }
+
+            if (hasFastNav && onFastNext != null) {
+                TextButton(
+                    onClick = onFastNext,
+                    enabled = !busy,
+                    modifier = Modifier.weight(0.14f).fillMaxHeight(),
+                    contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 2.dp, vertical = 0.dp),
+                ) {
+                    Text(
+                        text = "10 ▶",
+                        maxLines = 1,
+                        overflow = TextOverflow.Clip,
+                        style = MaterialTheme.typography.labelSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = if (!busy) EinkInk else EinkMuted,
+                    )
+                }
             }
         }
     }
+}
 }

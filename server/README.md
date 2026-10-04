@@ -1,8 +1,7 @@
 # PageTurner Server — 백엔드 작업 영역
 
-Spring Boot 3.5.16 / PostgreSQL 기반의 초기 구현입니다.
-앱 모듈에 의존하지 않고 공용 Kotlin 코어를 참조합니다. 번역본 저장·조회 및 백업
-계획 API를 제공합니다. 서버의 번역 실행과 Drive 업로드는 아직 구현하지 않았습니다.
+Spring Boot 3.5.16 / PostgreSQL 기반입니다. 앱 모듈에 의존하지 않고 공용 Kotlin 코어를
+참조하며 계정·서재·번역 작업·동기화 API를 제공합니다. Drive 업로드는 아직 구현하지 않았습니다.
 
 별도 React/TypeScript 클라이언트는 [web/](../web/README.md)에서 빌드합니다.
 `web/dist`를 먼저 만든 뒤 `-PwebDistDir=web/dist :server:bootJar`로 웹을 함께
@@ -158,3 +157,47 @@ Docker를 사용할 수 없는 개발 환경에서는 별도로 실행한 **일�
 담은 DB를 지정하지 마세요. 테스트는 이 외부 서버를 시작하거나 종료하지 않으며,
 임시 DB 생성과 종료는 실행자가 담당합니다. 이 모드도 실제 PostgreSQL에서
 동일 마이그레이션·트랜잭션·동시성·API 검사를 실행합니다.
+
+## 별도 Next.js 클라이언트와 책 단위 서재
+
+[frontend](../frontend/README.md)는 같은 계정의 Basic 인증을 매 요청 사용합니다.
+`GET /api/v1/session`은 현재 계정 확인용이며 인증 세션을 생성하지 않습니다.
+연결 해제는 클라이언트 메모리의 자격 증명을 지웁니다. CSRF 세션 쿠키는 인증을 대체하지 않습니다.
+회원가입과 비밀번호 변경은 기존 `/api/v1/accounts/*` 계약을 그대로 사용합니다.
+
+`/api/v1/library/books` 아래에서 책·챕터·읽기 위치·책갈피를 저장합니다.
+이 책 단위 저장소와 `/api/v1/chapters`의 원본 스냅샷 저장소는 별도 식별자를 사용하며
+제목이나 UUID가 비슷하다는 이유로 연결하지 않습니다. 새 `V15__web_library.sql`이
+책 단위 테이블을 추가합니다. 기존 배포된 V1–V14의 내용과 버전은 변경하지 않습니다.
+
+번역 목록의 `contentProviderId`와 `bookId`는 함께 보내며, `chapterId`, `sourceRevision`,
+`sourceLanguage`, `targetLanguage`로 정확히 좁힐 수 있습니다. 제목·폴더·태그·즐겨찾기
+필터와 함께 사용할 수 있고 기존 1–50개 페이지 한도와 응답 형태를 유지합니다.
+원래 공급자·책 식별자를 별도 열에서 읽으며 옛 결합 문자열을 잘라서 추측하지 않습니다.
+
+`GET /api/v1/translations/{recordId}/backup`은 원래 식별자와 번역 설정·문단을 보존한
+schemaVersion 1 JSON을 내려줍니다. `POST /api/v1/translations/restore`는 해시를 검증하고
+인증된 계정에 저장합니다. 같은 revision 재요청은 200이며 새로운 revision은 201입니다.
+원본 메타데이터가 없는 legacy 행의 내보내기는 409이고 먼저 원본 번역을 보완해야 합니다.
+문단 목록이 비어 있거나 공백뿐인 번역 문단이 있는 기존 행도 JSON 복원 검증을 통과할 수
+없으므로 이 내보내기만 409로 거절합니다. 기존 행·해시·일반 조회와 ZIP 동작은 바꾸지 않으며,
+일반 저장과 JSON 복원 요청의 빈 문단 검증도 유지합니다.
+이 JSON은 책 전체 ZIP 교환이나 Drive 업로드 완료를 의미하지 않습니다.
+
+외부 개발 origin은 `PAGETUNER_FRONTEND_ORIGINS`의 명시적 목록만 허용합니다.
+기본값은 localhost/127.0.0.1의 3000·5173 포트입니다. HTTPS에서는
+`PAGETUNER_COOKIE_SECURE=true`를 사용합니다. 자세한 책 단위 API는 [WEB_API.md](WEB_API.md)를 참고하세요.
+
+`WebApiIntegrationTest`도 위의 일회용 외부 PostgreSQL 설정 또는 Docker를 사용하며
+인증·CORS·소유자 격리·CAS·정확한 식별자·백업 왕복·Unicode 위치를 검증합니다.
+
+### PR #5 전용 DB 이력에서 통합 서버로 이동하는 경우
+
+PR #5 분기만 별도로 실행하여 `V2__web_library.sql`이 적용된 DB는 main의
+`V2__preserve_original_book_identity.sql`과 서로 다른 Flyway 이력을 가집니다.
+이 DB에 통합 서버를 바로 연결하면 V2 검증에서 멈춥니다. V15는 이러한 기존 테이블을
+덮어쓰거나 자동 이전하지 않습니다. `flyway clean`·`repair`·이력 삭제로 우회하지 마세요.
+먼저 DB 전체 백업과 적용 이력을 보존하고, 별도의 새 DB에 통합 V1–V15를 적용한 뒤
+원본 provider/book 메타데이터 확보 여부 및 번역·책·진행률·책갈피 UUID/FK를 점검하는
+명시적 데이터 이전 계획이 필요합니다. 이 병합은 서로 다른 배포 DB의 자동 이전을 포함하지 않습니다.
+main의 V1–V14가 적용된 DB 또는 새 DB에만 정상적인 V15 추가 경로가 검증 대상입니다.

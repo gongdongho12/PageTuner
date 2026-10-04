@@ -1,6 +1,7 @@
 package com.dongholab.pagetuner.ui.source
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
@@ -107,6 +108,20 @@ fun WebCatalogPagePanel(
     val booksSectionLabel = stringResource(R.string.web_catalog_section_books)
     val searchFiltersSectionLabel = stringResource(R.string.web_catalog_section_search_filters)
 
+    var showJumpDialog by rememberSaveable { mutableStateOf(false) }
+
+    if (showJumpDialog && remotePaging != null) {
+        CatalogPageJumpDialog(
+            currentPage = remotePaging.currentPage,
+            totalPages = remotePaging.totalPages ?: remotePaging.currentPage,
+            onJumpToPage = { targetPage ->
+                onRemotePageSelected(targetPage)
+                showJumpDialog = false
+            },
+            onDismiss = { showJumpDialog = false },
+        )
+    }
+
     Surface(
         modifier = Modifier.fillMaxSize(),
         color = EinkPanel,
@@ -168,16 +183,50 @@ fun WebCatalogPagePanel(
                                 modifier = Modifier.fillMaxSize(),
                                 verticalArrangement = Arrangement.spacedBy(8.dp),
                             ) {
-                                Text(
-                                    text = stringResource(R.string.web_catalog_visible_count, filteredItems.size),
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = EinkMuted,
-                                )
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically,
+                                ) {
+                                    Text(
+                                        text = stringResource(R.string.web_catalog_visible_count, filteredItems.size),
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = EinkMuted,
+                                    )
+                                    remotePaging?.let { paging ->
+                                        Text(
+                                            text = "${paging.currentPage} / ${paging.totalPages ?: "?"} 쪽 ▾",
+                                            modifier = Modifier.clickable(enabled = !busy) { showJumpDialog = true },
+                                            style = MaterialTheme.typography.labelSmall,
+                                            fontWeight = FontWeight.Bold,
+                                            color = EinkInk,
+                                        )
+                                    }
+                                }
                                 com.dongholab.pagetuner.ui.common.AdaptiveCollection(
                                     items = filteredItems,
                                     estimatedPagedItemHeight = 104.dp,
                                     busy = busy,
                                     pagingState = viewportPagingState,
+                                    onPageBoundaryPrevious = if (remotePaging?.hasPreviousPage == true) {
+                                        { onRemotePageSelected(remotePaging.currentPage - 1) }
+                                    } else null,
+                                    onPageBoundaryNext = if (remotePaging?.hasNextPage == true) {
+                                        { onRemotePageSelected(remotePaging.currentPage + 1) }
+                                    } else null,
+                                    onFastBoundaryPrevious = if (remotePaging != null && remotePaging.currentPage > 1) {
+                                        { onRemotePageSelected((remotePaging.currentPage - 10).coerceAtLeast(1)) }
+                                    } else null,
+                                    onFastBoundaryNext = remotePaging?.let { paging ->
+                                        val total = paging.totalPages
+                                        if (total == null || paging.currentPage < total) {
+                                            { onRemotePageSelected((paging.currentPage + 10).coerceAtMost(total ?: (paging.currentPage + 10))) }
+                                        } else null
+                                    },
+                                    pageInfoPrefix = remotePaging?.let { "P.${it.currentPage}/${it.totalPages ?: "?"} · " },
+                                    onPageInfoClick = if (remotePaging != null) {
+                                        { showJumpDialog = true }
+                                    } else null,
                                     modifier = Modifier.weight(1f),
                                     emptyContent = {
                                         Text(
@@ -199,6 +248,13 @@ fun WebCatalogPagePanel(
                                         busy = busy,
                                         onOpenDetail = { onOpenDetail(item) },
                                         onImportItem = onImportItem,
+                                    )
+                                }
+                                if (com.dongholab.pagetuner.ui.common.LocalListLayoutMode.current == com.dongholab.pagetuner.settings.ListLayoutMode.Scroll) {
+                                    EinkRemoteCatalogPagerSlot(
+                                        paging = remotePaging,
+                                        busy = busy,
+                                        onPageSelected = onRemotePageSelected,
                                     )
                                 }
                             }

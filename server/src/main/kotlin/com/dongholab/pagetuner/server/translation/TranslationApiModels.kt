@@ -139,3 +139,20 @@ data class BackupPlanResponse(
     val backupKeyId: String,
     val status: BackupPlanStatus,
 )
+
+/** Portable backup; ownership is always taken from the authenticated account on restore. */
+data class TranslationBackupDocument(
+    val schemaVersion: Int,
+    val artifactId: String,
+    val revision: String,
+    val payloadHash: String,
+    @field:Valid val translation: SaveTranslationRequest,
+) {
+    fun verifiedRequest(): SaveTranslationRequest {
+        require(schemaVersion == 1) { "Unsupported backup schema version." }
+        val artifact = translation.toArtifact()
+        require(artifact.artifactId == artifactId && artifact.revision == revision &&
+            artifact.payloadHash == payloadHash) { "Backup content failed integrity validation." }
+        return translation
+    }
+}

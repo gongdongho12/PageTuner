@@ -62,18 +62,19 @@ internal fun calculateEinkAutoFitPagePlan(
     fallbackPageSize: Int,
     itemCount: Int,
     reservedNavigationHeightDp: Float = 60f,
+    requireNavigation: Boolean = false,
 ): EinkAutoFitPagePlan {
     if (itemCount <= 0) return EinkAutoFitPagePlan(pageSize = 1, showNavigation = false)
     if (viewportHeightDp == null || !viewportHeightDp.isFinite()) {
         val pageSize = fallbackPageSize.coerceIn(1, 5)
-        return EinkAutoFitPagePlan(pageSize, showNavigation = itemCount > pageSize)
+        return EinkAutoFitPagePlan(pageSize, showNavigation = requireNavigation || itemCount > pageSize)
     }
 
     val itemHeight = itemHeightDp.takeIf { it.isFinite() && it > 0f } ?: 1f
     val spacing = itemSpacingDp.takeIf { it.isFinite() && it >= 0f } ?: 0f
     val itemsWithoutNavigation =
         ((viewportHeightDp.coerceAtLeast(0f) + spacing) / (itemHeight + spacing)).toInt()
-    if (itemCount <= itemsWithoutNavigation) {
+    if (!requireNavigation && itemCount <= itemsWithoutNavigation) {
         return EinkAutoFitPagePlan(pageSize = itemsWithoutNavigation, showNavigation = false)
     }
 
@@ -84,7 +85,8 @@ internal fun calculateEinkAutoFitPagePlan(
         return EinkAutoFitPagePlan(
             pageSize = 0,
             showNavigation = false,
-            requiredHeight = if (itemCount == 1) itemHeight
+            requiredHeight = if (requireNavigation) reservedNavigationHeightDp + spacing + itemHeight
+            else if (itemCount == 1) itemHeight
             else minOf(itemCount.toDouble() * (itemHeight + spacing) - spacing,
                 (reservedNavigationHeightDp + spacing + itemHeight).toDouble()).toFloat(),
         )
@@ -122,6 +124,19 @@ class EinkPagingState internal constructor(initialPageIndex: Int = 0) {
         private set
     private var resetVersion by mutableIntStateOf(0)
 
+    var pageCount by mutableIntStateOf(1)
+        internal set
+
+    var canBoundaryPrevious: Boolean = false
+        internal set
+
+    var canBoundaryNext: Boolean = false
+        internal set
+
+    internal var boundaryPreviousAction: (() -> Unit)? = null
+    internal var boundaryNextAction: (() -> Unit)? = null
+    internal var navigationEnabled: Boolean = true
+
     fun reset() {
         anchor = null
         currentPageIndex = 0
@@ -144,6 +159,35 @@ class EinkPagingState internal constructor(initialPageIndex: Int = 0) {
         val safeIndex = coerceEinkPageIndex(pageIndex, items.size, pageSize)
         anchor = resolveEinkCollectionAnchor(null, items, pageSize, safeIndex, itemKey)
         currentPageIndex = safeIndex
+    }
+
+    fun nextPage(): Boolean {
+        if (!navigationEnabled) return false
+        return if (currentPageIndex < pageCount - 1) {
+            // An explicit hardware turn replaces the stable resize anchor.
+            anchor = null
+            currentPageIndex++
+            true
+        } else if (canBoundaryNext && boundaryNextAction != null) {
+            boundaryNextAction?.invoke()
+            true
+        } else {
+            false
+        }
+    }
+
+    fun previousPage(): Boolean {
+        if (!navigationEnabled) return false
+        return if (currentPageIndex > 0) {
+            anchor = null
+            currentPageIndex--
+            true
+        } else if (canBoundaryPrevious && boundaryPreviousAction != null) {
+            boundaryPreviousAction?.invoke()
+            true
+        } else {
+            false
+        }
     }
 
     internal companion object {
@@ -179,6 +223,12 @@ fun <T> EinkAutoFitPagingContainer(
     fallbackPageSize: Int = 3,
     busy: Boolean = false,
     state: EinkPagingState = rememberEinkPagingState(),
+    onPageBoundaryPrevious: (() -> Unit)? = null,
+    onPageBoundaryNext: (() -> Unit)? = null,
+    onFastBoundaryPrevious: (() -> Unit)? = null,
+    onFastBoundaryNext: (() -> Unit)? = null,
+    pageInfoPrefix: String? = null,
+    onPageInfoClick: (() -> Unit)? = null,
     itemKey: ((T) -> Any)? = null,
     onInsufficientHeight: ((Dp?) -> Unit)? = null,
     emptyContent: @Composable () -> Unit = {},
@@ -197,16 +247,19 @@ fun <T> EinkAutoFitPagingContainer(
                 fallbackPageSize = fallbackPageSize,
                 itemCount = items.size,
                 reservedNavigationHeightDp = navigationHeight.roundToPx().toFloat(),
+                requireNavigation = onPageBoundaryPrevious != null || onPageBoundaryNext != null || onPageInfoClick != null,
             )
         }
         val requiredHeight = pagePlan.requiredHeight?.let { with(density) { it.toDp() } }
         val notifyHeight by rememberUpdatedState(onInsufficientHeight)
         LaunchedEffect(requiredHeight) { notifyHeight?.invoke(requiredHeight) }
         if (items.isEmpty()) {
+            SideEffect { state.navigationEnabled = false }
             emptyContent()
             return@BoxWithConstraints
         }
         if (requiredHeight != null) {
+            SideEffect { state.navigationEnabled = false }
             CollectionSpaceNotice()
             return@BoxWithConstraints
         }
@@ -214,7 +267,15 @@ fun <T> EinkAutoFitPagingContainer(
         val pageSize = pagePlan.pageSize
         val anchor = state.resolve(items, pageSize, itemKey)
         val listPage = ListPagePolicy.slice(items, anchor.index / pageSize, pageSize)
-        SideEffect { state.rememberAnchor(anchor, listPage.pageIndex) }
+        SideEffect {
+            state.rememberAnchor(anchor, listPage.pageIndex)
+            state.pageCount = listPage.pageCount
+            state.navigationEnabled = !busy
+            state.canBoundaryPrevious = onPageBoundaryPrevious != null
+            state.canBoundaryNext = onPageBoundaryNext != null
+            state.boundaryPreviousAction = onPageBoundaryPrevious
+            state.boundaryNextAction = onPageBoundaryNext
+        }
 
         Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(itemSpacing)) {
             if (pagePlan.showNavigation) {
@@ -225,8 +286,14 @@ fun <T> EinkAutoFitPagingContainer(
                     pageIndex = listPage.pageIndex,
                     pageCount = listPage.pageCount,
                     busy = busy,
-                    onPrevious = { state.moveTo(listPage.pageIndex - 1, items, pageSize, itemKey) },
-                    onNext = { state.moveTo(listPage.pageIndex + 1, items, pageSize, itemKey) },
+                    onPrevious = { state.previousPage() },
+                    onNext = { state.nextPage() },
+                    canPrevious = !busy && (listPage.pageIndex > 0 || onPageBoundaryPrevious != null),
+                    canNext = !busy && (listPage.pageIndex < listPage.pageCount - 1 || onPageBoundaryNext != null),
+                    infoPrefix = pageInfoPrefix,
+                    onInfoClick = onPageInfoClick,
+                    onFastPrevious = onFastBoundaryPrevious,
+                    onFastNext = onFastBoundaryNext,
                     height = navigationHeight,
                 )
             }

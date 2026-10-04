@@ -16,6 +16,7 @@ import kotlinx.coroutines.launch
 data class TranslationUiState(
     val apiKey: String = "",
     val translation: PageTranslation? = null,
+    val pageTranslations: Map<Int, PageTranslation> = emptyMap(),
     val cacheStatus: TranslationCacheStatus? = null,
     val providerHealth: ProviderHealthCheck = ProviderHealthCheck(),
     val queue: TranslationQueueState = TranslationQueueState(),
@@ -24,7 +25,13 @@ data class TranslationUiState(
     val status: TranslationStatus = TranslationStatus.Ready,
     val progress: Float = 0f,
     val busy: Boolean = false,
-)
+) {
+    fun pageTranslationFor(page: ReaderPage): PageTranslation? =
+        pageTranslations[page.index] ?: translation?.takeIf { it.page.index == page.index }
+
+    fun pageTranslationFor(pageIndex: Int): PageTranslation? =
+        pageTranslations[pageIndex] ?: translation?.takeIf { it.page.index == pageIndex }
+}
 
 sealed interface TranslationStatus {
     data object Ready : TranslationStatus
@@ -103,6 +110,39 @@ class TranslationViewModel : ViewModel() {
     private var rollingDocumentId: String? = null
     private var rollingRepository: TranslationRepository? = null
     private var rollingVisiblePageIndex: Int = 0
+    private var readerTranslationContext: ReaderTranslationContext? = null
+
+    private fun moveReaderMemoryWindow(pageIndex: Int) {
+        rollingVisiblePageIndex = pageIndex
+        _uiState.update { state ->
+            state.copy(pageTranslations = state.pageTranslations.withinReaderMemoryWindow())
+        }
+    }
+
+    /** Disk cache owns the complete book; memory follows the current reader, including late results. */
+    private fun Map<Int, PageTranslation>.withinReaderMemoryWindow(): Map<Int, PageTranslation> =
+        filterKeys { it in (rollingVisiblePageIndex - 10)..(rollingVisiblePageIndex + 10) }
+
+    private data class ReaderTranslationContext(
+        val document: ReaderDocument,
+        val settings: TranslationSettings,
+        val repository: TranslationRepository,
+    )
+
+    /** Page indexes are only meaningful within the exact document/provider/glossary context. */
+    private fun ensureReaderTranslationContext(
+        document: ReaderDocument,
+        pageIndex: Int,
+        settings: TranslationSettings,
+        repository: TranslationRepository,
+    ) {
+        val context = ReaderTranslationContext(document, settings, repository)
+        if (readerTranslationContext == context) return
+        val resumeRolling = _uiState.value.rolling.enabled
+        resetForDocument(document.id, pageIndex)
+        readerTranslationContext = context
+        if (resumeRolling) startRollingPrefetch(document, pageIndex, settings, repository)
+    }
 
     fun updateApiKey(apiKey: String) {
         _uiState.update { state -> state.copy(apiKey = apiKey) }
@@ -125,6 +165,7 @@ class TranslationViewModel : ViewModel() {
         _uiState.update { state ->
             state.copy(
                 translation = null,
+                pageTranslations = emptyMap(),
                 progress = 0f,
                 busy = false,
                 status = TranslationStatus.Ready,
@@ -134,6 +175,7 @@ class TranslationViewModel : ViewModel() {
     }
 
     fun resetForDocument(documentId: String? = null, pageIndex: Int = 0) {
+        readerTranslationContext = null
         documentRevision += 1L
         pageContentRequestId += 1L
         pageContentJob?.cancel()
@@ -148,6 +190,7 @@ class TranslationViewModel : ViewModel() {
         _uiState.update { state ->
             TranslationUiState(
                 apiKey = state.apiKey,
+                pageTranslations = emptyMap(),
                 providerHealth = state.providerHealth,
                 readerLoad = if (documentId == null) {
                     ReaderTranslationLoadState()
@@ -188,9 +231,31 @@ class TranslationViewModel : ViewModel() {
         repository: TranslationRepository,
         showMissingStatus: Boolean,
     ) {
+        ensureReaderTranslationContext(document, page.index, settings, repository)
+        moveReaderMemoryWindow(page.index)
         val revision = documentRevision
         val requestId = ++pageContentRequestId
         pageContentJob?.cancel()
+
+        val memoryHit = _uiState.value.pageTranslations[page.index]
+        if (memoryHit != null) {
+            _uiState.update { state ->
+                state.copy(
+                    busy = false,
+                    progress = 1f,
+                    translation = memoryHit,
+                    status = if (showMissingStatus) TranslationStatus.LoadedCached else TranslationStatus.Ready,
+                    readerLoad = ReaderTranslationLoadState(
+                        documentId = document.id,
+                        pageIndex = page.index,
+                        stage = ReaderTranslationLoadStage.Ready,
+                    ),
+                )
+            }
+            prefetchAdjacentCachedPages(document, page.index, settings, repository)
+            return
+        }
+
         _uiState.update { state ->
             state.copy(
                 busy = false,
@@ -204,15 +269,17 @@ class TranslationViewModel : ViewModel() {
         }
         pageContentJob = viewModelScope.launch {
             runCatching {
-                val cached = repository.loadCachedPage(document, page, settings)
-                val cacheStatus = repository.cacheStatus(document, settings)
-                cached to cacheStatus
-            }.onSuccess { (cached, cacheStatus) ->
+                repository.loadCachedPage(document, page, settings)
+            }.onSuccess { cached ->
                 if (revision != documentRevision || requestId != pageContentRequestId) return@onSuccess
                 _uiState.update { state ->
                     state.copy(
                         translation = cached,
-                        cacheStatus = cacheStatus,
+                        pageTranslations = if (cached != null) {
+                            (state.pageTranslations + (page.index to cached)).withinReaderMemoryWindow()
+                        } else {
+                            state.pageTranslations
+                        },
                         progress = if (cached != null) 1f else 0f,
                         status = when {
                             cached != null && showMissingStatus -> TranslationStatus.LoadedCached
@@ -229,6 +296,17 @@ class TranslationViewModel : ViewModel() {
                             },
                         ),
                     )
+                }
+                if (cached != null) {
+                    prefetchAdjacentCachedPages(document, page.index, settings, repository)
+                }
+                viewModelScope.launch {
+                    runCatching { repository.cacheStatus(document, settings) }
+                        .onSuccess { status ->
+                            if (revision == documentRevision) {
+                                _uiState.update { it.copy(cacheStatus = status) }
+                            }
+                        }
                 }
             }.onFailure { error ->
                 if (
@@ -250,13 +328,45 @@ class TranslationViewModel : ViewModel() {
         }
     }
 
+    private fun prefetchAdjacentCachedPages(
+        document: ReaderDocument,
+        currentPageIndex: Int,
+        settings: TranslationSettings,
+        repository: TranslationRepository,
+    ) {
+        val revision = documentRevision
+        val currentTranslations = _uiState.value.pageTranslations
+        val targets = listOf(currentPageIndex + 1, currentPageIndex + 2, currentPageIndex - 1)
+            .filter { it in 0 until document.pageCount && it !in currentTranslations && document.pages[it].hasText }
+
+        if (targets.isEmpty()) return
+
+        viewModelScope.launch {
+            for (targetIndex in targets) {
+                if (revision != documentRevision) break
+                val targetPage = document.pages[targetIndex]
+                val cached = runCatching { repository.loadCachedPage(document, targetPage, settings) }.getOrNull()
+                if (cached != null && revision == documentRevision) {
+                    _uiState.update { state ->
+                        state.copy(
+                            pageTranslations = (state.pageTranslations + (targetIndex to cached))
+                                .withinReaderMemoryWindow(),
+                        )
+                    }
+                }
+            }
+        }
+    }
+
     fun translatePage(
         document: ReaderDocument,
         page: ReaderPage,
         settings: TranslationSettings,
         repository: TranslationRepository,
     ) {
+        ensureReaderTranslationContext(document, page.index, settings, repository)
         if (_uiState.value.busy) return
+        moveReaderMemoryWindow(page.index)
         val revision = documentRevision
         val requestId = ++pageContentRequestId
         pageContentJob?.cancel()
@@ -297,6 +407,7 @@ class TranslationViewModel : ViewModel() {
                 _uiState.update { state ->
                     state.copy(
                         translation = result,
+                        pageTranslations = (state.pageTranslations + (page.index to result)).withinReaderMemoryWindow(),
                         cacheStatus = cacheStatus,
                         progress = 1f,
                         busy = false,
@@ -312,6 +423,7 @@ class TranslationViewModel : ViewModel() {
                         ),
                     )
                 }
+                prefetchAdjacentCachedPages(document, page.index, settings, repository)
             }.onFailure { error ->
                 if (
                     error is CancellationException ||
@@ -344,6 +456,7 @@ class TranslationViewModel : ViewModel() {
         settings: TranslationSettings,
         repository: TranslationRepository,
     ) {
+        ensureReaderTranslationContext(document, currentPageIndex, settings, repository)
         if (!settings.isProviderConfigured || document.pages.isEmpty()) return
         val safePageIndex = currentPageIndex.coerceIn(0, document.pages.lastIndex)
         val sameSession = rollingDocumentId == document.id && rollingRepository === repository
@@ -355,7 +468,7 @@ class TranslationViewModel : ViewModel() {
             rollingRepository = repository
             _uiState.update { state -> state.copy(rolling = RollingTranslationState()) }
         }
-        rollingVisiblePageIndex = safePageIndex
+        moveReaderMemoryWindow(safePageIndex)
         if (_uiState.value.translation == null) {
             updateReaderLoad(document.id, safePageIndex, ReaderTranslationLoadStage.Queued)
         }
@@ -370,8 +483,9 @@ class TranslationViewModel : ViewModel() {
         settings: TranslationSettings,
         repository: TranslationRepository,
     ) {
+        ensureReaderTranslationContext(document, currentPageIndex, settings, repository)
         if (document.pages.isEmpty()) return
-        rollingVisiblePageIndex = currentPageIndex.coerceIn(0, document.pages.lastIndex)
+        moveReaderMemoryWindow(currentPageIndex.coerceIn(0, document.pages.lastIndex))
         val rolling = _uiState.value.rolling
         if (!rolling.enabled) return
         val pageFlag = rolling.flagFor(rollingVisiblePageIndex)
@@ -510,6 +624,7 @@ class TranslationViewModel : ViewModel() {
                             }
                             state.copy(
                                 translation = visibleResult ?: state.translation,
+                                pageTranslations = (state.pageTranslations + resultsByPageIndex).withinReaderMemoryWindow(),
                                 progress = if (visibleResult != null) 1f else state.progress,
                                 status = if (visibleResult != null) {
                                     TranslationStatus.TranslatedSavedPage(rollingVisiblePageIndex + 1)
@@ -957,6 +1072,7 @@ class TranslationViewModel : ViewModel() {
                 _uiState.update { state ->
                     state.copy(
                         translation = null,
+                        pageTranslations = emptyMap(),
                         cacheStatus = cacheStatus,
                         progress = 0f,
                         busy = false,

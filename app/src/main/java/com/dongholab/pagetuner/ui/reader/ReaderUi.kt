@@ -78,6 +78,7 @@ import com.dongholab.pagetuner.reader.ReaderDisplayPosition
 import com.dongholab.pagetuner.reader.ReaderDisplayNavigation
 import com.dongholab.pagetuner.reader.PageTurnMode
 import com.dongholab.pagetuner.reader.PdfFitMode
+import com.dongholab.pagetuner.settings.ReaderFontFamily
 import com.dongholab.pagetuner.translation.TranslationDisplayMode
 import com.dongholab.pagetuner.translation.PageTranslation
 import com.dongholab.pagetuner.translation.glossary.BookGlossaryEntry
@@ -100,6 +101,7 @@ fun ReaderHeader(
     onManualRefresh: () -> Unit,
     onShowDetails: () -> Unit,
     onEnterFullscreen: () -> Unit,
+    onShowTypography: (() -> Unit)? = null,
 ) {
     Row(
         modifier = Modifier.fillMaxWidth(),
@@ -143,6 +145,16 @@ fun ReaderHeader(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             if (controlsVisible) {
+                if (onShowTypography != null) {
+                    IconButton(onClick = onShowTypography) {
+                        Text(
+                            text = "Aa",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = EinkInk,
+                        )
+                    }
+                }
                 IconButton(onClick = onManualRefresh) {
                     Icon(
                         imageVector = Icons.Filled.Refresh,
@@ -717,6 +729,7 @@ fun ReaderSurface(
     fontSizeSp: Int,
     lineSpacing: Float,
     pageMarginDp: Int,
+    fontFamily: ReaderFontFamily = ReaderFontFamily.DEFAULT,
     onPreviousPage: () -> Unit,
     onNextPage: () -> Unit,
     fullScreen: Boolean = false,
@@ -741,6 +754,7 @@ fun ReaderSurface(
                 translation = translation, glossaryEntries = glossaryEntries,
                 translationDisplayMode = translationDisplayMode, fontSizeSp = fontSizeSp,
                 lineSpacing = lineSpacing, pageMarginDp = pageMarginDp,
+                fontFamily = fontFamily,
                 onNavigation = onDisplayNavigation, onPositionResolved = onDisplayPositionResolved,
             )
             PageTurnTapZones(pageTurnMode, pageTurningEnabled, onPreviousPage, onNextPage,
@@ -755,9 +769,11 @@ internal fun EmbeddedPageImage(
     modifier: Modifier = Modifier,
 ) {
     val bitmap = remember(image.id, displayMode) {
-        BitmapFactory.decodeByteArray(image.bytes, 0, image.bytes.size)
-            ?.copy(Bitmap.Config.ARGB_8888, true)
-            ?.also { bitmap -> bitmap.applyDisplayMode(displayMode) }
+        com.dongholab.pagetuner.display.decodeSampledBitmapFromByteArray(
+            bytes = image.bytes,
+            reqWidth = 800,
+            reqHeight = 1200,
+        )?.also { bitmap -> bitmap.applyDisplayMode(displayMode) }
     }
 
     Surface(

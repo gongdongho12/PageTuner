@@ -215,6 +215,24 @@ not as source-code bases.
 - The LLM provider expects OpenAI-compatible chat completions JSON.
 - No product license has been selected yet.
 
+## Web Frontend
+
+The independent [frontend](frontend/README.md) uses Next.js, React and TypeScript
+for browser reading, translation, local backups and Spring API integration.
+Android stays in `app/` and Spring stays in `server/`. The main account/novel
+web client and the Android local-sharing reader remain in [`web/`](web/README.md).
+`frontend/` is a separate Next.js client with its own local library and backup
+format; its feature coverage is documented separately.
+
+```bash
+cd frontend
+npm ci
+npm run dev
+```
+
+Open `http://127.0.0.1:3000`. See the frontend README for production builds,
+offline behavior, format limitations and test commands.
+
 ## Build
 
 Install Node.js 22.12+ (or 20.19+) and npm alongside the Android/JDK toolchain.

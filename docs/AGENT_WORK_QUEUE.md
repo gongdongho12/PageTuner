@@ -61,6 +61,10 @@ WTR/NovelBuddy 수집·서버 번역·원문/번역 서재·Google 웹 번역 �
 
 ## 현재 실행 기록
 
+- 2026-10-04 통합 재개: 이전 직접 병합 요청으로 PR #39와 #1~4는 병합됐고 `main=5eeb183`의 [CI](https://github.com/gongdongho12/PageTuner/actions/runs/37182401294)가 성공했다. #5를 제외한 당시 모든 PR head의 내용은 main에 포함되어 있지만 중간 PR의 GitHub 상태는 별개다. 이후 사용자 지시는 자동 병합 금지이므로 나머지를 추가로 병합하지 않는다.
+- 중단된 PR #5 통합의 13개 충돌과 DB 버전 중복, Next.js 인증·늦은 계정 응답, Android 메모리 캐시/목록 키 탐색 결함을 수정했다. 공통 175·서버 213·web 453·Next 21+브라우저 20·Python 9, Android 497 통과/15 opt-in 제외, bootJar/APK/lint/계측 소스/경계 성공. 기존 `main`의 V1~V14는 보존하고 새 서재만 V15로 추가한다. [범위·검증과 제약](CI_STACK_INTEGRATION.md). 최신 변경은 draft PR #5에 보관하며 원본 폴더의 미커밋 변경을 보존한다.
+- 다음 독립 단위는 S4c2a 최신 계정 용어집의 명시적 ZIP 내보내기다. 실제 읽기 전용 조회는 `/book-glossary/query` POST이며 PUT/outbox를 실행하지 않는다. S4c2b ZIP 용어집 채택과 S4c 전체는 별도 미완료로 유지한다.
+
 - 2026-09-16: 큐 생성. 시작 브랜치 `codex/reading-progress-sync`, base `codex/account-password-change`(PR #23). 첫 단위 S1의 서버 공통 계약과 Android 연결 작업을 분담하고 웹 동기화 저장소·리더 연결을 진행한다.
 - 반복 실행: automation ID `pageturner`, 상태 `ACTIVE`, 현재 작업에 연결된 매시간 실행. 2026-09-16 생성 결과와 저장 설정을 확인했다. 로컬 실행에는 컴퓨터와 데스크톱 앱이 켜져 있어야 한다.
 - 2026-09-16: PR #23 Android CI 통과 확인. 미리보기의 현재 비밀번호 변경은 유지하고 S1을 이어간다.

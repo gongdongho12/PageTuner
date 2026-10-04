@@ -14,6 +14,10 @@
 
 ## 화면 진입점과 공통 실행 경계
 
+2026-10-04 PR 통합에서도 이 표의 웹 기준은 `web/`이다. PR #5의 별도 Next.js
+`frontend/`는 독립 로컬 서재·백업 형식을 유지하며 [별도 지원 범위](../frontend/README.md)를
+확인한다. 두 클라이언트의 기능이나 백업 형식을 같다고 간주하지 않는다.
+
 | 구분 | 현재 진입점·역할 | 근거 |
 | --- | --- | --- |
 | Android 앱 | Local, Favorites, Web Novel, Drive, Settings. Web Novel 안에 기존 소설 화면과 새 서버 서재가 있다. Drive는 준비 중 화면이다. | [MainActivity.kt](../app/src/main/java/com/dongholab/pagetuner/MainActivity.kt), [AppTabSection.kt](../app/src/main/java/com/dongholab/pagetuner/ui/common/AppTabSection.kt) |

@@ -97,6 +97,12 @@ class ReaderSettingsStore(context: Context) : ReaderPreferencesDevice {
         }
     }
 
+    suspend fun updateReaderFontFamily(fontFamily: ReaderFontFamily) {
+        dataStore.edit { preferences ->
+            preferences[Keys.READER_FONT_FAMILY] = fontFamily.name
+        }
+    }
+
     suspend fun updateSourceLanguage(sourceLanguage: String) {
         dataStore.edit { preferences ->
             preferences[Keys.SOURCE_LANGUAGE] = sourceLanguage.trim().ifBlank { "auto" }
@@ -177,6 +183,7 @@ class ReaderSettingsStore(context: Context) : ReaderPreferencesDevice {
                 this[Keys.READER_PAGE_MARGIN_DP]
                     ?: defaults.readerPageMarginDp
                 ).coerceIn(0, 48),
+            readerFontFamily = enumOrDefault(Keys.READER_FONT_FAMILY, defaults.readerFontFamily),
             sourceLanguage = this[Keys.SOURCE_LANGUAGE] ?: defaults.sourceLanguage,
             targetLanguage = this[Keys.TARGET_LANGUAGE] ?: defaults.targetLanguage,
             providerKind = enumOrDefault(Keys.PROVIDER_KIND, defaults.providerKind),
@@ -219,6 +226,7 @@ class ReaderSettingsStore(context: Context) : ReaderPreferencesDevice {
         val READER_FONT_SIZE_SP = intPreferencesKey("reader_font_size_sp")
         val READER_LINE_SPACING = intPreferencesKey("reader_line_spacing")
         val READER_PAGE_MARGIN_DP = intPreferencesKey("reader_page_margin_dp")
+        val READER_FONT_FAMILY = stringPreferencesKey("reader_font_family")
         val SOURCE_LANGUAGE = stringPreferencesKey("source_language")
         val TARGET_LANGUAGE = stringPreferencesKey("target_language")
         val PROVIDER_KIND = stringPreferencesKey("provider_kind")

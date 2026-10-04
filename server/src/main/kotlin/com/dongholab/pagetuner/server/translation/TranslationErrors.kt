@@ -17,10 +17,19 @@ class TranslationIdentityConflict : RuntimeException(
     "A translation with this identity and revision already exists with different metadata.",
 )
 
+class TranslationBackupUnavailable : RuntimeException(
+    "This translation contains no paragraphs or blank paragraph text and cannot be restored from a JSON backup. " +
+        "The stored translation has not been changed.",
+)
+
 @RestControllerAdvice
 class TranslationErrors {
     @ExceptionHandler(TranslationMetadataUnavailable::class, TranslationIdentityConflict::class)
     fun conflictingMetadata(error: RuntimeException): ProblemDetail =
+        ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT, requireNotNull(error.message))
+
+    @ExceptionHandler(TranslationBackupUnavailable::class)
+    fun backupUnavailable(error: TranslationBackupUnavailable): ProblemDetail =
         ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT, requireNotNull(error.message))
 
     @ExceptionHandler(IllegalArgumentException::class)

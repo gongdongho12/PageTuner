@@ -278,6 +278,147 @@ class TranslationViewModelTest {
             assertNull(viewModel.uiState.value.rolling.flagFor(10))
         }
 
+    @Test
+    fun rollingPrefetchPopulatesMemoryCacheForAllWindowPages() = runTest(mainDispatcherRule.dispatcher) {
+        val provider = RecordingRollingProvider()
+        val document = rollingDocument(pageCount = 10)
+        val repository = TranslationRepository(provider, ViewModelMemoryCache())
+        val settings = webTranslationSettings()
+        val viewModel = TranslationViewModel()
+
+        viewModel.startRollingPrefetch(document, 0, settings, repository)
+        advanceUntilIdle()
+
+        val state = viewModel.uiState.value
+        assertEquals(10, state.pageTranslations.size)
+        for (i in 0 until 10) {
+            assertEquals("ko:Page ${i + 1}", state.pageTranslationFor(i)?.text)
+        }
+    }
+
+    @Test
+    fun rollingMemoryStaysNearTheVisiblePageAcrossManyWindowsAndBacktracking() =
+        runTest(mainDispatcherRule.dispatcher) {
+            val provider = RecordingRollingProvider()
+            val document = rollingDocument(pageCount = 120)
+            val repository = TranslationRepository(provider, ViewModelMemoryCache())
+            val settings = webTranslationSettings()
+            val viewModel = TranslationViewModel()
+
+            viewModel.startRollingPrefetch(document, 0, settings, repository)
+            advanceUntilIdle()
+            for (pageIndex in 0 until document.pageCount) {
+                viewModel.onReaderPageChanged(document, pageIndex, settings, repository)
+                viewModel.loadCachedPage(document, document.pages[pageIndex], settings, repository, false)
+                advanceUntilIdle()
+                val memory = viewModel.uiState.value.pageTranslations
+                assertTrue("Page $pageIndex retains ${memory.keys}", memory.size <= 21)
+                assertTrue(memory.keys.all { it in (pageIndex - 10)..(pageIndex + 10) })
+                assertEquals("ko:Page ${pageIndex + 1}", memory[pageIndex]?.text)
+            }
+
+            // Discarding distant memory must not delete the persistent translation.
+            val requestsBeforeBacktracking = provider.requests
+            viewModel.onReaderPageChanged(document, 0, settings, repository)
+            viewModel.loadCachedPage(document, document.pages[0], settings, repository, false)
+            advanceUntilIdle()
+            assertEquals("ko:Page 1", viewModel.uiState.value.pageTranslationFor(0)?.text)
+            assertTrue(viewModel.uiState.value.pageTranslations.keys.all { it in 0..10 })
+            assertEquals(requestsBeforeBacktracking, provider.requests)
+        }
+
+    @Test
+    fun lateAdjacentCacheResultsCannotEvictTheNewVisibleWindow() = runTest(mainDispatcherRule.dispatcher) {
+        val document = rollingDocument(pageCount = 30)
+        val cache = ViewModelMemoryCache()
+        val repository = TranslationRepository(ViewModelFakeProvider(), cache)
+        val settings = webTranslationSettings()
+        val viewModel = TranslationViewModel()
+        document.pages.forEach { repository.translatePage(document, it, settings) }
+        val releaseOldAdjacentLookup = CompletableDeferred<Unit>()
+        cache.beforeRead = { keys ->
+            if (keys.size == 1 && keys.single().segmentId == "segment-1") {
+                releaseOldAdjacentLookup.await()
+            }
+        }
+
+        viewModel.loadCachedPage(document, document.pages[0], settings, repository, false)
+        advanceUntilIdle()
+        viewModel.loadCachedPage(document, document.pages[24], settings, repository, false)
+        advanceUntilIdle()
+        assertTrue(viewModel.uiState.value.pageTranslations.keys.containsAll(listOf(23, 24, 25, 26)))
+
+        releaseOldAdjacentLookup.complete(Unit)
+        advanceUntilIdle()
+        assertTrue(viewModel.uiState.value.pageTranslations.keys.containsAll(listOf(23, 24, 25, 26)))
+        assertTrue(viewModel.uiState.value.pageTranslations.keys.all { it in 14..29 })
+    }
+
+    @Test
+    fun loadCachedPageResolvesImmediatelyWhenMemoryCacheHits() = runTest(mainDispatcherRule.dispatcher) {
+        val document = rollingDocument(pageCount = 3)
+        val repository = TranslationRepository(ViewModelFakeProvider(), ViewModelMemoryCache())
+        val settings = webTranslationSettings()
+        val viewModel = TranslationViewModel()
+
+        repository.translatePage(document, document.pages[0], settings)
+        repository.translatePage(document, document.pages[1], settings)
+
+        // Load page 0 so it loads into memory and prefetches page 1
+        viewModel.loadCachedPage(document, document.pages[0], settings, repository, false)
+        advanceUntilIdle()
+
+        // Page 1 should be prefetched into memory cache
+        assertTrue(viewModel.uiState.value.pageTranslations.containsKey(1))
+
+        // Switching to page 1 resolves immediately
+        viewModel.loadCachedPage(document, document.pages[1], settings, repository, false)
+        assertEquals(ReaderTranslationLoadStage.Ready, viewModel.uiState.value.readerLoad.stage)
+        assertEquals("ko:Page 2", viewModel.uiState.value.pageTranslationFor(1)?.text)
+    }
+
+    @Test
+    fun memoryPagesNeverCrossTargetLanguageOrRepositoryContext() = runTest(mainDispatcherRule.dispatcher) {
+        val document = rollingDocument(3)
+        val repository = TranslationRepository(ViewModelFakeProvider(), ViewModelMemoryCache())
+        val settings = webTranslationSettings()
+        val japanese = settings.copy(targetLanguage = "ja")
+        val viewModel = TranslationViewModel()
+        repository.translatePage(document, document.pages[0], settings)
+        repository.translatePage(document, document.pages[0], japanese)
+
+        viewModel.loadCachedPage(document, document.pages[0], settings, repository, false)
+        advanceUntilIdle()
+        assertEquals("ko:Page 1", viewModel.uiState.value.pageTranslationFor(0)?.text)
+        viewModel.loadCachedPage(document, document.pages[0], japanese, repository, false)
+        advanceUntilIdle()
+        assertEquals("ja:Page 1", viewModel.uiState.value.pageTranslationFor(0)?.text)
+
+        // A replacement repository can have a different glossary/cache/account even for one book.
+        val emptyRepository = TranslationRepository(ViewModelFakeProvider(), ViewModelMemoryCache())
+        viewModel.loadCachedPage(document, document.pages[0], japanese, emptyRepository, false)
+        advanceUntilIdle()
+        assertNull(viewModel.uiState.value.pageTranslationFor(0))
+        assertEquals(ReaderTranslationLoadStage.Missing, viewModel.uiState.value.readerLoad.stage)
+    }
+
+    @Test
+    fun memoryPagesNeverCrossChangedContentWithTheSameDocumentId() = runTest(mainDispatcherRule.dispatcher) {
+        val original = PlainTextDocumentParser.parse("Original", "First version")
+        val updated = PlainTextDocumentParser.parse("Updated", "Changed content").copy(id = original.id)
+        val settings = webTranslationSettings()
+        val repository = TranslationRepository(ViewModelFakeProvider(), ViewModelMemoryCache())
+        val viewModel = TranslationViewModel()
+        repository.translatePage(original, original.pages[0], settings)
+        viewModel.loadCachedPage(original, original.pages[0], settings, repository, false)
+        advanceUntilIdle()
+        assertNotNull(viewModel.uiState.value.pageTranslationFor(0))
+
+        viewModel.loadCachedPage(updated, updated.pages[0], settings, repository, false)
+        advanceUntilIdle()
+        assertNull(viewModel.uiState.value.pageTranslationFor(0))
+    }
+
     private fun webTranslationSettings() = TranslationSettings(
         providerKind = TranslationProviderKind.GOOGLE_WEB_TRANSLATE_HTML,
         apiKey = "",
@@ -329,16 +470,19 @@ private class ViewModelFakeProvider(
     override suspend fun translate(request: TranslationRequest): List<TranslatedSegment> {
         beforeResponse()
         return request.segments.map { segment ->
-            TranslatedSegment(segment.id, "ko:${segment.text}")
+            TranslatedSegment(segment.id, "${request.targetLanguage}:${segment.text}")
         }
     }
 }
 
 private class ViewModelMemoryCache : TranslationCache {
     private val records = mutableMapOf<String, CachedTranslation>()
+    var beforeRead: suspend (List<TranslationCacheKey>) -> Unit = {}
 
-    override suspend fun getMany(keys: List<TranslationCacheKey>): Map<String, CachedTranslation> =
-        keys.mapNotNull { key -> records[key.id]?.let { key.id to it } }.toMap()
+    override suspend fun getMany(keys: List<TranslationCacheKey>): Map<String, CachedTranslation> {
+        beforeRead(keys)
+        return keys.mapNotNull { key -> records[key.id]?.let { key.id to it } }.toMap()
+    }
 
     override suspend fun putAll(records: List<CachedTranslation>) {
         records.forEach { record -> this.records[record.key.id] = record }

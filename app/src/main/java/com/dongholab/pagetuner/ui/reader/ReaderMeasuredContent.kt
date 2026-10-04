@@ -50,7 +50,7 @@ import com.dongholab.pagetuner.ui.theme.EinkInk
 import com.dongholab.pagetuner.ui.theme.EinkLine
 import com.dongholab.pagetuner.ui.theme.EinkMuted
 import com.dongholab.pagetuner.ui.theme.EinkSoft
-import com.dongholab.pagetuner.ui.theme.ReaderFontFamily
+import com.dongholab.pagetuner.settings.ReaderFontFamily
 
 /** Fixed user typography, measured display slices, and canonical source anchors are independent. */
 @Composable
@@ -70,6 +70,7 @@ internal fun ReaderMeasuredContent(
     pageMarginDp: Int,
     onNavigation: (ReaderDisplayNavigation) -> Unit,
     onPositionResolved: (ReaderDisplayPosition) -> Unit,
+    fontFamily: ReaderFontFamily = ReaderFontFamily.DEFAULT,
 ) {
     val original = remember(document, glossaryEntries) { ReaderDisplayText.original(document, glossaryEntries) }
     val translated = remember(page, translation, glossaryEntries) {
@@ -80,9 +81,9 @@ internal fun ReaderMeasuredContent(
     val layout = readerTranslationLayout(translation != null, translationDisplayMode)
     val density = LocalDensity.current
     val direction = LocalLayoutDirection.current
-    // Measure and render both source and translation with the same locally bundled font and weights.
+    // Measure and render both source and translation with the same selected font and weights.
     val style = MaterialTheme.typography.bodyLarge.copy(
-        fontFamily = ReaderFontFamily,
+        fontFamily = fontFamily.toComposeFontFamily(),
         fontSize = fontSizeSp.sp,
         lineHeight = (fontSizeSp * lineSpacing).sp,
     )

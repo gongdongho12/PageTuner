@@ -258,6 +258,26 @@ class WebCatalogViewModel(
         )
     }
 
+    fun loadNextCatalogPage(): Boolean {
+        val state = _uiState.value
+        val paging = state.remotePaging ?: return false
+        if (paging.hasNextPage && !state.busy && state.catalogLoading == null) {
+            loadRemoteCatalogPage(paging.currentPage + 1)
+            return true
+        }
+        return false
+    }
+
+    fun loadPreviousCatalogPage(): Boolean {
+        val state = _uiState.value
+        val paging = state.remotePaging ?: return false
+        if (paging.hasPreviousPage && !state.busy && state.catalogLoading == null) {
+            loadRemoteCatalogPage(paging.currentPage - 1)
+            return true
+        }
+        return false
+    }
+
     /** Warms the default WTR-Lab catalog without requiring the Web Novel tab to be opened. */
     fun preloadDefaultCatalog() {
         if (catalogPreloadJob?.isActive == true) return

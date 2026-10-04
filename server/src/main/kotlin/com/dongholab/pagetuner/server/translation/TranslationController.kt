@@ -4,6 +4,8 @@ import com.dongholab.pagetuner.server.organization.libraryFilterRequest
 import jakarta.validation.Valid
 import java.util.UUID
 import java.security.Principal
+import org.springframework.http.HttpHeaders
+import org.springframework.http.MediaType
 import org.springframework.http.ResponseEntity
 import org.springframework.http.HttpStatus
 import org.springframework.web.bind.annotation.GetMapping
@@ -28,7 +30,14 @@ class TranslationController(
         @RequestParam(required = false) folder: String? = null,
         @RequestParam(required = false) tag: String? = null,
         @RequestParam(required = false) favorite: String? = null,
-    ): TranslationListResponse = service.list(principal.name, page, size, libraryFilterRequest(q, folder, tag, favorite))
+        @RequestParam(required = false) contentProviderId: String? = null,
+        @RequestParam(required = false) bookId: String? = null,
+        @RequestParam(required = false) chapterId: String? = null,
+        @RequestParam(required = false) sourceRevision: String? = null,
+        @RequestParam(required = false) sourceLanguage: String? = null,
+        @RequestParam(required = false) targetLanguage: String? = null,
+    ): TranslationListResponse = service.list(principal.name, page, size, libraryFilterRequest(q, folder, tag, favorite),
+        TranslationLookupFilter(contentProviderId, bookId, chapterId, sourceRevision, sourceLanguage, targetLanguage))
 
     @PostMapping
     fun save(
@@ -44,6 +53,23 @@ class TranslationController(
         principal: Principal,
         @PathVariable recordId: UUID,
     ): TranslationResponse = service.get(principal.name, recordId)
+
+    @GetMapping("/{recordId}/backup")
+    fun exportBackup(principal: Principal, @PathVariable recordId: UUID): ResponseEntity<TranslationBackupDocument> =
+        ResponseEntity.ok()
+            .contentType(MediaType.APPLICATION_JSON)
+            .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=translation-$recordId.json")
+            .header(HttpHeaders.CACHE_CONTROL, "no-store")
+            .body(service.exportBackup(principal.name, recordId))
+
+    @PostMapping("/restore")
+    fun restore(
+        principal: Principal,
+        @Valid @RequestBody document: TranslationBackupDocument,
+    ): ResponseEntity<TranslationResponse> {
+        val result = service.save(principal.name, document.verifiedRequest())
+        return ResponseEntity.status(if (result.created) HttpStatus.CREATED else HttpStatus.OK).body(result)
+    }
 
     @PostMapping("/{recordId}/backup-plans")
     fun planBackup(
