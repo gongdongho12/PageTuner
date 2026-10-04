@@ -17,7 +17,17 @@ class ApiRequestBodyLimit : OncePerRequestFilter() {
         request.method !in setOf("POST", "PUT", "PATCH") || !request.servletPath.startsWith("/api/")
 
     override fun doFilterInternal(request: HttpServletRequest, response: HttpServletResponse, filterChain: FilterChain) {
+        val pdfContent = request.servletPath == "/api/v1/pdf-content" || request.servletPath.startsWith("/api/v1/pdf-content/")
+        val encodings = if (pdfContent) request.getHeaders("Content-Encoding").asSequence().toList() else emptyList()
+        if (pdfContent && (encodings.size > 1 || encodings.any { !it.equals("identity", ignoreCase = true) })) {
+            response.status = 415
+            response.contentType = "application/problem+json"
+            response.setHeader("Cache-Control", "no-store")
+            response.writer.write("""{"type":"about:blank","title":"Unsupported Media Type","status":415,"code":"PDF_CONTENT_ENCODING","detail":"PDF snapshot JSON requests require identity content encoding."}""")
+            return
+        }
         val limit = when {
+            pdfContent && request.servletPath.endsWith("/verify") -> 2 * 1024 * 1024
             request.servletPath == "/api/v1/library-identity/verify" -> 64 * 1024
             request.servletPath == "/api/v1/book-glossary/query" -> 16 * 1024
             request.servletPath == "/api/v1/book-glossary" -> 1024 * 1024
@@ -32,18 +42,19 @@ class ApiRequestBodyLimit : OncePerRequestFilter() {
             request.servletPath in setOf("/api/v1/translation-jobs", "/api/v1/catalog-translations", "/api/v1/reading-translations") -> 512 * 1024
             else -> 8 * 1024 * 1024
         }
-        if (request.contentLengthLong > limit) return reject(response)
+        if (request.contentLengthLong > limit) return reject(response, pdfContent)
         // Read at most one byte over the limit: chunked bodies cannot bypass the limit.
         val body = request.inputStream.readNBytes(limit + 1)
-        if (body.size > limit) return reject(response)
+        if (body.size > limit) return reject(response, pdfContent)
         filterChain.doFilter(BufferedBodyRequest(request, body), response)
     }
 
-    private fun reject(response: HttpServletResponse) {
+    private fun reject(response: HttpServletResponse, pdfContent: Boolean = false) {
         response.status = 413
         response.contentType = "application/problem+json"
         response.setHeader("Cache-Control", "no-store")
-        response.writer.write("""{"type":"about:blank","title":"Payload Too Large","status":413,"detail":"The request body exceeds the size limit."}""")
+        val code = if (pdfContent) ",\"code\":\"PDF_CONTENT_TOO_LARGE\"" else ""
+        response.writer.write("""{"type":"about:blank","title":"Payload Too Large","status":413,"detail":"The request body exceeds the size limit."$code}""")
     }
 
     private class BufferedBodyRequest(request: HttpServletRequest, private val body: ByteArray) : HttpServletRequestWrapper(request) {

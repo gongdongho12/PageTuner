@@ -33,7 +33,7 @@
 | S4b1 | S4b 하위 | 완료 | 검증된 텍스트 ZIP의 계정 기록 연결 | 계정·origin·사본·전체 identity별 명시적 binding, 읽기 전 재검증, 로컬/계정 기록 분리, S1~S3 canonical reader. 서버 190개·앱 475개·웹 428개 및 실제 웹 보존/삭제 검증. [근거](PORTABLE_DOCUMENT_BINDING.md) |
 | S4b2 | S4b 하위 | 진행 | 자산 문서와 독립 기기 파일의 안전한 연결 | S4b2a 공통 전체 내용 proof와 정확한 anchor 검증 완료. 서버 자산 저장·재검증과 앱/웹 명시적 연결은 S4b2b 후속. 현재 거절 범위는 유지하고 페이지로 추정하지 않음 |
 | S4b2a | S4b2 하위 | 완료 | 전체 파일·본문·자산 proof와 위치 계약 | Kotlin/웹 동일 framed SHA-256, 전체 원본 bytes와 ordered 자산 참조, proof-bound UTF-16/PDF anchor. 순수 계약·검증 단위이며 계정 연결을 활성화하지 않음. [근거](PORTABLE_CONTENT_PROOF.md) |
-| S4b2b1 | S4b2 하위 | 대기 | PDF 원본의 계정별 불변 보관·전체 내용 재검증 API | 실제 PDF bytes·표시 내용·순서 있는 자산 참조로 서버가 proof를 계산하고 보관 후 재검증. 계정 격리·변조/소실·크기 한도·동시 저장 검사. 기존 텍스트 binding 및 S1~S3를 열지 않음 |
+| S4b2b1 | S4b2 하위 | 완료 | PDF 원본의 계정별 불변 보관·전체 내용 재검증 API | 실제 보관 bytes에서 전체 proof 재계산, 계정 격리·변조/소실·크기 한도·동시 저장 검증. 서버 225·웹 522·core-backup 29·runtime 24, 실제 HTTP 왕복·프로세스 재시작·DB 변조 거절. 기존 텍스트 binding 및 S1~S3는 열지 않음. [근거](PDF_CONTENT_STORAGE.md) |
 | S4b2b2 | S4b2 하위 | 대기 | 보관 자산의 앱·웹 명시적 연결과 위치 대응 | S4b2b1 이후 정확한 원본 proof·계정/client 세대로 연결. PDF decoder 기반 물리 위치 계약은 별도 검증하며 EPUB 원본 bytes 보존·전달 형식은 선행 보완 필요 |
 | S4c | S4 하위 | 진행 | 최신 동기화 기록의 ZIP 내보내기·가져오기 | 현재 위치·메모·분류·원래 ID와 언어 범위가 있는 용어집의 무손실 스냅샷, 충돌/대기 상태 구분, 자격 증명·CAS/outbox mutation 이전 금지 |
 | S4c1 | S4c 하위 | 완료 | 용어집 passive ZIP snapshot 계약·codec | 원래 scope/ID/순서/공백/별칭/종류/활성/대소문자, 미등록/삭제/빈목록 구분. Kotlin·웹·실제 ZIP JVM 왕복 검증. 계정 GET·화면·채택은 S4c2. 전체 extensions 256 KiB 초과는 거절. [근거](PORTABLE_GLOSSARY_SNAPSHOTS.md) |
@@ -64,6 +64,9 @@
 WTR/NovelBuddy 수집·서버 번역·원문/번역 서재·Google 웹 번역 실호출, 4개 제공자 공통 구현, 표준 ZIP 교환, 회원가입·언어 설정·비밀번호 변경은 기존 PR 체인에 있다. 제공자 구현이 실제 유료 키 검증을 뜻하지는 않는다. 계정 비밀번호 변경은 PR #23, 기반 목록 페이지 수정은 PR #22다.
 
 ## 현재 실행 기록
+
+- 2026-10-05 S4b2b1: [draft PR #42](https://github.com/gongdongho12/PageTuner/pull/42), base `codex/portable-glossary-adoption`(#41). 시작 시 #41 최종 `21aeb35` CI 성공을 재확인했다. 계약 `7d4dea5`·웹 `9099d68`·서버 `3090095`를 나눠 커밋·푸시했다. 공통/서버/웹 독립 구현·교차 검토에서 Android API 23 Base64, 큰 proof/응답 한도, HTTP 오류 JSON 불일치를 고쳤다. core-backup 29·backup-runtime 24·서버 225·웹 522, Android 523 통과/15 opt-in 제외·APK/lint/계측 소스/경계 성공. 새 격리 DB에서 실제 HTTP bytes/proof 왕복·프로세스 재시작·DB 변조 거절·계정 격리·동시 재시도·chunked 초과를 확인했다. [근거](PDF_CONTENT_STORAGE.md). 문서까지 반영한 최종 head CI는 PR에서 확인한다.
+- 다음은 **S4b2b2**이며 전체 S4는 미완료다. 먼저 손실 없는 ZIP PDF snapshot builder와 Android API 소비자, 이어서 별도 명시적 binding/화면을 진행한다. 네이티브 mapper의 빈 문단/자산 참조 정규화를 재사용하지 말고 PDF record UUID로 기존 text binding/S1~S3를 열지 않는다. EPUB 원본 bytes, decoder 물리 위치, S1/S2/분류 최신 ZIP 통합과 V1/V2/V3/V5는 남아 있다. 원본 checkout의 PR34 미커밋 변경은 보존했다.
 
 - 2026-10-05 S4c2b: [draft PR #41](https://github.com/gongdongho12/PageTuner/pull/41), base `codex/fresh-glossary-zip-export`(#40). 웹 `bb62563`과 Android `913cb1e`를 별도 검증·커밋·푸시했고 각각의 CI가 성공했다(Android [실행](https://github.com/gongdongho12/PageTuner/actions/runs/37211449440), 3분25초). 웹 506개/64파일·계약 14개·typecheck·production/sharing build, Android 523개 통과/15 opt-in 제외·APK/lint/계측 소스/모듈 경계 성공. 벤치마크 fixture 누락과 용어집 actor의 리더 복귀·버튼 폭 결함을 보완했다. 실제 격리 서버/웹에서 500항목 전체 속성, absent/deleted/빈 배열, 다른 원본·미지원 extension·오래된 비교 거절, 390×844/844×390을 확인했다. [상세 검증](PORTABLE_GLOSSARY_ADOPTION.md).
 - S4c2 용어집 단위만 완료됐으며 **S4 전체는 미완료**다. 다음은 S4b2b의 실제 자산 원본 보관·서버 재검증을 작은 단위로 진행하고, S1/S2/분류의 최신 ZIP 통합을 이어간다. 원본 폴더의 미커밋 변경을 보존한다. PR #41의 최종 head CI를 먼저 확인하며 기존 PR 체인과 자동 병합 금지를 유지한다.

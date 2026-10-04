@@ -120,6 +120,12 @@ async function proofSelfConsistent(proof: PortableContentProof): Promise<boolean
   }
   return await sha256(values.map(frame).join('')) === proof.sha256
 }
+/** Validates asserted metadata only; actual content still requires createPortableContentProof and equality. */
+export async function validatePortableContentProof(value: unknown): Promise<PortableContentProof> {
+  const checked = checkedProofSnapshot(value as PortableContentProof)
+  if (!checked || !await proofSelfConsistent(checked)) return invalid()
+  return checked
+}
 export async function validPortableTextAnchor(proof: PortableContentProof, paragraphs: ProofParagraph[], value: unknown): Promise<boolean> {
   const checked = checkedProofSnapshot(proof)
   if (!checked || !Array.isArray(paragraphs) || !paragraphs.length || paragraphs.length > portableProofLimits.paragraphs || !value || typeof value !== 'object' || Array.isArray(value)) return false

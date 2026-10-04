@@ -151,7 +151,8 @@ Android **Local → ZIP**, 웹 **On this device → App · Web ZIP transfer**에
 
 | 기능 | 앱 | 웹 | 범위 |
 | --- | --- | --- | --- |
-| 자산 문서 전체 proof·위치 계약 | 공통 검증 완료 / S4b2a | 공통 검증 완료 / S4b2a | 전체 PDF/EPUB 원본 bytes·본문·순서 있는 자산 참조를 비교하고 정확한 UTF-16/물리 PDF namespace를 구분한다. 기존 서버 계정 연결은 아직 자산을 거절하며 UI·원본 자산 보관·재검증은 S4b2 후속이다. [계약과 근거](PORTABLE_CONTENT_PROOF.md) |
+| 자산 문서 전체 proof·위치 계약 | 공통 검증 완료 / S4b2a | 공통 검증 완료 / S4b2a | 전체 PDF/EPUB 원본 bytes·본문·순서 있는 자산 참조를 비교하고 정확한 UTF-16/물리 PDF namespace를 구분한다. PDF 보관·재검증 API는 S4b2b1 완료, 앱·웹 명시적 연결과 decoder 위치는 S4b2b2에 남아 있다. 기존 텍스트 계정 연결은 자산을 계속 거절한다. [계약과 근거](PORTABLE_CONTENT_PROOF.md) |
+| PDF 원본의 계정별 보관·재검증 | 공통 계약 완료 / 앱 소비자 대기 | API 소비자 완료 / 연결 UI 대기 | 별도 불변 저장 API가 실제 bytes와 정확한 문단·ordered 자산 참조로 proof를 재계산한다. 4 MiB decoded/8 MiB upload/2 MiB proof/12 MiB 전체 응답 범위. 서버 225·웹 522·공통 29·runtime 24 통과와 실제 HTTP·프로세스 재시작·DB 변조 거절 확인. EPUB·모든 크기 PDF 지원·기록 연결을 뜻하지 않는다. [S4b2b1 근거](PDF_CONTENT_STORAGE.md) |
 
 내장 폰트 서버 배포 후속: 익명 오프라인 캐시 설치에 필요한 정확한 OFL GET 경로를 공개했다. 실제 배포 자산 68개와 서버 종료 후 브라우저 읽기·페이지 이동을 확인했다. [근거](BUNDLED_READER_FONTS.md).
 
