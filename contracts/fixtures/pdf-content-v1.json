@@ -1,0 +1,93 @@
+{
+  "description": "Opaque PDF storage vector; does not prove PDF parsing or page count.",
+  "upload": {
+    "uploadId": "a2e5b2f6-0204-46c0-9f0a-0b50a8625f46",
+    "content": {
+      "version": 1,
+      "language": "ko-KR",
+      "paragraphs": [
+        {
+          "paragraphId": "p:😀",
+          "text": "안녕 😀:|\n"
+        },
+        {
+          "paragraphId": "empty",
+          "text": ""
+        }
+      ],
+      "assets": [
+        {
+          "path": "assets/646afc0abe8b35d35cdf6c4ed88a4fcafe5a956225be324c5e082915ae7d4ccd",
+          "role": "pdf",
+          "paragraphId": null,
+          "alt": null
+        },
+        {
+          "path": "assets/e878950f8091ec010cf5cc723bdea027a8539cf7147cfea199c2f666232dcd4e",
+          "role": "image",
+          "paragraphId": "p:😀",
+          "alt": " 삽화 😀 "
+        },
+        {
+          "path": "assets/e878950f8091ec010cf5cc723bdea027a8539cf7147cfea199c2f666232dcd4e",
+          "role": "image",
+          "paragraphId": "empty",
+          "alt": ""
+        }
+      ],
+      "payloads": [
+        {
+          "path": "assets/646afc0abe8b35d35cdf6c4ed88a4fcafe5a956225be324c5e082915ae7d4ccd",
+          "mimeType": "application/pdf",
+          "base64": "JVBERi0xLjQKMSAwIG9iago8PCAvVHlwZSAvQ2F0YWxvZyAvUGFnZXMgMiAwIFIgPj4KZW5kb2JqCjIgMCBvYmoKPDwgL1R5cGUgL1BhZ2VzIC9LaWRzIFszIDAgUl0gL0NvdW50IDEgPj4KZW5kb2JqCjMgMCBvYmoKPDwgL1R5cGUgL1BhZ2UgL1BhcmVudCAyIDAgUiAvTWVkaWFCb3ggWzAgMCAyMDAgMTAwXSAvUmVzb3VyY2VzIDw8IC9Gb250IDw8IC9GMSA0IDAgUiA+PiA+PiAvQ29udGVudHMgNSAwIFIgPj4KZW5kb2JqCjQgMCBvYmoKPDwgL1R5cGUgL0ZvbnQgL1N1YnR5cGUgL1R5cGUxIC9CYXNlRm9udCAvSGVsdmV0aWNhID4+CmVuZG9iago1IDAgb2JqCjw8IC9MZW5ndGggNTQgPj4Kc3RyZWFtCkJUIC9GMSAxMiBUZiAyMCA3MCBUZCAoUG9ydGFibGUgbGlicmFyeSBmaXh0dXJlKSBUaiBFVAplbmRzdHJlYW0KZW5kb2JqCnhyZWYKMCA2CjAwMDAwMDAwMDAgNjU1MzUgZiAKMDAwMDAwMDAwOSAwMDAwMCBuIAowMDAwMDAwMDU4IDAwMDAwIG4gCjAwMDAwMDAxMTUgMDAwMDAgbiAKMDAwMDAwMDI0MSAwMDAwMCBuIAowMDAwMDAwMzExIDAwMDAwIG4gCnRyYWlsZXIKPDwgL1NpemUgNiAvUm9vdCAxIDAgUiA+PgpzdGFydHhyZWYKNDE1CiUlRU9GCg=="
+        },
+        {
+          "path": "assets/e878950f8091ec010cf5cc723bdea027a8539cf7147cfea199c2f666232dcd4e",
+          "mimeType": "image/png",
+          "base64": "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGP4//8/AAX+Av4N70a4AAAAAElFTkSuQmCC"
+        }
+      ]
+    }
+  },
+  "expected": {
+    "requestFingerprint": "db51652e07efa434a28da40155953b73207f19d52063b387c718d6d7d5c5deb7",
+    "proof": {
+      "version": 1,
+      "representation": "PDF",
+      "language": "ko-KR",
+      "paragraphHash": "49a2786ea841e981ec031fdb0ee78a997d92306a2f21be5ef25baf4ccfbcef5e",
+      "originalFileByteLength": 598,
+      "originalFileSha256": "646afc0abe8b35d35cdf6c4ed88a4fcafe5a956225be324c5e082915ae7d4ccd",
+      "assets": [
+        {
+          "path": "assets/646afc0abe8b35d35cdf6c4ed88a4fcafe5a956225be324c5e082915ae7d4ccd",
+          "role": "pdf",
+          "paragraphId": null,
+          "alt": null,
+          "mimeType": "application/pdf",
+          "byteLength": 598,
+          "sha256": "646afc0abe8b35d35cdf6c4ed88a4fcafe5a956225be324c5e082915ae7d4ccd"
+        },
+        {
+          "path": "assets/e878950f8091ec010cf5cc723bdea027a8539cf7147cfea199c2f666232dcd4e",
+          "role": "image",
+          "paragraphId": "p:😀",
+          "alt": " 삽화 😀 ",
+          "mimeType": "image/png",
+          "byteLength": 69,
+          "sha256": "e878950f8091ec010cf5cc723bdea027a8539cf7147cfea199c2f666232dcd4e"
+        },
+        {
+          "path": "assets/e878950f8091ec010cf5cc723bdea027a8539cf7147cfea199c2f666232dcd4e",
+          "role": "image",
+          "paragraphId": "empty",
+          "alt": "",
+          "mimeType": "image/png",
+          "byteLength": 69,
+          "sha256": "e878950f8091ec010cf5cc723bdea027a8539cf7147cfea199c2f666232dcd4e"
+        }
+      ],
+      "sha256": "61a4f417303dd35445073f838305fe6f7eccfad8663e33dc2c86ceb611f11333"
+    }
+  }
+}

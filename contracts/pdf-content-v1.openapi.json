@@ -1,0 +1,814 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "PageTurner PDF Content Storage",
+    "version": "1.0.0",
+    "description": "Bounded PDF-first immutable account-owned storage. See pdf-content-v1.md. This API does not decode PDF, claim pageCount/provenance, create bindings, or modify reading records."
+  },
+  "paths": {
+    "/api/v1/pdf-content": {
+      "post": {
+        "operationId": "uploadPdfContent",
+        "security": [
+          {
+            "basicAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "X-CSRF-TOKEN",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Matching authenticated session CSRF token."
+          },
+          {
+            "name": "Content-Encoding",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "identity"
+              ]
+            },
+            "description": "Absent or identity only; compressed/stacked encodings are rejected before JSON decoding."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "description": "Strict uncompressed JSON at most 8 MiB, including chunked bodies. Duplicate/unknown/missing fields and trailing JSON fail.",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PdfContentUpload"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Stored immutable snapshot or exact upload replay.",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PdfContentReceipt"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/PdfContentError"
+          },
+          "401": {
+            "description": "Authentication required."
+          },
+          "403": {
+            "description": "Missing/invalid CSRF or forbidden request."
+          },
+          "404": {
+            "description": "Missing and foreign owned snapshot IDs are indistinguishable.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PdfContentProblem"
+                }
+              }
+            }
+          },
+          "409": {
+            "$ref": "#/components/responses/PdfContentError"
+          },
+          "413": {
+            "$ref": "#/components/responses/PdfContentError"
+          },
+          "415": {
+            "$ref": "#/components/responses/PdfContentError"
+          }
+        }
+      }
+    },
+    "/api/v1/pdf-content/{recordId}": {
+      "get": {
+        "operationId": "getPdfContent",
+        "security": [
+          {
+            "basicAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "recordId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Content and proof recomputed from actual owned stored bytes. Response stays within 12 MiB JSON because references occur in both content and proof; upload request limit stays 8 MiB.",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PdfContentView"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/PdfContentError"
+          },
+          "401": {
+            "description": "Authentication required."
+          },
+          "403": {
+            "description": "Missing/invalid CSRF or forbidden request."
+          },
+          "404": {
+            "description": "Missing and foreign owned snapshot IDs are indistinguishable.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PdfContentProblem"
+                }
+              }
+            }
+          },
+          "409": {
+            "$ref": "#/components/responses/PdfContentError"
+          },
+          "413": {
+            "$ref": "#/components/responses/PdfContentError"
+          },
+          "415": {
+            "$ref": "#/components/responses/PdfContentError"
+          }
+        }
+      }
+    },
+    "/api/v1/pdf-content/{recordId}/verify": {
+      "post": {
+        "operationId": "verifyPdfContent",
+        "security": [
+          {
+            "basicAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "recordId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+            }
+          },
+          {
+            "name": "X-CSRF-TOKEN",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Matching authenticated session CSRF token."
+          },
+          {
+            "name": "Content-Encoding",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "identity"
+              ]
+            },
+            "description": "Absent or identity only; compressed/stacked encodings are rejected before JSON decoding."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "description": "Strict uncompressed JSON at most 2 MiB. Reads only; validates every proof field and recomputes owned stored content.",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VerifyPdfContentRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Full proof matches; no records or bindings are created.",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VerifyPdfContentResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/PdfContentError"
+          },
+          "401": {
+            "description": "Authentication required."
+          },
+          "403": {
+            "description": "Missing/invalid CSRF or forbidden request."
+          },
+          "404": {
+            "description": "Missing and foreign owned snapshot IDs are indistinguishable.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PdfContentProblem"
+                }
+              }
+            }
+          },
+          "409": {
+            "$ref": "#/components/responses/PdfContentError"
+          },
+          "413": {
+            "$ref": "#/components/responses/PdfContentError"
+          },
+          "415": {
+            "$ref": "#/components/responses/PdfContentError"
+          }
+        }
+      }
+    },
+    "/api/v1/pdf-content/{recordId}/original": {
+      "get": {
+        "operationId": "downloadOriginalPdfContent",
+        "security": [
+          {
+            "basicAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "recordId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Exact original bytes after complete stored-content revalidation. File validity/page count are not attested.",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                }
+              },
+              "Content-Disposition": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "attachment; filename=\"<recordId>.pdf\" (server-generated fixed UUID name)."
+              },
+              "X-Content-Type-Options": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "nosniff"
+                  ]
+                }
+              }
+            },
+            "content": {
+              "application/pdf": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/PdfContentError"
+          },
+          "401": {
+            "description": "Authentication required."
+          },
+          "403": {
+            "description": "Missing/invalid CSRF or forbidden request."
+          },
+          "404": {
+            "description": "Missing and foreign owned snapshot IDs are indistinguishable.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PdfContentProblem"
+                }
+              }
+            }
+          },
+          "409": {
+            "$ref": "#/components/responses/PdfContentError"
+          },
+          "413": {
+            "$ref": "#/components/responses/PdfContentError"
+          },
+          "415": {
+            "$ref": "#/components/responses/PdfContentError"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "basicAuth": {
+        "type": "http",
+        "scheme": "basic"
+      }
+    },
+    "schemas": {
+      "PdfContentParagraph": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "paragraphId",
+          "text"
+        ],
+        "properties": {
+          "paragraphId": {
+            "type": "string",
+            "maxLength": 500,
+            "minLength": 1
+          },
+          "text": {
+            "type": "string",
+            "maxLength": 262144
+          }
+        },
+        "description": "Paragraph IDs are unique and nonblank. All strings reject unpaired surrogates and retain exact content, including empty text."
+      },
+      "PdfContentAssetReference": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "path",
+          "role",
+          "paragraphId",
+          "alt"
+        ],
+        "properties": {
+          "path": {
+            "type": "string",
+            "pattern": "^assets/[0-9a-f]{64}$",
+            "minLength": 71,
+            "maxLength": 71
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "pdf",
+              "image"
+            ]
+          },
+          "paragraphId": {
+            "type": "string",
+            "maxLength": 500,
+            "nullable": true,
+            "minLength": 1
+          },
+          "alt": {
+            "type": "string",
+            "maxLength": 2000,
+            "nullable": true
+          }
+        },
+        "description": "Both nullable fields are required. Exactly one PDF role, with paragraphId null. Ordered image references may repeat."
+      },
+      "PdfContentPayload": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "path",
+          "mimeType",
+          "base64"
+        ],
+        "properties": {
+          "path": {
+            "type": "string",
+            "pattern": "^assets/[0-9a-f]{64}$",
+            "minLength": 71,
+            "maxLength": 71
+          },
+          "mimeType": {
+            "type": "string",
+            "enum": [
+              "application/pdf",
+              "image/png",
+              "image/jpeg",
+              "image/webp",
+              "image/gif"
+            ]
+          },
+          "base64": {
+            "type": "string",
+            "format": "byte",
+            "minLength": 4,
+            "maxLength": 5592408,
+            "description": "Canonical padded RFC 4648 standard alphabet. No whitespace, URL alphabet, missing padding or nonzero unused bits. Actual bytes must hash to path."
+          }
+        }
+      },
+      "PdfContentDocument": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "version",
+          "language",
+          "paragraphs",
+          "assets",
+          "payloads"
+        ],
+        "properties": {
+          "version": {
+            "type": "integer",
+            "enum": [
+              1
+            ]
+          },
+          "language": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 35,
+            "pattern": "^[A-Za-z][A-Za-z0-9-]{0,34}$",
+            "description": "Exact case and spelling; never normalize."
+          },
+          "paragraphs": {
+            "type": "array",
+            "minItems": 0,
+            "maxItems": 4096,
+            "items": {
+              "$ref": "#/components/schemas/PdfContentParagraph"
+            }
+          },
+          "assets": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 128,
+            "items": {
+              "$ref": "#/components/schemas/PdfContentAssetReference"
+            }
+          },
+          "payloads": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 64,
+            "items": {
+              "$ref": "#/components/schemas/PdfContentPayload"
+            }
+          }
+        },
+        "description": "PDF storage only. Unique decoded payload bytes total at most 4194304, counting the sole original PDF once. All payloads referenced, no duplicate paths. Sum of language, paragraph IDs/texts, and non-null reference paragraphIds/alts is at most 262144 UTF-16 units. Paths/MIME are separately bounded. No source provenance, notes, positions, organization, glossary, extensions or caller-asserted proof."
+      },
+      "PdfContentUpload": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "uploadId",
+          "content"
+        ],
+        "properties": {
+          "uploadId": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+          },
+          "content": {
+            "$ref": "#/components/schemas/PdfContentDocument"
+          }
+        },
+        "description": "Same account/uploadId with the same full ordered content replays the original receipt. Reuse with different content is 409, even if proof is unchanged by payload-array reordering."
+      },
+      "PdfContentAssetProof": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "path",
+          "role",
+          "paragraphId",
+          "alt",
+          "mimeType",
+          "byteLength",
+          "sha256"
+        ],
+        "properties": {
+          "path": {
+            "type": "string",
+            "pattern": "^assets/[0-9a-f]{64}$",
+            "minLength": 71,
+            "maxLength": 71
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "pdf",
+              "image"
+            ]
+          },
+          "paragraphId": {
+            "type": "string",
+            "maxLength": 500,
+            "nullable": true,
+            "minLength": 1
+          },
+          "alt": {
+            "type": "string",
+            "maxLength": 2000,
+            "nullable": true
+          },
+          "mimeType": {
+            "type": "string",
+            "enum": [
+              "application/pdf",
+              "image/png",
+              "image/jpeg",
+              "image/webp",
+              "image/gif"
+            ]
+          },
+          "byteLength": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 4194304
+          },
+          "sha256": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$",
+            "minLength": 64,
+            "maxLength": 64
+          }
+        }
+      },
+      "PdfContentProof": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "version",
+          "representation",
+          "language",
+          "paragraphHash",
+          "originalFileByteLength",
+          "originalFileSha256",
+          "assets",
+          "sha256"
+        ],
+        "properties": {
+          "version": {
+            "type": "integer",
+            "enum": [
+              1
+            ]
+          },
+          "representation": {
+            "type": "string",
+            "enum": [
+              "PDF"
+            ]
+          },
+          "language": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 35,
+            "pattern": "^[A-Za-z][A-Za-z0-9-]{0,34}$",
+            "description": "Exact case and spelling; never normalize."
+          },
+          "paragraphHash": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$",
+            "minLength": 64,
+            "maxLength": 64
+          },
+          "originalFileByteLength": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 4194304
+          },
+          "originalFileSha256": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$",
+            "minLength": 64,
+            "maxLength": 64
+          },
+          "assets": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 128,
+            "items": {
+              "$ref": "#/components/schemas/PdfContentAssetProof"
+            }
+          },
+          "sha256": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$",
+            "minLength": 64,
+            "maxLength": 64
+          }
+        },
+        "description": "Strict PDF subset of portable-content-proof-v1; all required fields, exact ordered references, validated framed digest. Actual stored bytes are recomputed before success. Unique payload lengths total at most 4 MiB; up to 64 unique paths. A proof is not PDF decoding, page-count validation, provenance, or sync authority."
+      },
+      "PdfContentReceipt": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "recordId",
+          "createdAt",
+          "proof"
+        ],
+        "properties": {
+          "recordId": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "proof": {
+            "$ref": "#/components/schemas/PdfContentProof"
+          }
+        },
+        "description": "Immutable account-owned content snapshot; ID is not an ORIGINAL/TRANSLATION record ID."
+      },
+      "PdfContentView": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "recordId",
+          "createdAt",
+          "content",
+          "proof"
+        ],
+        "properties": {
+          "recordId": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "content": {
+            "$ref": "#/components/schemas/PdfContentDocument"
+          },
+          "proof": {
+            "$ref": "#/components/schemas/PdfContentProof"
+          }
+        }
+      },
+      "VerifyPdfContentRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "proof"
+        ],
+        "properties": {
+          "proof": {
+            "$ref": "#/components/schemas/PdfContentProof"
+          }
+        }
+      },
+      "VerifyPdfContentResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "recordId",
+          "verified",
+          "proof"
+        ],
+        "properties": {
+          "recordId": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+          },
+          "verified": {
+            "type": "boolean",
+            "enum": [
+              true
+            ]
+          },
+          "proof": {
+            "$ref": "#/components/schemas/PdfContentProof"
+          }
+        },
+        "description": "Content bytes and complete proof match this owned snapshot. No binding or S1-S3 mutation."
+      },
+      "PdfContentProblem": {
+        "type": "object",
+        "required": [
+          "type",
+          "title",
+          "status",
+          "detail"
+        ],
+        "properties": {
+          "type": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "status": {
+            "type": "integer"
+          },
+          "detail": {
+            "type": "string"
+          },
+          "instance": {
+            "type": "string"
+          },
+          "code": {
+            "type": "string",
+            "enum": [
+              "PDF_CONTENT_INVALID",
+              "PDF_CONTENT_UPLOAD_REUSED",
+              "PDF_CONTENT_NOT_FOUND",
+              "PDF_CONTENT_MISMATCH",
+              "PDF_CONTENT_UNAVAILABLE",
+              "PDF_CONTENT_TOO_LARGE",
+              "PDF_CONTENT_ENCODING"
+            ]
+          }
+        }
+      }
+    },
+    "responses": {
+      "PdfContentError": {
+        "description": "Request rejected or stored content unavailable. No partial writes or inferred binding.",
+        "headers": {
+          "Cache-Control": {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "no-store"
+              ]
+            }
+          }
+        },
+        "content": {
+          "application/problem+json": {
+            "schema": {
+              "$ref": "#/components/schemas/PdfContentProblem"
+            }
+          }
+        }
+      }
+    }
+  }
+}
