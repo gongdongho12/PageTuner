@@ -27,6 +27,13 @@ core-translation/
 core-backup/
   -> backup keys and duplicate-upload decisions
   -> already-backed-up / active-job / enqueue states
+  -> portable library models, content digests, and format limits
+  -> passive glossary snapshots reuse core-model's exact account glossary validation
+  -> depends on core-translation and core-model; remains framework-free Kotlin
+
+backup-runtime/ (shared JVM runtime; no Android or Spring dependency)
+  -> validated portable ZIP and JSON encoding / decoding
+  -> depends on core-backup; each host provides its JSON runtime
 
 MainActivity
   -> Compose app assembly and renderer side effects

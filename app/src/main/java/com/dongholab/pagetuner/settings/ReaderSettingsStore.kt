@@ -17,12 +17,18 @@ import java.io.IOException
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.first
+import kotlin.math.roundToInt
+import com.dongholab.pagetuner.translation.sync.ReaderPreferencesDevice
+import com.dongholab.pagetuner.translation.sync.ReaderPreferencesPatch
+import com.dongholab.pagetuner.translation.sync.SharedReaderPreferences
+import com.dongholab.pagetuner.translation.sync.sharedPreferences
 
 private val Context.readerSettingsDataStore: DataStore<Preferences> by preferencesDataStore(
     name = "reader_settings",
 )
 
-class ReaderSettingsStore(context: Context) {
+class ReaderSettingsStore(context: Context) : ReaderPreferencesDevice {
     private val dataStore = context.applicationContext.readerSettingsDataStore
 
     val settings: Flow<ReaderSettings> = dataStore.data
@@ -34,6 +40,20 @@ class ReaderSettingsStore(context: Context) {
             }
         }
         .map { preferences -> preferences.toReaderSettings() }
+
+    override val sharedChanges: Flow<SharedReaderPreferences> = settings.map { it.sharedPreferences() }
+    override suspend fun readShared() = sharedChanges.first()
+    override suspend fun updateShared(patch: ReaderPreferencesPatch) {
+        dataStore.edit { preferences ->
+            val next = patch.apply(preferences.toReaderSettings().sharedPreferences())
+            preferences[Keys.READER_FONT_SIZE_SP] = next.fontSize
+            preferences[Keys.READER_LINE_SPACING] = next.lineHeightPercent
+            preferences[Keys.READER_PAGE_MARGIN_DP] = next.pageMargin
+            val local = next.overlay(ReaderSettings())
+            preferences[Keys.PAGE_TURN_MODE] = local.pageTurnMode.name
+            preferences[Keys.LIST_LAYOUT_MODE] = local.listLayoutMode.name
+        }
+    }
 
     suspend fun updateDisplayMode(displayMode: DisplayMode) {
         dataStore.edit { preferences ->
@@ -61,19 +81,19 @@ class ReaderSettingsStore(context: Context) {
 
     suspend fun updateReaderFontSize(fontSizeSp: Int) {
         dataStore.edit { preferences ->
-            preferences[Keys.READER_FONT_SIZE_SP] = fontSizeSp.coerceIn(14, 28)
+            preferences[Keys.READER_FONT_SIZE_SP] = fontSizeSp.coerceIn(14, 36)
         }
     }
 
     suspend fun updateReaderLineSpacing(lineSpacing: Float) {
         dataStore.edit { preferences ->
-            preferences[Keys.READER_LINE_SPACING] = lineSpacing.coerceIn(1.1f, 1.8f).toStoredPercent()
+            preferences[Keys.READER_LINE_SPACING] = lineSpacing.coerceIn(1.1f, 2.4f).toStoredPercent()
         }
     }
 
     suspend fun updateReaderPageMargin(pageMarginDp: Int) {
         dataStore.edit { preferences ->
-            preferences[Keys.READER_PAGE_MARGIN_DP] = pageMarginDp.coerceIn(8, 36)
+            preferences[Keys.READER_PAGE_MARGIN_DP] = pageMarginDp.coerceIn(0, 48)
         }
     }
 
@@ -154,7 +174,7 @@ class ReaderSettingsStore(context: Context) {
             readerFontSizeSp = (
                 this[Keys.READER_FONT_SIZE_SP]
                     ?: defaults.readerFontSizeSp
-                ).coerceIn(14, 28),
+                ).coerceIn(14, 36),
             readerLineSpacing = (
                 this[Keys.READER_LINE_SPACING]
                     ?: defaults.readerLineSpacing.toStoredPercent()
@@ -162,7 +182,7 @@ class ReaderSettingsStore(context: Context) {
             readerPageMarginDp = (
                 this[Keys.READER_PAGE_MARGIN_DP]
                     ?: defaults.readerPageMarginDp
-                ).coerceIn(8, 36),
+                ).coerceIn(0, 48),
             readerFontFamily = enumOrDefault(Keys.READER_FONT_FAMILY, defaults.readerFontFamily),
             sourceLanguage = this[Keys.SOURCE_LANGUAGE] ?: defaults.sourceLanguage,
             targetLanguage = this[Keys.TARGET_LANGUAGE] ?: defaults.targetLanguage,
@@ -194,9 +214,9 @@ class ReaderSettingsStore(context: Context) {
         } ?: default
     }
 
-    private fun Float.toStoredPercent(): Int = (this * 100f).toInt()
+    private fun Float.toStoredPercent(): Int = (this * 100f).roundToInt()
 
-    private fun Int.toLineSpacing(): Float = (this.toFloat() / 100f).coerceIn(1.1f, 1.8f)
+    private fun Int.toLineSpacing(): Float = (this.toFloat() / 100f).coerceIn(1.1f, 2.4f)
 
     private object Keys {
         val DISPLAY_MODE = stringPreferencesKey("display_mode")

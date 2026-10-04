@@ -24,6 +24,8 @@ class RemoteCatalogCache(context: Context) {
     private val cacheDir = File(context.applicationContext.filesDir, "remote_sources")
     private val cacheFile = File(cacheDir, "web_catalog_cache.json")
 
+    fun pageStore(): WebCatalogPageStore = FileWebCatalogPageStore(File(cacheDir, "pages"))
+
     suspend fun list(): List<CachedWebCatalog> = withContext(Dispatchers.IO) {
         readCachedCatalogs().sortedByDescending { it.fetchedAtMillis }
     }

@@ -19,7 +19,7 @@ class ReaderTypographySettingsTest {
 
     @Test
     fun readerFontFamily_mapsToCorrectComposeFontFamily() {
-        assertEquals(FontFamily.Default, ReaderFontFamily.DEFAULT.toComposeFontFamily())
+        assertEquals(com.dongholab.pagetuner.ui.theme.ReaderFontFamily, ReaderFontFamily.DEFAULT.toComposeFontFamily())
         assertEquals(FontFamily.Serif, ReaderFontFamily.SERIF.toComposeFontFamily())
         assertEquals(FontFamily.SansSerif, ReaderFontFamily.SANS_SERIF.toComposeFontFamily())
         assertEquals(FontFamily.Monospace, ReaderFontFamily.MONOSPACE.toComposeFontFamily())

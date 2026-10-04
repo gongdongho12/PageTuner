@@ -110,6 +110,39 @@ class TranslationViewModel : ViewModel() {
     private var rollingDocumentId: String? = null
     private var rollingRepository: TranslationRepository? = null
     private var rollingVisiblePageIndex: Int = 0
+    private var readerTranslationContext: ReaderTranslationContext? = null
+
+    private fun moveReaderMemoryWindow(pageIndex: Int) {
+        rollingVisiblePageIndex = pageIndex
+        _uiState.update { state ->
+            state.copy(pageTranslations = state.pageTranslations.withinReaderMemoryWindow())
+        }
+    }
+
+    /** Disk cache owns the complete book; memory follows the current reader, including late results. */
+    private fun Map<Int, PageTranslation>.withinReaderMemoryWindow(): Map<Int, PageTranslation> =
+        filterKeys { it in (rollingVisiblePageIndex - 10)..(rollingVisiblePageIndex + 10) }
+
+    private data class ReaderTranslationContext(
+        val document: ReaderDocument,
+        val settings: TranslationSettings,
+        val repository: TranslationRepository,
+    )
+
+    /** Page indexes are only meaningful within the exact document/provider/glossary context. */
+    private fun ensureReaderTranslationContext(
+        document: ReaderDocument,
+        pageIndex: Int,
+        settings: TranslationSettings,
+        repository: TranslationRepository,
+    ) {
+        val context = ReaderTranslationContext(document, settings, repository)
+        if (readerTranslationContext == context) return
+        val resumeRolling = _uiState.value.rolling.enabled
+        resetForDocument(document.id, pageIndex)
+        readerTranslationContext = context
+        if (resumeRolling) startRollingPrefetch(document, pageIndex, settings, repository)
+    }
 
     fun updateApiKey(apiKey: String) {
         _uiState.update { state -> state.copy(apiKey = apiKey) }
@@ -142,6 +175,7 @@ class TranslationViewModel : ViewModel() {
     }
 
     fun resetForDocument(documentId: String? = null, pageIndex: Int = 0) {
+        readerTranslationContext = null
         documentRevision += 1L
         pageContentRequestId += 1L
         pageContentJob?.cancel()
@@ -197,6 +231,8 @@ class TranslationViewModel : ViewModel() {
         repository: TranslationRepository,
         showMissingStatus: Boolean,
     ) {
+        ensureReaderTranslationContext(document, page.index, settings, repository)
+        moveReaderMemoryWindow(page.index)
         val revision = documentRevision
         val requestId = ++pageContentRequestId
         pageContentJob?.cancel()
@@ -240,7 +276,7 @@ class TranslationViewModel : ViewModel() {
                     state.copy(
                         translation = cached,
                         pageTranslations = if (cached != null) {
-                            state.pageTranslations + (page.index to cached)
+                            (state.pageTranslations + (page.index to cached)).withinReaderMemoryWindow()
                         } else {
                             state.pageTranslations
                         },
@@ -314,7 +350,7 @@ class TranslationViewModel : ViewModel() {
                     _uiState.update { state ->
                         state.copy(
                             pageTranslations = (state.pageTranslations + (targetIndex to cached))
-                                .filterKeys { kotlin.math.abs(it - currentPageIndex) <= 10 }
+                                .withinReaderMemoryWindow(),
                         )
                     }
                 }
@@ -328,7 +364,9 @@ class TranslationViewModel : ViewModel() {
         settings: TranslationSettings,
         repository: TranslationRepository,
     ) {
+        ensureReaderTranslationContext(document, page.index, settings, repository)
         if (_uiState.value.busy) return
+        moveReaderMemoryWindow(page.index)
         val revision = documentRevision
         val requestId = ++pageContentRequestId
         pageContentJob?.cancel()
@@ -369,7 +407,7 @@ class TranslationViewModel : ViewModel() {
                 _uiState.update { state ->
                     state.copy(
                         translation = result,
-                        pageTranslations = state.pageTranslations + (page.index to result),
+                        pageTranslations = (state.pageTranslations + (page.index to result)).withinReaderMemoryWindow(),
                         cacheStatus = cacheStatus,
                         progress = 1f,
                         busy = false,
@@ -418,6 +456,7 @@ class TranslationViewModel : ViewModel() {
         settings: TranslationSettings,
         repository: TranslationRepository,
     ) {
+        ensureReaderTranslationContext(document, currentPageIndex, settings, repository)
         if (!settings.isProviderConfigured || document.pages.isEmpty()) return
         val safePageIndex = currentPageIndex.coerceIn(0, document.pages.lastIndex)
         val sameSession = rollingDocumentId == document.id && rollingRepository === repository
@@ -429,7 +468,7 @@ class TranslationViewModel : ViewModel() {
             rollingRepository = repository
             _uiState.update { state -> state.copy(rolling = RollingTranslationState()) }
         }
-        rollingVisiblePageIndex = safePageIndex
+        moveReaderMemoryWindow(safePageIndex)
         if (_uiState.value.translation == null) {
             updateReaderLoad(document.id, safePageIndex, ReaderTranslationLoadStage.Queued)
         }
@@ -444,8 +483,9 @@ class TranslationViewModel : ViewModel() {
         settings: TranslationSettings,
         repository: TranslationRepository,
     ) {
+        ensureReaderTranslationContext(document, currentPageIndex, settings, repository)
         if (document.pages.isEmpty()) return
-        rollingVisiblePageIndex = currentPageIndex.coerceIn(0, document.pages.lastIndex)
+        moveReaderMemoryWindow(currentPageIndex.coerceIn(0, document.pages.lastIndex))
         val rolling = _uiState.value.rolling
         if (!rolling.enabled) return
         val pageFlag = rolling.flagFor(rollingVisiblePageIndex)
@@ -584,7 +624,7 @@ class TranslationViewModel : ViewModel() {
                             }
                             state.copy(
                                 translation = visibleResult ?: state.translation,
-                                pageTranslations = state.pageTranslations + resultsByPageIndex,
+                                pageTranslations = (state.pageTranslations + resultsByPageIndex).withinReaderMemoryWindow(),
                                 progress = if (visibleResult != null) 1f else state.progress,
                                 status = if (visibleResult != null) {
                                     TranslationStatus.TranslatedSavedPage(rollingVisiblePageIndex + 1)

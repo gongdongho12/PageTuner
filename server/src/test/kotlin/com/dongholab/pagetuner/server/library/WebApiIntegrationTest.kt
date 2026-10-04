@@ -8,7 +8,14 @@ import java.util.concurrent.CountDownLatch
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 import org.junit.jupiter.api.Assertions.*
+import org.junit.jupiter.api.AfterAll
 import org.junit.jupiter.api.BeforeEach
+import com.dongholab.pagetuner.server.translation.ExternalPostgresTestDatabase
+import com.dongholab.pagetuner.server.translation.SaveTranslationRequest
+import com.dongholab.pagetuner.server.translation.TranslatedParagraphRequest
+import com.dongholab.pagetuner.server.translation.TranslationApplicationService
+import com.dongholab.pagetuner.server.translation.TranslationBackupDocument
+import com.dongholab.pagetuner.server.translation.TranslationBackupUnavailable
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc
@@ -24,30 +31,35 @@ import org.springframework.test.web.servlet.MockMvc
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.*
 import org.testcontainers.containers.PostgreSQLContainer
-import org.testcontainers.junit.jupiter.Container
-import org.testcontainers.junit.jupiter.Testcontainers
 
 @SpringBootTest(properties = ["spring.security.user.name=reader", "spring.security.user.password=test-password"])
 @AutoConfigureMockMvc
-@Testcontainers(disabledWithoutDocker = true)
 class WebApiIntegrationTest {
     companion object {
-        @Container @JvmStatic val postgres = PostgreSQLContainer("postgres:17-alpine")
-        @JvmStatic @DynamicPropertySource
-        fun database(registry: DynamicPropertyRegistry) {
-            registry.add("spring.datasource.url", postgres::getJdbcUrl)
-            registry.add("spring.datasource.username", postgres::getUsername)
-            registry.add("spring.datasource.password", postgres::getPassword)
+        private var postgres: PostgreSQLContainer<Nothing>? = null
+        private val database by lazy {
+            ExternalPostgresTestDatabase.fromEnvironment(System.getenv()) ?: run {
+                val container = PostgreSQLContainer<Nothing>("postgres:17-alpine")
+                container.start(); postgres = container
+                ExternalPostgresTestDatabase(container.jdbcUrl, container.username, container.password)
+            }
         }
+        @DynamicPropertySource @JvmStatic fun database(registry: DynamicPropertyRegistry) {
+            registry.add("spring.datasource.url") { database.url }
+            registry.add("spring.datasource.username") { database.user }
+            registry.add("spring.datasource.password") { database.password }
+        }
+        @AfterAll @JvmStatic fun stop() { postgres?.stop() }
     }
     @Autowired lateinit var mvc: MockMvc
     @Autowired lateinit var mapper: ObjectMapper
     @Autowired lateinit var jdbc: JdbcTemplate
     @Autowired lateinit var library: LibraryService
+    @Autowired lateinit var translations: TranslationApplicationService
 
     @BeforeEach
     fun clean() {
-        jdbc.execute("truncate library_bookmark, library_progress, library_chapter, library_book, translation_backup, translation_artifact cascade")
+        jdbc.execute("truncate library_bookmark, library_progress, library_chapter, library_book, translation_backup, translation_artifact, reader_account cascade")
     }
     private val bookBody = """{"title":"웹에서 읽는 책","author":"작가","sourceLanguage":"ko","chapters":[
         {"title":"첫 장","paragraphs":[{"paragraphId":"p1","text":"첫 번째 문단입니다."},{"paragraphId":"p2","text":"다음 문단"}]},
@@ -63,30 +75,25 @@ class WebApiIntegrationTest {
     }
 
     @Test
-    fun `browser login rotates session, refreshes CSRF, and logout ends access`() {
-        val bootstrap = mvc.perform(get("/api/v1/csrf")).andExpect(status().isOk).andReturn()
+    fun `compatibility account check revalidates Basic and never authenticates with CSRF session`() {
+        val bootstrap = mvc.perform(get("/api/v1/accounts/csrf")).andExpect(status().isOk)
+            .andExpect(header().string("Cache-Control", "no-store")).andReturn()
+        mvc.perform(get("/api/v1/csrf")).andExpect(status().isUnauthorized)
         val session = bootstrap.request.getSession(false) as MockHttpSession
         val token = mapper.readTree(bootstrap.response.contentAsString)["token"].asText()
-        val before = session.id
-        mvc.perform(post("/api/v1/session").session(session).param("username", "reader").param("password", "test-password"))
-            .andExpect(status().isForbidden)
-        mvc.perform(post("/api/v1/session").session(session).header("X-CSRF-TOKEN", token)
-            .param("username", "reader").param("password", "wrong")).andExpect(status().isUnauthorized)
-        mvc.perform(post("/api/v1/session").session(session).header("X-CSRF-TOKEN", token)
-            .param("username", "reader").param("password", "test-password")).andExpect(status().isNoContent)
-        assertNotEquals(before, session.id)
-        mvc.perform(get("/api/v1/session").session(session)).andExpect(status().isOk)
-            .andExpect(jsonPath("$.username").value("reader"))
-        mvc.perform(post("/api/v1/library/books").session(session).header("X-CSRF-TOKEN", token)
+        mvc.perform(get("/api/v1/session").session(session).with(httpBasic("reader", "test-password")))
+            .andExpect(status().isOk).andExpect(jsonPath("$.username").value("reader"))
+            .andExpect(header().string("Cache-Control", "no-store"))
+        mvc.perform(get("/api/v1/session").session(session)).andExpect(status().isUnauthorized)
+        mvc.perform(get("/api/v1/session").session(session).with(httpBasic("reader", "wrong")))
+            .andExpect(status().isUnauthorized)
+        mvc.perform(post("/api/v1/library/books").session(session).with(httpBasic("reader", "test-password"))
             .contentType("application/json").content(bookBody)).andExpect(status().isForbidden)
-        val refreshed = mapper.readTree(mvc.perform(get("/api/v1/csrf").session(session))
-            .andReturn().response.contentAsString)["token"].asText()
-        mvc.perform(post("/api/v1/library/books").session(session).header("X-CSRF-TOKEN", refreshed)
-            .contentType("application/json").content(bookBody)).andExpect(status().isCreated)
-        mvc.perform(post("/api/v1/session/logout").session(session).header("X-CSRF-TOKEN", refreshed))
-            .andExpect(status().isNoContent)
-        assertTrue(session.isInvalid)
-        mvc.perform(get("/api/v1/session")).andExpect(status().isUnauthorized)
+        mvc.perform(post("/api/v1/library/books").session(session).header("X-CSRF-TOKEN", token)
+            .contentType("application/json").content(bookBody)).andExpect(status().isUnauthorized)
+        mvc.perform(post("/api/v1/library/books").session(session).with(httpBasic("reader", "test-password"))
+            .header("X-CSRF-TOKEN", token).contentType("application/json").content(bookBody))
+            .andExpect(status().isCreated)
     }
 
     @Test
@@ -239,5 +246,106 @@ class WebApiIntegrationTest {
             .contentType("application/json").content(backup)).andExpect(status().isOk)
             .andExpect(jsonPath("$.recordId").value(record)).andExpect(jsonPath("$.created").value(false))
         assertEquals(1, jdbc.queryForObject("select count(*) from translation_artifact", Int::class.java)!!)
+    }
+
+    @Test
+    fun `JSON backup refuses unrestorable legacy paragraphs without changing stored rows or hashes`() {
+        val paragraphCases = listOf(
+            emptyList(),
+            listOf(TranslatedParagraphRequest("p1", "")),
+            listOf(TranslatedParagraphRequest("p1", "Valid text"), TranslatedParagraphRequest("p2", " \t\n")),
+        )
+        paragraphCases.forEachIndexed { index, paragraphs ->
+            val request = SaveTranslationRequest(
+                contentProviderId = "legacy-provider", bookId = "book-$index", chapterId = "chapter",
+                sourceRevision = "source-v1", sourceLanguage = "en", targetLanguage = "ko",
+                translationProviderId = "manual", paragraphs = paragraphs,
+            )
+            // Internal/legacy persistence accepts these core artifacts; public writes must still reject them.
+            val saved = translations.save("reader", request)
+            val before = jdbc.queryForMap("select * from translation_artifact where id=?", saved.recordId)
+            val path = "/api/v1/translations/${saved.recordId}"
+            mvc.perform(get("$path/backup").with(user("reader")))
+                .andExpect(status().isConflict)
+                .andExpect(jsonPath("$.detail").value(TranslationBackupUnavailable().message))
+            mvc.perform(get("$path/backup").with(user("other")))
+                .andExpect(status().isNotFound)
+            val loaded = mapper.readTree(mvc.perform(get(path).with(user("reader")))
+                .andExpect(status().isOk).andReturn().response.contentAsByteArray)
+            assertEquals(saved.artifactId, loaded["artifactId"].asText())
+            assertEquals(saved.revision, loaded["revision"].asText())
+            assertEquals(saved.payloadHash, loaded["payloadHash"].asText())
+            assertEquals(mapper.valueToTree<JsonNode>(paragraphs), loaded["paragraphs"])
+            mvc.perform(post("/api/v1/translations").with(user("reader")).with(csrf())
+                .contentType("application/json").content(mapper.writeValueAsBytes(request)))
+                .andExpect(status().isBadRequest)
+            val backup = TranslationBackupDocument(1, saved.artifactId, saved.revision, saved.payloadHash, request)
+            mvc.perform(post("/api/v1/translations/restore").with(user("other")).with(csrf())
+                .contentType("application/json").content(mapper.writeValueAsBytes(backup)))
+                .andExpect(status().isBadRequest)
+            assertEquals(before, jdbc.queryForMap("select * from translation_artifact where id=?", saved.recordId))
+            assertEquals(index + 1, jdbc.queryForObject("select count(*) from translation_artifact", Int::class.java))
+        }
+    }
+
+    @Test
+    fun `translation filters and backup retain raw identity and exact source language`() {
+        fun saved(language: String): String {
+            val request = mapOf("contentProviderId" to "provider:part", "bookId" to "book:item",
+                "chapterId" to "chapter", "sourceRevision" to "same-source", "sourceLanguage" to language,
+                "targetLanguage" to "ko", "translationProviderId" to "manual", "bookTitle" to "Exact title",
+                "paragraphs" to listOf(mapOf("paragraphId" to "p1", "text" to "Translated text")))
+            return mapper.readTree(mvc.perform(post("/api/v1/translations").with(user("reader")).with(csrf())
+                .contentType("application/json").content(mapper.writeValueAsBytes(request)))
+                .andExpect(status().isCreated).andReturn().response.contentAsString)["recordId"].asText()
+        }
+        val english = saved("en")
+        saved("ja")
+        mvc.perform(get("/api/v1/translations").with(user("reader"))
+            .param("contentProviderId", "provider:part").param("bookId", "book:item")
+            .param("chapterId", "chapter").param("sourceRevision", "same-source")
+            .param("sourceLanguage", "en").param("targetLanguage", "ko").param("q", "Exact"))
+            .andExpect(status().isOk).andExpect(jsonPath("$.totalItems").value(1))
+            .andExpect(jsonPath("$.items[0].recordId").value(english))
+            .andExpect(jsonPath("$.items[0].contentProviderId").value("provider:part"))
+            .andExpect(jsonPath("$.items[0].bookId").value("book:item"))
+            .andExpect(jsonPath("$.items[0].paragraphCount").value(1))
+        mvc.perform(get("/api/v1/translations").with(user("reader"))
+            .param("contentProviderId", "provider").param("bookId", "part:book:item"))
+            .andExpect(status().isOk).andExpect(jsonPath("$.totalItems").value(0))
+        mvc.perform(get("/api/v1/translations").with(user("reader")).param("bookId", "book:item"))
+            .andExpect(status().isBadRequest)
+        val backup = mvc.perform(get("/api/v1/translations/$english/backup").with(user("reader")))
+            .andExpect(status().isOk).andExpect(jsonPath("$.translation.contentProviderId").value("provider:part"))
+            .andExpect(jsonPath("$.translation.bookId").value("book:item"))
+            .andExpect(jsonPath("$.translation.bookTitle").value("Exact title"))
+            .andReturn().response.contentAsByteArray
+        mvc.perform(post("/api/v1/translations/restore").with(user("reader")).with(csrf())
+            .contentType("application/json").content(backup))
+            .andExpect(status().isOk).andExpect(jsonPath("$.recordId").value(english))
+        jdbc.update("update translation_artifact set content_provider_id=null, book_id=null where id=?", UUID.fromString(english))
+        mvc.perform(get("/api/v1/translations/$english/backup").with(user("reader")))
+            .andExpect(status().isConflict)
+        mvc.perform(get("/api/v1/translations").with(user("reader")).param("sourceLanguage", "en"))
+            .andExpect(status().isOk).andExpect(jsonPath("$.totalItems").value(0))
+    }
+
+    @Test
+    fun `library positions preserve paragraph end and reject surrogate midpoint`() {
+        val id = mapper.readTree(mvc.perform(post("/api/v1/library/books")
+            .with(user("reader")).with(csrf()).contentType("application/json")
+            .content(bookBody.replace("첫 번째 문단입니다.", "A😀")))
+            .andExpect(status().isCreated).andReturn().response.contentAsString)["id"].asText()
+        val chapterId = firstChapter(id)["id"].asText()
+        val path = "/api/v1/library/books/$id/progress"
+        val body = """{"anchor":{"chapterId":"$chapterId","paragraphId":"p1","characterOffset":3},"version":0}"""
+        mvc.perform(put(path).with(user("reader")).with(csrf()).contentType("application/json").content(body))
+            .andExpect(status().isOk).andExpect(jsonPath("$.anchor.characterOffset").value(3))
+        mvc.perform(put(path).with(user("reader")).with(csrf()).contentType("application/json")
+            .content(body.replace("\"characterOffset\":3", "\"characterOffset\":2").replace("\"version\":0", "\"version\":1")))
+            .andExpect(status().isBadRequest)
+        mvc.perform(get(path).with(user("reader")))
+            .andExpect(status().isOk).andExpect(jsonPath("$.version").value(1))
+            .andExpect(jsonPath("$.anchor.characterOffset").value(3))
     }
 }

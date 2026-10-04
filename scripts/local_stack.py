@@ -1,7 +1,10 @@
 #!/usr/bin/env python3
 """Local deployment manager. Owns only its PID files and never deletes database volumes."""
 import argparse
-import fcntl
+try:
+    import fcntl
+except ImportError:
+    fcntl = None
 import json
 import os
 from pathlib import Path
@@ -207,6 +210,8 @@ def status():
     return all(result[k] for k in ['frontend', 'server', 'databasePort'])
 
 def main():
+    if sys.platform != 'darwin':
+        raise RuntimeError('This deployment manager requires macOS. Use the server and frontend README commands on this platform.')
     parser = argparse.ArgumentParser()
     parser.add_argument('action', choices=['init', 'deploy', 'up', 'stop', 'down', 'status', 'check'])
     args = parser.parse_args()

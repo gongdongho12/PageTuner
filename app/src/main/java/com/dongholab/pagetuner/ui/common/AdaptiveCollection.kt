@@ -40,30 +40,21 @@ fun <T> AdaptiveCollection(
     pageInfoPrefix: String? = null,
     onPageInfoClick: (() -> Unit)? = null,
     itemKey: ((T) -> Any)? = null,
+    onInsufficientHeight: ((Dp?) -> Unit)? = null,
     emptyContent: @Composable () -> Unit = {},
     scrollItemContent: (@Composable (T) -> Unit)? = null,
     pagedItemContent: @Composable (T) -> Unit,
 ) {
     val onRegisterPagingState = LocalActiveListPagingStateConsumer.current
-    androidx.compose.runtime.DisposableEffect(pagingState) {
-        onRegisterPagingState?.invoke(pagingState)
+    val layoutMode = LocalListLayoutMode.current
+    androidx.compose.runtime.DisposableEffect(pagingState, layoutMode) {
+        if (layoutMode == ListLayoutMode.Paged) onRegisterPagingState?.invoke(pagingState)
         onDispose {
-            onRegisterPagingState?.invoke(null)
+            if (layoutMode == ListLayoutMode.Paged) onRegisterPagingState?.invoke(null)
         }
     }
 
     val scrollState = rememberLazyListState()
-    if (items.isEmpty()) {
-        Box(
-            modifier = modifier
-                .fillMaxWidth()
-                .clipToBounds(),
-        ) {
-            emptyContent()
-        }
-        return
-    }
-
     when (LocalListLayoutMode.current) {
         ListLayoutMode.Paged -> EinkAutoFitPagingContainer(
             items = items,
@@ -79,11 +70,17 @@ fun <T> AdaptiveCollection(
             onFastBoundaryNext = onFastBoundaryNext,
             pageInfoPrefix = pageInfoPrefix,
             onPageInfoClick = onPageInfoClick,
+            itemKey = itemKey,
+            onInsufficientHeight = onInsufficientHeight,
             emptyContent = emptyContent,
             itemContent = pagedItemContent,
         )
 
         ListLayoutMode.Scroll -> {
+            if (items.isEmpty()) {
+                Box(modifier = modifier.fillMaxWidth().clipToBounds()) { emptyContent() }
+                return
+            }
             val indexedKey: ((Int, T) -> Any)? = itemKey?.let { stableKey ->
                 { _, item -> stableKey(item) }
             }

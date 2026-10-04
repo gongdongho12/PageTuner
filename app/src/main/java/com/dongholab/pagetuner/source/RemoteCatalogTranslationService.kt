@@ -1,16 +1,13 @@
 package com.dongholab.pagetuner.source
 
-import com.dongholab.pagetuner.translation.ContentTranslationRequest
+import com.dongholab.pagetuner.core.translation.CatalogTranslationEntry
+import com.dongholab.pagetuner.core.translation.CatalogTranslationService
+import com.dongholab.pagetuner.core.translation.TranslationLanguages
 import com.dongholab.pagetuner.translation.ContentTranslationService
-import com.dongholab.pagetuner.translation.TranslatableField
 import com.dongholab.pagetuner.translation.TranslationProgress
 import com.dongholab.pagetuner.translation.TranslationSettings
 
-data class CatalogItemTranslation(
-    val title: String,
-    val description: String?,
-    val targetLanguage: String,
-)
+typealias CatalogItemTranslation = com.dongholab.pagetuner.core.translation.CatalogItemTranslation
 
 fun RemoteBookItem.translationKey(): String {
     val workKey = seriesId?.trim()?.takeIf(String::isNotBlank) ?: "standalone"
@@ -33,32 +30,17 @@ class DefaultRemoteCatalogTranslationService(
         settings: TranslationSettings,
         onProgress: suspend (TranslationProgress) -> Unit,
     ): Map<String, CatalogItemTranslation> {
-        if (items.isEmpty()) return emptyMap()
-        val fields = items.flatMap { item ->
-            val key = item.translationKey()
-            listOfNotNull(
-                TranslatableField("$key:title", item.title),
-                item.description?.takeIf(String::isNotBlank)?.let {
-                    TranslatableField("$key:description", it)
-                },
+        val sharedService = CatalogTranslationService { request, languages, progress ->
+            contentTranslationService.translate(
+                request,
+                settings.copy(sourceLanguage = languages.source, targetLanguage = languages.target),
+                progress,
             )
         }
-        val result = contentTranslationService.translate(
-            request = ContentTranslationRequest(
-                namespace = "web-catalog-v1",
-                title = "Web catalog",
-                fields = fields,
-            ),
-            settings = settings,
-            onProgress = onProgress,
+        return sharedService.translate(
+            items.map { CatalogTranslationEntry(it.translationKey(), it.title, it.description) },
+            TranslationLanguages(settings.normalizedSourceLanguage, settings.normalizedTargetLanguage),
+            onProgress,
         )
-        return items.associate { item ->
-            val key = item.translationKey()
-            key to CatalogItemTranslation(
-                title = result.values["$key:title"].orEmpty().ifBlank { item.title },
-                description = result.values["$key:description"]?.takeIf(String::isNotBlank),
-                targetLanguage = result.targetLanguage,
-            )
-        }
     }
 }

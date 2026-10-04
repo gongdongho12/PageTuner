@@ -11,9 +11,16 @@ kotlin {
 }
 
 dependencies {
+    implementation(project(":core-model"))
     implementation(project(":core-content"))
     implementation(project(":core-translation"))
     implementation(project(":core-backup"))
+    implementation(project(":backup-runtime"))
+    implementation(project(":source-runtime"))
+    implementation(project(":translation-runtime"))
+    implementation(libs.org.json)
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.10.2")
+    implementation("com.squareup.okhttp3:okhttp:4.12.0")
     implementation("org.springframework.boot:spring-boot-starter-web")
     implementation("org.springframework.boot:spring-boot-starter-validation")
     implementation("org.springframework.boot:spring-boot-starter-data-jpa")
@@ -29,8 +36,37 @@ dependencies {
     testImplementation("org.springframework.security:spring-security-test")
     testImplementation("org.testcontainers:postgresql")
     testImplementation("org.testcontainers:junit-jupiter")
+    testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 }
 
 tasks.withType<Test> {
-    useJUnitPlatform()
+    useJUnitPlatform {
+        if (System.getenv("RUN_LIVE_WEB_NOVEL_TESTS") != "1") excludeTags("live-source")
+        if (name != "catalogTranslationLiveTest" && System.getenv("RUN_LIVE_CATALOG_TRANSLATION_TESTS") != "1") excludeTags("live-catalog-translation")
+    }
+}
+
+tasks.register<Test>("catalogTranslationLiveTest") {
+    description = "Verify catalog title and description translation with the actual Google Web service."
+    group = "verification"
+    environment("RUN_LIVE_CATALOG_TRANSLATION_TESTS", "1")
+    testClassesDirs = sourceSets["test"].output.classesDirs
+    classpath = sourceSets["test"].runtimeClasspath
+    useJUnitPlatform { includeTags("live-catalog-translation") }
+}
+
+sourceSets.named("test") {
+    resources.srcDir(rootProject.file("contracts/fixtures"))
+}
+
+// Web remains an independent npm build. Package an explicitly built public shell only on request.
+providers.gradleProperty("webDistDir").orNull?.let { path ->
+    val webDirectory = rootProject.file(path)
+    val indexFile = webDirectory.resolve("index.html")
+    tasks.named<org.springframework.boot.gradle.tasks.bundling.BootJar>("bootJar") {
+        from(webDirectory) { into("BOOT-INF/classes/static") }
+        doFirst {
+            check(indexFile.isFile) { "Build the web client before supplying -PwebDistDir (missing $indexFile)." }
+        }
+    }
 }

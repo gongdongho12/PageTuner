@@ -22,6 +22,7 @@ class OpenAiCompatibleLlmTranslationProviderTest {
                     {
                       "choices": [
                         {
+                          "finish_reason": "stop",
                           "message": {
                             "content": "{\"translations\":[\"안녕\",\"세계\"]}"
                           }
@@ -65,6 +66,7 @@ class OpenAiCompatibleLlmTranslationProviderTest {
                     {
                       "choices": [
                         {
+                          "finish_reason": "stop",
                           "message": {
                             "content": "{\"translations\":[\"아푸는 진풍을 만났다.\"],\"characterAliases\":[{\"source\":\"A-Pu\",\"alias\":\"아푸\"},{\"source\":\"Hallucinated\",\"alias\":\"환각\"}]}"
                           }

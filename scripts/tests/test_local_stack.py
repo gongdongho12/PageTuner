@@ -60,6 +60,12 @@ class DockerPreflightTests(unittest.TestCase):
             stop.assert_not_called()
             write.assert_not_called()
 
+    def test_unsupported_platform_fails_before_touching_local_state(self):
+        with patch.object(stack.sys, 'platform', 'win32'), patch.object(stack, 'init') as init:
+            with self.assertRaisesRegex(RuntimeError, 'requires macOS'):
+                stack.main()
+            init.assert_not_called()
+
 
 if __name__ == '__main__':
     unittest.main()

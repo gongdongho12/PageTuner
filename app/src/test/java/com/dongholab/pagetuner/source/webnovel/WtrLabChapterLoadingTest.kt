@@ -6,6 +6,7 @@ import com.dongholab.pagetuner.source.WtrLabDomScraperTest
 import com.dongholab.pagetuner.source.WebNovelRemoteBookSource
 import java.io.IOException
 import kotlinx.coroutines.test.runTest
+import org.json.JSONObject
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -23,7 +24,9 @@ class WtrLabChapterLoadingTest {
                 assertTrue(body.contains("\"raw_id\":88774"))
                 assertTrue(body.contains("\"chapter_no\":1"))
                 assertEquals(CHAPTER_URL, referer)
-                WtrLabDomScraperTest.readerJson
+                JSONObject(WtrLabDomScraperTest.readerJson).apply {
+                    getJSONObject("chapter").put("raw_id", 88774)
+                }.toString()
             },
         )
 

@@ -57,6 +57,9 @@ data class RemoteBookItem(
     val chapterNumber: Int? = null,
     /** Indicates that the downloaded bytes already contain translated reader text. */
     val contentVariant: RemoteBookContentVariant = RemoteBookContentVariant.Original,
+    /** Original provider/book pair. Absent for legacy or synthetic-only catalog records. */
+    val sourceProviderId: String? = null,
+    val sourceBookId: String? = null,
 )
 
 enum class RemoteCatalogLoadStep {

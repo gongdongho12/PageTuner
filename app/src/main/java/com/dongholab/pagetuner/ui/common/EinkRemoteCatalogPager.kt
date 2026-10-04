@@ -110,7 +110,7 @@ fun EinkRemoteCatalogPager(
                 enabled = !busy,
                 modifier = Modifier
                     .weight(0.32f)
-                    .heightIn(min = 42.dp),
+                    .heightIn(min = 44.dp),
                 shape = RoundedCornerShape(2.dp),
                 border = BorderStroke(1.dp, EinkInk),
                 colors = androidx.compose.material3.ButtonDefaults.outlinedButtonColors(
@@ -147,7 +147,7 @@ fun EinkRemoteCatalogPager(
             PagerButton(
                 text = "10 ▶",
                 enabled = !busy && (paging.totalPages == null || paging.currentPage < totalPages),
-                onClick = { onPageSelected((paging.currentPage + 10).coerceAtMost(totalPages)) },
+                onClick = { onPageSelected((paging.currentPage + 10).coerceAtMost(paging.totalPages ?: (paging.currentPage + 10))) },
                 modifier = Modifier.weight(0.18f),
             )
         }
@@ -164,7 +164,7 @@ private fun PagerButton(
     OutlinedButton(
         onClick = onClick,
         enabled = enabled,
-        modifier = modifier.heightIn(min = 42.dp),
+        modifier = modifier.heightIn(min = 44.dp),
         shape = RoundedCornerShape(2.dp),
         contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 2.dp),
     ) {

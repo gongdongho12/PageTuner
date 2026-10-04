@@ -1,0 +1,130 @@
+{
+  "openapi": "3.0.3",
+  "info": { "title": "PageTurner Reading Notes", "version": "1.0.0", "description": "Account-scoped bookmarks, notes and exact highlights with item compare-and-set, durable tombstones and an immutable change feed. See reading-notes-v1.md." },
+  "paths": {
+    "/api/v1/reading-notes/{kind}/{recordId}": {
+      "parameters": [
+        { "in": "path", "name": "kind", "required": true, "schema": { "$ref": "#/components/schemas/ReadingNoteDocumentKind" } },
+        { "in": "path", "name": "recordId", "required": true, "schema": { "type": "string", "format": "uuid" } }
+      ],
+      "get": {
+        "operationId": "readingNoteChanges",
+        "security": [{ "basicAuth": [] }],
+        "parameters": [
+          { "in": "query", "name": "afterRevision", "schema": { "type": "integer", "minimum": 0, "maximum": 9007199254740991, "default": 0 } },
+          { "in": "query", "name": "untilRevision", "schema": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 }, "description": "Captured watermark for subsequent pages; must be between afterRevision and current committed document revision." },
+          { "in": "query", "name": "limit", "schema": { "type": "integer", "minimum": 1, "maximum": 100, "default": 50 } }
+        ],
+        "responses": {
+          "200": { "description": "Immutable changes at a fixed committed watermark.", "headers": { "Cache-Control": { "schema": { "type": "string", "enum": ["no-store"] } } }, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ReadingNoteChanges" } } } },
+          "400": { "$ref": "#/components/responses/ReadingNoteError" },
+          "401": { "description": "Authentication required." },
+          "404": { "$ref": "#/components/responses/ReadingNoteError" }
+        }
+      }
+    },
+    "/api/v1/reading-notes/{kind}/{recordId}/{noteId}": {
+      "parameters": [
+        { "in": "path", "name": "kind", "required": true, "schema": { "$ref": "#/components/schemas/ReadingNoteDocumentKind" } },
+        { "in": "path", "name": "recordId", "required": true, "schema": { "type": "string", "format": "uuid" } },
+        { "in": "path", "name": "noteId", "required": true, "schema": { "type": "string", "format": "uuid" } }
+      ],
+      "put": {
+        "operationId": "putReadingNote",
+        "security": [{ "basicAuth": [] }],
+        "parameters": [{ "in": "header", "name": "X-CSRF-TOKEN", "required": true, "schema": { "type": "string" }, "description": "Use /api/v1/csrf and its matching session cookie." }],
+        "requestBody": { "required": true, "description": "At most 32 KiB. Retry uncertain requests without changing their mutation ID or payload.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/PutReadingNoteRequest" } } } },
+        "responses": {
+          "200": { "description": "Committed note or tombstone; an exact latest-mutation retry returns the same item.", "headers": { "Cache-Control": { "schema": { "type": "string", "enum": ["no-store"] } } }, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ReadingNoteItem" } } } },
+          "400": { "$ref": "#/components/responses/ReadingNoteError" },
+          "401": { "description": "Authentication required." },
+          "403": { "description": "CSRF token required." },
+          "404": { "$ref": "#/components/responses/ReadingNoteError" },
+          "409": { "description": "Stale expectedVersion includes current; safe-integer exhaustion has code READING_NOTE_REVISION_EXHAUSTED without current.", "headers": { "Cache-Control": { "schema": { "type": "string", "enum": ["no-store"] } } }, "content": { "application/problem+json": { "schema": { "$ref": "#/components/schemas/ReadingNoteProblem" } } } },
+          "413": { "$ref": "#/components/responses/ReadingNoteError" },
+          "429": { "description": "Account write limit; retain pending changes and obey Retry-After.", "headers": { "Retry-After": { "required": true, "schema": { "type": "integer", "minimum": 1, "maximum": 60 } }, "Cache-Control": { "schema": { "type": "string", "enum": ["no-store"] } } }, "content": { "application/problem+json": { "schema": { "$ref": "#/components/schemas/ReadingNoteProblem" } } } }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": { "basicAuth": { "type": "http", "scheme": "basic" } },
+    "responses": { "ReadingNoteError": { "description": "Invalid request, inaccessible document, or body limit.", "headers": { "Cache-Control": { "schema": { "type": "string", "enum": ["no-store"] } } }, "content": { "application/problem+json": { "schema": { "$ref": "#/components/schemas/ReadingNoteProblem" } } } } },
+    "schemas": {
+      "ReadingNoteDocumentKind": { "type": "string", "enum": ["ORIGINAL", "TRANSLATION"] },
+      "ReadingNoteKind": { "type": "string", "enum": ["BOOKMARK", "NOTE", "HIGHLIGHT"] },
+      "ReadingNoteAnchor": {
+        "type": "object", "additionalProperties": false, "required": ["paragraphId", "characterOffset"],
+        "properties": {
+          "paragraphId": { "type": "string", "minLength": 1, "maxLength": 200, "description": "Persisted paragraph ID, no ISO controls; UTF-16 length." },
+          "characterOffset": { "type": "integer", "minimum": 0, "maximum": 2147483647, "description": "UTF-16 offset; never splits a surrogate pair." }
+        }
+      },
+      "ReadingNoteRange": {
+        "type": "object", "additionalProperties": false, "required": ["start", "end"],
+        "properties": { "start": { "$ref": "#/components/schemas/ReadingNoteAnchor" }, "end": { "$ref": "#/components/schemas/ReadingNoteAnchor" } }
+      },
+      "ReadingNoteInput": {
+        "type": "object", "additionalProperties": false, "required": ["kind", "title", "text", "anchor", "range", "createdAt"],
+        "properties": {
+          "kind": { "$ref": "#/components/schemas/ReadingNoteKind" },
+          "title": { "type": "string", "minLength": 1, "maxLength": 200, "description": "Nonblank, UTF-16 length." },
+          "text": { "type": "string", "maxLength": 4000, "description": "Nonblank for NOTE; UTF-16 length." },
+          "anchor": { "$ref": "#/components/schemas/ReadingNoteAnchor" },
+          "range": { "nullable": true, "allOf": [{ "$ref": "#/components/schemas/ReadingNoteRange" }], "description": "HIGHLIGHT requires start=anchor, nonblank exact selected text <=4000 UTF-16 units; null for other kinds." },
+          "createdAt": { "type": "string", "format": "date-time", "maxLength": 30, "description": "UTC Z timestamp, year0001..9999 and optional1..9fractionaldigits. Metadata only." }
+        }
+      },
+      "ReadingNote": {
+        "type": "object", "additionalProperties": false, "required": ["kind", "title", "text", "anchor", "range", "createdAt", "excerpt"],
+        "properties": {
+          "kind": { "$ref": "#/components/schemas/ReadingNoteKind" },
+          "title": { "type": "string", "minLength": 1, "maxLength": 200 },
+          "text": { "type": "string", "maxLength": 4000 },
+          "anchor": { "$ref": "#/components/schemas/ReadingNoteAnchor" },
+          "range": { "nullable": true, "allOf": [{ "$ref": "#/components/schemas/ReadingNoteRange" }] },
+          "createdAt": { "type": "string", "format": "date-time" },
+          "excerpt": { "type": "string", "maxLength": 4000, "description": "Server-derived exact highlight text, or <=1000 UTF-16 units after an ordinary anchor." }
+        }
+      },
+      "PutReadingNoteRequest": {
+        "type": "object", "additionalProperties": false, "required": ["expectedVersion", "mutationId", "deleted", "note"],
+        "properties": {
+          "expectedVersion": { "type": "integer", "minimum": 0, "maximum": 9007199254740990 },
+          "mutationId": { "type": "string", "format": "uuid" },
+          "deleted": { "type": "boolean" },
+          "note": { "nullable": true, "allOf": [{ "$ref": "#/components/schemas/ReadingNoteInput" }], "description": "Null iff deleted=true." }
+        }
+      },
+      "ReadingNoteItem": {
+        "type": "object", "additionalProperties": false, "required": ["noteId", "version", "changeRevision", "deleted", "note", "updatedAt"],
+        "properties": {
+          "noteId": { "type": "string", "format": "uuid" },
+          "version": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
+          "changeRevision": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
+          "deleted": { "type": "boolean" },
+          "note": { "nullable": true, "allOf": [{ "$ref": "#/components/schemas/ReadingNote" }] },
+          "updatedAt": { "type": "string", "format": "date-time", "nullable": true, "description": "Null only for a never-created version-zero conflict view." }
+        }
+      },
+      "ReadingNoteChanges": {
+        "type": "object", "additionalProperties": false, "required": ["kind", "recordId", "items", "nextAfterRevision", "watermark", "hasMore"],
+        "properties": {
+          "kind": { "$ref": "#/components/schemas/ReadingNoteDocumentKind" },
+          "recordId": { "type": "string", "format": "uuid" },
+          "items": { "type": "array", "maxItems": 100, "items": { "$ref": "#/components/schemas/ReadingNoteItem" } },
+          "nextAfterRevision": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
+          "watermark": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
+          "hasMore": { "type": "boolean" }
+        }
+      },
+      "ReadingNoteProblem": {
+        "type": "object", "required": ["status"],
+        "properties": {
+          "type": { "type": "string" }, "title": { "type": "string" }, "status": { "type": "integer" }, "detail": { "type": "string" }, "instance": { "type": "string" },
+          "code": { "type": "string" }, "current": { "$ref": "#/components/schemas/ReadingNoteItem" }
+        }
+      }
+    }
+  }
+}

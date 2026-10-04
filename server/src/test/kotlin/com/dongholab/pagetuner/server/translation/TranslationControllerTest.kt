@@ -1,6 +1,9 @@
 package com.dongholab.pagetuner.server.translation
 
 import com.dongholab.pagetuner.server.ServerSecurity
+import com.dongholab.pagetuner.server.CsrfController
+import com.dongholab.pagetuner.core.translation.TranslationSaveResult
+import com.dongholab.pagetuner.core.translation.StoredTranslation
 import com.dongholab.pagetuner.server.SessionController
 import com.fasterxml.jackson.databind.ObjectMapper
 import org.junit.jupiter.api.Test
@@ -18,7 +21,7 @@ import org.springframework.test.web.servlet.result.MockMvcResultMatchers.*
 import java.time.Instant
 import java.util.UUID
 
-@WebMvcTest(controllers = [TranslationController::class, SessionController::class], properties = ["spring.security.user.password=test-password"])
+@WebMvcTest(controllers = [TranslationController::class, SessionController::class, CsrfController::class], properties = ["spring.security.user.password=test-password"])
 @Import(ServerSecurity::class)
 class TranslationControllerTest {
     @Autowired lateinit var mvc: MockMvc
@@ -53,8 +56,8 @@ class TranslationControllerTest {
         val body = mapper.writeValueAsBytes(document)
         mvc.perform(post("/api/v1/translations/restore").with(user("reader"))
             .contentType("application/json").content(body)).andExpect(status().isForbidden)
-        `when`(service.save("reader", request)).thenReturn(TranslationResponse(id, artifact.artifactId,
-            artifact.revision, artifact.payloadHash, false, Instant.now(), request.paragraphs))
+        `when`(service.save("reader", request)).thenReturn(TranslationResponse.from(TranslationSaveResult(StoredTranslation(
+            id.toString(), artifact, Instant.now().toString()), false)))
         mvc.perform(post("/api/v1/translations/restore").with(user("reader")).with(csrf())
             .contentType("application/json").content(body)).andExpect(status().isOk)
             .andExpect(jsonPath("$.created").value(false))

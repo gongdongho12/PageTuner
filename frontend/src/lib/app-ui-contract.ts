@@ -1,7 +1,7 @@
 /** UI behavior shared by the local and server web readers, matching the Android reader. */
 export const readerDefaults = { fontSize: 18, lineHeight: 1.35, margin: 18,
   display: 'translation', listMode: 'paged', tapMode: 'normal' } as const;
-export const readerRanges = { fontSize: [14, 28], lineHeight: [1.1, 1.8], margin: [8, 36] } as const;
+export const readerRanges = { fontSize: [14, 36], lineHeight: [1.1, 2.4], margin: [0, 48] } as const;
 export const readerTabs = ['reader', 'find', 'bookmarks', 'notes', 'details'] as const;
 export type ReaderTab = typeof readerTabs[number];
 export const settingsTabs = ['display', 'appearance', 'languages', 'account'] as const;

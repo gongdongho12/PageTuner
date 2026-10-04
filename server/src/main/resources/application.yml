@@ -1,10 +1,13 @@
 spring:
   application:
     name: pagetuner-server
+  mvc:
+    problemdetails:
+      enabled: true
   security:
     user:
       name: ${PAGETUNER_LOCAL_USER:local-reader}
-      password: ${PAGETUNER_LOCAL_PASSWORD}
+      password: ${PAGETUNER_LOCAL_PASSWORD:}
   datasource:
     url: ${PAGETUNER_DATABASE_URL:jdbc:postgresql://localhost:5432/pagetuner}
     username: ${PAGETUNER_DATABASE_USER:pagetuner}

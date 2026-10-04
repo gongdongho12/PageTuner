@@ -37,6 +37,8 @@ object RemoteCatalogSnapshotJson {
             .put("sourceType", identity.sourceType.name)
             .put("accountId", identity.accountId)
             .put("remoteId", identity.remoteId)
+            .put("sourceProviderId", sourceProviderId)
+            .put("sourceBookId", sourceBookId)
             .put("title", title)
             .put("authors", JSONArray(authors))
             .put("format", format.name)
@@ -55,6 +57,7 @@ object RemoteCatalogSnapshotJson {
             .put("seriesId", seriesId)
             .put("seriesTitle", seriesTitle)
             .put("chapterNumber", chapterNumber)
+            .put("contentVariant", contentVariant.name)
     }
 
     private fun JSONObject.toRemoteBookItem(): RemoteBookItem? {
@@ -68,6 +71,8 @@ object RemoteCatalogSnapshotJson {
             .getOrDefault(DocumentFormat.TEXT)
         return RemoteBookItem(
             identity = RemoteBookIdentity(sourceType, optString("accountId"), remoteId),
+            sourceProviderId = nullableString("sourceProviderId"),
+            sourceBookId = nullableString("sourceBookId"),
             title = title,
             authors = optJSONArray("authors").toStringList(),
             format = format,
@@ -88,6 +93,8 @@ object RemoteCatalogSnapshotJson {
             seriesId = nullableString("seriesId"),
             seriesTitle = nullableString("seriesTitle"),
             chapterNumber = nullableInt("chapterNumber"),
+            contentVariant = runCatching { RemoteBookContentVariant.valueOf(optString("contentVariant")) }
+                .getOrDefault(RemoteBookContentVariant.Original),
         )
     }
 

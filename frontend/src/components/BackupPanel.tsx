@@ -22,7 +22,7 @@ export function BackupPanel({ state, book, translation, credentials, restore, t,
         <div className="stats"><div><strong>{exportState.books.length}</strong><span>{t('count')}</span></div><div><strong>{exportState.translations.length}</strong><span>{t('cached')}</span></div></div>
         <button className="primary" disabled={busy} onClick={() => void run(async () => { download(`pageturner-${new Date().toISOString().slice(0, 10)}.json`, await exportBackup(exportState)); report(t('downloaded')); })}>{t('exportBackup')} ↓</button>
         <label className={`file-button ${busy ? 'disabled' : ''}`}>{t('restoreBackup')}<input type="file" accept=".json,application/json" disabled={busy} onChange={e => { const file = e.target.files?.[0]; e.target.value = ''; if (file) void run(async () => { setPreview(null); setPreview(await parseBackup(await readFile(file))); }); }} /></label>
-        
+
       </> : <><p className="help">{t('serverHelp')}</p>
         <button className="primary" disabled={busy || !book || !translation} onClick={() => void run(async () => {
           const saved = await (await serverRequest('', credentials, toServerTranslation(book!, translation!))).json();

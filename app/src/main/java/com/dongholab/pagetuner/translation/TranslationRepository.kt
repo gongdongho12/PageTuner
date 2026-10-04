@@ -75,6 +75,7 @@ class TranslationRepository(
                     ),
                 )
 
+                validateTranslationResponse(batch, translated, provider.id)
                 val records = translated.mapNotNull { translatedSegment ->
                     val original = batch.firstOrNull { it.id == translatedSegment.segmentId }
                     original?.let {
@@ -150,7 +151,7 @@ class TranslationRepository(
                     segments = batch,
                 ),
             )
-            validateBatchResponse(batch, translated)
+            validateTranslationResponse(batch, translated, provider.id)
             cache.putAll(
                 translated.map { translatedSegment ->
                     CachedTranslation(
@@ -293,20 +294,6 @@ class TranslationRepository(
         completed: Map<String, TranslatedSegment>,
     ): List<TranslatedSegment> {
         return page.segments.mapNotNull { completed[it.id] }
-    }
-
-    private fun validateBatchResponse(
-        requested: List<TextSegment>,
-        translated: List<TranslatedSegment>,
-    ) {
-        val requestedIds = requested.map(TextSegment::id)
-        val translatedIds = translated.map(TranslatedSegment::segmentId)
-        require(translatedIds.size == translatedIds.distinct().size) {
-            "Translation provider returned duplicate segment IDs."
-        }
-        require(translatedIds.toSet() == requestedIds.toSet()) {
-            "Translation provider response did not match the requested segments."
-        }
     }
 
     private fun ReaderDocument.textSegments(): List<TextSegment> {

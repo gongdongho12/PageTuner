@@ -74,6 +74,8 @@ import com.dongholab.pagetuner.library.LocalBook
 import com.dongholab.pagetuner.reader.ReaderAnnotation
 import com.dongholab.pagetuner.reader.ReaderAnnotationType
 import com.dongholab.pagetuner.reader.ReaderBookmark
+import com.dongholab.pagetuner.reader.ReaderDisplayPosition
+import com.dongholab.pagetuner.reader.ReaderDisplayNavigation
 import com.dongholab.pagetuner.reader.PageTurnMode
 import com.dongholab.pagetuner.reader.PdfFitMode
 import com.dongholab.pagetuner.settings.ReaderFontFamily
@@ -218,6 +220,8 @@ fun ReaderPager(
     onNext: () -> Unit,
     onPreviousChapter: () -> Unit,
     onNextChapter: () -> Unit,
+    canPreviousDisplayPage: Boolean = pageIndex > 0,
+    canNextDisplayPage: Boolean = pageIndex < pageCount - 1,
 ) {
     Column(
         modifier = Modifier.fillMaxWidth(),
@@ -230,20 +234,22 @@ fun ReaderPager(
         ) {
             TextButton(
                 onClick = onPrevious,
-                enabled = !busy && pageIndex > 0,
+                enabled = !busy && canPreviousDisplayPage,
             ) {
                 Icon(Icons.AutoMirrored.Filled.KeyboardArrowLeft, contentDescription = null)
                 Text(stringResource(R.string.action_previous))
             }
             Text(
-                text = "${pageIndex + 1} / $pageCount",
-                style = MaterialTheme.typography.titleMedium,
+                text = stringResource(R.string.reader_source_position, pageIndex + 1, pageCount),
+                modifier = Modifier.weight(1f),
+                style = MaterialTheme.typography.bodySmall,
                 color = EinkInk,
                 fontFamily = FontFamily.Monospace,
+                textAlign = androidx.compose.ui.text.style.TextAlign.Center,
             )
             TextButton(
                 onClick = onNext,
-                enabled = !busy && pageIndex < pageCount - 1,
+                enabled = !busy && canNextDisplayPage,
             ) {
                 Text(stringResource(R.string.action_next))
                 Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null)
@@ -729,170 +735,35 @@ fun ReaderSurface(
     fullScreen: Boolean = false,
     onExitFullscreen: () -> Unit = {},
     modifier: Modifier = Modifier,
+    document: ReaderDocument? = null,
+    displayPosition: ReaderDisplayPosition = ReaderDisplayPosition(page.index),
+    pageChangeRevision: Long = 0,
+    onDisplayNavigation: (ReaderDisplayNavigation) -> Unit = {},
+    onDisplayPositionResolved: (ReaderDisplayPosition) -> Unit = {},
 ) {
-    val contentLayout = readerTranslationLayout(
-        hasTranslation = translation != null,
-        displayMode = translationDisplayMode,
-    )
-    val showOriginal = contentLayout.showOriginal
-    val showTranslation = contentLayout.showTranslation
-
     Surface(
-        modifier = modifier.fillMaxSize(),
-        color = Color.White,
-        contentColor = EinkInk,
+        modifier = modifier.fillMaxSize(), color = Color.White, contentColor = EinkInk,
         shape = if (fullScreen) RectangleShape else RoundedCornerShape(6.dp),
-        border = if (fullScreen) null else BorderStroke(1.dp, EinkLine),
-        shadowElevation = 0.dp,
+        border = if (fullScreen) null else BorderStroke(1.dp, EinkLine), shadowElevation = 0.dp,
     ) {
-        Box(modifier = Modifier.fillMaxSize()) {
-            if (pdfPageBitmap != null) {
-                if (showOriginal) {
-                    Image(
-                        bitmap = pdfPageBitmap.asImageBitmap(),
-                        contentDescription = null,
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(10.dp),
-                        contentScale = when (pdfFitMode) {
-                            PdfFitMode.FitPage -> ContentScale.Fit
-                            PdfFitMode.FitWidth -> ContentScale.FillWidth
-                        },
-                    )
-                }
-                if (translation != null && showTranslation) {
-                    TranslationPanel(
-                        translation = translation,
-                        glossaryEntries = glossaryEntries,
-                        fontSizeSp = fontSizeSp,
-                        lineSpacing = lineSpacing,
-                        showLabel = contentLayout.showTranslationLabel,
-                        contentPaddingDp = if (showOriginal) 8 else pageMarginDp,
-                        fontFamily = fontFamily,
-                        modifier = Modifier
-                            .align(
-                                if (showOriginal) {
-                                    Alignment.BottomCenter
-                                } else {
-                                    Alignment.Center
-                                },
-                            )
-                            .fillMaxWidth()
-                            .fillMaxHeight(contentLayout.translationFraction)
-                            .padding(12.dp),
-                    )
-                }
-            } else {
-                Column(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(if (showOriginal) pageMarginDp.dp else 0.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp),
-                ) {
-                    if (showOriginal) {
-                        OriginalPageContent(
-                            page = page,
-                            glossaryEntries = glossaryEntries,
-                            documentFormat = documentFormat,
-                            displayMode = displayMode,
-                            fontSizeSp = fontSizeSp,
-                            lineSpacing = lineSpacing,
-                            fontFamily = fontFamily,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .fillMaxHeight(contentLayout.originalFraction),
-                        )
-                    }
-                    if (translation != null && showTranslation) {
-                        TranslationPanel(
-                            translation = translation,
-                            glossaryEntries = glossaryEntries,
-                            fontSizeSp = fontSizeSp,
-                            lineSpacing = lineSpacing,
-                            showLabel = contentLayout.showTranslationLabel,
-                            contentPaddingDp = if (showOriginal) 8 else pageMarginDp,
-                            fontFamily = fontFamily,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .weight(
-                                    contentLayout.translationFraction,
-                                ),
-                        )
-                    }
-                }
-            }
-            PageTurnTapZones(
-                pageTurnMode = pageTurnMode,
-                enabled = pageTurningEnabled,
-                onPreviousPage = onPreviousPage,
-                onNextPage = onNextPage,
-                onCenterTap = onExitFullscreen.takeIf { fullScreen },
+        Box(Modifier.fillMaxSize()) {
+            ReaderMeasuredContent(
+                document = document ?: ReaderDocument("reader-surface", "", documentFormat, listOf(page)),
+                page = page, position = displayPosition, pageChangeRevision = pageChangeRevision,
+                pdfPageBitmap = pdfPageBitmap, pdfFitMode = pdfFitMode, displayMode = displayMode,
+                translation = translation, glossaryEntries = glossaryEntries,
+                translationDisplayMode = translationDisplayMode, fontSizeSp = fontSizeSp,
+                lineSpacing = lineSpacing, pageMarginDp = pageMarginDp,
+                fontFamily = fontFamily,
+                onNavigation = onDisplayNavigation, onPositionResolved = onDisplayPositionResolved,
             )
+            PageTurnTapZones(pageTurnMode, pageTurningEnabled, onPreviousPage, onNextPage,
+                onCenterTap = onExitFullscreen.takeIf { fullScreen })
         }
     }
 }
-
 @Composable
-private fun OriginalPageContent(
-    page: ReaderPage,
-    glossaryEntries: List<BookGlossaryEntry>,
-    documentFormat: DocumentFormat,
-    displayMode: DisplayMode,
-    fontSizeSp: Int,
-    lineSpacing: Float,
-    fontFamily: ReaderFontFamily = ReaderFontFamily.DEFAULT,
-    modifier: Modifier = Modifier,
-) {
-    val aliasedText = GlossaryTextProcessor.applyOriginalDisplayAliasesWithRanges(
-        page.plainText,
-        glossaryEntries,
-    )
-    val displayText = if (aliasedText.text.isBlank()) {
-        GlossaryDisplayText(
-            if (documentFormat == DocumentFormat.PDF) {
-                stringResource(R.string.viewer_pdf_rendering)
-            } else {
-                stringResource(R.string.viewer_no_text)
-            },
-        )
-    } else {
-        aliasedText
-    }.toEmphasizedAnnotatedString()
-    if (page.images.isEmpty()) {
-        com.dongholab.pagetuner.ui.common.EinkAutoFitText(
-            text = displayText,
-            requestedFontSizeSp = fontSizeSp,
-            lineSpacing = lineSpacing,
-            fontFamily = fontFamily.toComposeFontFamily(),
-            modifier = modifier.fillMaxSize(),
-        )
-    } else Column(
-        modifier = modifier,
-        verticalArrangement = Arrangement.spacedBy(10.dp),
-    ) {
-        com.dongholab.pagetuner.ui.common.EinkAutoFitText(
-            text = displayText,
-            requestedFontSizeSp = fontSizeSp,
-            lineSpacing = lineSpacing,
-            fontFamily = fontFamily.toComposeFontFamily(),
-            modifier = Modifier
-                .fillMaxWidth()
-                .weight(0.55f),
-        )
-        page.images.take(2).forEach { image ->
-            EmbeddedPageImage(
-                image = image,
-                displayMode = displayMode,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .weight(0.45f),
-            )
-        }
-    }
-}
-
-@Composable
-private fun EmbeddedPageImage(
+internal fun EmbeddedPageImage(
     image: ReaderPageImage,
     displayMode: DisplayMode,
     modifier: Modifier = Modifier,
@@ -929,61 +800,6 @@ private fun EmbeddedPageImage(
                     .fillMaxSize()
                     .padding(6.dp),
                 contentScale = ContentScale.Fit,
-            )
-        }
-    }
-}
-
-@Composable
-private fun TranslationPanel(
-    translation: PageTranslation,
-    glossaryEntries: List<BookGlossaryEntry>,
-    fontSizeSp: Int,
-    lineSpacing: Float,
-    showLabel: Boolean,
-    contentPaddingDp: Int,
-    fontFamily: ReaderFontFamily = ReaderFontFamily.DEFAULT,
-    modifier: Modifier = Modifier,
-) {
-    Surface(
-        modifier = modifier,
-        color = EinkSoft,
-        shape = RoundedCornerShape(6.dp),
-        border = BorderStroke(1.dp, EinkLine),
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(contentPaddingDp.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            if (showLabel) {
-                Text(
-                    text = stringResource(R.string.saved_translation_title),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = EinkMuted,
-                    fontWeight = FontWeight.SemiBold,
-                    maxLines = 1,
-                )
-            }
-            com.dongholab.pagetuner.ui.common.EinkAutoFitText(
-                text = GlossaryTextProcessor.applyTranslatedDisplayAliasesWithRanges(
-                    translation.text,
-                    glossaryEntries,
-                ).let { displayText ->
-                    if (displayText.text.isBlank()) {
-                        GlossaryDisplayText(stringResource(R.string.translation_preparing))
-                    } else {
-                        displayText
-                    }
-                }.toEmphasizedAnnotatedString(),
-                requestedFontSizeSp = fontSizeSp,
-                lineSpacing = lineSpacing,
-                fontFamily = fontFamily.toComposeFontFamily(),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .weight(1f),
-                color = EinkInk,
             )
         }
     }

@@ -110,7 +110,7 @@ fun CatalogPageJumpDialog(
                             enabled = isEnabled,
                             modifier = Modifier
                                 .weight(1f)
-                                .heightIn(min = 40.dp),
+                                .heightIn(min = 44.dp),
                             shape = RoundedCornerShape(2.dp),
                             border = BorderStroke(1.dp, if (isEnabled) EinkInk else EinkLine),
                             contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 2.dp),
@@ -135,7 +135,7 @@ fun CatalogPageJumpDialog(
                         enabled = currentPage > 1,
                         modifier = Modifier
                             .weight(1f)
-                            .heightIn(min = 40.dp),
+                            .heightIn(min = 44.dp),
                         shape = RoundedCornerShape(2.dp),
                         border = BorderStroke(1.dp, if (currentPage > 1) EinkInk else EinkLine),
                     ) {
@@ -151,7 +151,7 @@ fun CatalogPageJumpDialog(
                         enabled = currentPage < maxPage,
                         modifier = Modifier
                             .weight(1f)
-                            .heightIn(min = 40.dp),
+                            .heightIn(min = 44.dp),
                         shape = RoundedCornerShape(2.dp),
                         border = BorderStroke(1.dp, if (currentPage < maxPage) EinkInk else EinkLine),
                     ) {

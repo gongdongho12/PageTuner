@@ -2,7 +2,7 @@ package com.dongholab.pagetuner.translation
 
 import android.content.Context
 import com.dongholab.pagetuner.document.DocumentFormat
-import com.dongholab.pagetuner.document.DocumentIds
+import com.dongholab.pagetuner.core.translation.TranslationFieldSegmenter
 import com.dongholab.pagetuner.document.ReaderDocument
 import com.dongholab.pagetuner.document.ReaderPage
 import com.dongholab.pagetuner.document.TextSegment
@@ -10,25 +10,9 @@ import com.dongholab.pagetuner.translation.glossary.BookGlossary
 import com.dongholab.pagetuner.translation.glossary.BookGlossaryStore
 import com.dongholab.pagetuner.translation.glossary.GlossaryTranslationProvider
 
-data class TranslatableField(
-    val id: String,
-    val text: String,
-)
-
-data class ContentTranslationRequest(
-    /** Stable namespace shared by the same logical content type, for cache reuse across subsets. */
-    val namespace: String,
-    val title: String,
-    val fields: List<TranslatableField>,
-)
-
-data class ContentTranslationResult(
-    val values: Map<String, String>,
-    val sourceLanguage: String,
-    val targetLanguage: String,
-    val providerId: String,
-    val completedFromCache: Boolean,
-)
+typealias TranslatableField = com.dongholab.pagetuner.core.translation.TranslatableField
+typealias ContentTranslationRequest = com.dongholab.pagetuner.core.translation.ContentTranslationRequest
+typealias ContentTranslationResult = com.dongholab.pagetuner.core.translation.ContentTranslationResult
 
 interface ContentTranslationService {
     val providerId: String
@@ -119,44 +103,20 @@ internal data class TranslationDocumentPlan(
 )
 
 internal object TranslationDocumentFactory {
-    private const val MaxSegmentCharacters = 400
-
     fun create(request: ContentTranslationRequest): TranslationDocumentPlan {
-        require(request.namespace.isNotBlank()) { "Translation namespace cannot be blank." }
-        val activeFields = request.fields.filter { it.text.isNotBlank() }
-        require(activeFields.map { it.id }.distinct().size == activeFields.size) {
-            "Translation field IDs must be unique within a request."
-        }
-        val documentId = DocumentIds.sha256("content-translation:${request.namespace}")
-        val fieldSegments = linkedMapOf<String, MutableList<String>>()
-        val segments = buildList {
-            activeFields.forEach { field ->
-                require(field.id.isNotBlank()) { "Translation field ID cannot be blank." }
-                field.text.chunked(MaxSegmentCharacters).forEachIndexed { chunkIndex, chunk ->
-                    val segmentId = DocumentIds.sha256(
-                        "$documentId:${field.id}:$chunkIndex:$chunk",
-                    ).take(24)
-                    add(
-                        TextSegment(
-                            id = segmentId,
-                            pageIndex = 0,
-                            indexInPage = size,
-                            text = chunk,
-                        ),
-                    )
-                    fieldSegments.getOrPut(field.id) { mutableListOf() } += segmentId
-                }
-            }
+        val plan = TranslationFieldSegmenter.create(request)
+        val segments = plan.segments.map { segment ->
+            TextSegment(segment.id, pageIndex = 0, indexInPage = segment.ordinal, text = segment.text)
         }
         val page = ReaderPage(index = 0, segments = segments)
         return TranslationDocumentPlan(
             document = ReaderDocument(
-                id = documentId,
+                id = plan.documentId,
                 title = request.title,
                 format = DocumentFormat.TEXT,
                 pages = listOf(page),
             ),
-            fieldSegments = fieldSegments,
+            fieldSegments = plan.fieldSegments,
         )
     }
 }

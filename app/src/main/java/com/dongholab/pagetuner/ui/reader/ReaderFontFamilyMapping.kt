@@ -4,7 +4,7 @@ import androidx.compose.ui.text.font.FontFamily
 import com.dongholab.pagetuner.settings.ReaderFontFamily
 
 fun ReaderFontFamily.toComposeFontFamily(): FontFamily = when (this) {
-    ReaderFontFamily.DEFAULT -> FontFamily.Default
+    ReaderFontFamily.DEFAULT -> com.dongholab.pagetuner.ui.theme.ReaderFontFamily
     ReaderFontFamily.SERIF -> FontFamily.Serif
     ReaderFontFamily.SANS_SERIF -> FontFamily.SansSerif
     ReaderFontFamily.MONOSPACE -> FontFamily.Monospace

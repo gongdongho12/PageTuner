@@ -1,9 +1,7 @@
 package com.dongholab.pagetuner.source
 
 import com.dongholab.pagetuner.document.DocumentFormat
-import java.net.URI
-import org.json.JSONArray
-import org.json.JSONObject
+import com.dongholab.pagetuner.source.catalog.PageTurnerJsonCatalogParser
 
 data class PageTurnerCatalogLink(
     val rel: String,
@@ -21,107 +19,28 @@ data class PageTurnerCatalog(
 )
 
 object PageTurnerWebCatalogParser {
-    const val Version = "pagetuner.catalog.v0"
+    const val Version = PageTurnerJsonCatalogParser.Version
 
-    fun parse(
-        rawJson: String,
-        catalogUrl: String,
-    ): PageTurnerCatalog {
-        val root = JSONObject(rawJson)
-        val version = root.optString("version").ifBlank { Version }
-        require(version == Version) { "Unsupported PageTurner catalog version: $version" }
-
-        val catalogId = root.requireString("id")
-        val baseUri = URI(catalogUrl)
-        val links = root.optJSONArray("links").toList { item ->
-            PageTurnerCatalogLink(
-                rel = item.requireString("rel"),
-                href = baseUri.resolve(item.requireString("href")).toString(),
-                type = item.optString("type").takeIf { it.isNotBlank() },
-            )
-        }
-        val items = root.optJSONArray("items").toList { item ->
-            item.toRemoteBookItem(
-                sourceType = RemoteSourceType.PageTurnerWebCatalog,
-                accountId = catalogId,
-                baseUri = baseUri,
-            )
-        }
-
-        return PageTurnerCatalog(
-            version = version,
-            id = catalogId,
-            title = root.optString("title").ifBlank { catalogId },
-            updatedAt = root.optString("updatedAt").takeIf { it.isNotBlank() },
-            links = links,
-            items = items,
-        )
-    }
-
-    private fun JSONObject.toRemoteBookItem(
-        sourceType: RemoteSourceType,
-        accountId: String,
-        baseUri: URI,
-    ): RemoteBookItem {
-        val remoteId = requireString("id")
-        val format = requireString("format").toDocumentFormat()
-        val hints = optJSONObject("translationHints")
-        return RemoteBookItem(
-            identity = RemoteBookIdentity(
-                sourceType = sourceType,
-                accountId = accountId,
-                remoteId = remoteId,
-            ),
-            title = requireString("title"),
-            authors = optJSONArray("authors").toStrings(),
-            format = format,
-            language = optString("language").takeIf { it.isNotBlank() },
-            downloadUrl = baseUri.resolve(requireString("href")).toString(),
-            contentType = optString("type").takeIf { it.isNotBlank() },
-            sizeBytes = if (has("size")) optLong("size") else null,
-            checksum = optString("checksum").takeIf { it.isNotBlank() },
-            updatedAt = optString("updatedAt").takeIf { it.isNotBlank() },
-            coverUrl = optString("cover").takeIf { it.isNotBlank() }?.let {
-                baseUri.resolve(it).toString()
-            },
-            translationHints = RemoteTranslationHints(
-                sourceLanguage = hints?.optString("sourceLanguage")?.ifBlank { "auto" } ?: "auto",
-                targetLanguages = hints?.optJSONArray("targetLanguages").toStrings(),
-            ),
-        )
-    }
-
-    private fun String.toDocumentFormat(): DocumentFormat {
-        return when (lowercase()) {
-            "epub" -> DocumentFormat.EPUB
-            "pdf" -> DocumentFormat.PDF
-            "md",
-            "markdown" -> DocumentFormat.MARKDOWN
-            "txt",
-            "text" -> DocumentFormat.TEXT
-            else -> error("Unsupported remote book format: $this")
-        }
-    }
-
-    private fun JSONObject.requireString(name: String): String {
-        val value = optString(name)
-        require(value.isNotBlank()) { "Catalog field '$name' is required." }
-        return value
-    }
-
-    private fun JSONArray?.toStrings(): List<String> {
-        if (this == null) return emptyList()
-        return List(length()) { index -> optString(index) }.filter { it.isNotBlank() }
-    }
-
-    private inline fun <T> JSONArray?.toList(mapper: (JSONObject) -> T): List<T> {
-        if (this == null) return emptyList()
-        return (0 until length()).mapNotNull { index ->
-            optJSONObject(index)?.let(mapper)
-        }
+    fun parse(rawJson: String, catalogUrl: String): PageTurnerCatalog {
+        val catalog = PageTurnerJsonCatalogParser.parse(rawJson, catalogUrl)
+        return PageTurnerCatalog(catalog.version, catalog.id, catalog.title, catalog.updatedAt,
+            catalog.links.map { PageTurnerCatalogLink(it.rel, it.href, it.type) },
+            catalog.items.map { item -> RemoteBookItem(
+                identity = RemoteBookIdentity(RemoteSourceType.PageTurnerWebCatalog, catalog.id, item.id),
+                title = item.title, authors = item.authors,
+                format = when (item.format) {
+                    "txt" -> DocumentFormat.TEXT
+                    "markdown" -> DocumentFormat.MARKDOWN
+                    "epub" -> DocumentFormat.EPUB
+                    "pdf" -> DocumentFormat.PDF
+                    else -> error("Unsupported parsed catalog format")
+                },
+                language = item.language, downloadUrl = item.href, contentType = item.type,
+                sizeBytes = item.size, checksum = item.checksum, updatedAt = item.updatedAt, coverUrl = item.cover,
+                translationHints = RemoteTranslationHints(item.translationHints.sourceLanguage, item.translationHints.targetLanguages),
+            ) })
     }
 }
-
 class PageTurnerWebCatalogSource(
     private val catalogUrl: String,
     private val fetchCatalog: suspend (String) -> String,

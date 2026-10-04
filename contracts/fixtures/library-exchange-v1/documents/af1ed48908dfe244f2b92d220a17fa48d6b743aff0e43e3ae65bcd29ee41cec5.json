@@ -1,0 +1,35 @@
+{
+  "id": "fixture:pdf",
+  "bookTitle": "PDF fixture",
+  "chapterTitle": "Page 1",
+  "language": "en",
+  "kind": "local",
+  "paragraphs": [
+    {
+      "paragraphId": "pdf-p-1",
+      "text": "Portable library fixture"
+    }
+  ],
+  "outline": [
+    {
+      "title": "Page 1",
+      "paragraphId": "pdf-p-1"
+    }
+  ],
+  "notes": [],
+  "organization": {
+    "folder": "",
+    "tags": [],
+    "favorite": false
+  },
+  "glossary": [],
+  "assets": [
+    {
+      "path": "assets/646afc0abe8b35d35cdf6c4ed88a4fcafe5a956225be324c5e082915ae7d4ccd",
+      "role": "pdf"
+    }
+  ],
+  "extensions": {
+    "pdfTextErrorPages": []
+  }
+}

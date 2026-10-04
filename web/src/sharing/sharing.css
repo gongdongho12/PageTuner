@@ -1,0 +1,25 @@
+.sharing-app { height:100dvh; width:100%; display:flex; flex-direction:column; overflow:hidden; background:var(--paper); }
+.sharing-header { display:flex; gap:8px; padding:8px 12px; border-bottom:1px solid var(--line); align-items:center; flex:none; min-height:60px; }
+.sharing-header strong { flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:15px; }
+.sharing-header select,.sharing-header button { min-height:44px; max-width:35%; background:white; color:black; border:1px solid var(--line); border-radius:0; padding:8px; font:inherit; font-size:13px; }
+.sharing-connect { margin:auto; padding:16px; width:min(100%,560px); min-height:0; overflow:hidden; }
+.sharing-connect h1 { font-size:24px; line-height:1.35; }
+.sharing-connect p,.sharing-connect small { line-height:1.6; }
+.sharing-connect form { display:flex; flex-direction:column; gap:8px; margin:12px 0; }
+.sharing-connect input { min-height:48px; border:1px solid var(--ink); padding:8px; font:inherit; font-size:22px; }
+.sharing-connect button { min-height:48px; }
+.sharing-library,.sharing-reader-slot { flex:1; min-height:0; display:flex; flex-direction:column; overflow:hidden; }
+.sharing-library-header { display:flex; align-items:center; gap:8px; padding:8px 12px; }
+.sharing-library-header h1 { flex:1; font-size:20px; margin:0; }
+.sharing-library-header button { min-height:44px; }
+.sharing-caption { margin:6px 12px; font-size:12px; color:var(--muted); flex:none; }
+.sharing-book { height:100%; width:100%; display:flex; gap:12px; padding:12px 16px; align-items:center; overflow:hidden; }
+.sharing-book > div { flex:1; min-width:0; display:flex; flex-direction:column; gap:8px; }
+.sharing-book strong { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.sharing-book span { font-size:12px; color:var(--muted); }
+.sharing-book button { min-height:44px; flex:none; }
+.sharing-error { display:flex; flex:none; align-items:center; gap:8px; border-bottom:1px solid var(--line); padding:8px 12px; font-size:13px; }
+.sharing-error span { flex:1; }
+.sharing-error button { min-height:44px; }
+.sharing-reader-slot > .reader { width:100%; flex:1; min-height:0; }
+@media(max-height:500px) { .sharing-header { min-height:48px; padding:2px 8px; } .sharing-reading .reader-toolbar { min-height:48px; flex-basis:48px; padding:2px 8px; } .sharing-connect { padding:4px 12px; } .sharing-connect h1 { font-size:18px; margin:4px 0; } .sharing-connect p { font-size:12px; margin:4px 0; } .sharing-connect form { margin:4px 0; gap:4px; } }

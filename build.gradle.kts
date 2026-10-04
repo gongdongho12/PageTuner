@@ -31,15 +31,24 @@ gradle.projectsEvaluated {
             ":core-model" to emptySet<String>(),
             ":core-content" to emptySet<String>(),
             ":core-translation" to setOf(":core-content"),
-            ":core-backup" to setOf(":core-translation"),
+            ":core-backup" to setOf(":core-translation", ":core-model"),
+            ":core-sharing" to emptySet<String>(),
         )
         val errors = mutableListOf<String>()
+        val allowedRuntimeDependencies = mapOf(
+            ":backup-runtime" to setOf(":core-backup"),
+            ":source-runtime" to setOf(":core-model", ":core-content"),
+            ":translation-runtime" to setOf(":core-content", ":core-translation"),
+            ":sharing-runtime" to setOf(":core-sharing"),
+        )
         val targets = module.configurations.flatMap { configuration ->
             configuration.dependencies.withType<org.gradle.api.artifacts.ProjectDependency>()
                 .map { it.path }
         }.toSet()
         // Android adds a self-reference for its test fixtures during late configuration.
-        val allowed = allowedCoreDependencies[module.path] ?: (allowedCoreDependencies.keys + module.path)
+        val allowed = allowedCoreDependencies[module.path]
+            ?: allowedRuntimeDependencies[module.path]
+            ?: (allowedCoreDependencies.keys + allowedRuntimeDependencies.keys + module.path)
         if (!targets.all { it in allowed }) {
             errors += "${module.path} has forbidden project dependencies: ${targets - allowed}"
         }
@@ -53,6 +62,15 @@ gradle.projectsEvaluated {
                 module.plugins.hasPlugin("com.android.library") ||
                 module.plugins.hasPlugin("org.springframework.boot")) {
                 errors += "${module.path} must not apply a platform framework plugin"
+            }
+        }
+        if (module.path in allowedRuntimeDependencies) {
+            val platformDependencies = listOf("api", "implementation", "compileOnly", "runtimeOnly")
+                .flatMap { module.configurations.findByName(it)?.dependencies.orEmpty() }
+                .filter { it.group.orEmpty().startsWith("androidx.") || it.group.orEmpty().startsWith("org.springframework") }
+            if (platformDependencies.isNotEmpty() || module.plugins.hasPlugin("com.android.library") ||
+                module.plugins.hasPlugin("com.android.application") || module.plugins.hasPlugin("org.springframework.boot")) {
+                errors += "${module.path} must remain a reusable JVM runtime without Android or Spring"
             }
         }
         verifyModuleBoundaries.configure { violations.addAll(errors) }

@@ -1,11 +1,11 @@
 import type { Book, Translation } from './model';
 export type Credentials = { username: string; password: string };
-function auth(credentials: Credentials) {
+export function basicAuthorization(credentials: Credentials) {
   if (!credentials.username || !credentials.password) throw new Error('Server credentials are required. / 서버 계정을 입력하세요.');
   return 'Basic ' + btoa(String.fromCharCode(...new TextEncoder().encode(`${credentials.username}:${credentials.password}`)));
 }
 export async function serverRequest(path: string, credentials: Credentials, body?: unknown): Promise<Response> {
-  const headers: Record<string, string> = { Authorization: auth(credentials) };
+  const headers: Record<string, string> = { Authorization: basicAuthorization(credentials) };
   if (body !== undefined) {
     const csrf = await fetch('/api/v1/csrf', { headers, cache: 'no-store', credentials: 'same-origin' });
     if (!csrf.ok) throw new Error(`Server authentication / 서버 인증: ${csrf.status}`);

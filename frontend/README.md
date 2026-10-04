@@ -1,7 +1,9 @@
 # PageTurner Web
 
-Independent **Next.js App Router + React + TypeScript** workspace alongside `/app`
-and `/server`. Android remains native; Spring owns persistent server records.
+Legacy **Next.js App Router + React + TypeScript** workspace alongside `/app`
+and `/server`, retained from the foundation PR. The current shared web reader and
+Android local-sharing frontend live in `/web`; their library exchange formats and
+browser storage are separate from this frontend. Android remains native; Spring owns persistent server records.
 Next.js serves the web UI, proxies Spring requests on the same origin, and handles
 translation provider requests. It does not duplicate the Spring database layer.
 
@@ -57,7 +59,7 @@ cannot make the gateway request arbitrary URLs; upstream redirects are refused.
   Completed results persist; the active queue itself does not survive a reload.
 - Local library JSON export, version/schema/hash validation, merge preview and
   non-destructive restore. Existing books, cache and preferences win conflicts.
-- Server library session login/logout, local source upload, book/chapter browsing,
+- Server library explicit connection/disconnection, local source upload, book/chapter browsing,
   saved translation reading, paragraph-based position sync with explicit conflict
   resolution, and server bookmarks. Open **Library → Server**.
 - Spring translation save, record backup download and JSON restore, including
@@ -83,8 +85,10 @@ separate libraries. Clearing browser data deletes these records. Download a
 library backup to a separate disk or storage service for actual recovery.
 
 API keys and server passwords remain in React memory for the current page session.
-They are excluded from IndexedDB and every local export. Spring session cookies
-are managed by Spring/browser rather than a local password store. Library backups
+They are excluded from IndexedDB and every local export. Every protected Spring request carries Basic credentials kept only in memory.
+Disconnect and reload clear the connection; reconnect explicitly after reopening
+the server view. Cookies carry CSRF state only and do not authenticate a request.
+Password changes therefore revoke old credentials on the next request. Library backups
 contain readable original books and translated text. Hashes detect corruption;
 they do not authenticate the author or encrypt content.
 
@@ -163,5 +167,5 @@ See [local deployment](../docs/LOCAL_DEPLOYMENT.md) and
 
 An optional sample book helps first-time readers try the app without choosing a
 file. A page without a cached translation displays its original immediately.
-The server library also accepts session credentials directly on its connection
+The server library also accepts credentials directly on its connection
 screen, while keeping the settings-based connection workflow.

@@ -27,6 +27,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.onNodeWithTag
@@ -52,6 +53,7 @@ import com.dongholab.pagetuner.ui.theme.EinkSoft
 import java.io.File
 import java.util.Locale
 import kotlin.math.ceil
+import kotlin.math.roundToInt
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Rule
@@ -75,7 +77,7 @@ class AdaptiveCollectionScreenBenchmarkTest {
 
     @Test
     fun benchmarkPagedAndTouchScrollForEveryAdaptiveCollectionScreen() {
-        assertEquals(11, ScreenFixtures.size)
+        assertEquals(29, ScreenFixtures.size)
 
         val activeScenario = mutableStateOf(
             BenchmarkScenario(ScreenFixtures.first(), ListLayoutMode.Paged, runId = 0),
@@ -235,12 +237,18 @@ private data class ScreenFixture(
     val actionCount: Int,
     val hasThumbnail: Boolean = false,
     val expandedTouchRowHeightDp: Int? = null,
+    val fontScaleAwareHeight: Boolean = false,
 )
 
 private val ScreenFixtures = listOf(
+    ScreenFixture("portable_library", "Local · ZIP exchange", "PortableLibraryPanel", 168, 3, 48, 3, 4, fontScaleAwareHeight = true),
+    ScreenFixture("portable_identity", "Local · Verify server copy", "PortableIdentityPanel", 116, 3, 13, 4, 1, fontScaleAwareHeight = true),
+    ScreenFixture("local_sharing", "Settings · Device sharing", "LocalSharingPanel", 160, 3, 6, 4, 1, fontScaleAwareHeight = true),
     ScreenFixture("local_library", "Local · Library", "LocalLibraryPanel", 124, 3, 48, 4, 2),
     ScreenFixture("local_directory", "Local · Device files", "LocalDirectoryBrowserPanel", 64, 5, 48, 1, 0),
-    ScreenFixture("favorites", "Favorites", "FavoritesPanel", 116, 3, 48, 3, 1),
+    ScreenFixture("favorites", "Favorites", "FavoritesPanel", 116, 3, 48, 3, 1, fontScaleAwareHeight = true),
+    ScreenFixture("source_favorites_sync", "Favorites · Account sync", "FavoritesScreen", 100, 3, 12, 2, 2, fontScaleAwareHeight = true),
+    ScreenFixture("book_glossary_sync", "Dictionary · Account sync", "ServerBookGlossaryPanel", 116, 3, 32, 2, 2, fontScaleAwareHeight = true),
     ScreenFixture("web_catalog_page", "Web Novel · Catalog page", "WebCatalogPagePanel", 104, 3, 80, 3, 2, hasThumbnail = true, expandedTouchRowHeightDp = 132),
     ScreenFixture("web_catalog_root", "Web Novel · Root catalog", "RemoteSourcesTodoPanel/catalog", 104, 3, 80, 3, 2, hasThumbnail = true, expandedTouchRowHeightDp = 132),
     ScreenFixture("web_detail_dialog", "Web Novel · Chapter dialog", "WebNovelDetailDialog", 64, 3, 80, 1, 1),
@@ -249,10 +257,24 @@ private val ScreenFixtures = listOf(
     ScreenFixture("book_glossary", "Reader · Book dictionary", "BookGlossaryPanel", 92, 4, 60, 2, 2),
     ScreenFixture("reader_bookmarks", "Reader · Bookmarks", "ReaderBookmarkPanel", 64, 5, 48, 2, 1),
     ScreenFixture("reader_annotations", "Reader · Notes", "ReaderAnnotationPanel", 76, 4, 48, 2, 1),
+    ScreenFixture("server_reading_notes", "Reader · Account notes", "ServerReadingNotesPanel/list", 76, 3, 48, 2, 1),
+    ScreenFixture("server_reader_preferences", "Settings · Account reader settings", "ServerReaderPreferencesPanel", 76, 3, 5, 3, 0),
+    ScreenFixture("server_reading_note_detail", "Reader · Account note detail", "ServerReadingNotesPanel/detail", 100, 3, 48, 4, 0),
+    ScreenFixture("server_connection", "Server · Connection", "ServerLibraryScreen/connection", 76, 3, 48, 1, 0),
+    ScreenFixture("server_profile", "Server · Account profile", "ServerLibraryScreen/profile", 76, 3, 48, 1, 0),
+    ScreenFixture("server_password", "Server · Password", "ServerLibraryScreen/password", 76, 3, 3, 1, 0),
+    ScreenFixture("server_languages", "Server · UI languages", "ServerLibraryScreen/languages", 108, 3, 14, 3, 1),
+    ScreenFixture("server_library", "Server · Library", "ServerLibraryScreen/library", 160, 2, 12, 3, 3),
+    ScreenFixture("server_library_filters", "Server · Library filters", "ServerLibraryFilterPanel", 100, 3, 5, 2, 0, fontScaleAwareHeight = true),
+    ScreenFixture("server_organization", "Server · Document classification", "ServerLibraryOrganizationPanel", 76, 3, 35, 1, 1),
+    ScreenFixture("server_document", "Server · This document", "ServerLibraryScreen/document", 154, 2, 24, 4, 1),
+    ScreenFixture("server_job_form", "Server · Translation form", "ServerTranslationJobsPanel/form", 76, 3, 8, 1, 0),
+    ScreenFixture("server_job_list", "Server · Translation jobs", "ServerTranslationJobsPanel/jobs", 176, 2, 12, 5, 1),
 )
 
 @Composable
 private fun BenchmarkScreen(fixture: ScreenFixture) {
+    val rowHeight = (fixture.pagedRowHeightDp * if (fixture.fontScaleAwareHeight) LocalDensity.current.fontScale else 1f).roundToInt()
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -272,7 +294,7 @@ private fun BenchmarkScreen(fixture: ScreenFixture) {
         )
         AdaptiveCollection(
             items = (1..fixture.itemCount).toList(),
-            estimatedPagedItemHeight = fixture.pagedRowHeightDp.dp,
+            estimatedPagedItemHeight = rowHeight.dp,
             modifier = Modifier
                 .weight(1f)
                 .testTag(CollectionTag),
@@ -282,7 +304,7 @@ private fun BenchmarkScreen(fixture: ScreenFixture) {
                 { item -> BenchmarkRow(fixture, item, expandedHeight) }
             },
         ) { item ->
-            BenchmarkRow(fixture, item, fixture.pagedRowHeightDp)
+            BenchmarkRow(fixture, item, rowHeight)
         }
     }
 }

@@ -1,0 +1,8 @@
+.translation-comparison { display: flex; flex-direction: column; flex: 1; min-width: 0; min-height: 0; overflow: hidden; }
+.comparison-modes { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 4px; flex: 0 0 auto; border-bottom: 1px solid var(--line); padding: 4px 0; }
+.comparison-modes button { min-height: 44px; color: var(--ink); background: var(--paper); border: 1px solid var(--line); font: inherit; }
+.comparison-modes button[aria-pressed="true"] { border-color: var(--ink); background: var(--panel); font-weight: 700; }
+.comparison-modes button:disabled { color: var(--muted); }
+.comparison-notice { display: flex; align-items: center; gap: 8px; flex: 0 0 auto; padding: 6px; border-bottom: 1px solid var(--line); font-size: 12px; }
+.comparison-notice > span { flex: 1; min-width: 0; }
+.comparison-notice button { min-height: 44px; flex: 0 0 auto; }

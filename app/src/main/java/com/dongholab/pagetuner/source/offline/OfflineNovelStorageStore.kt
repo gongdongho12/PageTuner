@@ -3,10 +3,14 @@ package com.dongholab.pagetuner.source.offline
 import android.content.Context
 import com.dongholab.pagetuner.document.DocumentIds
 import com.dongholab.pagetuner.source.RemoteBookItem
+import com.dongholab.pagetuner.storage.replaceFileAtomically
 import java.io.File
 import java.io.FileOutputStream
-import java.io.IOException
 import org.json.JSONObject
+import com.dongholab.pagetuner.portable.readPortableBytes
+
+data class OfflineSharingEntry(val path: String, val identity: String, val title: String, val language: String,
+    val translatedLanguages: List<String>, val savedAtMillis: Long, val errorCode: String? = null)
 
 data class OfflineChapterTranslation(
     val language: String,
@@ -54,6 +58,37 @@ class OfflineNovelStorageStore private constructor(
 
     private val lock = Any()
     private val memory = mutableMapOf<String, OfflineNovelChapter>()
+
+    /** A bounded, read-only inventory; account/path fields stay inside the platform adapter. */
+    fun listForSharing(): List<OfflineSharingEntry> = synchronized(lock) {
+        val root = rootDirectory?.canonicalFile ?: return@synchronized emptyList()
+        if (!root.isDirectory) return@synchronized emptyList()
+        val files = root.walkTopDown().maxDepth(8).filter { it.isFile && it.extension == "json" }.take(20_001).toList()
+        if (files.size > 20_000) return@synchronized listOf(OfflineSharingEntry("", DocumentIds.sha256("offline-library-limit"),
+            "Downloaded library exceeds sharing limit (20,000 files)", "und", emptyList(), 0, "document_too_large"))
+        files.mapNotNull { file ->
+            if (!file.canonicalPath.startsWith(root.path + File.separator)) return@mapNotNull null
+            val path = file.relativeTo(root).invariantSeparatorsPath
+            if (file.length() > 16L * 1024 * 1024) return@mapNotNull OfflineSharingEntry(path, DocumentIds.sha256(path),
+                "Downloaded chapter exceeds sharing limit", "und", emptyList(), file.lastModified(), "document_too_large")
+            runCatching {
+                val chapter = decode(file.inputStream().use { readPortableBytes(it, 16 * 1024 * 1024) }.toString(Charsets.UTF_8))
+                OfflineSharingEntry(path,
+                    DocumentIds.sha256(listOf(chapter.sourceType, chapter.sourceAccountId, chapter.seriesId, chapter.chapterId).joinToString("\u0000")),
+                    chapter.chapterTitle, chapter.sourceLanguage, chapter.translations.values.filter { it.text.isNotBlank() }.map { it.language }.distinct(), chapter.savedAtMillis)
+            }.getOrElse { OfflineSharingEntry(path, DocumentIds.sha256(path), "Unavailable downloaded chapter", "und", emptyList(), file.lastModified(), "document_unavailable") }
+        }.sortedByDescending { it.savedAtMillis }
+            .distinctBy { it.identity }
+    }
+
+    fun readForSharing(path: String): OfflineNovelChapter? = synchronized(lock) {
+        val root = rootDirectory?.canonicalFile ?: return@synchronized null
+        val file = root.resolve(path).canonicalFile
+        require(file.path.startsWith(root.path + File.separator) && file.extension == "json") { "Invalid offline library path." }
+        if (!file.isFile) return@synchronized null
+        require(file.length() <= 16L * 1024 * 1024) { "Offline chapter exceeds the sharing limit." }
+        decode(file.inputStream().use { readPortableBytes(it, 16 * 1024 * 1024) }.toString(Charsets.UTF_8))
+    }
 
     fun saveOriginalChapter(
         item: RemoteBookItem,
@@ -322,7 +357,7 @@ class OfflineNovelStorageStore private constructor(
                 output.write(bytes)
                 output.fd.sync()
             }
-            if (!temporary.renameTo(this)) throw IOException("Could not save offline chapter.")
+            replaceFileAtomically(temporary, this)
         } finally {
             if (temporary.exists()) temporary.delete()
         }

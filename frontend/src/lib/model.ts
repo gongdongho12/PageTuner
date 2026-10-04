@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { savedCatalogSchema } from './catalog';
+import { readerRanges } from './app-ui-contract';
 
 export const pageSchema = z.object({ text: z.string().max(200_000), chapter: z.string().max(1000) });
 export const bookSchema = z.object({
@@ -15,8 +16,9 @@ export const bookSchema = z.object({
     ctx.addIssue({ code: 'custom', message: 'Page reference is outside the document.' });
 });
 export const settingsSchema = z.object({
-  locale: z.enum(['en', 'ko']), fontSize: z.number().min(14).max(32), lineHeight: z.number().min(1.1).max(2.2),
-  margin: z.number().min(8).max(48), provider: z.enum(['google-web', 'google-cloud', 'llm']),
+  locale: z.enum(['en', 'ko']), fontSize: z.number().min(readerRanges.fontSize[0]).max(readerRanges.fontSize[1]),
+  lineHeight: z.number().min(readerRanges.lineHeight[0]).max(readerRanges.lineHeight[1]),
+  margin: z.number().min(readerRanges.margin[0]).max(readerRanges.margin[1]), provider: z.enum(['google-web', 'google-cloud', 'llm']),
   source: z.string().max(20), target: z.string().max(20), model: z.string().max(200),
   pacing: z.enum(['paced', 'fast']), delaySeconds: z.number().int().min(1).max(120),
   display: z.enum(['original', 'translation', 'both']), listMode: z.enum(['paged', 'scroll']),

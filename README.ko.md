@@ -202,8 +202,9 @@ app/build/outputs/apk/debug/app-debug.apk
 
 ## 웹 프런트엔드
 
-웹은 [`frontend/`](frontend/README.md)에 Next.js + React + TypeScript로 분리했습니다.
-기존 Android `app/`와 Spring `server/`는 유지합니다. 서재, 문서 읽기, 번역 대기열,
+기존 계정·소설 웹과 Android 로컬 공유 리더는 [`web/`](web/README.md)에 있습니다.
+[`frontend/`](frontend/README.md)는 별도 로컬 서재·백업 형식을 사용하는 Next.js + React + TypeScript 클라이언트입니다.
+Android `app/`와 Spring `server/`를 함께 사용합니다. 서재, 문서 읽기, 번역 대기열,
 백업·복원, 웹 카탈로그 및 서버 연동을 제공하며 상세 지원 범위는 프런트엔드 README를 확인하세요.
 
 ```bash

@@ -26,21 +26,32 @@ class AdaptiveCollectionBenchmarkCoverageTest {
             .toMap()
 
         assertEquals(ExpectedCallSites, actual)
-        assertEquals(11, actual.values.sum())
+        assertEquals(29, actual.values.sum())
     }
 
     private companion object {
         val AdaptiveCollectionCall = Regex("""\bAdaptiveCollection\s*\(""")
         val ExpectedCallSites = mapOf(
+            "com/dongholab/pagetuner/portable/PortableLibraryPanel.kt" to 1,
+            "com/dongholab/pagetuner/portable/PortableIdentityPanel.kt" to 1,
+            "com/dongholab/pagetuner/sharing/LocalSharingPanel.kt" to 1,
             "com/dongholab/pagetuner/ui/library/LocalDirectoryBrowserPanel.kt" to 1,
             "com/dongholab/pagetuner/ui/library/LocalLibraryPanel.kt" to 1,
             "com/dongholab/pagetuner/ui/reader/ReaderUi.kt" to 2,
+            "com/dongholab/pagetuner/ui/reader/ServerReadingNotesPanel.kt" to 2,
+            "com/dongholab/pagetuner/ui/settings/ServerReaderPreferencesPanel.kt" to 1,
+            "com/dongholab/pagetuner/ui/screen/ServerLibraryScreen.kt" to 6,
+            "com/dongholab/pagetuner/ui/screen/ServerLibraryFilterPanel.kt" to 1,
+            "com/dongholab/pagetuner/ui/screen/ServerLibraryOrganizationPanel.kt" to 1,
+            "com/dongholab/pagetuner/ui/screen/ServerTranslationJobsPanel.kt" to 2,
             "com/dongholab/pagetuner/ui/source/FavoritesPanel.kt" to 1,
+            "com/dongholab/pagetuner/ui/screen/FavoritesScreen.kt" to 1,
             "com/dongholab/pagetuner/ui/source/RemoteSourcesTodoPanel.kt" to 2,
             "com/dongholab/pagetuner/ui/source/WebCatalogPagePanel.kt" to 1,
             "com/dongholab/pagetuner/ui/source/WebNovelDetailDialog.kt" to 1,
             "com/dongholab/pagetuner/ui/source/WebNovelDetailPagePanel.kt" to 1,
             "com/dongholab/pagetuner/ui/translation/BookGlossaryPanel.kt" to 1,
+            "com/dongholab/pagetuner/ui/translation/ServerBookGlossaryPanel.kt" to 1,
         )
     }
 }

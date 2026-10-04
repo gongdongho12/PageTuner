@@ -1,0 +1,139 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "PageTurner Reader Preferences",
+    "version": "1.0.0",
+    "description": "Account-scoped compare-and-set portable reading controls. See reader-preferences-v1.md for explicit adoption, offline retry and conflict semantics."
+  },
+  "paths": {
+    "/api/v1/reader-preferences": {
+      "get": {
+        "operationId": "getReaderPreferences",
+        "security": [{ "basicAuth": [] }],
+        "responses": {
+          "200": { "$ref": "#/components/responses/ReaderPreferencesSuccess" },
+          "401": { "description": "Authentication required." }
+        }
+      },
+      "put": {
+        "operationId": "putReaderPreferences",
+        "security": [{ "basicAuth": [] }],
+        "parameters": [{ "name": "X-CSRF-TOKEN", "in": "header", "required": true, "schema": { "type": "string" }, "description": "Use /api/v1/csrf and its matching session cookie." }],
+        "requestBody": {
+          "required": true,
+          "description": "At most 8 KiB, including chunked JSON. Preserve the complete request for response-loss retries.",
+          "content": { "application/json": { "schema": { "$ref": "#/components/schemas/PutReaderPreferencesRequest" } } }
+        },
+        "responses": {
+          "200": { "$ref": "#/components/responses/ReaderPreferencesSuccess" },
+          "400": { "$ref": "#/components/responses/ReaderPreferencesError" },
+          "401": { "description": "Authentication required." },
+          "403": { "description": "Missing or invalid CSRF token." },
+          "409": {
+            "description": "CONFLICT includes current; preserve pending local preferences for an explicit choice. EXHAUSTED is terminal and omits current.",
+            "headers": { "Cache-Control": { "schema": { "type": "string", "enum": ["no-store"] } } },
+            "content": { "application/problem+json": { "schema": { "oneOf": [
+              { "$ref": "#/components/schemas/ReaderPreferencesConflict" },
+              { "$ref": "#/components/schemas/ReaderPreferencesExhausted" }
+            ] } } }
+          },
+          "413": { "$ref": "#/components/responses/ReaderPreferencesError" },
+          "429": {
+            "description": "Per-account write limit. Preserve pending values and obey Retry-After.",
+            "headers": {
+              "Cache-Control": { "schema": { "type": "string", "enum": ["no-store"] } },
+              "Retry-After": { "required": true, "schema": { "type": "integer", "minimum": 1, "maximum": 60 } }
+            },
+            "content": { "application/problem+json": { "schema": { "$ref": "#/components/schemas/ReaderPreferencesProblem" } } }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": { "basicAuth": { "type": "http", "scheme": "basic" } },
+    "responses": {
+      "ReaderPreferencesSuccess": {
+        "description": "Current account preferences. Version zero has null preferences and updatedAt; positive versions have both. GET never creates defaults.",
+        "headers": { "Cache-Control": { "schema": { "type": "string", "enum": ["no-store"] } } },
+        "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ReaderPreferencesView" } } }
+      },
+      "ReaderPreferencesError": {
+        "description": "Invalid request or exceeded body limit. Error codes are described in reader-preferences-v1.md.",
+        "headers": { "Cache-Control": { "schema": { "type": "string", "enum": ["no-store"] } } },
+        "content": { "application/problem+json": { "schema": { "$ref": "#/components/schemas/ReaderPreferencesProblem" } } }
+      }
+    },
+    "schemas": {
+      "ReaderPreferences": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["fontSize", "lineHeightPercent", "pageMargin", "touchDirection", "listMode"],
+        "properties": {
+          "fontSize": { "type": "integer", "minimum": 14, "maximum": 36, "description": "Logical CSS pixels / Android sp." },
+          "lineHeightPercent": { "type": "integer", "minimum": 110, "maximum": 240, "description": "Line height multiplier times 100; e.g. 195 means 1.95." },
+          "pageMargin": { "type": "integer", "minimum": 0, "maximum": 48, "description": "Logical CSS pixels / Android dp." },
+          "touchDirection": { "type": "string", "enum": ["left-previous", "left-next", "buttons-only"] },
+          "listMode": { "type": "string", "enum": ["paged", "scroll"], "description": "List screens only; the reader body stays paged." }
+        }
+      },
+      "ReaderPreferencesView": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["version", "preferences", "updatedAt"],
+        "properties": {
+          "version": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
+          "preferences": { "nullable": true, "allOf": [{ "$ref": "#/components/schemas/ReaderPreferences" }] },
+          "updatedAt": { "type": "string", "format": "date-time", "nullable": true, "description": "Server UTC timestamp; informational, never a concurrency token." }
+        }
+      },
+      "PutReaderPreferencesRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["expectedVersion", "mutationId", "preferences"],
+        "properties": {
+          "expectedVersion": { "type": "integer", "minimum": 0, "maximum": 9007199254740990 },
+          "mutationId": { "type": "string", "format": "uuid", "description": "Generate for each new update; preserve the entire request when retrying response loss." },
+          "preferences": { "$ref": "#/components/schemas/ReaderPreferences" }
+        }
+      },
+      "ReaderPreferencesProblem": {
+        "type": "object",
+        "required": ["status"],
+        "properties": {
+          "type": { "type": "string" },
+          "title": { "type": "string" },
+          "status": { "type": "integer" },
+          "detail": { "type": "string" },
+          "instance": { "type": "string" },
+          "code": { "type": "string" }
+        }
+      },
+      "ReaderPreferencesConflict": {
+        "type": "object",
+        "required": ["status", "code", "current"],
+        "properties": {
+          "type": { "type": "string" },
+          "title": { "type": "string" },
+          "status": { "type": "integer", "enum": [409] },
+          "detail": { "type": "string" },
+          "instance": { "type": "string" },
+          "code": { "type": "string", "enum": ["READER_PREFERENCES_CONFLICT"] },
+          "current": { "$ref": "#/components/schemas/ReaderPreferencesView" }
+        }
+      },
+      "ReaderPreferencesExhausted": {
+        "type": "object",
+        "required": ["status", "code"],
+        "properties": {
+          "type": { "type": "string" },
+          "title": { "type": "string" },
+          "status": { "type": "integer", "enum": [409] },
+          "detail": { "type": "string" },
+          "instance": { "type": "string" },
+          "code": { "type": "string", "enum": ["READER_PREFERENCES_EXHAUSTED"] }
+        }
+      }
+    }
+  }
+}

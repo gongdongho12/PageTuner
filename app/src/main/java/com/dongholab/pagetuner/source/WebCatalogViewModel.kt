@@ -8,11 +8,11 @@ import com.dongholab.pagetuner.common.DiagnosticLogger
 import com.dongholab.pagetuner.core.paging.PageMetadata
 import com.dongholab.pagetuner.source.offline.OfflineNovelStorageStore
 import com.dongholab.pagetuner.translation.ContentTranslationServiceFactory
-import com.dongholab.pagetuner.translation.TranslationPaceMode
 import com.dongholab.pagetuner.translation.TranslationSettings
 import java.net.SocketException
 import java.net.SocketTimeoutException
 import java.net.UnknownHostException
+import java.util.concurrent.atomic.AtomicLong
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -23,24 +23,10 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.async
-import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 private const val DefaultCatalogUrl = "https://wtr-lab.com/en/novel-list"
-private const val MaxThumbnailBytes = 2 * 1024 * 1024
-private const val MaxCachedThumbnails = 60
-
-data class CatalogTranslationProgress(
-    val completedItems: Int,
-    val totalItems: Int,
-    val currentTitle: String,
-    val failedItems: Int = 0,
-) {
-    val fraction: Float
-        get() = if (totalItems == 0) 1f else completedItems.toFloat() / totalItems
-}
 
 private data class ImportPayload(
     val bytes: ByteArray,
@@ -141,11 +127,15 @@ sealed interface WebCatalogEvent {
 class WebCatalogViewModel(
     private val cache: RemoteCatalogCache,
     private val accountStore: RemoteSourceAccountStore,
-    private val pageService: WebCatalogPageService = DefaultWebCatalogPageService(),
+    private val pageService: WebCatalogPageService = DefaultWebCatalogPageService(pageStore = cache.pageStore()),
 ) : ViewModel() {
-    private var offlineDownloadJob: Job? = null
-    private var catalogTranslationJob: Job? = null
+    private val offlineDownloadCoordinator = OfflineBookDownloadCoordinator(viewModelScope)
+    private val catalogTranslationCoordinator = CatalogTranslationCoordinator(viewModelScope)
+    private val coverRepository = CoverThumbnailRepository()
     private var catalogPreloadJob: Job? = null
+    private var catalogPageJob: Job? = null
+    private val catalogPageGeneration = AtomicLong()
+    private val pagePrefetcher = CatalogPagePrefetcher(viewModelScope, pageService)
     private var coverThumbnailJob: Job? = null
     private val _uiState = MutableStateFlow(WebCatalogUiState())
     val uiState: StateFlow<WebCatalogUiState> = _uiState.asStateFlow()
@@ -258,8 +248,7 @@ class WebCatalogViewModel(
     fun loadRemoteCatalogPage(page: Int) {
         val state = _uiState.value
         if (state.busy || state.catalogLoading != null || state.remotePaging == null) return
-        val targetPage = page.coerceIn(1, state.remotePaging.totalPages ?: Int.MAX_VALUE)
-        if (targetPage == state.remotePaging.currentPage) return
+        val targetPage = state.remotePaging.catalogNavigationTarget(page) ?: return
         catalogPreloadJob?.cancel()
         loadWebNovelPage(
             url = state.catalogUrl,
@@ -311,10 +300,12 @@ class WebCatalogViewModel(
                         pageNumber = 1,
                     ),
                     onStep = ::updateCatalogLoadStep,
-                ).also { loaded -> cache.saveStructured(DefaultCatalogUrl, loaded.catalog) }
+                )
             }.onSuccess { loaded ->
                 if (_uiState.value.catalogUrl == DefaultCatalogUrl) {
-                    applyLoadedWebNovelCatalog(loaded, cachedCatalogs = cache.list())
+                    applyLoadedWebNovelCatalog(loaded)
+                    pagePrefetcher.schedule(WebCatalogPageRequest(DefaultCatalogUrl, defaultWtrLabAccount().id, 1), loaded)
+                    updateLegacyCatalogIndex(DefaultCatalogUrl, loaded)
                 }
             }.onFailure { error ->
                 if (cached == null && error !is CancellationException) {
@@ -506,58 +497,38 @@ class WebCatalogViewModel(
 
     fun translateVisibleCatalog(context: Context, settings: TranslationSettings) {
         if (_uiState.value.busy || !settings.isProviderConfigured) return
-        val items = _uiState.value.visibleItems
-        if (items.isEmpty()) return
-        catalogTranslationJob?.cancel()
-        catalogTranslationJob = viewModelScope.launch {
-            _uiState.update {
-                it.copy(
-                    busy = true,
-                    catalogTranslationProgress = CatalogTranslationProgress(0, items.size, items.first().title),
-                )
-            }
-            val translator = DefaultRemoteCatalogTranslationService(
-                ContentTranslationServiceFactory.create(context.applicationContext, settings),
-            )
-            runCatching {
-                translator.translate(
-                    items = items,
-                    settings = settings.copy(paceMode = TranslationPaceMode.OFFLINE_PREFETCH),
-                    onProgress = { progress ->
-                        val completedItems = ((progress.fraction * items.size).toInt()).coerceIn(0, items.size)
-                        _uiState.update { state ->
-                            state.copy(
-                                catalogTranslationProgress = CatalogTranslationProgress(
-                                    completedItems = completedItems,
-                                    totalItems = items.size,
-                                    currentTitle = items.getOrElse(completedItems.coerceAtMost(items.lastIndex)) { items.last() }.title,
-                                ),
-                            )
-                        }
-                    },
-                )
-            }.onSuccess { translations ->
+        val appContext = context.applicationContext
+        catalogTranslationCoordinator.start(
+            items = _uiState.value.visibleItems,
+            settings = settings,
+            createService = {
+                DefaultRemoteCatalogTranslationService(ContentTranslationServiceFactory.create(appContext, settings))
+            },
+            onUpdate = { update ->
                 _uiState.update { state ->
-                    state.copy(translatedItems = state.translatedItems + translations)
+                    when (update) {
+                        is CatalogTranslationUpdate.Running -> state.copy(
+                            busy = true, catalogTranslationProgress = update.progress,
+                        )
+                        is CatalogTranslationUpdate.Completed -> state.copy(
+                            busy = false, catalogTranslationProgress = null,
+                            translatedItems = state.translatedItems + update.translations,
+                        )
+                        is CatalogTranslationUpdate.Failed -> state.copy(
+                            busy = false, catalogTranslationProgress = null,
+                            status = update.error.toWebCatalogStatus(),
+                        )
+                        CatalogTranslationUpdate.Cancelled -> state.copy(
+                            busy = false, catalogTranslationProgress = null,
+                        )
+                    }
                 }
-            }.onFailure { error ->
-                if (error is CancellationException) return@onFailure
-                _uiState.update { state ->
-                    state.copy(
-                        status = error.toWebCatalogStatus(),
-                        catalogTranslationProgress = state.catalogTranslationProgress?.copy(
-                            failedItems = items.size - (state.catalogTranslationProgress?.completedItems ?: 0),
-                        ),
-                    )
-                }
-            }
-            _uiState.update { it.copy(busy = false, catalogTranslationProgress = null) }
-        }
+            },
+        )
     }
 
     fun cancelCatalogTranslation() {
-        catalogTranslationJob?.cancel()
-        _uiState.update { it.copy(busy = false, catalogTranslationProgress = null) }
+        catalogTranslationCoordinator.cancel()
     }
 
     fun downloadChaptersForOffline(
@@ -567,46 +538,45 @@ class WebCatalogViewModel(
         includeTranslation: Boolean = true,
     ) {
         if (_uiState.value.busy || chapters.isEmpty()) return
-        offlineDownloadJob?.cancel()
-        offlineDownloadJob = viewModelScope.launch {
-            _uiState.update { it.copy(busy = true, batchDownloadProgress = null) }
-            runCatching {
+        val appContext = context.applicationContext
+        val snapshot = chapters.toList()
+        offlineDownloadCoordinator.start(
+            download = { onProgress ->
                 WebNovelBatchDownloader.downloadChaptersInBackground(
-                    context = context.applicationContext,
-                    chapters = chapters,
+                    context = appContext,
+                    chapters = snapshot,
                     settings = settings,
                     includeTranslation = includeTranslation,
-                    onProgress = { progress ->
-                        _uiState.update { state -> state.copy(batchDownloadProgress = progress) }
-                    },
+                    onProgress = onProgress,
                 )
-            }.onSuccess { result ->
-                _uiState.update { state ->
-                    state.copy(
-                        status = if (result.failedItems > 0) {
+            },
+            onUpdate = { update ->
+                _uiState.update { state -> when (update) {
+                    OfflineDownloadUpdate.Started -> state.copy(busy = true, batchDownloadProgress = null)
+                    is OfflineDownloadUpdate.Progress -> state.copy(batchDownloadProgress = update.value)
+                    is OfflineDownloadUpdate.Completed -> state.copy(
+                        busy = false,
+                        status = if (update.result.failedItems > 0) {
                             WebCatalogStatus.Error(
-                                result.failureMessages.firstOrNull()
-                                    ?: "${result.failedItems} chapter(s) could not be saved.",
+                                update.result.failureMessages.firstOrNull()
+                                    ?: "${update.result.failedItems} chapter(s) could not be saved.",
                             )
                         } else {
                             WebCatalogStatus.OfflineSaved(
-                                savedItems = result.savedItems,
-                                translationFailedItems = result.translationFailedItems,
+                                savedItems = update.result.savedItems,
+                                translationFailedItems = update.result.translationFailedItems,
                             )
                         },
                     )
-                }
-            }.onFailure { error ->
-                if (error is CancellationException) return@onFailure
-                _uiState.update { state -> state.copy(status = error.toWebCatalogStatus()) }
-            }
-            _uiState.update { it.copy(busy = false) }
-        }
+                    is OfflineDownloadUpdate.Failed -> state.copy(busy = false, status = update.error.toWebCatalogStatus())
+                    OfflineDownloadUpdate.Cancelled -> state.copy(busy = false, batchDownloadProgress = null)
+                } }
+            },
+        )
     }
 
     fun cancelOfflineDownload() {
-        offlineDownloadJob?.cancel()
-        _uiState.update { it.copy(busy = false, batchDownloadProgress = null) }
+        offlineDownloadCoordinator.cancel()
     }
 
     fun refreshCachedCatalogs() {
@@ -777,7 +747,11 @@ class WebCatalogViewModel(
         page: Int,
         forceRefresh: Boolean,
     ) {
-        viewModelScope.launch {
+        catalogPageJob?.cancel()
+        pagePrefetcher.cancel()
+        val generation = catalogPageGeneration.incrementAndGet()
+        val request = WebCatalogPageRequest(url, accountId, page, forceRefresh)
+        catalogPageJob = viewModelScope.launch {
             _uiState.update { state ->
                 state.copy(
                     catalogLoading = WebCatalogLoading(WebCatalogLoadPhase.CheckingCache, page),
@@ -794,16 +768,14 @@ class WebCatalogViewModel(
             )
             runCatching {
                 pageService.load(
-                    request = WebCatalogPageRequest(
-                        url = url,
-                        accountId = accountId,
-                        pageNumber = page,
-                        forceRefresh = forceRefresh,
-                    ),
-                    onStep = ::updateCatalogLoadStep,
+                    request = request,
+                    onStep = { step ->
+                        if (catalogPageGeneration.get() == generation) updateCatalogLoadStep(step)
+                    },
                 )
             }.onSuccess { loaded ->
-                val logStep = if (loaded.fromMemoryCache) {
+                if (catalogPageGeneration.get() != generation) return@onSuccess
+                val logStep = if (loaded.fromMemoryCache || loaded.fromDiskCache) {
                     "[WEB CATALOG CACHE HIT]"
                 } else {
                     "[WEB CATALOG SUCCESS]"
@@ -812,12 +784,12 @@ class WebCatalogViewModel(
                     logStep,
                     "provider=${loaded.providerId} page=${loaded.paging.currentPage}/${loaded.paging.totalPages} items=${loaded.catalog.items.size} total=${loaded.paging.totalItems} durationMs=${(System.nanoTime() - startedAtNanos) / 1_000_000L}",
                 )
-                if (loaded.paging.currentPage == 1) {
-                    cache.saveStructured(url, loaded.catalog)
-                }
-                applyLoadedWebNovelCatalog(loaded, cachedCatalogs = cache.list())
+                applyLoadedWebNovelCatalog(loaded)
+                pagePrefetcher.schedule(request, loaded)
+                updateLegacyCatalogIndex(url, loaded)
             }.onFailure { error ->
                 if (error !is CancellationException) {
+                    if (catalogPageGeneration.get() != generation) return@onFailure
                     DiagnosticLogger.log(
                         "[WEB CATALOG FAILURE]",
                         "provider=${adapter?.id ?: "unknown"} page=$page durationMs=${(System.nanoTime() - startedAtNanos) / 1_000_000L} ${error.javaClass.simpleName}: ${error.message}",
@@ -848,6 +820,18 @@ class WebCatalogViewModel(
         }
     }
 
+    private suspend fun updateLegacyCatalogIndex(url: String, loaded: WebCatalogPageData) {
+        try {
+            if (loaded.paging.currentPage == 1) cache.saveStructured(url, loaded.catalog)
+            val catalogs = cache.list()
+            _uiState.update { it.copy(cachedCatalogs = catalogs) }
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (error: Exception) {
+            DiagnosticLogger.log("[CATALOG INDEX WRITE FAILED]", error.javaClass.simpleName)
+        }
+    }
+
     private fun applyLoadedWebNovelCatalog(
         loaded: WebCatalogPageData,
         cachedCatalogs: List<CachedWebCatalog>? = null,
@@ -868,7 +852,9 @@ class WebCatalogViewModel(
                 cachedCatalogs = cachedCatalogs ?: state.cachedCatalogs,
                 remotePaging = loaded.paging,
                 catalogLoading = null,
-                status = WebCatalogStatus.LoadedRemote(
+                status = if (loaded.fromDiskCache || loaded.isStale) WebCatalogStatus.LoadedCached(
+                    title = loaded.catalog.title, itemCount = loaded.catalog.items.size,
+                ) else WebCatalogStatus.LoadedRemote(
                     title = loaded.catalog.title,
                     itemCount = loaded.catalog.items.size,
                     currentPage = loaded.paging.currentPage,
@@ -878,24 +864,6 @@ class WebCatalogViewModel(
             )
         }
         prefetchCoverThumbnails(visible)
-        if (loaded.paging.hasNextPage) {
-            prefetchNextCatalogPage(currentState.catalogUrl, loaded.paging.currentPage + 1)
-        }
-    }
-
-    private fun prefetchNextCatalogPage(url: String, pageNumber: Int) {
-        viewModelScope.launch(Dispatchers.IO) {
-            runCatching {
-                pageService.load(
-                    WebCatalogPageRequest(
-                        url = url,
-                        accountId = accountIdForCatalog(url),
-                        pageNumber = pageNumber,
-                        forceRefresh = false,
-                    ),
-                )
-            }
-        }
     }
 
     private fun accountIdForCatalog(url: String): String {
@@ -919,48 +887,16 @@ class WebCatalogViewModel(
     }
 
     private fun prefetchCoverThumbnails(items: List<RemoteBookItem>) {
-        val urls = items
-            .take(12)
-            .mapNotNull { it.coverUrl }
-            .filter { url -> url !in _uiState.value.coverThumbnails }
-            .distinct()
-        if (urls.isEmpty()) return
-
         coverThumbnailJob?.cancel()
-        coverThumbnailJob = viewModelScope.launch(Dispatchers.IO) {
-            val deferred = urls.map { url ->
-                async {
-                    DiagnosticLogger.log("[COVER STEP 1: FETCH START]", "Requesting thumbnail: $url")
-                    runCatching {
-                        PageTurnerWebCatalogNetwork.fetchBytes(
-                            url = url,
-                            maxBytes = MaxThumbnailBytes,
-                        )
-                    }.fold(
-                        onSuccess = { bytes ->
-                            DiagnosticLogger.log("[COVER STEP 2: FETCH OK]", "Downloaded ${bytes.size} bytes from $url")
-                            url to bytes
-                        },
-                        onFailure = { error ->
-                            if (error is CancellationException) throw error
-                            DiagnosticLogger.log("[COVER STEP 2: FETCH FAIL]", "$url → ${error.javaClass.simpleName}: ${error.message}")
-                            null
-                        },
-                    )
-                }
-            }
-            val loadedPairs = deferred.awaitAll().filterNotNull()
-            if (loadedPairs.isNotEmpty()) {
-                val loadedThumbnails = loadedPairs.toMap()
-                _uiState.update { state ->
-                    val merged = state.coverThumbnails + loadedThumbnails
-                    val pruned = if (merged.size > MaxCachedThumbnails) {
-                        merged.entries.toList().takeLast(MaxCachedThumbnails).associate { it.key to it.value }
-                    } else {
-                        merged
-                    }
-                    state.copy(coverThumbnails = pruned)
-                }
+        val urls = items.mapNotNull { it.coverUrl }
+        if (urls.isEmpty()) {
+            _uiState.update { it.copy(coverThumbnails = emptyMap()) }
+            return
+        }
+        coverThumbnailJob = viewModelScope.launch {
+            val loaded = coverRepository.load(urls)
+            _uiState.update { state ->
+                state.copy(coverThumbnails = loaded)
             }
         }
     }

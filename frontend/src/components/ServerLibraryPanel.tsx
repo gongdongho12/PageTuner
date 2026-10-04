@@ -28,12 +28,9 @@ export function ServerLibraryPanel({ settings, credentials, localBook, t, report
   const writer = useRef<ProgressWriter | null>(null); const anchor = useRef<ServerAnchor | null>(null);
   const sourceText = useRef<PagedTextHandle>(null); const translationText = useRef<PagedTextHandle>(null);
   const alive = useRef(true);
-  useEffect(() => { alive.current = true; return () => { alive.current = false; }; }, []);
-  useEffect(() => { let active = true;
-    api.session().then(async session => { const list = await api.books(); if (active) { setUser(session.username); setBooks(list); } })
-      .catch(e => { if (active && !(e instanceof ServerApiError && e.status === 401)) setError(String(e)); });
-    return () => { active = false; };
-  }, [api]);
+  useEffect(() => { alive.current = true; return () => {
+    alive.current = false; writer.current?.stop(); api.logout();
+  }; }, [api]);
   const run = async (action: () => Promise<void>) => {
     setBusy(true); setError('');
     try { await action(); } catch (e) {
@@ -112,7 +109,8 @@ export function ServerLibraryPanel({ settings, credentials, localBook, t, report
   return <section className={`panel reader-panel ${focus ? 'focus-mode' : ''}`}>
     {!focus && <><div className="section-heading"><h2 title={book?.title}>{view === 'books' || view === 'upload' ? label('server') : book?.title}</h2>
       {view === 'books' ? <button disabled={busy} onClick={() => void run(async () => {
-        await api.logout(); writer.current?.stop(); setUser(''); setBooks(empty()); setBook(undefined); setChapter(undefined);
+        writer.current?.stop(); api.logout(); setCredentials({ ...credentials, password: '' });
+        setUser(''); setBooks(empty()); setBook(undefined); setChapter(undefined);
       })}>{label('disconnect')}</button> : <button disabled={busy} onClick={() => setView(view === 'reader' || view === 'bookmarks' ? 'chapters' : 'books')}>{t('previous')}</button>}</div>
       {error && <p role="alert">{error}</p>}{busy && <p role="status">{t('loading')}</p>}</>}
     {view === 'books' && <>

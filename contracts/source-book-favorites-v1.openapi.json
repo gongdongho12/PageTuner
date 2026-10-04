@@ -1,0 +1,92 @@
+{
+  "openapi": "3.0.3",
+  "info": {"title":"PageTurner Source Book Favorites", "version":"1.0.0", "description":"Exact provider/book identity, explicit local adoption, per-item CAS and immutable account change feed. See source-book-favorites-v1.md."},
+  "paths": {
+    "/api/v1/source-book-favorites": {
+      "get": {
+        "operationId":"getSourceBookFavoriteChanges",
+        "security":[{"basicAuth":[]}],
+        "parameters":[
+          {"name":"afterRevision","in":"query","schema":{"type":"integer","minimum":0,"maximum":9007199254740991,"default":0}},
+          {"name":"untilRevision","in":"query","schema":{"type":"integer","minimum":0,"maximum":9007199254740991},"description":"Continue the captured watermark; between afterRevision and current committed revision."},
+          {"name":"limit","in":"query","schema":{"type":"integer","minimum":1,"maximum":100,"default":50}}
+        ],
+        "responses": {
+          "200":{"description":"Immutable committed changes. Persist page and cursor atomically.","headers":{"Cache-Control":{"schema":{"type":"string","enum":["no-store"]}}},"content":{"application/json":{"schema":{"$ref":"#/components/schemas/SourceBookFavoriteChanges"}}}},
+          "400":{"$ref":"#/components/responses/SourceBookFavoriteError"},
+          "401":{"description":"Authentication required."}
+        }
+      },
+      "put": {
+        "operationId":"putSourceBookFavorite",
+        "security":[{"basicAuth":[]}],
+        "parameters":[{"name":"X-CSRF-TOKEN","in":"header","required":true,"schema":{"type":"string"},"description":"Use /api/v1/csrf and matching session cookie."}],
+        "requestBody":{"required":true,"description":"Strict JSON at most 32 KiB; preserve exact request for replay.","content":{"application/json":{"schema":{"$ref":"#/components/schemas/PutSourceBookFavoriteRequest"}}}},
+        "responses":{
+          "200":{"description":"Created, updated, deleted, restored or exact latest mutation replay.","headers":{"Cache-Control":{"schema":{"type":"string","enum":["no-store"]}}},"content":{"application/json":{"schema":{"$ref":"#/components/schemas/SourceBookFavoriteItem"}}}},
+          "400":{"$ref":"#/components/responses/SourceBookFavoriteError"},
+          "401":{"description":"Authentication required."},
+          "403":{"description":"Missing or invalid CSRF token."},
+          "409":{"description":"CONFLICT includes authoritative current; REVISION_EXHAUSTED does not. Preserve local pending edits.","headers":{"Cache-Control":{"schema":{"type":"string","enum":["no-store"]}}},"content":{"application/problem+json":{"schema":{"$ref":"#/components/schemas/SourceBookFavoriteProblem"}}}},
+          "413":{"$ref":"#/components/responses/SourceBookFavoriteError"},
+          "429":{"description":"Per-account write limit.","headers":{"Retry-After":{"required":true,"schema":{"type":"integer","minimum":1,"maximum":60}},"Cache-Control":{"schema":{"type":"string","enum":["no-store"]}}},"content":{"application/problem+json":{"schema":{"$ref":"#/components/schemas/SourceBookFavoriteProblem"}}}}
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes":{"basicAuth":{"type":"http","scheme":"basic"}},
+    "responses":{"SourceBookFavoriteError":{"description":"Request rejected.","headers":{"Cache-Control":{"schema":{"type":"string","enum":["no-store"]}}},"content":{"application/problem+json":{"schema":{"$ref":"#/components/schemas/SourceBookFavoriteProblem"}}}}},
+    "schemas": {
+      "SourceBookFavoriteMetadata": {
+        "type":"object","additionalProperties":false,"required":["title","authors","language","url"],
+        "properties": {
+          "title":{"type":"string","minLength":1,"maxLength":500,"description":"UTF-16 units; canonical ECMAScript trim, no controls or unpaired surrogates."},
+          "authors":{"type":"array","maxItems":20,"items":{"type":"string","minLength":1,"maxLength":200}},
+          "language":{"type":"string","minLength":1,"maxLength":35},
+          "url":{"type":"string","format":"uri","minLength":1,"maxLength":2048,"description":"Absolute HTTP(S) visible ASCII URI, no credentials, percent escapes in authority, backslash or whitespace; port absent or 0..65535. Host is ASCII DNS (labels 1..63 characters, name at most 253 excluding optional trailing dot, final multi-label DNS label starts with a letter), canonical four decimal IPv4 octets 0..255 without leading zeros or trailing dot, or bracketed pure IPv6 without zone ID or dotted IPv4 tail. Numeric/hex hosts requiring browser IPv4 repair are rejected."}
+        }
+      },
+      "PutSourceBookFavoriteRequest": {
+        "type":"object","additionalProperties":false,"required":["providerId","bookId","expectedVersion","mutationId","deleted","book"],
+        "properties": {
+          "providerId":{"type":"string","minLength":1,"maxLength":100,"description":"Exact original provider ID, canonical UTF-16 text."},
+          "bookId":{"type":"string","minLength":1,"maxLength":500,"description":"Exact original book ID, canonical UTF-16 text. Never truncate or infer from title/URL."},
+          "expectedVersion":{"type":"integer","minimum":0,"maximum":9007199254740990},
+          "mutationId":{"type":"string","format":"uuid"},
+          "deleted":{"type":"boolean"},
+          "book":{"nullable":true,"allOf":[{"$ref":"#/components/schemas/SourceBookFavoriteMetadata"}],"description":"Null exactly when deleted is true."}
+        }
+      },
+      "SourceBookFavoriteItem": {
+        "type":"object","additionalProperties":false,"required":["providerId","bookId","version","changeRevision","deleted","book","updatedAt"],
+        "properties": {
+          "providerId":{"type":"string","minLength":1,"maxLength":100},
+          "bookId":{"type":"string","minLength":1,"maxLength":500},
+          "version":{"type":"integer","minimum":0,"maximum":9007199254740991},
+          "changeRevision":{"type":"integer","minimum":0,"maximum":9007199254740991},
+          "deleted":{"type":"boolean"},
+          "book":{"nullable":true,"allOf":[{"$ref":"#/components/schemas/SourceBookFavoriteMetadata"}]},
+          "updatedAt":{"type":"string","format":"date-time","nullable":true,"description":"UTC timestamp; null only for absent version0 conflict current."}
+        }
+      },
+      "SourceBookFavoriteChanges": {
+        "type":"object","additionalProperties":false,"required":["items","nextAfterRevision","watermark","hasMore"],
+        "properties": {
+          "items":{"type":"array","maxItems":100,"items":{"$ref":"#/components/schemas/SourceBookFavoriteItem"}},
+          "nextAfterRevision":{"type":"integer","minimum":0,"maximum":9007199254740991},
+          "watermark":{"type":"integer","minimum":0,"maximum":9007199254740991},
+          "hasMore":{"type":"boolean"}
+        }
+      },
+      "SourceBookFavoriteProblem": {
+        "type":"object","required":["type","title","status","detail"],
+        "properties": {
+          "type":{"type":"string"},"title":{"type":"string"},"status":{"type":"integer"},"detail":{"type":"string"},"instance":{"type":"string"},
+          "code":{"type":"string","enum":["SOURCE_BOOK_FAVORITE_INVALID","SOURCE_BOOK_FAVORITE_MUTATION_REUSED","SOURCE_BOOK_FAVORITE_CONFLICT","SOURCE_BOOK_FAVORITE_REVISION_EXHAUSTED","SOURCE_BOOK_FAVORITE_LIMIT"]},
+          "current":{"$ref":"#/components/schemas/SourceBookFavoriteItem"}
+        }
+      }
+    }
+  }
+}

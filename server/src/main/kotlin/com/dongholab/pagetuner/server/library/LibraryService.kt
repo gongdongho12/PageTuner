@@ -136,6 +136,11 @@ class LibraryService(private val jdbc: JdbcTemplate, private val mapper: ObjectM
         val paragraph = chapter.paragraphs.find { it.paragraphId == anchor.paragraphId }
         require(paragraph != null) { "Paragraph does not belong to this chapter." }
         require(anchor.characterOffset in 0..paragraph.text.length) { "Character offset is outside the paragraph." }
+        val offset = anchor.characterOffset
+        require(offset == 0 || offset == paragraph.text.length ||
+            !(paragraph.text[offset - 1].isHighSurrogate() && paragraph.text[offset].isLowSurrogate())) {
+            "Character offset splits a Unicode character."
+        }
     }
     private fun ResultSet.anchor() = AnchorRequest(getObject("chapter_id", UUID::class.java), getString("paragraph_id"), getInt("character_offset"))
     private fun validatePage(page: Int, size: Int) {

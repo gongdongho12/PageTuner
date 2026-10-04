@@ -16,15 +16,6 @@ import org.json.JSONObject
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 
-data class RenderedChapter(
-    val title: String,
-    val paragraphs: List<String>,
-)
-
-fun interface RenderedChapterLoader {
-    suspend fun loadChapter(url: String, chapterNumber: Int): RenderedChapter
-}
-
 /**
  * Runtime bridge used by sources created outside Compose. The application installs one
  * process-wide loader backed by the application Context.
@@ -35,6 +26,7 @@ object WebNovelPageRuntime {
         private set
 
     fun install(context: Context) {
+        SourceDiagnostics.sink = com.dongholab.pagetuner.common.DiagnosticLogger::log
         if (renderedChapterLoader == null) {
             synchronized(this) {
                 if (renderedChapterLoader == null) {

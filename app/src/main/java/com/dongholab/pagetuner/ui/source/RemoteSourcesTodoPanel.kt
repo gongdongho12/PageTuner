@@ -121,6 +121,9 @@ fun RemoteSourcesTodoPanel(
     onTranslateCatalog: () -> Unit,
     onRemoteCatalogPageSelected: (Int) -> Unit,
     onBatchDownloadChapters: (List<RemoteBookItem>) -> Unit,
+    isFavorite: (RemoteBookItem) -> Boolean = { false },
+    onToggleFavorite: (RemoteBookItem) -> Unit = {},
+    onBookResolved: (RemoteBookItem) -> Unit = {},
     hierarchyResolver: RemoteBookHierarchyResolver = RoutingRemoteBookHierarchyResolver.default,
 ) {
     val pageStateHolder = rememberSaveableStateHolder()
@@ -164,6 +167,9 @@ fun RemoteSourcesTodoPanel(
                         onReadAndTranslateItem(chapter)
                     },
                     onBatchDownloadChapters = onBatchDownloadChapters,
+        isFavorite = isFavorite,
+        onToggleFavorite = onToggleFavorite,
+        onBookResolved = onBookResolved,
                 )
                 return@Column
             }

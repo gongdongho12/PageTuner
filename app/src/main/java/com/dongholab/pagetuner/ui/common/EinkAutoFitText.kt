@@ -101,10 +101,7 @@ fun EinkAutoFitText(
                 val candidate = (searchLower + upper) / 2
                 val measured = textMeasurer.measure(
                     text = text,
-                    style = textStyle.copy(
-                        fontSize = candidate.sp,
-                        lineHeight = (candidate * lineSpacing).sp,
-                    ),
+                    style = textStyle.copy(fontSize = candidate.sp, lineHeight = (candidate * lineSpacing).sp),
                     overflow = TextOverflow.Clip,
                     softWrap = true,
                     maxLines = Int.MAX_VALUE,

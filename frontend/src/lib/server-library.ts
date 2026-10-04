@@ -1,5 +1,5 @@
 import type { Book } from './model';
-import type { Credentials } from './server-api';
+import { basicAuthorization, type Credentials } from './server-api';
 export type ServerPage<T> = { items: T[]; page: number; size: number; totalItems: number; totalPages: number };
 export type ServerBook = { id: string; title: string; author: string; sourceLanguage: string; chapterCount: number; createdAt: string };
 export type ServerChapterSummary = { id: string; ordinal: number; title: string; sourceRevision: string };
@@ -14,27 +14,40 @@ export class ServerApiError extends Error {
 }
 const part = encodeURIComponent;
 export class ServerLibraryApi {
+  private authorization = '';
+  private generation = 0;
   constructor(private fetcher: typeof fetch = (...args) => fetch(...args)) {}
-  private async raw(path: string, init: RequestInit = {}) {
-    const response = await this.fetcher(`/api/v1${path}`, { credentials: 'include', cache: 'no-store', signal: AbortSignal.timeout(30_000), ...init });
+  private async raw(path: string, init: RequestInit = {}, generation = this.generation) {
+    if (!this.authorization || generation !== this.generation) throw new ServerApiError(401);
+    const headers = new Headers(init.headers);
+    headers.set('Authorization', this.authorization);
+    const response = await this.fetcher(`/api/v1${path}`, { credentials: 'same-origin', cache: 'no-store', signal: AbortSignal.timeout(30_000), ...init, headers });
+    if (generation !== this.generation) throw new ServerApiError(401);
     if (!response.ok) throw new ServerApiError(response.status);
     return response;
   }
-  private async csrf() { return (await this.raw('/csrf')).json() as Promise<{ headerName: string; token: string }>; }
   async request<T>(path: string, method = 'GET', body?: unknown): Promise<T> {
+    const generation = this.generation;
     const headers: Record<string, string> = {};
-    if (method !== 'GET') { const csrf = await this.csrf(); headers[csrf.headerName] = csrf.token; }
+    if (method !== 'GET') {
+      const csrf = await (await this.raw('/csrf', {}, generation)).json() as { headerName: string; token: string };
+      headers[csrf.headerName] = csrf.token;
+    }
     if (body !== undefined) headers['Content-Type'] = 'application/json';
-    const response = await this.raw(path, { method, headers, ...(body === undefined ? {} : { body: JSON.stringify(body) }) });
-    return response.status === 204 ? undefined as T : response.json();
+    const response = await this.raw(path, { method, headers, ...(body === undefined ? {} : { body: JSON.stringify(body) }) }, generation);
+    const result = response.status === 204 ? undefined as T : await response.json() as T;
+    if (generation !== this.generation) throw new ServerApiError(401);
+    return result;
   }
   session() { return this.request<{ username: string }>('/session'); }
   async login(credentials: Credentials) {
-    const csrf = await this.csrf();
-    await this.raw('/session', { method: 'POST', headers: { [csrf.headerName]: csrf.token }, body: new URLSearchParams(credentials) });
-    return this.session();
+    const generation = ++this.generation;
+    this.authorization = '';
+    this.authorization = basicAuthorization(credentials);
+    try { return await this.session(); }
+    catch (error) { if (generation === this.generation) this.logout(); throw error; }
   }
-  logout() { return this.request<void>('/session/logout', 'POST'); }
+  logout() { this.generation++; this.authorization = ''; }
   books(page = 0, query = '') { return this.request<ServerPage<ServerBook>>(`/library/books?${new URLSearchParams({ page: String(page), size: '20', query })}`); }
   chapters(bookId: string, page = 0) { return this.request<ServerPage<ServerChapterSummary>>(`/library/books/${part(bookId)}/chapters?page=${page}&size=20`); }
   chapter(bookId: string, chapterId: string) { return this.request<ServerChapter>(`/library/books/${part(bookId)}/chapters/${part(chapterId)}`); }
@@ -44,7 +57,7 @@ export class ServerLibraryApi {
   addBookmark(bookId: string, anchor: ServerAnchor, note: string) { return this.request<ServerBookmark>(`/library/books/${part(bookId)}/bookmarks`, 'POST', { anchor, note }); }
   deleteBookmark(bookId: string, id: string) { return this.request<void>(`/library/books/${part(bookId)}/bookmarks/${part(id)}`, 'DELETE'); }
   translations(book: ServerBook, chapter: ServerChapter, language: string) {
-    return this.request<ServerPage<ServerTranslation>>(`/translations?${new URLSearchParams({ contentProviderId: 'library', bookId: book.id, chapterId: chapter.id, sourceRevision: chapter.sourceRevision, targetLanguage: language, size: '100' })}`);
+    return this.request<ServerPage<ServerTranslation>>(`/translations?${new URLSearchParams({ contentProviderId: 'library', bookId: book.id, chapterId: chapter.id, sourceRevision: chapter.sourceRevision, sourceLanguage: chapter.sourceLanguage, targetLanguage: language, size: '50' })}`);
   }
   translation(recordId: string) { return this.request<{ paragraphs: ServerParagraph[] }>(`/translations/${part(recordId)}`); }
   importBook(book: Book, sourceLanguage: string) { return this.request<ServerBook>('/library/books', 'POST', bookForServer(book, sourceLanguage)); }

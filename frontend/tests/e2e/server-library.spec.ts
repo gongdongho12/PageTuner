@@ -12,6 +12,7 @@ test('server library reads without skipping subpages, saves anchors and resolves
   page.on('pageerror', e => errors.push(e.message));
   await page.route('**/api/v1/**', async route => {
     const url = new URL(route.request().url()); const method = route.request().method();
+    expect(route.request().headers().authorization).toBe('Basic ' + Buffer.from('reader:password').toString('base64'));
     if (url.pathname.endsWith('/csrf')) return route.fulfill({ json: { headerName: 'X-CSRF-TOKEN', token: 'test-token' } });
     if (url.pathname.endsWith('/session')) return route.fulfill({ json: { username: 'reader' } });
     if (url.pathname.endsWith('/translations')) return route.fulfill({ json: envelope([]) });
@@ -36,6 +37,9 @@ test('server library reads without skipping subpages, saves anchors and resolves
   });
   await page.goto('/');
   await page.getByRole('button', { name: 'Server', exact: true }).click();
+  await page.getByRole('textbox', { name: 'Server username', exact: true }).fill('reader');
+  await page.getByLabel('Server password (this session only)', { exact: true }).fill('password');
+  await page.getByRole('button', { name: 'Connect', exact: true }).click();
   await page.getByRole('button', { name: 'Read', exact: true }).click();
   await page.getByRole('button', { name: 'Read', exact: true }).click();
   const copy = page.locator('.reading-surface .reader-copy').first();

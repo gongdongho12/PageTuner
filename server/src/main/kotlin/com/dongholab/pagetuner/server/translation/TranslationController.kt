@@ -1,18 +1,19 @@
 package com.dongholab.pagetuner.server.translation
 
+import com.dongholab.pagetuner.server.organization.libraryFilterRequest
 import jakarta.validation.Valid
 import java.util.UUID
 import java.security.Principal
+import org.springframework.http.HttpHeaders
+import org.springframework.http.MediaType
 import org.springframework.http.ResponseEntity
 import org.springframework.http.HttpStatus
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PathVariable
 import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.RequestBody
-import org.springframework.web.bind.annotation.RequestParam
 import org.springframework.web.bind.annotation.RequestMapping
-import org.springframework.http.HttpHeaders
-import org.springframework.http.MediaType
+import org.springframework.web.bind.annotation.RequestParam
 import org.springframework.web.bind.annotation.RestController
 
 @RestController
@@ -21,11 +22,22 @@ class TranslationController(
     private val service: TranslationApplicationService,
 ) {
     @GetMapping
-    fun list(principal: Principal, @RequestParam(defaultValue = "0") page: Int,
-        @RequestParam(defaultValue = "20") size: Int, @RequestParam(required = false) contentProviderId: String?,
-        @RequestParam(required = false) bookId: String?, @RequestParam(required = false) chapterId: String?,
-        @RequestParam(required = false) sourceRevision: String?, @RequestParam(required = false) targetLanguage: String?) =
-        service.list(principal.name, page, size, contentProviderId, bookId, chapterId, sourceRevision, targetLanguage)
+    fun list(
+        principal: Principal,
+        @RequestParam(defaultValue = "0") page: Int,
+        @RequestParam(defaultValue = "12") size: Int,
+        @RequestParam(required = false) q: String? = null,
+        @RequestParam(required = false) folder: String? = null,
+        @RequestParam(required = false) tag: String? = null,
+        @RequestParam(required = false) favorite: String? = null,
+        @RequestParam(required = false) contentProviderId: String? = null,
+        @RequestParam(required = false) bookId: String? = null,
+        @RequestParam(required = false) chapterId: String? = null,
+        @RequestParam(required = false) sourceRevision: String? = null,
+        @RequestParam(required = false) sourceLanguage: String? = null,
+        @RequestParam(required = false) targetLanguage: String? = null,
+    ): TranslationListResponse = service.list(principal.name, page, size, libraryFilterRequest(q, folder, tag, favorite),
+        TranslationLookupFilter(contentProviderId, bookId, chapterId, sourceRevision, sourceLanguage, targetLanguage))
 
     @PostMapping
     fun save(

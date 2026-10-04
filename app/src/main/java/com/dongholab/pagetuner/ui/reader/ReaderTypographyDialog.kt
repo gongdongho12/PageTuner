@@ -111,61 +111,61 @@ fun ReaderTypographyDialog(
                     }
                 }
 
-                // 2. Font Size (14 ~ 28 sp)
+                // 2. Font Size (14 ~ 36 sp)
                 TypographyStepperRow(
                     label = stringResource(R.string.typography_font_size),
                     currentValueText = "${fontSizeSp} sp",
                     value = fontSizeSp.toFloat(),
-                    valueRange = 14f..28f,
-                    steps = 13,
+                    valueRange = 14f..36f,
+                    steps = 21,
                     decrementLabel = "A-",
                     incrementLabel = "A+",
                     canDecrement = fontSizeSp > 14,
-                    canIncrement = fontSizeSp < 28,
+                    canIncrement = fontSizeSp < 36,
                     onDecrement = { onFontSizeChange((fontSizeSp - 1).coerceAtLeast(14)) },
-                    onIncrement = { onFontSizeChange((fontSizeSp + 1).coerceAtMost(28)) },
-                    onSliderChange = { onFontSizeChange(it.roundToInt().coerceIn(14, 28)) },
+                    onIncrement = { onFontSizeChange((fontSizeSp + 1).coerceAtMost(36)) },
+                    onSliderChange = { onFontSizeChange(it.roundToInt().coerceIn(14, 36)) },
                 )
 
-                // 3. Line Spacing (1.1x ~ 1.8x)
+                // 3. Line Spacing (1.1x ~ 2.4x)
                 TypographyStepperRow(
                     label = stringResource(R.string.typography_line_spacing),
                     currentValueText = "%.2fx".format(lineSpacing),
                     value = lineSpacing,
-                    valueRange = 1.1f..1.8f,
-                    steps = 6,
+                    valueRange = 1.1f..2.4f,
+                    steps = 12,
                     decrementLabel = "-",
                     incrementLabel = "+",
                     canDecrement = lineSpacing > 1.11f,
-                    canIncrement = lineSpacing < 1.79f,
+                    canIncrement = lineSpacing < 2.39f,
                     onDecrement = {
                         val next = ((lineSpacing - 0.05f) * 100f).roundToInt() / 100f
-                        onLineSpacingChange(next.coerceIn(1.1f, 1.8f))
+                        onLineSpacingChange(next.coerceIn(1.1f, 2.4f))
                     },
                     onIncrement = {
                         val next = ((lineSpacing + 0.05f) * 100f).roundToInt() / 100f
-                        onLineSpacingChange(next.coerceIn(1.1f, 1.8f))
+                        onLineSpacingChange(next.coerceIn(1.1f, 2.4f))
                     },
                     onSliderChange = {
-                        val rounded = ((it * 100f).roundToInt() / 100f).coerceIn(1.1f, 1.8f)
+                        val rounded = ((it * 100f).roundToInt() / 100f).coerceIn(1.1f, 2.4f)
                         onLineSpacingChange(rounded)
                     },
                 )
 
-                // 4. Page Margin (8 ~ 36 dp)
+                // 4. Page Margin (0 ~ 48 dp)
                 TypographyStepperRow(
                     label = stringResource(R.string.typography_page_margin),
                     currentValueText = "${pageMarginDp} dp",
                     value = pageMarginDp.toFloat(),
-                    valueRange = 8f..36f,
-                    steps = 13,
+                    valueRange = 0f..48f,
+                    steps = 21,
                     decrementLabel = "-",
                     incrementLabel = "+",
-                    canDecrement = pageMarginDp > 8,
-                    canIncrement = pageMarginDp < 36,
-                    onDecrement = { onPageMarginChange((pageMarginDp - 2).coerceAtLeast(8)) },
-                    onIncrement = { onPageMarginChange((pageMarginDp + 2).coerceAtMost(36)) },
-                    onSliderChange = { onPageMarginChange(it.roundToInt().coerceIn(8, 36)) },
+                    canDecrement = pageMarginDp > 0,
+                    canIncrement = pageMarginDp < 48,
+                    onDecrement = { onPageMarginChange((pageMarginDp - 2).coerceAtLeast(0)) },
+                    onIncrement = { onPageMarginChange((pageMarginDp + 2).coerceAtMost(48)) },
+                    onSliderChange = { onPageMarginChange(it.roundToInt().coerceIn(0, 48)) },
                 )
             }
         },
