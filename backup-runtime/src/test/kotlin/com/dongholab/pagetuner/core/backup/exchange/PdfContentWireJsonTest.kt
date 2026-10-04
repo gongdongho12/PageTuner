@@ -173,6 +173,45 @@ class PdfContentWireJsonTest {
         reject { PdfContentWireJson.decodeRecord(bytes(tooMany), recordId) }
     }
 
+    @Test fun lexicalBudgetsRejectLargeNumericArraysAndNestedArraysBeforeDtoParsing() {
+        val numericArray = List(100_000) { "1" }.joinToString(prefix = "[", postfix = "]", separator = ",")
+        val large = "{\"payloads\":$numericArray}"
+        val arrayError = assertThrows(IllegalArgumentException::class.java) {
+            PdfContentWireJson.decodeRecord(large.toByteArray(), recordId)
+        }
+        assertEquals("JSON array exceeds the entry limit.", arrayError.cause?.message)
+
+        // Each child array meets the per-array limit; their combined graph still must be bounded.
+        val child = List(4096) { "1" }.joinToString(prefix = "[", postfix = "]", separator = ",")
+        val nested = "{\"payloads\":" + List(9) { child }.joinToString(prefix = "[", postfix = "]", separator = ",") + "}"
+        val totalError = assertThrows(IllegalArgumentException::class.java) {
+            PdfContentWireJson.decodeRecord(nested.toByteArray(), recordId)
+        }
+        assertEquals("JSON exceeds the total value limit.", totalError.cause?.message)
+
+        // Budgets are opt-in. Legacy ZIP validation and normalization retain their grammar/limits.
+        StrictExchangeJson.validate(large)
+        assertEquals(nested.replace("1", "1.0"), StrictExchangeJson.normalize(nested))
+        StrictExchangeJson.validate("{\"items\":[1,2,3]}", maxArrayEntries = 3, maxValues = 5)
+        reject { StrictExchangeJson.validate("{\"items\":[1,2,3]}", maxArrayEntries = 2) }
+        reject { StrictExchangeJson.validate("{\"items\":[1,2,3]}", maxValues = 4) }
+    }
+
+    @Test fun maximumParagraphReferenceAndPayloadCountsFitTheLexicalBudget() {
+        val pdf = ExchangeAsset("%PDF-opaque storage fixture".toByteArray(), "application/pdf")
+        val images = List(PdfContentValidation.MAX_PAYLOADS - 1) { ExchangeAsset(byteArrayOf((it + 1).toByte()), "image/png") }
+        val c = PdfContentDocument(language = "en",
+            paragraphs = List(PdfContentValidation.MAX_PARAGRAPHS) { ExchangeParagraph("p$it", "") },
+            assets = listOf(ExchangeAssetReference(pdf.path, "pdf")) + List(PdfContentValidation.MAX_REFERENCES - 1) {
+                ExchangeAssetReference(images[it % images.size].path, "image", "p$it", "")
+            },
+            payloads = (listOf(pdf) + images).map { PdfContentPayload(it.path, it.mimeType, PdfContentBase64.encode(it.bytes)) })
+        val checked = PdfContentValidation.validateContent(c)
+        val decoded = PdfContentWireJson.decodeRecord(bytes(record(c)), recordId)
+        assertEquals(c, decoded.content)
+        assertEquals(checked.proof, decoded.proof)
+    }
+
     @Test fun csrfAndProblemBoundariesRejectHeaderInjectionCoercionAndDuplicateFields() {
         assertEquals("X-CSRF-TOKEN" to "token", PdfContentWireJson.decodeCsrf("{\"headerName\":\"X-CSRF-TOKEN\",\"token\":\"token\"}".toByteArray()))
         listOf("{\"headerName\":\"Authorization\",\"token\":\"token\"}", "{\"headerName\":\"X-CSRF-TOKEN\",\"token\":\"bad\\r\\nvalue\"}",

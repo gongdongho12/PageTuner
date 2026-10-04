@@ -66,7 +66,10 @@ object PdfContentWireJson {
         require(bytes.size in 1..limit) { "PDF response exceeds the wire byte limit." }
         val raw = ExchangeJson.utf8(bytes)
         // Unlike ZIP extensions, the HTTP schema rejects fractional/exponent literal spellings.
-        StrictExchangeJson.validate(raw, integerNumbersOnly = true)
+        // The full legal GET profile needs fewer than 15,000 values. Bound the lexical object
+        // graph as well as wire bytes, including malformed nested arrays, before org.json parses it.
+        StrictExchangeJson.validate(raw, integerNumbersOnly = true,
+            maxArrayEntries = PdfContentValidation.MAX_PARAGRAPHS, maxValues = 32_768)
         return JSONObject(raw)
     }
 
