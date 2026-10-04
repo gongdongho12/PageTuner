@@ -1,0 +1,61 @@
+{
+  "version": 1,
+  "snapshots": [
+    {
+      "providerId": "wtr-lab",
+      "bookId": "https://wtr-lab.com/en/novel/42/river",
+      "targetLanguage": "ko",
+      "presence": "present",
+      "entries": [
+        {
+          "id": "original-entry-2:人物🌏",
+          "sourceTerm": " Alice ",
+          "translatedTerm": " 앨리스 ",
+          "displayTerm": " 아리 ",
+          "kind": "Character",
+          "caseSensitive": true,
+          "enabled": true
+        },
+        {
+          "id": "disabled-place-1",
+          "sourceTerm": "River",
+          "translatedTerm": "강",
+          "displayTerm": "",
+          "kind": "Place",
+          "caseSensitive": false,
+          "enabled": false
+        },
+        {
+          "id": "term-3",
+          "sourceTerm": "River",
+          "translatedTerm": " 리버 ",
+          "displayTerm": "  ",
+          "kind": "Term",
+          "caseSensitive": false,
+          "enabled": true
+        }
+      ]
+    },
+    {
+      "providerId": "wtr-lab",
+      "bookId": "https://wtr-lab.com/en/novel/42/river",
+      "targetLanguage": "en",
+      "presence": "present",
+      "entries": []
+    },
+    {
+      "providerId": "wtr-lab",
+      "bookId": "https://wtr-lab.com/en/novel/42/river",
+      "targetLanguage": "ja",
+      "presence": "deleted",
+      "entries": null
+    },
+    {
+      "providerId": "wtr-lab",
+      "bookId": "https://wtr-lab.com/en/novel/42/river",
+      "targetLanguage": "zh-hans",
+      "presence": "absent",
+      "entries": null
+    }
+  ]
+}

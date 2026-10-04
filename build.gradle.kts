@@ -31,7 +31,7 @@ gradle.projectsEvaluated {
             ":core-model" to emptySet<String>(),
             ":core-content" to emptySet<String>(),
             ":core-translation" to setOf(":core-content"),
-            ":core-backup" to setOf(":core-translation"),
+            ":core-backup" to setOf(":core-translation", ":core-model"),
             ":core-sharing" to emptySet<String>(),
         )
         val errors = mutableListOf<String>()
