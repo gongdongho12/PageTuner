@@ -37,6 +37,14 @@ class LocalBookJsonTest {
                     createdAtMillis = 160L,
                 ),
             ),
+            remoteSourceType = "WebNovel",
+            remoteAccountId = "wtr",
+            remoteSeriesId = "https://wtr-lab.com/en/novel/42/example",
+            currentRemoteChapterId = "chapter_9",
+            currentChapterTitle = "Chapter 9",
+            currentChapterNumber = 9,
+            contentLanguage = "ko",
+            contentIsTranslated = true,
         )
 
         val decoded = LocalBookJson.decode(LocalBookJson.encode(listOf(book)))

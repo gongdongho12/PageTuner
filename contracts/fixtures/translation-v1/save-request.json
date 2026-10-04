@@ -1,0 +1,22 @@
+{
+  "contentProviderId": "fixture-site",
+  "bookId": "book-42",
+  "chapterId": "chapter-7",
+  "sourceRevision": "source-v1",
+  "sourceLanguage": "en",
+  "targetLanguage": "ko",
+  "translationProviderId": "fixture-translator",
+  "modelId": "model-v1",
+  "promptRevision": "prompt-v1",
+  "glossaryRevision": "glossary-v1",
+  "paragraphs": [
+    {
+      "paragraphId": "p-1",
+      "text": "첫 번째 문단입니다."
+    },
+    {
+      "paragraphId": "p-2",
+      "text": "두 번째 문단입니다."
+    }
+  ]
+}

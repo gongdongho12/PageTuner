@@ -13,14 +13,19 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -38,6 +43,7 @@ import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -56,36 +62,67 @@ import com.dongholab.pagetuner.library.toLocalBookBookmark
 import com.dongholab.pagetuner.library.toReaderAnnotation
 import com.dongholab.pagetuner.library.toReaderBookmark
 import com.dongholab.pagetuner.reader.ReaderViewModel
+import com.dongholab.pagetuner.portable.PortableLibraryViewModel
+import com.dongholab.pagetuner.portable.PortableLibraryPanel
+import com.dongholab.pagetuner.portable.PortableOpened
 import com.dongholab.pagetuner.settings.ReaderSettings
 import com.dongholab.pagetuner.settings.ReaderSettingsStore
 import com.dongholab.pagetuner.settings.SettingsViewModel
 import com.dongholab.pagetuner.source.RemoteCatalogCache
+import com.dongholab.pagetuner.source.RemoteCatalogRoute
 import com.dongholab.pagetuner.source.RemoteSourceAccountStore
 import com.dongholab.pagetuner.source.WebCatalogEvent
 import com.dongholab.pagetuner.source.WebCatalogViewModel
+import com.dongholab.pagetuner.source.WebNovelPageRuntime
+import com.dongholab.pagetuner.source.offline.OfflineNovelStorageStore
 import com.dongholab.pagetuner.translation.JsonFileTranslationCache
 import com.dongholab.pagetuner.translation.TranslationProviderFactory
+import com.dongholab.pagetuner.translation.TranslationProviderKind
 import com.dongholab.pagetuner.translation.TranslationRepository
+import com.dongholab.pagetuner.translation.TranslationRuntimeSecrets
 import com.dongholab.pagetuner.translation.TranslationSettings
 import com.dongholab.pagetuner.translation.TranslationStatus
 import com.dongholab.pagetuner.translation.TranslationViewModel
+import com.dongholab.pagetuner.translation.sync.ServerLibraryViewModel
+import com.dongholab.pagetuner.translation.sync.glossaryTarget
+import com.dongholab.pagetuner.translation.sync.ServerLibraryEvent
+import com.dongholab.pagetuner.translation.sync.ServerReadingDocument
+import com.dongholab.pagetuner.translation.sync.ServerReadingProgressViewModel
+import com.dongholab.pagetuner.translation.sync.FileServerReadingProgressStore
+import com.dongholab.pagetuner.translation.sync.FileServerReadingNotesStore
+import com.dongholab.pagetuner.translation.sync.ServerReadingNotesViewModel
+import com.dongholab.pagetuner.translation.sync.FileServerReaderPreferencesStore
+import com.dongholab.pagetuner.translation.sync.ServerReaderPreferencesViewModel
+import com.dongholab.pagetuner.translation.sync.ReaderPreferencesPatch
+import com.dongholab.pagetuner.ui.reader.ServerReadingNotesPanel
+import com.dongholab.pagetuner.translation.sync.ServerLibraryKind
+import com.dongholab.pagetuner.translation.glossary.BookGlossaryStore
+import com.dongholab.pagetuner.translation.glossary.BookGlossaryViewModel
+import com.dongholab.pagetuner.translation.glossary.GlossaryTranslationProvider
 import com.dongholab.pagetuner.ui.LanguagePreset
 import com.dongholab.pagetuner.ui.common.AppTab
 import com.dongholab.pagetuner.ui.common.AppTabNavigation
 import com.dongholab.pagetuner.ui.common.ComingSoonPanel
+import com.dongholab.pagetuner.ui.common.LocalListLayoutMode
 import com.dongholab.pagetuner.ui.common.StatusStrip
+import com.dongholab.pagetuner.ui.common.EinkSegmentedControl
 import com.dongholab.pagetuner.ui.reader.DocumentDetailsDialog
 import com.dongholab.pagetuner.ui.reader.ReaderAnnotationPanel
 import com.dongholab.pagetuner.ui.reader.ReaderBookmarkPanel
 import com.dongholab.pagetuner.ui.reader.ReaderHeader
+import com.dongholab.pagetuner.ui.reader.ReaderFullscreenSystemBars
 import com.dongholab.pagetuner.ui.reader.ReaderPager
 import com.dongholab.pagetuner.ui.reader.ReaderSearchPanel
 import com.dongholab.pagetuner.ui.reader.ReaderSurface
+import com.dongholab.pagetuner.ui.reader.forReaderPage
+import com.dongholab.pagetuner.ui.reader.isReaderPageTurnBlocked
+import com.dongholab.pagetuner.ui.reader.readerViewportPolicy
 import com.dongholab.pagetuner.ui.screen.FavoritesScreen
 import com.dongholab.pagetuner.ui.screen.LocalScreen
 import com.dongholab.pagetuner.ui.screen.ReaderActions
 import com.dongholab.pagetuner.ui.screen.SettingsScreen
 import com.dongholab.pagetuner.ui.screen.WebNovelScreen
+import com.dongholab.pagetuner.ui.screen.ServerLibraryScreen
 import com.dongholab.pagetuner.ui.screen.buildReaderActions
 import com.dongholab.pagetuner.ui.text.localizedMessage
 import com.dongholab.pagetuner.ui.text.readableMessage
@@ -95,6 +132,7 @@ import com.dongholab.pagetuner.ui.theme.paperColor
 import kotlin.math.abs
 import kotlin.math.roundToInt
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
@@ -103,12 +141,18 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         setContent {
-            PageTurnerTheme(darkTheme = false, dynamicColor = false) {
-                PageTurnerApp()
+            val accountViewModel: ServerLibraryViewModel = viewModel()
+            val accountState by accountViewModel.state.collectAsState()
+            com.dongholab.pagetuner.ui.common.AccountLocale(accountState.uiLocale) {
+                PageTurnerTheme(darkTheme = false, dynamicColor = false) {
+                    PageTurnerApp()
+                }
             }
         }
     }
 }
+
+private const val ReaderCacheIndicatorDelayMillis = 250L
 
 // ─────────────────────────────────────────────
 // Cache key for PDF page rendering
@@ -133,6 +177,11 @@ private sealed interface NavigationHistoryFrame {
 @Composable
 fun PageTurnerApp() {
     val context = LocalContext.current
+    val resources = LocalResources.current
+    LaunchedEffect(context) {
+        WebNovelPageRuntime.install(context)
+        OfflineNovelStorageStore.install(context)
+    }
 
     // — Stores (singleton per context)
     val settingsStore = remember(context) { ReaderSettingsStore(context) }
@@ -142,22 +191,66 @@ fun PageTurnerApp() {
     val favoriteStore = remember(context) {
         com.dongholab.pagetuner.source.WebNovelFavoriteStore(context.filesDir.resolve("favorites.json"))
     }
+    val glossaryStore = remember(context) { BookGlossaryStore(context) }
 
     // — ViewModels
     val settingsViewModel: SettingsViewModel = viewModel(factory = SettingsViewModel.Factory(settingsStore))
     val readerViewModel: ReaderViewModel = viewModel(factory = ReaderViewModel.Factory(context.sampleDocument()))
     val libraryViewModel: LibraryViewModel = viewModel(factory = LibraryViewModel.Factory(localLibraryStore))
+    val portableViewModel: PortableLibraryViewModel = viewModel(factory = PortableLibraryViewModel.Factory(context, localLibraryStore))
+    val portableIdentityViewModel: com.dongholab.pagetuner.portable.PortableIdentityViewModel = viewModel()
     val webCatalogViewModel: WebCatalogViewModel = viewModel(
         factory = WebCatalogViewModel.Factory(cache = remoteCatalogCache, accountStore = remoteSourceAccountStore),
     )
     val translationViewModel: TranslationViewModel = viewModel()
+    val serverLibraryViewModel: ServerLibraryViewModel = viewModel()
+    val serverProgressStore = remember(context) { FileServerReadingProgressStore(context.filesDir.resolve("server-reading-progress")) }
+    val serverProgressViewModel: ServerReadingProgressViewModel = viewModel(factory = ServerReadingProgressViewModel.Factory(serverProgressStore))
+    val serverNotesStore = remember(context) { FileServerReadingNotesStore(context.filesDir.resolve("server-reading-notes")) }
+    val serverNotesViewModel: ServerReadingNotesViewModel = viewModel(factory = ServerReadingNotesViewModel.Factory(serverNotesStore))
+    val sourceFavoritesStore = remember(context) { com.dongholab.pagetuner.translation.sync.FileSourceBookFavoritesStore(context.filesDir.resolve("source-book-favorites")) }
+    val sourceFavoritesViewModel: com.dongholab.pagetuner.translation.sync.SourceBookFavoritesViewModel = viewModel(
+        factory = com.dongholab.pagetuner.translation.sync.SourceBookFavoritesViewModel.Factory(sourceFavoritesStore))
+    val serverOrganizationStore = remember(context) { com.dongholab.pagetuner.translation.sync.FileServerLibraryOrganizationStore(context.filesDir.resolve("server-library-organization")) }
+    val serverOrganizationViewModel: com.dongholab.pagetuner.translation.sync.ServerLibraryOrganizationViewModel = viewModel(
+        factory = com.dongholab.pagetuner.translation.sync.ServerLibraryOrganizationViewModel.Factory(serverOrganizationStore))
+    val serverReaderPreferencesStore = remember(context) { FileServerReaderPreferencesStore(context.filesDir.resolve("server-reader-preferences")) }
+    val serverReaderPreferencesViewModel: ServerReaderPreferencesViewModel = viewModel(
+        factory = ServerReaderPreferencesViewModel.Factory(serverReaderPreferencesStore, settingsStore))
+    val glossaryViewModel: BookGlossaryViewModel = viewModel(
+        factory = BookGlossaryViewModel.Factory(glossaryStore),
+    )
+    val serverGlossaryStore = remember(context) { com.dongholab.pagetuner.translation.sync.FileServerBookGlossaryStore(context.filesDir.resolve("server-book-glossaries")) }
+    val serverGlossaryViewModel: com.dongholab.pagetuner.translation.sync.ServerBookGlossaryViewModel = viewModel(
+        factory = com.dongholab.pagetuner.translation.sync.ServerBookGlossaryViewModel.Factory(serverGlossaryStore))
 
     // — State observation
-    val readerSettings by settingsViewModel.settings.collectAsState(initial = ReaderSettings())
+    val deviceReaderSettings by settingsViewModel.settings.collectAsState(initial = ReaderSettings())
     val readerState by readerViewModel.uiState.collectAsState()
     val libraryState by libraryViewModel.uiState.collectAsState()
+    val portableState by portableViewModel.state.collectAsState()
+    val portableIdentityState by portableIdentityViewModel.verification.state.collectAsState()
     val webCatalogState by webCatalogViewModel.uiState.collectAsState()
     val translationState by translationViewModel.uiState.collectAsState()
+    val serverLibraryState by serverLibraryViewModel.state.collectAsState()
+    val observedServerReaderPreferencesState by serverReaderPreferencesViewModel.sync.state.collectAsState()
+    val serverReadingConnection = serverLibraryViewModel.readingConnection()
+    LaunchedEffect(serverReadingConnection) { portableIdentityViewModel.verification.connect(serverReadingConnection) }
+    // Compose can observe a switched server before the actor handles Connect. Hide the previous
+    // account immediately and reject controls from that intermediate frame using an invalid ticket.
+    val serverReaderPreferencesState = observedServerReaderPreferencesState.takeIf {
+        it.accountKey == serverReadingConnection?.accountKey
+    } ?: com.dongholab.pagetuner.translation.sync.ReaderPreferencesUiState(session = -1,
+        phase = if (serverReadingConnection == null) com.dongholab.pagetuner.translation.sync.ReadingProgressPhase.Inactive
+            else com.dongholab.pagetuner.translation.sync.ReadingProgressPhase.Loading)
+    val readerSettings = serverReaderPreferencesState.overlay?.takeIf {
+        serverReaderPreferencesState.accountKey == serverReadingConnection?.accountKey
+    }?.overlay(deviceReaderSettings) ?: deviceReaderSettings
+    val serverProgressState by serverProgressViewModel.sync.state.collectAsState()
+    val serverNotesState by serverNotesViewModel.sync.state.collectAsState()
+    val serverReadingDocument by serverProgressViewModel.document.collectAsState()
+    val glossaryState by glossaryViewModel.uiState.collectAsState()
+    val observedServerGlossaryState by serverGlossaryViewModel.sync.state.collectAsState()
 
     // — UI state
     val focusRequester = remember { FocusRequester() }
@@ -166,27 +259,59 @@ fun PageTurnerApp() {
     var selectedTab by remember { mutableStateOf(AppTab.Local) }
     var readerSubPage by remember { mutableStateOf(com.dongholab.pagetuner.ui.reader.ReaderSubPage.READER) }
     val navHistoryStack = remember { mutableStateListOf<NavigationHistoryFrame>() }
-    var favoritesList by remember { mutableStateOf(favoriteStore.listFavorites()) }
+    val initialFavorites = remember(favoriteStore) { runCatching { favoriteStore.listFavorites() } }
+    var favoritesList by remember { mutableStateOf(initialFavorites.getOrDefault(emptyList())) }
+    var favoritesError by remember { mutableStateOf(initialFavorites.isFailure) }
+    fun updateLocalFavorites(action: () -> List<com.dongholab.pagetuner.source.RemoteBookItem>) {
+        runCatching(action).onSuccess { favoritesList = it; favoritesError = false }.onFailure { favoritesError = true }
+    }
     var appStatusText by rememberSaveable(initialStatus) { mutableStateOf(initialStatus) }
     var appErrorText by rememberSaveable { mutableStateOf<String?>(null) }
     var pdfPageBitmap by remember { mutableStateOf<Bitmap?>(null) }
     var pdfPageCache by remember { mutableStateOf<Map<PdfPageCacheKey, Bitmap>>(emptyMap()) }
+    var pendingReadAndTranslate by remember { mutableStateOf(false) }
+    var pendingTranslationDocumentId by remember { mutableStateOf<String?>(null) }
+    var readerReturnTab by remember { mutableStateOf(AppTab.Local) }
+    var webCatalogRoute by remember { mutableStateOf<RemoteCatalogRoute>(RemoteCatalogRoute.SourceSystems) }
+    var readerFullscreen by rememberSaveable { mutableStateOf(false) }
+    var revealReaderCacheLookup by remember { mutableStateOf(false) }
+    var webNovelSection by remember { mutableStateOf("웹소설") }
+    var serverPreviewTranslatedDocumentId by remember { mutableStateOf<String?>(null) }
+    var portableOpened by remember { mutableStateOf<PortableOpened?>(null) }
 
     // — Derived reader state
     val localBooks = libraryState.books
     val document = readerState.document
     val pageIndex = readerState.safePageIndex
     val currentPage = readerState.currentPage
+    val readerDisplayPosition = readerState.displayPosition ?: com.dongholab.pagetuner.reader.ReaderDisplayPosition(pageIndex, readerState.characterOffset)
+    var readerDisplayNavigation by remember(document.id) { mutableStateOf(com.dongholab.pagetuner.reader.ReaderDisplayNavigation()) }
     val pdfSourceUri = readerState.pdfSourceUri
     val currentBookId = readerState.currentBookId
     val currentBook = localBooks.firstOrNull { it.id == currentBookId }
+    val currentContentAlreadyTranslated = currentBook?.contentIsTranslated == true || serverPreviewTranslatedDocumentId == document.id ||
+        (portableOpened?.let { it.entry.readerId == document.id && it.entry.document.kind == "translation" } == true)
     val controlsVisible = readerState.controlsVisible
     val showDocumentDetails = readerState.showDocumentDetails
     val bookmarks = readerState.bookmarks
     val annotations = readerState.annotations
+    val readerFullscreenActive = readerFullscreen &&
+        !controlsVisible &&
+        readerSubPage == com.dongholab.pagetuner.ui.reader.ReaderSubPage.READER
 
     // Back button history restoration handler
-    BackHandler(enabled = navHistoryStack.isNotEmpty()) {
+    BackHandler(enabled = readerFullscreenActive || !controlsVisible || navHistoryStack.isNotEmpty()) {
+        if (readerFullscreenActive) {
+            readerFullscreen = false
+            return@BackHandler
+        }
+        if (!controlsVisible) {
+            readerViewModel.showControls()
+            selectedTab = readerReturnTab
+            readerSubPage = com.dongholab.pagetuner.ui.reader.ReaderSubPage.READER
+            navHistoryStack.clear()
+            return@BackHandler
+        }
         val lastFrame = navHistoryStack.removeLastOrNull() ?: return@BackHandler
         when (lastFrame) {
             is NavigationHistoryFrame.TabFrame -> {
@@ -210,8 +335,35 @@ fun PageTurnerApp() {
     val displayMode = readerSettings.displayMode
     val paperColor = displayMode.servicePalette().paperColor()
     val providerKind = readerSettings.providerKind
-    val apiKey = translationState.apiKey
+    val manualApiKey = translationState.apiKey
+    val usesLocalDeepSeekSecret = providerKind == TranslationProviderKind.DEEPSEEK &&
+        TranslationRuntimeSecrets.hasLocalDeepSeekKey
+    val usesLocalGeminiSecret = providerKind == TranslationProviderKind.GEMINI && TranslationRuntimeSecrets.hasLocalGeminiKey
+    val apiKey = when {
+        usesLocalGeminiSecret -> TranslationRuntimeSecrets.geminiApiKey
+        usesLocalDeepSeekSecret -> TranslationRuntimeSecrets.deepSeekApiKey
+        else -> manualApiKey
+    }
+    val activeLlmEndpoint = when (providerKind) {
+        TranslationProviderKind.GEMINI -> TranslationRuntimeSecrets.geminiApiUrl
+        TranslationProviderKind.DEEPSEEK -> TranslationRuntimeSecrets.deepSeekApiUrl
+        else -> readerSettings.llmEndpoint
+    }
+    val activeLlmModel = when (providerKind) {
+        TranslationProviderKind.GEMINI -> TranslationRuntimeSecrets.geminiModel
+        TranslationProviderKind.DEEPSEEK -> TranslationRuntimeSecrets.deepSeekModel
+        else -> readerSettings.llmModel
+    }
     val busy = libraryState.busy || translationState.busy || webCatalogState.busy
+    val readerPageTurnBlocked = isReaderPageTurnBlocked(
+        libraryBusy = libraryState.busy,
+        translationBusy = translationState.busy,
+        catalogBusy = webCatalogState.busy,
+    )
+    val viewportPolicy = readerViewportPolicy(
+        fullScreen = readerFullscreenActive,
+        configuredPageMarginDp = readerSettings.readerPageMarginDp,
+    )
     val progress = translationState.progress
 
     // — Translation derived state
@@ -221,35 +373,123 @@ fun PageTurnerApp() {
     val settings = TranslationSettings(
         providerKind = providerKind,
         apiKey = apiKey,
-        llmEndpoint = readerSettings.llmEndpoint,
-        llmModel = readerSettings.llmModel,
+        llmEndpoint = activeLlmEndpoint,
+        llmModel = activeLlmModel,
         sourceLanguage = readerSettings.sourceLanguage,
         targetLanguage = readerSettings.targetLanguage,
         readingWordsPerMinute = readerSettings.readingWordsPerMinute,
         batchSize = readerSettings.translationBatchSize,
         paceMode = readerSettings.paceMode,
     )
-    val repository = remember(settings, cache) {
-        TranslationRepository(provider = TranslationProviderFactory.create(settings), cache = cache)
+    val glossaryReading = serverReadingDocument?.takeIf { it.readerId == document.id }
+    val glossaryTarget = glossaryReading?.takeIf { it.accountKey == serverReadingConnection?.accountKey }
+        ?.glossaryTarget(settings.normalizedTargetLanguage.lowercase(java.util.Locale.ROOT))
+    val serverGlossaryState = observedServerGlossaryState.takeIf {
+        it.target == glossaryTarget && it.accountKey == serverReadingConnection?.accountKey
+    } ?: com.dongholab.pagetuner.translation.sync.BookGlossaryUiState(session = -1)
+    val serverGlossaryReady = glossaryReading == null || (glossaryTarget != null && serverGlossaryState.loaded &&
+        (!serverGlossaryState.selected || serverGlossaryState.base.remote != null) &&
+        serverGlossaryState.phase != com.dongholab.pagetuner.translation.sync.ReadingProgressPhase.DeviceError)
+    val localGlossaryReady = glossaryReading != null || currentBookId == null ||
+        (glossaryState.glossary?.bookId == currentBookId && glossaryState.error == null && !glossaryState.busy)
+    val activeGlossary = if (glossaryReading == null) glossaryState.glossary?.takeIf { it.bookId == currentBookId && glossaryState.error == null }
+        else glossaryTarget?.takeIf { serverGlossaryReady && serverGlossaryState.selected }?.let {
+            com.dongholab.pagetuner.translation.glossary.BookGlossary(it.key, serverGlossaryState.base.local?.entries.orEmpty())
+        }
+    val activeTranslationProvider = remember(settings, cache, activeGlossary?.bookId, activeGlossary?.translationFingerprint,
+        serverGlossaryReady, localGlossaryReady, serverGlossaryState.session, serverGlossaryState.base, glossaryState.error) {
+        val provider = TranslationProviderFactory.create(
+            settings = settings,
+            initialCharacterAliases = activeGlossary?.characterAliases.orEmpty(),
+            onCharacterAliases = activeGlossary?.let { selectedGlossary ->
+                { suggestions ->
+                    if (glossaryReading == null) glossaryViewModel.mergeLlmCharacterAliases(selectedGlossary.bookId, suggestions)
+                    else serverGlossaryViewModel.sync.appendAliases(serverGlossaryState.session, serverGlossaryState.base, suggestions)
+                }
+            },
+        )
+        if (!serverGlossaryReady || !localGlossaryReady) {
+            object : com.dongholab.pagetuner.translation.TranslationProvider {
+                override val id = "${provider.id}:glossary-unavailable"
+                override suspend fun translate(request: com.dongholab.pagetuner.translation.TranslationRequest): List<com.dongholab.pagetuner.translation.TranslatedSegment> =
+                    error(resources.getString(R.string.book_glossary_not_ready))
+            }
+        } else activeGlossary
+                ?.takeIf { it.activeEntries.isNotEmpty() }
+                ?.let { GlossaryTranslationProvider(provider, it) }
+                ?: provider
+    }
+    val repository = remember(activeTranslationProvider, cache) {
+        TranslationRepository(provider = activeTranslationProvider, cache = cache)
     }
     val tableOfContents = document.tableOfContents
     val currentChapterIndex = tableOfContents.indexOfLast { it.pageIndex <= currentPage.index }
-    val canTranslateCurrentPage = settings.isProviderConfigured && currentPage.hasText
-    val canRetryCurrentPageTranslation =
-        translationState.status is TranslationStatus.Error && canTranslateCurrentPage
+    val canTranslateCurrentPage = settings.isProviderConfigured && currentPage.hasText && serverGlossaryReady && localGlossaryReady
     val translationCacheStatus = translationState.cacheStatus
+    val currentPageTranslation = translationState.translation.forReaderPage(currentPage)
+    val currentReaderTranslationLoad = translationState.readerLoad.takeIf {
+        it.matches(document.id, pageIndex)
+    }
+    val currentRollingPageFlag = translationState.rolling.flagFor(pageIndex)
+    val currentReaderHasError = com.dongholab.pagetuner.translation.hasCurrentReaderTranslationError(
+        currentDocumentId = document.id,
+        currentPageIndex = pageIndex,
+        status = translationState.status,
+        readerLoad = translationState.readerLoad,
+    )
+    val canRetryCurrentPageTranslation = currentReaderHasError && canTranslateCurrentPage
+    val readerTranslationLoading = !currentContentAlreadyTranslated &&
+        com.dongholab.pagetuner.translation.shouldShowInitialReaderTranslationLoading(
+            currentDocumentId = document.id,
+            currentPageIndex = pageIndex,
+            pendingTranslationDocumentId = pendingTranslationDocumentId,
+            pageHasText = currentPage.hasText,
+            hasTranslation = currentPageTranslation != null,
+            readerLoad = translationState.readerLoad,
+        )
+    val readerCacheLookupPending = !currentContentAlreadyTranslated &&
+        currentPage.hasText &&
+        currentPageTranslation == null &&
+        pendingTranslationDocumentId != document.id &&
+        (
+            currentReaderTranslationLoad == null ||
+                currentReaderTranslationLoad.stage ==
+                com.dongholab.pagetuner.translation.ReaderTranslationLoadStage.CheckingCache
+        )
+    LaunchedEffect(document.id, pageIndex, readerCacheLookupPending) {
+        revealReaderCacheLookup = false
+        if (readerCacheLookupPending) {
+            delay(ReaderCacheIndicatorDelayMillis)
+            revealReaderCacheLookup = true
+        }
+    }
+    val readerTranslationIndicatorVisible = !currentContentAlreadyTranslated &&
+        com.dongholab.pagetuner.translation.shouldShowReaderTranslationIndicator(
+            currentDocumentId = document.id,
+            currentPageIndex = pageIndex,
+            pendingTranslationDocumentId = pendingTranslationDocumentId,
+            pageHasText = currentPage.hasText,
+            hasVisibleTranslation = currentPageTranslation != null,
+            readerLoad = translationState.readerLoad,
+            rollingPageFlag = currentRollingPageFlag,
+            revealCacheLookup = revealReaderCacheLookup,
+        )
     val statusText = when (val s = translationState.status) {
         TranslationStatus.Ready -> appStatusText
         else -> s.localizedMessage(context)
     }
     val webCatalogStatusText = webCatalogState.status.localizedMessage(context)
     val providerStatusText = when {
-        settingsProviderConfigured(providerKind, apiKey, readerSettings.llmEndpoint, readerSettings.llmModel) ->
+        settingsProviderConfigured(providerKind, apiKey, activeLlmEndpoint, activeLlmModel) ->
             stringResource(R.string.provider_status_ready)
         providerKind == com.dongholab.pagetuner.translation.TranslationProviderKind.GOOGLE_CLOUD ->
             stringResource(R.string.provider_status_missing_google_key)
         providerKind == com.dongholab.pagetuner.translation.TranslationProviderKind.GOOGLE_WEB_TRANSLATE_HTML ->
             stringResource(R.string.provider_status_google_web_no_key_required)
+        providerKind == TranslationProviderKind.GEMINI ->
+            stringResource(R.string.provider_health_missing_gemini_key)
+        providerKind == TranslationProviderKind.DEEPSEEK ->
+            stringResource(R.string.provider_status_missing_deepseek_key)
         else -> stringResource(R.string.provider_status_missing_llm_settings)
     }
     val providerHealthText = translationState.providerHealth.localizedMessage(context)
@@ -262,8 +502,9 @@ fun PageTurnerApp() {
     // — File picker launcher
     val openDocumentLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri: Uri? ->
         if (uri == null) return@rememberLauncherForActivityResult
+        readerReturnTab = AppTab.Local
         translationViewModel.clearStatus()
-        appStatusText = context.getString(R.string.status_opening_document)
+        appStatusText = resources.getString(R.string.status_opening_document)
         libraryViewModel.importBook(uri)
     }
 
@@ -289,12 +530,27 @@ fun PageTurnerApp() {
         openFilePicker = { openDocumentLauncher.launch(arrayOf("text/*", "text/markdown", "application/pdf", "application/epub+zip", "application/octet-stream")) },
     )
 
+    val measuredNavigation = readerDisplayNavigation.takeIf {
+        it.pageChangeRevision == readerState.pageChangeRevision && it.position == readerDisplayPosition
+    }
+    val previousDisplayPage: () -> Unit = {
+        if (readerSubPage == com.dongholab.pagetuner.ui.reader.ReaderSubPage.READER) {
+            measuredNavigation?.previous?.let(readerViewModel::changeDisplayPosition)
+        } else actions.previousPage()
+    }
+    val nextDisplayPage: () -> Unit = {
+        if (readerSubPage == com.dongholab.pagetuner.ui.reader.ReaderSubPage.READER) {
+            measuredNavigation?.next?.let(readerViewModel::changeDisplayPosition)
+        } else actions.nextPage()
+    }
+
     // ─── Side effects ────────────────────────────────────────────────────
     LaunchedEffect(Unit) {
         kotlinx.coroutines.delay(1000L)
         isSplashing = false
     }
     LaunchedEffect(Unit) { focusRequester.requestFocus() }
+    LaunchedEffect(currentBookId) { glossaryViewModel.selectBook(currentBookId) }
 
     LaunchedEffect(libraryViewModel) {
         launch {
@@ -303,14 +559,20 @@ fun PageTurnerApp() {
                 when (event) {
                     is LibraryEvent.OpenedLocalBook -> {
                         applyLoadedDocument(event.result.loadedDocument, event.result.book, event.result.book.safeCurrentPageIndex, readerViewModel, translationViewModel) { pdfPageBitmap = null; pdfPageCache = emptyMap() }
-                        appStatusText = context.getString(R.string.status_opened_local_book, event.result.book.title)
+                        appStatusText = resources.getString(R.string.status_opened_local_book, event.result.book.title)
                     }
                     is LibraryEvent.ImportedBook -> {
                         applyLoadedDocument(event.result.loadedDocument, event.result.book, event.result.book.safeCurrentPageIndex, readerViewModel, translationViewModel) { pdfPageBitmap = null; pdfPageCache = emptyMap() }
-                        selectedTab = AppTab.Local
+                        selectedTab = readerReturnTab
+                        readerSubPage = com.dongholab.pagetuner.ui.reader.ReaderSubPage.READER
+                        navHistoryStack.clear()
+                        if (pendingReadAndTranslate) {
+                            pendingTranslationDocumentId = event.result.loadedDocument.document.id
+                            pendingReadAndTranslate = false
+                        }
                         appStatusText = if (event.result.wasDuplicateImport)
-                            context.getString(R.string.status_duplicate_book, event.result.book.title)
-                        else context.getString(R.string.status_imported_book, event.result.book.title)
+                            resources.getString(R.string.status_duplicate_book, event.result.book.title)
+                        else resources.getString(R.string.status_imported_book, event.result.book.title)
                     }
                     is LibraryEvent.DeletedBook -> {
                         if (event.wasCurrentBook) {
@@ -318,9 +580,11 @@ fun PageTurnerApp() {
                             pdfPageBitmap = null; pdfPageCache = emptyMap()
                             translationViewModel.resetForDocument()
                         }
-                        appStatusText = context.getString(R.string.status_deleted_book, event.book.title)
+                        appStatusText = resources.getString(R.string.status_deleted_book, event.book.title)
                     }
                     is LibraryEvent.Error -> {
+                        pendingReadAndTranslate = false
+                        pendingTranslationDocumentId = null
                         val msg = event.cause?.readableMessage(context) ?: context.readableMessage(event.detail)
                         appStatusText = msg; appErrorText = msg
                     }
@@ -335,11 +599,123 @@ fun PageTurnerApp() {
             when (event) {
                 is WebCatalogEvent.ImportDownloaded -> {
                     translationViewModel.clearStatus()
-                    appStatusText = context.getString(R.string.status_web_catalog_downloaded, event.item.title)
+                    pendingReadAndTranslate = event.translateAfterImport
+                    readerReturnTab = AppTab.WebNovel
+                    appStatusText = resources.getString(R.string.status_web_catalog_downloaded, event.item.title)
                     libraryViewModel.importRemoteBook(event.item, event.bytes)
                 }
             }
         }
+    }
+    val portableImportLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri: Uri? ->
+        uri?.let(portableViewModel::importArchive)
+    }
+    val portableExportLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/zip")) { uri: Uri? ->
+        portableViewModel.writeExport(uri)
+    }
+    LaunchedEffect(portableViewModel) {
+        launch { portableViewModel.exportReady.collect { portableExportLauncher.launch(it) } }
+        launch { portableViewModel.opened.collect { opened ->
+            portableOpened = opened.takeIf { it.serverReading == null }
+            opened.serverReading?.let { reading ->
+                serverProgressViewModel.retainDocument(reading)
+                serverPreviewTranslatedDocumentId = reading.readerId.takeIf { reading.source.entry.kind == ServerLibraryKind.Translations }
+            }
+            readerReturnTab = AppTab.Local
+            readerSubPage = com.dongholab.pagetuner.ui.reader.ReaderSubPage.READER
+            navHistoryStack.clear()
+            pendingReadAndTranslate = false
+            pendingTranslationDocumentId = null
+            translationViewModel.resetForDocument()
+            pdfPageBitmap = null; pdfPageCache = emptyMap()
+            readerViewModel.applyLoadedDocument(opened.loaded, null, opened.pageIndex, opened.bookmarks, opened.annotations, opened.characterOffset)
+        } }
+    }
+    LaunchedEffect(document.id, pageIndex, readerState.characterOffset, readerDisplayPosition.fromEnd, bookmarks, annotations) {
+        if (readerDisplayPosition.fromEnd) return@LaunchedEffect
+        portableOpened?.takeIf { it.entry.readerId == document.id }?.let {
+            portableViewModel.persistReader(it, pageIndex, bookmarks, annotations, readerState.characterOffset)
+        }
+    }
+
+    LaunchedEffect(serverLibraryViewModel) {
+        serverLibraryViewModel.events.collect { event ->
+            when (event) {
+                is ServerLibraryEvent.Open -> {
+                    val downloaded = event.document
+                    readerReturnTab = AppTab.WebNovel
+                    readerSubPage = com.dongholab.pagetuner.ui.reader.ReaderSubPage.READER
+                    pendingReadAndTranslate = false
+                    pendingTranslationDocumentId = null
+                    navHistoryStack.clear()
+                    translationViewModel.resetForDocument()
+                    if (event.saveToDevice) {
+                        try { portableViewModel.retainServerDownload(downloaded) }
+                        catch (cancelled: kotlinx.coroutines.CancellationException) { throw cancelled }
+                        catch (error: Exception) { appErrorText = error.message ?: resources.getString(R.string.portable_error_write) }
+                        libraryViewModel.importRemoteBook(
+                            com.dongholab.pagetuner.source.RemoteBookItem(
+                                identity = com.dongholab.pagetuner.source.RemoteBookIdentity(
+                                    com.dongholab.pagetuner.source.RemoteSourceType.PageTurnerWebCatalog,
+                                    event.accountKey, downloaded.entry.recordId),
+                                title = downloaded.entry.title, format = DocumentFormat.TEXT,
+                                language = downloaded.entry.language, downloadUrl = "server-library:${downloaded.entry.recordId}",
+                                seriesId = "server-${downloaded.entry.recordId}-${downloaded.entry.kind.name}",
+                                seriesTitle = downloaded.entry.title, chapterNumber = 1,
+                                contentVariant = if (downloaded.entry.kind == ServerLibraryKind.Translations)
+                                    com.dongholab.pagetuner.source.RemoteBookContentVariant.Translated
+                                else com.dongholab.pagetuner.source.RemoteBookContentVariant.Original,
+                            ), downloaded.text.toByteArray(Charsets.UTF_8),
+                        )
+                    } else {
+                        val reading = withContext(Dispatchers.Default) {
+                            ServerReadingDocument.create(event.readingAccountKey, downloaded)
+                        }
+                        val parsed = reading.mapping.document
+                        serverProgressViewModel.retainDocument(reading)
+                        serverPreviewTranslatedDocumentId = parsed.id.takeIf { downloaded.entry.kind == ServerLibraryKind.Translations }
+                        pdfPageBitmap = null
+                        pdfPageCache = emptyMap()
+                        readerViewModel.applyLoadedDocument(LoadedReaderDocument(parsed), null, 0)
+                    }
+                }
+            }
+        }
+    }
+
+    val activeServerReading = serverReadingDocument?.takeIf { it.readerId == document.id && it.accountKey == serverReadingConnection?.accountKey }
+    LaunchedEffect(serverReadingConnection) {
+        serverProgressViewModel.sync.connect(serverReadingConnection)
+        serverNotesViewModel.sync.connect(serverReadingConnection)
+        serverOrganizationViewModel.sync.connect(serverReadingConnection)
+        sourceFavoritesViewModel.sync.connect(serverReadingConnection)
+        serverGlossaryViewModel.sync.connect(serverReadingConnection)
+        serverReaderPreferencesViewModel.sync.connect(serverReadingConnection)
+    }
+    LaunchedEffect(glossaryTarget, serverReadingConnection) {
+        val connection = serverReadingConnection
+        if (glossaryTarget != null && connection != null) serverGlossaryViewModel.sync.open(glossaryTarget, connection)
+        else serverGlossaryViewModel.sync.close()
+    }
+    LaunchedEffect(serverReadingDocument, serverReadingConnection, document.id) {
+        val reading = serverReadingDocument
+        if (reading != null && reading.readerId == document.id && serverReadingConnection?.accountKey == reading.accountKey) {
+            serverProgressViewModel.sync.open(reading, serverReadingConnection, pageIndex, readerState.pageChangeRevision, readerState.characterOffset)
+            serverNotesViewModel.sync.open(reading, serverReadingConnection)
+        } else {
+            serverProgressViewModel.sync.close()
+            serverNotesViewModel.sync.close()
+        }
+    }
+    LaunchedEffect(serverProgressState.restore) {
+        serverProgressState.restore?.takeIf { it.readerId == readerViewModel.uiState.value.document.id &&
+            serverReadingConnection?.accountKey == serverReadingDocument?.accountKey }?.let {
+            com.dongholab.pagetuner.translation.sync.applyServerReadingProgressRestore(readerViewModel, serverProgressViewModel.sync, it)
+        }
+    }
+    LaunchedEffect(document.id, pageIndex, readerState.pageChangeRevision, readerState.characterOffset) {
+        if (readerDisplayPosition.fromEnd) return@LaunchedEffect
+        serverProgressViewModel.sync.pageChanged(document.id, pageIndex, readerState.pageChangeRevision, readerState.characterOffset)
     }
 
     LaunchedEffect(currentBookId, pageIndex, document.id) {
@@ -351,8 +727,58 @@ fun PageTurnerApp() {
         translationViewModel.refreshCacheStatus(document, settings, repository)
     }
 
-    LaunchedEffect(document.id, pageIndex, settings, repository) {
+    LaunchedEffect(document.id, pendingTranslationDocumentId, settings, repository) {
+        if (!serverGlossaryReady || !localGlossaryReady) return@LaunchedEffect
+        if (pendingTranslationDocumentId != document.id) return@LaunchedEffect
+        settingsViewModel.updateTranslationDisplayMode(
+            com.dongholab.pagetuner.translation.TranslationDisplayMode.TranslationOnly,
+        )
+        translationViewModel.startRollingPrefetch(
+            document = document,
+            currentPageIndex = pageIndex,
+            settings = settings,
+            repository = repository,
+        )
+    }
+
+    LaunchedEffect(
+        document.id,
+        pendingTranslationDocumentId,
+        translationState.status,
+        currentPageTranslation,
+    ) {
+        if (com.dongholab.pagetuner.translation.shouldClearPendingReaderTranslation(
+                currentDocumentId = document.id,
+                pendingTranslationDocumentId = pendingTranslationDocumentId,
+                hasTranslation = currentPageTranslation != null,
+                status = translationState.status,
+            )
+        ) {
+            pendingTranslationDocumentId = null
+        }
+    }
+
+    LaunchedEffect(document.id, pageIndex, settings, repository, pendingTranslationDocumentId) {
+        if (currentContentAlreadyTranslated) return@LaunchedEffect
+        val shouldLoadCache = com.dongholab.pagetuner.translation.shouldLoadCachedReaderTranslation(
+            currentDocumentId = document.id,
+            currentPageIndex = pageIndex,
+            pendingTranslationDocumentId = pendingTranslationDocumentId,
+            status = translationState.status,
+            readerLoad = translationState.readerLoad,
+        )
+        if (!shouldLoadCache) return@LaunchedEffect
         translationViewModel.loadCachedPage(document, currentPage, settings, repository, showMissingStatus = false)
+    }
+
+    LaunchedEffect(document.id, pageIndex, settings, repository) {
+        if (!serverGlossaryReady || !localGlossaryReady) return@LaunchedEffect
+        translationViewModel.onReaderPageChanged(
+            document = document,
+            currentPageIndex = pageIndex,
+            settings = settings,
+            repository = repository,
+        )
     }
 
     LaunchedEffect(document.id, pageIndex, pdfSourceUri, displayMode, readerState.manualRefreshToken) {
@@ -383,16 +809,18 @@ fun PageTurnerApp() {
     }
 
     // ─── UI ──────────────────────────────────────────────────────────────
+    ReaderFullscreenSystemBars(readerFullscreenActive)
+    CompositionLocalProvider(LocalListLayoutMode provides readerSettings.listLayoutMode) {
     Scaffold(
         modifier = Modifier
             .fillMaxSize()
             .focusRequester(focusRequester)
             .focusable()
             .onPreviewKeyEvent { ev ->
-                if (ev.type != KeyEventType.KeyDown || busy) return@onPreviewKeyEvent false
+                if (ev.type != KeyEventType.KeyDown || readerPageTurnBlocked) return@onPreviewKeyEvent false
                 when (ev.key) {
-                    Key.DirectionLeft, Key.PageUp -> { actions.previousPage(); true }
-                    Key.DirectionRight, Key.PageDown, Key.Spacebar -> { actions.nextPage(); true }
+                    Key.DirectionLeft, Key.PageUp -> { previousDisplayPage(); true }
+                    Key.DirectionRight, Key.PageDown, Key.Spacebar -> { nextDisplayPage(); true }
                     else -> false
                 }
             },
@@ -406,22 +834,36 @@ fun PageTurnerApp() {
             modifier = Modifier
                 .fillMaxSize()
                 .background(paperColor)
-                .padding(innerPadding)
-                .padding(14.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp),
+                .padding(if (readerFullscreenActive) PaddingValues(0.dp) else innerPadding)
+                .padding(viewportPolicy.rootPaddingDp.dp),
+            verticalArrangement = Arrangement.spacedBy(
+                if (readerFullscreenActive) 0.dp else 10.dp,
+            ),
         ) {
-            ReaderHeader(
-                document = document,
-                page = currentPage,
-                controlsVisible = controlsVisible,
-                onOpen = { actions.openFilePicker() },
-                onToggleControls = {
-                    navHistoryStack.add(NavigationHistoryFrame.ControlsVisibilityFrame(controlsVisible))
-                    readerViewModel.toggleControls()
-                },
-                onManualRefresh = actions.requestManualRefresh,
-                onShowDetails = readerViewModel::showDocumentDetails,
-            )
+            if (viewportPolicy.showChrome) {
+                ReaderHeader(
+                    document = document,
+                    page = currentPage,
+                    controlsVisible = controlsVisible,
+                    onOpen = {
+                        readerReturnTab = AppTab.Local
+                        actions.openFilePicker()
+                    },
+                    onToggleControls = {
+                        readerFullscreen = false
+                        navHistoryStack.add(NavigationHistoryFrame.ControlsVisibilityFrame(controlsVisible))
+                        readerViewModel.toggleControls()
+                    },
+                    onManualRefresh = actions.requestManualRefresh,
+                    onShowDetails = readerViewModel::showDocumentDetails,
+                    onEnterFullscreen = {
+                        readerReturnTab = selectedTab
+                        readerSubPage = com.dongholab.pagetuner.ui.reader.ReaderSubPage.READER
+                        if (controlsVisible) readerViewModel.toggleControls()
+                        readerFullscreen = true
+                    },
+                )
+            }
 
             if (controlsVisible) {
                 AppTabNavigation(
@@ -445,49 +887,175 @@ fun PageTurnerApp() {
                             currentBookId = currentBookId,
                             busy = busy,
                             onOpenBook = { book ->
-                                navHistoryStack.add(NavigationHistoryFrame.TabFrame(selectedTab))
+                                readerReturnTab = AppTab.Local
+                                navHistoryStack.clear()
                                 actions.openLocalBook(book)
                             },
                             onDeleteBook = actions.deleteLocalBook,
                             onUpdateBookOrganization = libraryViewModel::updateOrganization,
-                            onImportFile = { file -> libraryViewModel.importBook(Uri.fromFile(file)) },
+                            onImportFile = { file ->
+                                readerReturnTab = AppTab.Local
+                                libraryViewModel.importBook(Uri.fromFile(file))
+                            },
+                            transferContent = {
+                                if (portableIdentityState.entry != null) com.dongholab.pagetuner.portable.PortableIdentityPanel(
+                                    portableIdentityState, serverReadingConnection != null,
+                                    portableIdentityViewModel.verification.matches(serverReadingConnection),
+                                    onBack = portableIdentityViewModel.verification::close,
+                                    onRecord = { portableIdentityViewModel.verification.updateRecord(portableIdentityState.session, it) },
+                                    onCheck = { portableIdentityViewModel.verification.check(portableIdentityState.session,
+                                        serverLibraryViewModel.readingConnection(), portableViewModel::currentDocument) },
+                                    onBind = { portableIdentityViewModel.verification.bind(portableIdentityState.session,
+                                        serverLibraryViewModel.readingConnection(), portableViewModel::currentDocument, portableViewModel::saveBinding) },
+                                    onUnbind = { portableIdentityViewModel.verification.unbind(portableIdentityState.session,
+                                        serverLibraryViewModel.readingConnection(), portableViewModel::removeBinding) },
+                                    onReadServer = {
+                                        val connection = serverLibraryViewModel.readingConnection()
+                                        val selected = portableIdentityViewModel.verification.state.value
+                                        if (connection != null) selected.entry?.let { entry -> portableViewModel.open(entry, false, connection) {
+                                            portableIdentityViewModel.verification.state.value.session == selected.session &&
+                                                serverLibraryViewModel.readingConnection()?.let { it.accountKey == connection.accountKey && it.client === connection.client } == true
+                                        } }
+                                    })
+                                else PortableLibraryPanel(localBooks, currentBookId, portableState,
+                                    onImport = { portableImportLauncher.launch(arrayOf("application/zip", "application/octet-stream", "application/x-zip-compressed")) },
+                                    onNativeExport = { book, includeTranslation ->
+                                        portableViewModel.prepareNativeExport(book, includeTranslation, settings, activeTranslationProvider.id, activeGlossary)
+                                    },
+                                    onExport = portableViewModel::prepareExport,
+                                    onOpen = { entry, originalPdf -> portableViewModel.open(entry, originalPdf) },
+                                    onVerify = { portableIdentityViewModel.verification.select(it, serverLibraryViewModel.readingConnection()) })
+                            },
                         )
                         AppTab.Favorites -> FavoritesScreen(
                             favorites = favoritesList,
                             displayMode = displayMode,
                             busy = busy,
                             onOpenNovelDetail = { novel ->
+                                webNovelSection = "웹소설"
                                 navHistoryStack.add(NavigationHistoryFrame.TabFrame(selectedTab))
-                                webCatalogViewModel.updateCatalogUrl(novel.downloadUrl)
+                                val parentCatalogUrl = webCatalogState.sourceAccounts
+                                    .firstOrNull { it.id == novel.identity.accountId }
+                                    ?.endpoint
+                                    ?: webCatalogState.catalogUrl
+                                webCatalogRoute = RemoteCatalogRoute.Book(parentCatalogUrl, novel)
+                                webCatalogViewModel.updateCatalogUrl(parentCatalogUrl)
                                 selectedTab = AppTab.WebNovel
                                 webCatalogViewModel.loadCatalog()
                             },
-                            onRemoveFavorite = { novel -> favoritesList = favoriteStore.toggleFavorite(novel) },
+                            onRemoveFavorite = { novel -> updateLocalFavorites { favoriteStore.toggleFavorite(novel) } },
+                            sync = sourceFavoritesViewModel.sync,
+                            accountKey = serverReadingConnection?.accountKey,
+                            localError = favoritesError,
                         )
-                        AppTab.WebNovel -> WebNovelScreen(
+                        AppTab.WebNovel -> Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                            EinkSegmentedControl(listOf("웹소설", "서버 서재"), webNovelSection,
+                                { webNovelSection = it }, label = { it })
+                            if (webNovelSection == "서버 서재") {
+                                ServerLibraryScreen(
+                                    state = serverLibraryState, documentTitle = document.title, externalBusy = busy,
+                                    organizationSync = serverOrganizationViewModel.sync, readingConnection = serverReadingConnection,
+                                    onEndpoint = serverLibraryViewModel::updateEndpoint,
+                                    onUsername = serverLibraryViewModel::updateUsername,
+                                    onPassword = serverLibraryViewModel::updatePassword,
+                                    onConnect = serverLibraryViewModel::connect,
+                                    onDisconnect = serverLibraryViewModel::disconnect,
+                                    onRegister = serverLibraryViewModel::register,
+                                    onProfileDraft = serverLibraryViewModel::updateProfileDraft,
+                                    onSaveProfile = serverLibraryViewModel::saveProfile,
+                                    onPasswordDraft = serverLibraryViewModel::updatePasswordDraft,
+                                    onChangePassword = serverLibraryViewModel::changePassword,
+                                    onLanguages = serverLibraryViewModel::loadLanguages,
+                                    onApplyTargetLanguage = settingsViewModel::updateTargetLanguage,
+                                    onPage = serverLibraryViewModel::loadPage,
+                                    onFilterDraft = serverLibraryViewModel::updateLibraryFilterDraft,
+                                    onApplyFilter = serverLibraryViewModel::applyLibraryFilter,
+                                    onResetFilter = serverLibraryViewModel::resetLibraryFilter,
+                                    onRead = serverLibraryViewModel::read,
+                                    onPrepareTranslation = serverLibraryViewModel::prepareTranslation,
+                                    onJobDraft = serverLibraryViewModel::updateJobDraft,
+                                    onJobProvider = serverLibraryViewModel::selectJobProvider,
+                                    onSubmitJob = serverLibraryViewModel::submitTranslationJob,
+                                    onJobsPage = serverLibraryViewModel::loadJobs,
+                                    onCancelJob = serverLibraryViewModel::cancelServerJob,
+                                    onRetryJob = serverLibraryViewModel::prepareRetry,
+                                    onReadJob = serverLibraryViewModel::readCompletedJob,
+                                    onPublish = { serverLibraryViewModel.publish(document, settings, activeGlossary, activeTranslationProvider.id, cache) },
+                                    onRestore = { serverLibraryViewModel.restore(document, settings, activeGlossary, activeTranslationProvider.id, cache) },
+                                    onCancel = serverLibraryViewModel::cancel,
+                                    modifier = Modifier.weight(1f),
+                                )
+                            } else {
+                                if (webCatalogState.busy) {
+                                    TextButton(onClick = {
+                                        webCatalogViewModel.cancelCatalogTranslation()
+                                        webCatalogViewModel.cancelOfflineDownload()
+                                    }, modifier = Modifier.fillMaxWidth().height(44.dp)) { Text("목록 번역 / 오프라인 다운로드 취소") }
+                                }
+                                Box(Modifier.weight(1f)) {
+                                    WebNovelScreen(
                             state = webCatalogState,
+                            route = webCatalogRoute,
+                            onRouteChange = { route -> webCatalogRoute = route },
                             displayMode = displayMode,
                             busy = busy,
                             statusText = webCatalogStatusText,
+                            targetLanguage = settings.normalizedTargetLanguage,
+                            canTranslate = settings.isProviderConfigured,
+                            isFavorite = { item -> favoritesList.any { com.dongholab.pagetuner.source.sameFavorite(it, item) } },
+                            onToggleFavorite = { item -> updateLocalFavorites { favoriteStore.toggleFavorite(item) } },
+                            onBookResolved = { item -> updateLocalFavorites { favoriteStore.refreshMetadata(item) } },
                             onCatalogUrlChange = webCatalogViewModel::updateCatalogUrl,
                             onQueryChange = webCatalogViewModel::updateQuery,
+                            onGenreSelected = webCatalogViewModel::updateGenreSelection,
+                            onSearchCatalog = webCatalogViewModel::submitSearch,
+                            onClearCatalogSearch = webCatalogViewModel::clearSearch,
                             onLoadCatalog = webCatalogViewModel::loadCatalog,
                             onRefreshCatalog = webCatalogViewModel::refreshCatalog,
                             onSaveSourceAccount = webCatalogViewModel::saveCurrentCatalogAccount,
                             onLoadSourceAccount = webCatalogViewModel::loadSourceAccount,
                             onDeleteSourceAccount = webCatalogViewModel::deleteSourceAccount,
                             onLoadCachedCatalog = webCatalogViewModel::loadCachedCatalog,
-                            onImportItem = webCatalogViewModel::importItem,
-                        )
+                            onImportItem = { item ->
+                                readerReturnTab = AppTab.WebNovel
+                                webCatalogViewModel.importItem(item)
+                            },
+                            onReadAndTranslateItem = { item ->
+                                readerReturnTab = AppTab.WebNovel
+                                webCatalogViewModel.importItem(
+                                    item = item,
+                                    translateAfterImport = true,
+                                    preferredOfflineLanguage = settings.normalizedTargetLanguage,
+                                )
+                            },
+                            onTranslateCatalog = {
+                                webCatalogViewModel.translateVisibleCatalog(context, settings)
+                            },
+                            onRemoteCatalogPageSelected = webCatalogViewModel::loadRemoteCatalogPage,
+                            onBatchDownloadChapters = { chapters ->
+                                webCatalogViewModel.downloadChaptersForOffline(
+                                    context = context,
+                                    chapters = chapters,
+                                    settings = settings,
+                                    includeTranslation = settings.isProviderConfigured,
+                                )
+                            },
+                                    )
+                                }
+                            }
+                        }
                         AppTab.RemoteDrive -> ComingSoonPanel(
                             title = "Drive",
                             description = "Google Drive / FTP 연동 기능은 준비중입니다.",
                         )
                         AppTab.Settings -> SettingsScreen(
                             readerSettings = readerSettings,
+                            readerPreferencesState = serverReaderPreferencesState,
+                            readerPreferencesSync = serverReaderPreferencesViewModel.sync,
                             translationState = translationState,
                             providerKind = providerKind,
-                            apiKey = apiKey,
+                            apiKey = manualApiKey,
+                            usesLocalDeepSeekSecret = usesLocalDeepSeekSecret || usesLocalGeminiSecret,
                             busy = busy,
                             canTranslate = canTranslateCurrentPage,
                             canRetryTranslation = canRetryCurrentPageTranslation,
@@ -497,11 +1065,18 @@ fun PageTurnerApp() {
                             translationCacheStatusText = translationCacheStatusText,
                             translationQueueStatusText = translationQueueStatusText,
                             onDisplayModeChange = { pdfPageBitmap = null; pdfPageCache = emptyMap(); settingsViewModel.updateDisplayMode(it) },
-                            onPageTurnModeChange = settingsViewModel::updatePageTurnMode,
+                            onListLayoutModeChange = { serverReaderPreferencesViewModel.sync.edit(serverReaderPreferencesState.session,
+                                ReaderPreferencesPatch(listMode = if (it == com.dongholab.pagetuner.settings.ListLayoutMode.Scroll) "scroll" else "paged")) },
+                            onPageTurnModeChange = { serverReaderPreferencesViewModel.sync.edit(serverReaderPreferencesState.session,
+                                ReaderPreferencesPatch(touchDirection = when (it) {
+                                    com.dongholab.pagetuner.reader.PageTurnMode.LeftPreviousRightNext -> "left-previous"
+                                    com.dongholab.pagetuner.reader.PageTurnMode.LeftNextRightPrevious -> "left-next"
+                                    com.dongholab.pagetuner.reader.PageTurnMode.ButtonsOnly -> "buttons-only"
+                                })) },
                             onPdfFitModeChange = settingsViewModel::updatePdfFitMode,
-                            onFontSizeChange = settingsViewModel::updateReaderFontSize,
-                            onLineSpacingChange = settingsViewModel::updateReaderLineSpacing,
-                            onPageMarginChange = settingsViewModel::updateReaderPageMargin,
+                            onFontSizeChange = { serverReaderPreferencesViewModel.sync.edit(serverReaderPreferencesState.session, ReaderPreferencesPatch(fontSize = it)) },
+                            onLineSpacingChange = { serverReaderPreferencesViewModel.sync.edit(serverReaderPreferencesState.session, ReaderPreferencesPatch(lineHeightPercent = (it * 100).roundToInt())) },
+                            onPageMarginChange = { serverReaderPreferencesViewModel.sync.edit(serverReaderPreferencesState.session, ReaderPreferencesPatch(pageMargin = it)) },
                             onProviderKindChange = settingsViewModel::updateProviderKind,
                             onApiKeyChange = translationViewModel::updateApiKey,
                             onLlmEndpointChange = settingsViewModel::updateLlmEndpoint,
@@ -531,40 +1106,134 @@ fun PageTurnerApp() {
                     }
                 }
 
-                StatusStrip(statusText = statusText, progress = progress, busy = busy)
+                StatusStrip(statusText = if (!busy && serverProgressState.pendingDocuments > 0)
+                    stringResource(R.string.reading_progress_outbox, serverProgressState.pendingDocuments) else statusText,
+                    progress = progress, busy = busy)
             } else {
                 // Reader Mode: Sub-Page Navigation with History Tracking
-                com.dongholab.pagetuner.ui.reader.ReaderSubPageSelector(
-                    selectedPage = readerSubPage,
-                    busy = busy,
-                    onSelectPage = { page ->
-                        if (page != readerSubPage) {
-                            navHistoryStack.add(NavigationHistoryFrame.ReaderSubPageFrame(readerSubPage))
-                            readerSubPage = page
-                        }
+                if (viewportPolicy.showChrome) {
+                    if (serverProgressState.readerId == document.id) {
+                        com.dongholab.pagetuner.ui.reader.ServerReadingProgressPanel(serverProgressState,
+                            serverProgressViewModel.sync::retry, serverProgressViewModel.sync::chooseLocal, serverProgressViewModel.sync::chooseServer)
+                    }
+                    com.dongholab.pagetuner.ui.reader.ReaderSubPageSelector(
+                        selectedPage = readerSubPage,
+                        busy = busy,
+                        onSelectPage = { page ->
+                            if (page != readerSubPage) {
+                                readerFullscreen = false
+                                navHistoryStack.add(NavigationHistoryFrame.ReaderSubPageFrame(readerSubPage))
+                                readerSubPage = page
+                            }
+                        },
+                    )
+
+                    com.dongholab.pagetuner.ui.common.EinkOperationIndicator(
+                    visible = readerTranslationIndicatorVisible,
+                    title = when {
+                        currentReaderTranslationLoad?.stage ==
+                            com.dongholab.pagetuner.translation.ReaderTranslationLoadStage.Queued ||
+                            currentRollingPageFlag ==
+                            com.dongholab.pagetuner.translation.TranslationPageFlag.Queued ->
+                            stringResource(R.string.translation_queued_title)
+                        currentReaderTranslationLoad?.stage ==
+                            com.dongholab.pagetuner.translation.ReaderTranslationLoadStage.Translating ||
+                            currentRollingPageFlag ==
+                            com.dongholab.pagetuner.translation.TranslationPageFlag.Translating ->
+                            if (translationState.rolling.enabled) {
+                                stringResource(R.string.translation_rolling_title)
+                            } else {
+                                stringResource(R.string.translation_current_page_title)
+                            }
+                        else -> stringResource(R.string.translation_initial_loading_title)
                     },
-                )
+                    detail = when {
+                        currentReaderTranslationLoad?.stage ==
+                            com.dongholab.pagetuner.translation.ReaderTranslationLoadStage.Queued ||
+                            currentRollingPageFlag ==
+                            com.dongholab.pagetuner.translation.TranslationPageFlag.Queued ->
+                            stringResource(R.string.translation_queued_detail)
+                        translationState.rolling.enabled && currentRollingPageFlag ==
+                            com.dongholab.pagetuner.translation.TranslationPageFlag.Translating -> stringResource(
+                            R.string.translation_rolling_detail,
+                            translationState.rolling.windowStartIndex + 1,
+                            translationState.rolling.windowEndExclusive,
+                            translationState.rolling.readyPageCount,
+                            translationState.rolling.windowPageCount,
+                        )
+                        currentReaderTranslationLoad?.stage ==
+                            com.dongholab.pagetuner.translation.ReaderTranslationLoadStage.CheckingCache ||
+                            currentReaderTranslationLoad == null ->
+                            stringResource(R.string.translation_initial_loading_detail)
+                        else -> statusText
+                    },
+                    progress = if (
+                        translationState.rolling.enabled &&
+                        currentRollingPageFlag in setOf(
+                            com.dongholab.pagetuner.translation.TranslationPageFlag.Queued,
+                            com.dongholab.pagetuner.translation.TranslationPageFlag.Translating,
+                        )
+                    ) {
+                        translationState.rolling.fraction.takeIf { it > 0f }
+                    } else {
+                        translationState.progress.takeIf { it > 0f }
+                    },
+                    )
+
+                    if (
+                        readerSubPage == com.dongholab.pagetuner.ui.reader.ReaderSubPage.READER &&
+                        !readerTranslationLoading &&
+                        !translationState.busy &&
+                        currentPageTranslation == null &&
+                        !currentContentAlreadyTranslated
+                    ) {
+                        com.dongholab.pagetuner.ui.translation.ReaderTranslationStatusBar(
+                        targetLanguage = settings.normalizedTargetLanguage,
+                        providerConfigured = canTranslateCurrentPage,
+                        hasError = currentReaderHasError,
+                        inProgress = currentRollingPageFlag in setOf(
+                            com.dongholab.pagetuner.translation.TranslationPageFlag.Queued,
+                            com.dongholab.pagetuner.translation.TranslationPageFlag.Translating,
+                        ),
+                        errorMessage = statusText,
+                        onTranslate = {
+                            settingsViewModel.updateTranslationDisplayMode(
+                                com.dongholab.pagetuner.translation.TranslationDisplayMode.TranslationOnly,
+                            )
+                            actions.translateCurrentPage()
+                        },
+                        )
+                    }
+                }
 
                 when (readerSubPage) {
                     com.dongholab.pagetuner.ui.reader.ReaderSubPage.READER -> {
                         ReaderSurface(
                             modifier = Modifier.weight(1f),
                             page = currentPage,
+                            document = document,
+                            displayPosition = readerDisplayPosition,
+                            pageChangeRevision = readerState.pageChangeRevision,
+                            onDisplayNavigation = { readerDisplayNavigation = it },
+                            onDisplayPositionResolved = readerViewModel::changeDisplayPosition,
                             documentFormat = document.format,
                             pdfPageBitmap = pdfPageBitmap,
                             pdfFitMode = readerSettings.pdfFitMode,
                             displayMode = displayMode,
-                            translation = translationState.translation,
+                            translation = currentPageTranslation,
+                            glossaryEntries = activeGlossary?.activeEntries.orEmpty(),
                             translationDisplayMode = readerSettings.translationDisplayMode,
                             pageTurnMode = readerSettings.pageTurnMode,
-                            pageTurningEnabled = !busy,
+                            pageTurningEnabled = !readerPageTurnBlocked,
                             fontSizeSp = readerSettings.readerFontSizeSp,
                             lineSpacing = readerSettings.readerLineSpacing,
-                            pageMarginDp = readerSettings.readerPageMarginDp,
-                            onPreviousPage = actions.previousPage,
-                            onNextPage = actions.nextPage,
+                            pageMarginDp = viewportPolicy.pageMarginDp,
+                            onPreviousPage = previousDisplayPage,
+                            onNextPage = nextDisplayPage,
+                            fullScreen = readerFullscreenActive,
+                            onExitFullscreen = { readerFullscreen = false },
                         )
-                        ReaderPager(
+                        if (viewportPolicy.showChrome) ReaderPager(
                             pageIndex = pageIndex,
                             pageCount = document.pageCount,
                             currentChapterTitle = tableOfContents.getOrNull(currentChapterIndex)?.title,
@@ -574,9 +1243,11 @@ fun PageTurnerApp() {
                                 currentChapterIndex == -1 -> true
                                 else -> currentChapterIndex < tableOfContents.lastIndex
                             },
-                            busy = busy,
-                            onPrevious = actions.previousPage,
-                            onNext = actions.nextPage,
+                            busy = readerPageTurnBlocked,
+                            onPrevious = previousDisplayPage,
+                            onNext = nextDisplayPage,
+                            canPreviousDisplayPage = measuredNavigation?.previous != null,
+                            canNextDisplayPage = measuredNavigation?.next != null,
                             onPreviousChapter = {
                                 navHistoryStack.add(NavigationHistoryFrame.PageJumpFrame(pageIndex))
                                 actions.previousChapter()
@@ -622,7 +1293,19 @@ fun PageTurnerApp() {
                                 .fillMaxWidth()
                                 .weight(1f),
                         ) {
-                            ReaderBookmarkPanel(
+                            var showLegacyNotes by remember(document.id) { mutableStateOf(false) }
+                            if (activeServerReading != null && (showLegacyNotes || bookmarks.isNotEmpty())) {
+                                androidx.compose.material3.TextButton(onClick = { showLegacyNotes = !showLegacyNotes }, modifier = Modifier.heightIn(min = 44.dp)) {
+                                    androidx.compose.material3.Text(stringResource(if (showLegacyNotes) R.string.server_notes_account else R.string.server_notes_legacy))
+                                }
+                            }
+                            if (activeServerReading != null && !showLegacyNotes) ServerReadingNotesPanel(serverNotesState, activeServerReading,
+                                bookmarksOnly = true, pageIndex = pageIndex, characterOffset = readerState.characterOffset, sync = serverNotesViewModel.sync, onOpen = { anchor ->
+                                    navHistoryStack.add(NavigationHistoryFrame.PageJumpFrame(pageIndex))
+                                    navHistoryStack.add(NavigationHistoryFrame.ReaderSubPageFrame(readerSubPage))
+                                    readerViewModel.changeReadingPosition(activeServerReading.page(anchor), activeServerReading.characterOffset(anchor))
+                                    readerSubPage = com.dongholab.pagetuner.ui.reader.ReaderSubPage.READER
+                                }) else ReaderBookmarkPanel(
                                 draftLabel = readerState.bookmarkDraftLabel,
                                 bookmarks = bookmarks,
                                 currentPageIndex = pageIndex,
@@ -645,7 +1328,19 @@ fun PageTurnerApp() {
                                 .fillMaxWidth()
                                 .weight(1f),
                         ) {
-                            ReaderAnnotationPanel(
+                            var showLegacyNotes by remember(document.id) { mutableStateOf(false) }
+                            if (activeServerReading != null && (showLegacyNotes || annotations.isNotEmpty())) {
+                                androidx.compose.material3.TextButton(onClick = { showLegacyNotes = !showLegacyNotes }, modifier = Modifier.heightIn(min = 44.dp)) {
+                                    androidx.compose.material3.Text(stringResource(if (showLegacyNotes) R.string.server_notes_account else R.string.server_notes_legacy))
+                                }
+                            }
+                            if (activeServerReading != null && !showLegacyNotes) ServerReadingNotesPanel(serverNotesState, activeServerReading,
+                                bookmarksOnly = false, pageIndex = pageIndex, characterOffset = readerState.characterOffset, sync = serverNotesViewModel.sync, onOpen = { anchor ->
+                                    navHistoryStack.add(NavigationHistoryFrame.PageJumpFrame(pageIndex))
+                                    navHistoryStack.add(NavigationHistoryFrame.ReaderSubPageFrame(readerSubPage))
+                                    readerViewModel.changeReadingPosition(activeServerReading.page(anchor), activeServerReading.characterOffset(anchor))
+                                    readerSubPage = com.dongholab.pagetuner.ui.reader.ReaderSubPage.READER
+                                }) else ReaderAnnotationPanel(
                                 noteDraft = readerState.noteDraftText,
                                 annotations = annotations,
                                 currentPageIndex = pageIndex,
@@ -664,9 +1359,31 @@ fun PageTurnerApp() {
                             )
                         }
                     }
+                    com.dongholab.pagetuner.ui.reader.ReaderSubPage.GLOSSARY -> {
+                        if (glossaryReading != null) com.dongholab.pagetuner.ui.translation.ServerBookGlossaryPanel(
+                            state = serverGlossaryState, sync = serverGlossaryViewModel.sync, books = localBooks,
+                            deviceStore = glossaryStore, modifier = Modifier.weight(1f))
+                        else com.dongholab.pagetuner.ui.translation.BookGlossaryPanel(
+                            modifier = Modifier.weight(1f),
+                            bookTitle = currentBook?.title,
+                            entries = activeGlossary?.entries.orEmpty(),
+                            busy = glossaryState.busy,
+                            error = glossaryState.error,
+                            sharePayload = activeGlossary?.takeIf { it.entries.isNotEmpty() }?.let { glossary ->
+                                com.dongholab.pagetuner.translation.glossary.BookGlossaryShareCodec.encode(
+                                    glossary = glossary,
+                                    bookTitle = currentBook?.title.orEmpty(),
+                                )
+                            },
+                            onSave = glossaryViewModel::upsert,
+                            onDelete = { glossaryViewModel.delete(it.id) },
+                            onImportSharedDictionary = glossaryViewModel::importSharedDictionary,
+                        )
+                    }
                 }
             }
         }
+    }
     }
 
     if (showDocumentDetails) {
@@ -711,7 +1428,10 @@ private fun applyLoadedDocument(
         annotations = localBook?.annotations.orEmpty().map { it.toReaderAnnotation() },
     )
     resetPdfCache()
-    translationViewModel.resetForDocument()
+    translationViewModel.resetForDocument(
+        documentId = loaded.document.id,
+        pageIndex = requestedPageIndex.coerceIn(0, loaded.document.pageCount - 1),
+    )
 }
 
 @Preview(showBackground = true, widthDp = 420, heightDp = 900)

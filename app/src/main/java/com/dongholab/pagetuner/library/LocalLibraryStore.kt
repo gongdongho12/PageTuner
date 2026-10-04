@@ -13,12 +13,16 @@ import java.io.File
 import java.io.IOException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import kotlin.math.roundToInt
 
 data class LocalLibraryOpenResult(
     val book: LocalBook,
     val loadedDocument: LoadedReaderDocument,
     val wasDuplicateImport: Boolean = false,
 )
+
+data class LocalBookReadSnapshot(val book: LocalBook, val bytes: ByteArray)
+class LocalBookSnapshotTooLargeException : IOException("Book exceeds the sharing limit.")
 
 class LocalLibraryStore(context: Context) {
     private val appContext = context.applicationContext
@@ -28,6 +32,12 @@ class LocalLibraryStore(context: Context) {
 
     suspend fun listBooks(): List<LocalBook> = withContext(Dispatchers.IO) {
         readBooks().sortedByDescending { it.lastOpenedAtMillis }
+    }
+
+    /** A sharing GET must not change the native reader's timestamps, progress or metadata. */
+    suspend fun readSnapshot(bookId: String, maxBytes: Int): LocalBookReadSnapshot? = withContext(Dispatchers.IO) {
+        val book = readBooks().firstOrNull { it.id == bookId } ?: return@withContext null
+        readLocalBookSnapshot(libraryDir, book, maxBytes)
     }
 
     suspend fun importBook(uri: Uri): LocalLibraryOpenResult = withContext(Dispatchers.IO) {
@@ -49,11 +59,16 @@ class LocalLibraryStore(context: Context) {
         bytes: ByteArray,
     ): LocalLibraryOpenResult = withContext(Dispatchers.IO) {
         ensureDirectories()
-        importBytes(
-            title = remoteBook.title,
-            format = remoteBook.format,
-            bytes = bytes,
-        )
+        val remoteIdentity = remoteBook.remoteLibraryIdentityOrNull()
+        if (remoteIdentity == null) {
+            importBytes(
+                title = remoteBook.title,
+                format = remoteBook.format,
+                bytes = bytes,
+            )
+        } else {
+            importRemoteSeriesChapter(remoteBook, remoteIdentity, bytes)
+        }
     }
 
     suspend fun openBook(bookId: String): LocalLibraryOpenResult = withContext(Dispatchers.IO) {
@@ -159,13 +174,15 @@ class LocalLibraryStore(context: Context) {
 
         val loaded = appContext.readReaderDocument(
             uri = Uri.fromFile(storedFile),
-            preferredTitle = book.title,
+            preferredTitle = book.currentChapterTitle ?: book.title,
         )
+        val loadedPageCount = loaded.document.pageCount.coerceAtLeast(1)
         val updatedBook = book.copy(
-            pageCount = loaded.document.pageCount.coerceAtLeast(1),
-            currentPageIndex = book.currentPageIndex.coerceIn(
-                0,
-                (loaded.document.pageCount - 1).coerceAtLeast(0),
+            pageCount = loadedPageCount,
+            currentPageIndex = remapReaderPageIndex(
+                currentPageIndex = book.currentPageIndex,
+                previousPageCount = book.pageCount,
+                newPageCount = loadedPageCount,
             ),
             lastOpenedAtMillis = System.currentTimeMillis(),
         )
@@ -219,6 +236,91 @@ class LocalLibraryStore(context: Context) {
         return LocalLibraryOpenResult(book = book, loadedDocument = loaded)
     }
 
+    private fun importRemoteSeriesChapter(
+        remoteBook: RemoteBookItem,
+        remoteIdentity: RemoteLibraryIdentity,
+        bytes: ByteArray,
+    ): LocalLibraryOpenResult {
+        val contentHash = DocumentIds.sha256(bytes)
+        val books = readBooks()
+        val existing = books.firstOrNull { it.belongsTo(remoteIdentity) }
+            ?: books.firstOrNull { it.contentHash == contentHash }
+        val sameChapter = existing?.currentRemoteChapterId == remoteBook.identity.remoteId
+        if (existing != null && sameChapter && existing.contentHash == contentHash && safeBookFile(existing).exists()) {
+            val refreshed = existing.copy(
+                contentLanguage = remoteBook.language,
+                contentIsTranslated = remoteBook.contentVariant ==
+                    com.dongholab.pagetuner.source.RemoteBookContentVariant.Translated,
+            )
+            if (refreshed != existing) {
+                writeBooks(books.map { book -> if (book.id == existing.id) refreshed else book })
+            }
+            return openStoredBook(refreshed, wasDuplicateImport = true)
+        }
+
+        val relativePath = existing?.relativePath
+            ?: "books/${remoteIdentity.localBookId}-${sanitizeFileName(remoteBook.seriesTitle ?: remoteBook.title, remoteBook.format)}"
+        val storedFile = File(libraryDir, relativePath)
+        storedFile.parentFile?.mkdirs()
+        val temporaryFile = File(requireNotNull(storedFile.parentFile), "${storedFile.name}.tmp")
+        temporaryFile.writeBytes(bytes)
+        if (!temporaryFile.renameTo(storedFile)) {
+            storedFile.writeBytes(temporaryFile.readBytes())
+            temporaryFile.delete()
+        }
+
+        val loaded = appContext.readReaderDocument(
+            uri = Uri.fromFile(storedFile),
+            preferredTitle = remoteBook.title,
+            preferredFormat = remoteBook.format,
+        )
+        val now = System.currentTimeMillis()
+        val pageCount = loaded.document.pageCount.coerceAtLeast(1)
+        val book = LocalBook(
+            // Preserve the existing ID so progress, glossary, and annotations survive identity upgrades.
+            id = existing?.id ?: remoteIdentity.localBookId,
+            title = remoteBook.seriesTitle?.takeIf { it.isNotBlank() }
+                ?: existing?.title
+                ?: loaded.document.title,
+            format = loaded.document.format,
+            relativePath = relativePath,
+            contentHash = contentHash,
+            pageCount = pageCount,
+            currentPageIndex = if (sameChapter) {
+                existing.currentPageIndex.coerceIn(0, pageCount - 1)
+            } else {
+                0
+            },
+            importedAtMillis = existing?.importedAtMillis ?: now,
+            lastOpenedAtMillis = now,
+            fileSizeBytes = bytes.size.toLong(),
+            folder = existing?.folder.orEmpty(),
+            tags = existing?.tags.orEmpty(),
+            bookmarks = if (sameChapter) existing.bookmarks else emptyList(),
+            annotations = if (sameChapter) existing.annotations else emptyList(),
+            remoteSourceType = remoteIdentity.sourceType,
+            remoteAccountId = remoteIdentity.accountId,
+            remoteSeriesId = remoteIdentity.seriesId,
+            currentRemoteChapterId = remoteBook.identity.remoteId,
+            currentChapterTitle = loaded.document.title,
+            currentChapterNumber = remoteBook.chapterNumber,
+            contentLanguage = remoteBook.language,
+            contentIsTranslated = remoteBook.contentVariant ==
+                com.dongholab.pagetuner.source.RemoteBookContentVariant.Translated,
+        )
+
+        writeBooks(
+            books.filterNot {
+                it.id == book.id || it.belongsTo(remoteIdentity) || it.id == existing?.id
+            } + book,
+        )
+        return LocalLibraryOpenResult(
+            book = book,
+            loadedDocument = loaded,
+            wasDuplicateImport = false,
+        )
+    }
+
     private fun readBooks(): List<LocalBook> {
         if (!metadataFile.exists()) return emptyList()
         return runCatching {
@@ -237,10 +339,7 @@ class LocalLibraryStore(context: Context) {
     }
 
     private fun safeBookFile(book: LocalBook): File {
-        val root = libraryDir.canonicalFile
-        val file = File(root, book.relativePath).canonicalFile
-        require(file.path.startsWith(root.path)) { "Invalid local book path." }
-        return file
+        return safeLocalBookFile(libraryDir, book.relativePath)
     }
 
     private fun ensureDirectories() {
@@ -262,4 +361,42 @@ class LocalLibraryStore(context: Context) {
             .ifBlank { "book$fallbackExtension" }
         return if (cleaned.contains('.')) cleaned else cleaned + fallbackExtension
     }
+}
+
+internal fun safeLocalBookFile(libraryDirectory: File, relativePath: String): File {
+    val root = libraryDirectory.canonicalFile
+    val file = File(root, relativePath).canonicalFile
+    require(file.path.startsWith(root.path + File.separator)) { "Invalid local book path." }
+    return file
+}
+
+internal fun readLocalBookSnapshot(libraryDirectory: File, book: LocalBook, maxBytes: Int): LocalBookReadSnapshot {
+    val source = safeLocalBookFile(libraryDirectory, book.relativePath)
+    require(maxBytes > 0)
+    if (source.length() > maxBytes) throw LocalBookSnapshotTooLargeException()
+    val bytes = source.inputStream().use { input ->
+        val output = java.io.ByteArrayOutputStream()
+        val buffer = ByteArray(8192)
+        while (true) {
+            val count = input.read(buffer)
+            if (count < 0) break
+            if (output.size().toLong() + count > maxBytes) throw LocalBookSnapshotTooLargeException()
+            output.write(buffer, 0, count)
+        }
+        output.toByteArray()
+    }
+    require(DocumentIds.sha256(bytes) == book.contentHash) { "Book changed while preparing sharing." }
+    return LocalBookReadSnapshot(book, bytes)
+}
+
+internal fun remapReaderPageIndex(
+    currentPageIndex: Int,
+    previousPageCount: Int,
+    newPageCount: Int,
+): Int {
+    val safeNewCount = newPageCount.coerceAtLeast(1)
+    if (previousPageCount <= 1 || safeNewCount <= 1) return 0
+    val progress = currentPageIndex.coerceIn(0, previousPageCount - 1).toFloat() /
+        (previousPageCount - 1).toFloat()
+    return (progress * (safeNewCount - 1)).roundToInt().coerceIn(0, safeNewCount - 1)
 }

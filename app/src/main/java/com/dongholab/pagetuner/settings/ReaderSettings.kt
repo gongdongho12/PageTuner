@@ -9,6 +9,7 @@ import com.dongholab.pagetuner.translation.TranslationProviderKind
 
 data class ReaderSettings(
     val displayMode: DisplayMode = DisplayMode.EinkHighContrast,
+    val listLayoutMode: ListLayoutMode = ListLayoutMode.Paged,
     val pageTurnMode: PageTurnMode = PageTurnMode.LeftPreviousRightNext,
     val pdfFitMode: PdfFitMode = PdfFitMode.FitPage,
     val readerFontSizeSp: Int = 18,
@@ -22,5 +23,5 @@ data class ReaderSettings(
     val readingWordsPerMinute: Int = 210,
     val translationBatchSize: Int = 6,
     val paceMode: TranslationPaceMode = TranslationPaceMode.READING,
-    val translationDisplayMode: TranslationDisplayMode = TranslationDisplayMode.SideBySide,
+    val translationDisplayMode: TranslationDisplayMode = TranslationDisplayMode.TranslationOnly,
 )

@@ -1,0 +1,54 @@
+{
+  "id": "fixture:translation",
+  "bookTitle": "Portable Book",
+  "chapterTitle": "Chapter 1",
+  "language": "ko",
+  "kind": "translation",
+  "paragraphs": [
+    {
+      "paragraphId": "p-1",
+      "text": "안녕 🌏.\n두 번째 줄."
+    },
+    {
+      "paragraphId": "p-2",
+      "text": "원문과 번역을 함께 보관합니다."
+    }
+  ],
+  "outline": [
+    {
+      "title": "Chapter 1",
+      "paragraphId": "p-1"
+    }
+  ],
+  "position": {
+    "paragraphId": "p-1",
+    "characterOffset": 6
+  },
+  "notes": [],
+  "organization": {
+    "folder": "Reading",
+    "tags": [
+      "fixture"
+    ],
+    "favorite": true
+  },
+  "glossary": [
+    {
+      "source": "Hello",
+      "target": "안녕",
+      "kind": "TERM",
+      "displayTerm": "안녕",
+      "caseSensitive": false,
+      "enabled": true
+    }
+  ],
+  "assets": [],
+  "extensions": {
+    "originalDocumentId": "fixture:original",
+    "translation": {
+      "providerId": "google-web-translate-public",
+      "sourceLanguage": "en",
+      "targetLanguage": "ko"
+    }
+  }
+}

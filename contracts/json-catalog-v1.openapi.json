@@ -1,0 +1,379 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "PageTurner JSON catalog and file import",
+    "version": "1.0.0",
+    "description": "Authenticated read adapters for the existing pagetuner.catalog.v0 format. The shared source-runtime parser resolves relative links against the final response URL and normalizes format aliases. Reads require no CSRF token. Binary files are never executed; clients use their local document importer."
+  },
+  "security": [
+    {
+      "basicAuth": []
+    }
+  ],
+  "paths": {
+    "/api/v1/catalogs/json": {
+      "get": {
+        "operationId": "getJsonCatalog",
+        "parameters": [
+          {
+            "name": "url",
+            "in": "query",
+            "required": true,
+            "description": "Public HTTPS URL on port 443, without credentials or fragments. Every redirect and socket DNS answer is revalidated.",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 4096
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Normalized catalog; source JSON capped at 5 MiB, 1000 entries and 100 links. Cache-Control: no-store.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JsonCatalogDocument"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid or non-public HTTPS URL",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "502": {
+            "description": "Remote catalog invalid, unavailable, empty or above byte limit",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "504": {
+            "description": "Remote request deadline exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/catalog-files": {
+      "get": {
+        "operationId": "getCatalogFile",
+        "parameters": [
+          {
+            "name": "url",
+            "in": "query",
+            "required": true,
+            "description": "Public HTTPS URL on port 443, without credentials or fragments. Every redirect and socket DNS answer is revalidated.",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 4096
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Nonempty original bytes, at most 32 MiB after decompression. Content-Disposition attachment, X-Content-Type-Options nosniff, Cache-Control no-store. No remote cookies or credentials are forwarded.",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid or non-public HTTPS URL",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "502": {
+            "description": "Remote catalog invalid, unavailable, empty or above byte limit",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "504": {
+            "description": "Remote request deadline exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "basicAuth": {
+        "type": "http",
+        "scheme": "basic"
+      }
+    },
+    "schemas": {
+      "JsonCatalogLink": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "rel",
+          "href",
+          "type"
+        ],
+        "properties": {
+          "rel": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100
+          },
+          "href": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 4096
+          },
+          "type": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 2000,
+            "nullable": true
+          }
+        }
+      },
+      "JsonCatalogTranslationHints": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "sourceLanguage",
+          "targetLanguages"
+        ],
+        "properties": {
+          "sourceLanguage": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 24
+          },
+          "targetLanguages": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 24
+            },
+            "maxItems": 100
+          }
+        }
+      },
+      "JsonCatalogEntry": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "title",
+          "authors",
+          "format",
+          "href",
+          "language",
+          "type",
+          "size",
+          "checksum",
+          "updatedAt",
+          "cover",
+          "translationHints"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 2000
+          },
+          "title": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 2000
+          },
+          "authors": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 2000
+            },
+            "maxItems": 100
+          },
+          "format": {
+            "type": "string",
+            "enum": [
+              "txt",
+              "markdown",
+              "epub",
+              "pdf"
+            ]
+          },
+          "href": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 4096
+          },
+          "language": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 24,
+            "nullable": true
+          },
+          "type": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 2000,
+            "nullable": true
+          },
+          "size": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0,
+            "maximum": 9007199254740991,
+            "nullable": true
+          },
+          "checksum": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 2000,
+            "nullable": true
+          },
+          "updatedAt": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 2000,
+            "nullable": true
+          },
+          "cover": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 4096,
+            "nullable": true
+          },
+          "translationHints": {
+            "$ref": "#/components/schemas/JsonCatalogTranslationHints"
+          }
+        }
+      },
+      "JsonCatalogDocument": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "version",
+          "id",
+          "title",
+          "catalogUrl",
+          "updatedAt",
+          "links",
+          "items"
+        ],
+        "properties": {
+          "version": {
+            "type": "string",
+            "enum": [
+              "pagetuner.catalog.v0"
+            ]
+          },
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 2000
+          },
+          "title": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 2000
+          },
+          "catalogUrl": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 4096
+          },
+          "updatedAt": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 2000,
+            "nullable": true
+          },
+          "links": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/JsonCatalogLink"
+            },
+            "maxItems": 100
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/JsonCatalogEntry"
+            },
+            "maxItems": 1000
+          }
+        }
+      },
+      "ProblemDetail": {
+        "type": "object",
+        "required": [
+          "status",
+          "detail"
+        ],
+        "properties": {
+          "status": {
+            "type": "integer"
+          },
+          "detail": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "type": {
+            "type": "string"
+          },
+          "instance": {
+            "type": "string"
+          },
+          "code": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  }
+}

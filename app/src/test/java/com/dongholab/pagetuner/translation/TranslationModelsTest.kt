@@ -61,6 +61,23 @@ class TranslationModelsTest {
     }
 
     @Test
+    fun deepSeekUsesItsOwnSubscriptionPlanAndRequiresACompleteConfiguration() {
+        val missing = TranslationSettings(
+            providerKind = TranslationProviderKind.DEEPSEEK,
+            apiKey = "",
+            llmEndpoint = DeepSeekDefaults.ApiUrl,
+            llmModel = DeepSeekDefaults.Model,
+        )
+        val ready = missing.copy(apiKey = "key")
+
+        assertEquals(TranslationSubscriptionPlan.DEEPSEEK_AI, ready.providerKind.subscriptionPlan)
+        assertFalse(missing.isProviderConfigured)
+        assertEquals(ProviderHealthState.MissingConfiguration, missing.checkProviderHealth().state)
+        assertTrue(ready.isProviderConfigured)
+        assertEquals(ProviderHealthState.Ready, ready.checkProviderHealth().state)
+    }
+
+    @Test
     fun reportsTranslationQueueCapabilities() {
         val running = TranslationQueueState(
             items = listOf(

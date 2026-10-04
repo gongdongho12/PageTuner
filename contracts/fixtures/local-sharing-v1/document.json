@@ -1,0 +1,29 @@
+{
+  "id": "fixture-original",
+  "title": "비행기에서 읽는 책",
+  "format": "txt",
+  "edition": "original",
+  "language": "ko",
+  "revision": "8c3b55842e5b6c73b8cdebb41633b2d8726e168f9b5ae536b0ba9c589936b689",
+  "paragraphs": [
+    {
+      "paragraphId": "source:chapter-1:p-0",
+      "text": "첫 문단입니다. 화면이 달라져도 이 문단의 식별자는 유지됩니다."
+    },
+    {
+      "paragraphId": "source:chapter-1:p-1",
+      "text": "✈️ 인터넷 없이도 읽을 수 있습니다."
+    }
+  ],
+  "outline": [
+    {
+      "title": "첫 장",
+      "paragraphId": "source:chapter-1:p-0"
+    }
+  ],
+  "assets": [],
+  "anchor": {
+    "paragraphId": "source:chapter-1:p-1",
+    "characterOffset": 3
+  }
+}

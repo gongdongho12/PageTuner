@@ -27,7 +27,7 @@ fun StatusStrip(
     ) {
         if (busy || progress > 0f) {
             LinearProgressIndicator(
-                progress = { progress.coerceIn(0f, 1f) },
+                progress = { if (busy && progress <= 0f) 1f else progress.coerceIn(0f, 1f) },
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(3.dp),
@@ -39,8 +39,8 @@ fun StatusStrip(
             text = statusText,
             style = MaterialTheme.typography.bodySmall,
             color = EinkMuted,
-            maxLines = 2,
-            overflow = TextOverflow.Ellipsis,
+            maxLines = 3,
+            overflow = TextOverflow.Clip,
         )
     }
 }

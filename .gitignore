@@ -1,6 +1,7 @@
 *.iml
 .gradle
 .gradle-home/
+.kotlin/
 /local.properties
 /.idea/
 /.idea/caches
@@ -12,7 +13,11 @@
 .serena/
 .DS_Store
 /build
+**/build/
 /captures
 .externalNativeBuild
 .cxx
 local.properties
+.env
+.env.*
+!.env.example

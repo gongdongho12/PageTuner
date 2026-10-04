@@ -104,7 +104,7 @@ fun buildReaderActions(
 
     fun changePage(targetIndex: Int) {
         when (readerViewModel.changePage(targetIndex)) {
-            ReaderPageMoveResult.Moved -> translationViewModel.clearPageTranslation()
+            ReaderPageMoveResult.Moved -> Unit
             ReaderPageMoveResult.FirstPage -> {
                 translationViewModel.clearStatus()
                 setAppStatusText(context.getString(R.string.status_first_page))
@@ -119,7 +119,6 @@ fun buildReaderActions(
     fun handleSearchMove(result: ReaderSearchMoveResult) {
         when (result) {
             is ReaderSearchMoveResult.Moved -> {
-                translationViewModel.clearPageTranslation()
                 translationViewModel.clearStatus()
                 setAppStatusText(context.getString(R.string.status_search_result, result.resultNumber, result.totalResults, result.match.pageIndex + 1))
             }
@@ -268,7 +267,14 @@ fun buildReaderActions(
             translationViewModel.loadCachedPage(document, currentPage, settings, repository, showMissingStatus = true)
         },
         translateCurrentPage = {
-            if (!busy) translationViewModel.translatePage(document, currentPage, settings, repository)
+            if (!busy) {
+                translationViewModel.startRollingPrefetch(
+                    document = document,
+                    currentPageIndex = pageIndex,
+                    settings = settings,
+                    repository = repository,
+                )
+            }
         },
         prefetchDocument = {
             if (!busy) translationViewModel.prefetchDocument(document, currentPage, pageIndex, settings, repository)

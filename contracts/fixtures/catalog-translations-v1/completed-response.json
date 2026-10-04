@@ -1,0 +1,25 @@
+{
+  "requestId": "11111111-1111-4111-8111-111111111111",
+  "status": "COMPLETED",
+  "sourceHash": "947d242608766907534aca01a62d539f212eb8f005b3e717893d5b4214f08364",
+  "providerKind": "GOOGLE_WEB_TRANSLATE_HTML",
+  "targetLanguage": "ko",
+  "completedSegments": 3,
+  "totalSegments": 3,
+  "items": [
+    {
+      "key": "book-a",
+      "title": "그림자 노예",
+      "description": null,
+      "targetLanguage": "ko"
+    },
+    {
+      "key": "book-b",
+      "title": "새로운 새벽",
+      "description": "여행자가 문을 엽니다.",
+      "targetLanguage": "ko"
+    }
+  ],
+  "errorCode": null,
+  "updatedAt": "2026-09-15T00:00:00Z"
+}

@@ -9,6 +9,10 @@ import javax.xml.parsers.SAXParserFactory
 import org.xml.sax.InputSource
 import org.xml.sax.helpers.DefaultHandler
 
+class EpubReadLimitException : IllegalArgumentException("EPUB exceeds the requested read limit.")
+
+data class EpubReadLimits(val maxTextCharacters: Int, val maxImageReferences: Int, val maxImageBytes: Long)
+
 object EpubDocumentReader {
     private data class EpubChapter(
         val title: String?,
@@ -30,7 +34,11 @@ object EpubDocumentReader {
         title: String,
         bytes: ByteArray,
         fallbackTitle: String,
+        limits: EpubReadLimits? = null,
     ): ReaderDocument {
+        var textCharacters = 0L
+        var imageReferences = 0L
+        var imageBytes = 0L
         val containerXml = readZipEntry(bytes, "META-INF/container.xml").decodeToString()
         val opfPath = parseContainerRootfile(containerXml)
         val opfXml = readZipEntry(bytes, opfPath).decodeToString()
@@ -38,15 +46,23 @@ object EpubDocumentReader {
         val chapters = epubPackage.spinePaths
             .mapNotNull { path ->
                 readZipEntryOrNull(bytes, path)?.decodeToString()?.let { xhtml ->
+                    textCharacters += xhtml.length
+                    val imageCount = countImages(xhtml)
+                    imageReferences += imageCount
+                    if (limits != null && (textCharacters > limits.maxTextCharacters || imageReferences > limits.maxImageReferences)) throw EpubReadLimitException()
                     EpubChapter(
                         title = extractChapterTitle(xhtml) ?: path.substringAfterLast('/'),
                         text = extractXhtmlText(xhtml),
-                        imageCount = countImages(xhtml),
+                        imageCount = imageCount,
                         images = extractImages(
                             epubBytes = bytes,
                             xhtml = xhtml,
                             chapterPath = path,
                             imageResources = epubPackage.imageResources,
+                            onImageBytes = { size ->
+                                imageBytes += size
+                                if (limits != null && imageBytes > limits.maxImageBytes) throw EpubReadLimitException()
+                            },
                         ),
                     )
                 }
@@ -155,7 +171,12 @@ object EpubDocumentReader {
                 }
             }
 
-            SAXParserFactory.newInstance().newSAXParser().parse(
+            SAXParserFactory.newInstance().apply {
+                // XHTML content must never resolve a network or private-file entity while reading.
+                setFeature("http://xml.org/sax/features/external-general-entities", false)
+                setFeature("http://xml.org/sax/features/external-parameter-entities", false)
+                setFeature("http://apache.org/xml/features/nonvalidating/load-external-dtd", false)
+            }.newSAXParser().parse(
                 InputSource(StringReader(xhtml)),
                 handler,
             )
@@ -199,6 +220,7 @@ object EpubDocumentReader {
         xhtml: String,
         chapterPath: String,
         imageResources: Map<String, EpubImageResource>,
+        onImageBytes: (Int) -> Unit,
     ): List<ReaderPageImage> {
         val chapterBasePath = chapterPath.substringBeforeLast('/', "")
         return Regex("(?is)<img\\b[^>]*>").findAll(xhtml).mapNotNull { match ->
@@ -212,6 +234,7 @@ object EpubDocumentReader {
                 href = source.substringBefore('#'),
             )
             val imageBytes = readZipEntryOrNull(epubBytes, imagePath) ?: return@mapNotNull null
+            onImageBytes(imageBytes.size)
             val mimeType = imageResources[imagePath]?.mediaType ?: inferImageMimeType(imagePath)
 
             ReaderPageImage(

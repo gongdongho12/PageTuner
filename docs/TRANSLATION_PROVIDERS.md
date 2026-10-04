@@ -14,12 +14,21 @@ pagination, pacing, and offline cache do not depend on a single vendor.
 
 - `GOOGLE_WEB_TRANSLATE_HTML`
   - Provider: `GoogleWebTranslateHtmlProvider`
-  - Input: no API key required; an optional key can be sent as
-    `X-Goog-Api-Key` when supplied.
-  - Endpoint: `https://translate-pa.googleapis.com/v1/translateHtml`
-  - Best for HTML-segment translation using the web translate request shape.
+  - Input: no API key required. A supplied key selects the registered HTML
+    request path and is sent as `X-Goog-Api-Key`.
+  - No-key endpoint: `https://translate.googleapis.com/translate_a/single`
+  - Keyed endpoint: `https://translate-pa.googleapis.com/v1/translateHtml`
+  - The no-key path sends ordered segments individually as form-encoded POST
+    bodies; the keyed path uses the HTML batch request shape.
   - The app does not embed copied browser validation headers or
     session-specific headers in source.
+
+- `DEEPSEEK`
+  - Provider: `DeepSeekTranslationProvider`
+  - Input: local Debug `.env` credential or a future production subscription proxy
+  - Uses the official Chat Completions JSON response mode with thinking disabled.
+  - Local setup, security boundary, and real API evidence are documented in
+    [DeepSeek Translation](DEEPSEEK_TRANSLATION.md).
 
 - `OPENAI_COMPATIBLE_LLM`
   - Provider: `OpenAiCompatibleLlmTranslationProvider`
@@ -39,8 +48,8 @@ To add another provider:
    extra configuration.
 
 The cache key includes `provider.id`, so results from Google Cloud, Google Web
-HTML, LLM, and future providers stay separated even when document, page, and
-language pair match.
+HTML, DeepSeek, custom LLM, and future providers stay separated even when
+document, page, and language pair match.
 
 For imported local books, the JSON cache file is placed beside the app-private
 saved copy under `local_library/books/translate/<book-name>.translations.json`.
@@ -71,3 +80,20 @@ The provider handles only:
 - remote API call
 - response parsing
 - provider-specific validation
+
+## Live verification
+
+Real network verification is opt-in so the normal unit suite remains
+deterministic:
+
+```shell
+RUN_LIVE_TRANSLATION_TESTS=1 ./gradlew :app:testDebugUnitTest \
+  --tests 'com.dongholab.pagetuner.translation.GoogleWebTranslateLiveTest'
+```
+
+The live suite covers English-to-Korean, ordered Korean-to-English segments,
+and the common named-field service with a persisted cache file.
+
+## Server and web connection checks
+
+See [Provider connection settings and checks](PROVIDER_CONNECTION_CHECK.md) for shared server/web settings, the fixed-sample check API, and complete response validation.

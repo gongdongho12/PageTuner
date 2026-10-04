@@ -1,0 +1,736 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "PageTurner Local Library Sharing",
+    "version": "1.0.0",
+    "description": "Read-only, same-origin phone-hosted HTTP protocol. No cloud authentication. Pairing code is displayed only by Android; bearer tokens must remain in browser memory. See local-sharing-v1.md."
+  },
+  "paths": {
+    "/api/share/v1/status": {
+      "get": {
+        "operationId": "getSharingStatus",
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SharingStatus"
+                }
+              }
+            }
+          },
+          "410": {
+            "description": "Request rejected; code is stable and messages contain no paths or credentials.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SharingError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/share/v1/pair": {
+      "post": {
+        "operationId": "pairSharingSession",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PairRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PairResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Request rejected; code is stable and messages contain no paths or credentials.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SharingError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Request rejected; code is stable and messages contain no paths or credentials.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SharingError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Request rejected; code is stable and messages contain no paths or credentials.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SharingError"
+                }
+              }
+            }
+          },
+          "410": {
+            "description": "Request rejected; code is stable and messages contain no paths or credentials.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SharingError"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Request rejected; code is stable and messages contain no paths or credentials.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SharingError"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Request rejected; code is stable and messages contain no paths or credentials.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SharingError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/share/v1/session": {
+      "delete": {
+        "operationId": "disconnectSharingSession",
+        "security": [
+          {
+            "sharingSession": []
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "This browser session has been invalidated."
+          },
+          "401": {
+            "description": "Request rejected; code is stable and messages contain no paths or credentials.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SharingError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/share/v1/books": {
+      "get": {
+        "operationId": "listSharedBooks",
+        "security": [
+          {
+            "sharingSession": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "default": 0
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 50,
+              "default": 50
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SharedLibraryPage"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Request rejected; code is stable and messages contain no paths or credentials.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SharingError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Request rejected; code is stable and messages contain no paths or credentials.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SharingError"
+                }
+              }
+            }
+          },
+          "410": {
+            "description": "Request rejected; code is stable and messages contain no paths or credentials.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SharingError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/share/v1/books/{id}": {
+      "parameters": [
+        {
+          "name": "id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string"
+          }
+        }
+      ],
+      "get": {
+        "operationId": "getSharedDocument",
+        "security": [
+          {
+            "sharingSession": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SharedDocument"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Request rejected; code is stable and messages contain no paths or credentials.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SharingError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Request rejected; code is stable and messages contain no paths or credentials.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SharingError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Request rejected; code is stable and messages contain no paths or credentials.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SharingError"
+                }
+              }
+            }
+          },
+          "410": {
+            "description": "Request rejected; code is stable and messages contain no paths or credentials.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SharingError"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Request rejected; code is stable and messages contain no paths or credentials.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SharingError"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Request rejected; code is stable and messages contain no paths or credentials.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SharingError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/share/v1/books/{id}/assets/{assetId}": {
+      "parameters": [
+        {
+          "name": "id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string"
+          }
+        },
+        {
+          "name": "assetId",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string"
+          }
+        },
+        {
+          "name": "revision",
+          "in": "query",
+          "required": true,
+          "schema": {
+            "type": "string"
+          }
+        }
+      ],
+      "get": {
+        "operationId": "getSharedAsset",
+        "security": [
+          {
+            "sharingSession": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Pinned PDF or bitmap bytes; MIME type matches the document asset descriptor.",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Request rejected; code is stable and messages contain no paths or credentials.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SharingError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Request rejected; code is stable and messages contain no paths or credentials.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SharingError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Request rejected; code is stable and messages contain no paths or credentials.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SharingError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Request rejected; code is stable and messages contain no paths or credentials.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SharingError"
+                }
+              }
+            }
+          },
+          "410": {
+            "description": "Request rejected; code is stable and messages contain no paths or credentials.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SharingError"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Request rejected; code is stable and messages contain no paths or credentials.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SharingError"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "sharingSession": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "X-PageTuner-Session"
+      }
+    },
+    "schemas": {
+      "SharingStatus": {
+        "type": "object",
+        "required": [
+          "version",
+          "readOnly",
+          "expiresAt"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "version": {
+            "type": "integer",
+            "enum": [
+              1
+            ]
+          },
+          "readOnly": {
+            "type": "boolean",
+            "enum": [
+              true
+            ]
+          },
+          "expiresAt": {
+            "type": "integer",
+            "format": "int64"
+          }
+        }
+      },
+      "PairRequest": {
+        "type": "object",
+        "required": [
+          "code"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "type": "string",
+            "pattern": "^[0-9]{8}$"
+          }
+        }
+      },
+      "PairResponse": {
+        "type": "object",
+        "required": [
+          "token",
+          "expiresAt"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "token": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          },
+          "expiresAt": {
+            "type": "integer",
+            "format": "int64"
+          }
+        }
+      },
+      "SharedBookSummary": {
+        "type": "object",
+        "required": [
+          "id",
+          "title",
+          "format",
+          "edition"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "format": {
+            "type": "string",
+            "enum": [
+              "txt",
+              "markdown",
+              "epub",
+              "pdf"
+            ]
+          },
+          "edition": {
+            "type": "string",
+            "enum": [
+              "original",
+              "translation"
+            ]
+          }
+        }
+      },
+      "SharedLibraryPage": {
+        "type": "object",
+        "required": [
+          "items",
+          "total",
+          "offset",
+          "limit"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SharedBookSummary"
+            }
+          },
+          "total": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "offset": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 50
+          }
+        }
+      },
+      "SharedParagraph": {
+        "type": "object",
+        "required": [
+          "paragraphId",
+          "text"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "paragraphId": {
+            "type": "string"
+          },
+          "text": {
+            "type": "string"
+          }
+        }
+      },
+      "SharedOutlineItem": {
+        "type": "object",
+        "required": [
+          "title",
+          "paragraphId"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "title": {
+            "type": "string"
+          },
+          "paragraphId": {
+            "type": "string"
+          }
+        }
+      },
+      "SharedReadingAnchor": {
+        "type": "object",
+        "required": [
+          "paragraphId",
+          "characterOffset"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "paragraphId": {
+            "type": "string"
+          },
+          "characterOffset": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Canonical paragraph UTF-16 code-unit offset, never a screen page number."
+          }
+        }
+      },
+      "SharedAsset": {
+        "type": "object",
+        "required": [
+          "id",
+          "mimeType",
+          "byteLength",
+          "role",
+          "alt"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "mimeType": {
+            "type": "string"
+          },
+          "byteLength": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0,
+            "maximum": 33554432
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "pdf",
+              "image"
+            ]
+          },
+          "paragraphId": {
+            "type": "string",
+            "nullable": true
+          },
+          "alt": {
+            "type": "string"
+          }
+        }
+      },
+      "SharedDocument": {
+        "type": "object",
+        "required": [
+          "id",
+          "title",
+          "format",
+          "edition",
+          "language",
+          "revision",
+          "paragraphs",
+          "outline",
+          "assets"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "format": {
+            "type": "string",
+            "enum": [
+              "txt",
+              "markdown",
+              "epub",
+              "pdf"
+            ]
+          },
+          "edition": {
+            "type": "string",
+            "enum": [
+              "original",
+              "translation"
+            ]
+          },
+          "language": {
+            "type": "string"
+          },
+          "revision": {
+            "type": "string",
+            "description": "Opaque snapshot revision; asset requests must use this exact value."
+          },
+          "paragraphs": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SharedParagraph"
+            }
+          },
+          "outline": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SharedOutlineItem"
+            }
+          },
+          "assets": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SharedAsset"
+            }
+          },
+          "anchor": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/SharedReadingAnchor"
+              }
+            ],
+            "nullable": true
+          }
+        }
+      },
+      "SharingError": {
+        "type": "object",
+        "required": [
+          "code",
+          "message"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  }
+}

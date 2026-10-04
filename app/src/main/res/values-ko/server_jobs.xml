@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="server_job_panel">서버 번역</string>
+    <string name="server_job_new">서버에서 새 번역</string>
+    <string name="server_job_form">번역 설정</string>
+    <string name="server_job_list">작업 진행</string>
+    <string name="server_job_choose_original">서버 원문 서재에서 번역할 회차를 선택해 주세요.</string>
+    <string name="server_job_preparing">원문과 번역 제공자를 불러오는 중…</string>
+    <string name="server_job_ready">설정을 확인한 뒤 서버 번역을 시작해 주세요.</string>
+    <string name="server_job_source_language">원문 언어</string>
+    <string name="server_job_provider_endpoint">제공자 HTTPS 주소</string>
+    <string name="server_job_model">모델</string>
+    <string name="server_job_api_key">API 키 (메모리에만 보관)</string>
+    <string name="server_job_glossary">용어집: 한 줄에 원문=번역</string>
+    <string name="server_job_key_hint">키는 작업 실행을 위해 서버에 전송되며 메모리에만 보관됩니다. 비우면 서버에 설정된 키를 사용합니다.</string>
+    <string name="server_job_free_hint">Google Web은 키가 필요 없습니다. 공개 서비스 제한이나 변경으로 중단될 수 있습니다.</string>
+    <string name="server_job_retry_hint">이전 설정과 완료된 문단을 그대로 재사용합니다. 필요한 경우 API 키만 다시 입력해 주세요.</string>
+    <string name="server_job_start">서버 번역 시작</string>
+    <string name="server_job_submitting">서버 번역을 요청하는 중…</string>
+    <string name="server_job_submitted">요청했습니다. 완료된 문단은 서버에 보관됩니다.</string>
+    <string name="server_job_loading">번역 작업을 불러오는 중…</string>
+    <string name="server_job_loaded">번역 작업을 불러왔습니다. 실행 중인 작업은 자동으로 갱신됩니다.</string>
+    <string name="server_job_empty">번역 작업이 없습니다. 원문 회차를 선택해 시작해 주세요.</string>
+    <string name="server_job_cancel">작업 취소</string>
+    <string name="server_job_cancelling">작업 취소를 요청하는 중…</string>
+    <string name="server_job_cancelled">취소를 요청했습니다. 완료된 문단은 재시도할 때 사용할 수 있습니다.</string>
+    <string name="server_job_retry">재시도 설정</string>
+    <string name="server_job_retry_submit">이전 설정으로 재시도</string>
+    <string name="server_job_preparing_retry">이전 작업 설정을 복원하는 중…</string>
+    <string name="server_job_retry_ready">이전 설정을 복원했습니다. 필요하면 키를 입력하고 재시도해 주세요.</string>
+    <string name="server_job_poll_failed">자동 갱신이 멈췄습니다. 새로고침하면 다시 연결합니다.</string>
+    <string name="server_job_progress">%1$s · %2$d/%3$d문단</string>
+    <string name="server_job_queued">대기</string>
+    <string name="server_job_running">번역 중</string>
+    <string name="server_job_completed">완료</string>
+    <string name="server_job_failed">실패</string>
+    <string name="server_job_cancelled_status">취소됨</string>
+    <string name="server_job_interrupted">중단됨</string>
+    <string name="server_job_error_credentials">제공자 키를 확인하고 재시도해 주세요. 설정 변경은 새 번역에서 가능합니다.</string>
+    <string name="server_job_error_limit">제공자 사용량을 확인하거나 잠시 기다린 뒤 재시도해 주세요.</string>
+    <string name="server_job_error_interrupted">서버 실행이 중단되었습니다. 재시도하면 완료된 문단부터 이어집니다.</string>
+    <string name="server_job_error_provider">제공자 설정과 연결을 확인해 주세요. 다른 설정은 원문에서 새 번역을 시작하세요.</string>
+</resources>

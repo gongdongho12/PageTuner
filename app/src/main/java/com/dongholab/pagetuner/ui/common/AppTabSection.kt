@@ -52,58 +52,11 @@ fun AppTabNavigation(
     selectedTab: AppTab,
     onSelectTab: (AppTab) -> Unit,
 ) {
-    Surface(
-        modifier = Modifier.fillMaxWidth(),
-        color = EinkPanel,
-        shape = RoundedCornerShape(4.dp),
-        border = BorderStroke(1.dp, EinkInk),
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(2.dp),
-            horizontalArrangement = Arrangement.spacedBy(2.dp),
-        ) {
-            AppTab.entries.forEach { tab ->
-                val selected = selectedTab == tab
-                Surface(
-                    modifier = Modifier
-                        .weight(1f)
-                        .height(38.dp)
-                        .clickable { onSelectTab(tab) },
-                    color = if (selected) EinkPaper else EinkPanel,
-                    shape = RoundedCornerShape(3.dp),
-                    border = BorderStroke(1.dp, if (selected) EinkInk else EinkLine),
-                ) {
-                    Box(
-                        modifier = Modifier.fillMaxSize(),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        Column(
-                            modifier = Modifier.fillMaxSize(),
-                            verticalArrangement = Arrangement.SpaceBetween,
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                        ) {
-                            Spacer(Modifier.height(4.dp))
-                            Text(
-                                text = tab.title,
-                                style = MaterialTheme.typography.labelLarge.copy(fontSize = 11.sp),
-                                fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
-                                color = if (selected) EinkInk else EinkMuted,
-                                maxLines = 1,
-                                softWrap = false,
-                                overflow = TextOverflow.Ellipsis,
-                            )
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .height(3.dp)
-                                    .background(if (selected) EinkInk else EinkPaper),
-                            )
-                        }
-                    }
-                }
-            }
-        }
-    }
+    EinkSegmentedControl(
+        options = AppTab.entries,
+        selected = selectedTab,
+        onSelect = onSelectTab,
+        itemHeight = 42.dp,
+        label = AppTab::title,
+    )
 }

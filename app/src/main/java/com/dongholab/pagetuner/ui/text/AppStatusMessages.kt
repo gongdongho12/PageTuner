@@ -110,6 +110,9 @@ fun ProviderHealthCheck.localizedMessage(context: Context): String {
                 context.getString(R.string.provider_health_missing_google_key)
             TranslationProviderKind.GOOGLE_WEB_TRANSLATE_HTML ->
                 context.getString(R.string.provider_health_google_web_no_key_required)
+            TranslationProviderKind.GEMINI -> context.getString(R.string.provider_health_missing_gemini_key)
+            TranslationProviderKind.DEEPSEEK ->
+                context.getString(R.string.provider_health_missing_deepseek_key)
             TranslationProviderKind.OPENAI_COMPATIBLE_LLM ->
                 context.getString(R.string.provider_health_missing_llm_settings)
             null -> context.getString(R.string.provider_health_missing_settings)
@@ -125,11 +128,30 @@ fun WebCatalogStatus.localizedMessage(context: Context): String {
         WebCatalogStatus.Loading -> context.getString(R.string.status_web_catalog_loading)
         WebCatalogStatus.MissingCatalogUrl ->
             context.getString(R.string.status_web_catalog_missing_url)
-        is WebCatalogStatus.LoadedRemote -> context.getString(
-            R.string.status_web_catalog_loaded_remote,
-            title,
-            itemCount,
-        )
+        is WebCatalogStatus.LoadedRemote -> if (currentPage != null && totalPages != null && totalItems == null) {
+            context.getString(
+                R.string.status_web_catalog_loaded_search_page,
+                title,
+                currentPage,
+                totalPages,
+                itemCount,
+            )
+        } else if (currentPage != null && totalPages != null) {
+            context.getString(
+                R.string.status_web_catalog_loaded_remote_page,
+                title,
+                currentPage,
+                totalPages,
+                itemCount,
+                totalItems ?: itemCount,
+            )
+        } else {
+            context.getString(
+                R.string.status_web_catalog_loaded_remote,
+                title,
+                itemCount,
+            )
+        }
         is WebCatalogStatus.LoadedCached -> context.getString(
             R.string.status_web_catalog_loaded_cached,
             title,
@@ -143,6 +165,15 @@ fun WebCatalogStatus.localizedMessage(context: Context): String {
             R.string.status_web_catalog_downloaded,
             title,
         )
+        is WebCatalogStatus.OfflineSaved -> if (translationFailedItems > 0) {
+            context.getString(
+                R.string.status_web_catalog_offline_saved_translation_failed,
+                savedItems,
+                translationFailedItems,
+            )
+        } else {
+            context.getString(R.string.status_web_catalog_offline_saved, savedItems)
+        }
         is WebCatalogStatus.SavedAccount -> context.getString(
             R.string.status_remote_source_account_saved,
             title,
@@ -227,6 +258,8 @@ fun settingsProviderConfigured(
     return when (providerKind) {
         TranslationProviderKind.GOOGLE_CLOUD -> apiKey.isNotBlank()
         TranslationProviderKind.GOOGLE_WEB_TRANSLATE_HTML -> true
+        TranslationProviderKind.GEMINI, TranslationProviderKind.DEEPSEEK ->
+            apiKey.isNotBlank() && llmEndpoint.isNotBlank() && llmModel.isNotBlank()
         TranslationProviderKind.OPENAI_COMPATIBLE_LLM ->
             apiKey.isNotBlank() && llmEndpoint.isNotBlank() && llmModel.isNotBlank()
     }

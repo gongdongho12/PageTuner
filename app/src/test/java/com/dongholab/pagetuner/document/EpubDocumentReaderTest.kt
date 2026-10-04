@@ -7,9 +7,41 @@ import java.util.zip.ZipOutputStream
 import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
+import org.junit.Assert.assertFalse
+import org.junit.Assert.fail
 import org.junit.Test
 
 class EpubDocumentReaderTest {
+    @Test
+    fun sharingBudgetRejectsRepeatedImageAllocationsBeforeRetainingWholeDocument() {
+        val epub = minimalEpub("<p>Hello</p><img src=\"image.png\"/><img src=\"image.png\"/>", mapOf("image.png" to onePixelPng))
+        try {
+            EpubDocumentReader.parse("book", epub, "Untitled", EpubReadLimits(10_000, 10, onePixelPng.size.toLong()))
+            fail("Repeated image bytes must respect the total budget")
+        } catch (_: EpubReadLimitException) { }
+        try {
+            EpubDocumentReader.parse("book", epub, "Untitled", EpubReadLimits(10_000, 1, 10_000))
+            fail("Repeated image references must respect the count budget")
+        } catch (_: EpubReadLimitException) { }
+    }
+
+    @Test
+    fun xhtmlCannotReadAnExternalFileEntity() {
+        val secret = java.io.File.createTempFile("epub-private", ".txt").apply { writeText("PRIVATE_CONTENT_MUST_NOT_ESCAPE") }
+        try {
+            val xhtml = "<!DOCTYPE html [<!ENTITY secret SYSTEM '${secret.toURI()}'>]><html><body><p>Before &secret; After</p></body></html>"
+            val epub = minimalEpub(xhtml, alreadyWrapped = true)
+            val document = EpubDocumentReader.parse("book", epub, "Untitled")
+            assertFalse(document.pages.joinToString { it.plainText }.contains("PRIVATE_CONTENT_MUST_NOT_ESCAPE"))
+        } finally { secret.delete() }
+    }
+
+    private fun minimalEpub(body: String, binary: Map<String, ByteArray> = emptyMap(), alreadyWrapped: Boolean = false): ByteArray = buildEpub(mapOf(
+        "META-INF/container.xml" to "<container><rootfiles><rootfile full-path=\"content.opf\"/></rootfiles></container>",
+        "content.opf" to "<package><manifest><item id=\"c\" href=\"chapter.xhtml\" media-type=\"application/xhtml+xml\"/><item id=\"i\" href=\"image.png\" media-type=\"image/png\"/></manifest><spine><itemref idref=\"c\"/></spine></package>",
+        "chapter.xhtml" to if (alreadyWrapped) body else "<html><body>$body</body></html>"
+    ), binary)
+
     @Test
     fun parsesSpineDocumentsIntoReaderPages() {
         val epub = buildEpub(

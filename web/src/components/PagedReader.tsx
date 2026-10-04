@@ -1,0 +1,438 @@
+import { translate as t } from '../lib/locale';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import type { ReadingAnchor } from "../lib/offline";
+import { Icon } from "./Icon";
+import { usePageKeys } from "./usePageKeys";
+import { ReaderTools } from './ReaderTools';
+import { firstAnchor, validReadingPosition, type ReadingDocument } from '../lib/readingDocument';
+import { useReadingProgress } from './ReadingProgressProvider';
+import { useReadingNoteSync } from './ReadingNoteProvider';
+import { ReadingProgressPanel, readingProgressStatus } from './ReadingProgressPanel';
+import { useReaderPreferences } from './ReaderPreferences';
+import { readerFontFamilies } from '../lib/readerPreferences';
+import { useReaderFullscreen, useReaderTouch } from './useReaderControls';
+import { createReadingNotes, subscribeReadingNotes, type ReadingNote } from '../lib/readingNotes';
+import { captureReadingSelection, highlightedReaderParts, type ReadingSelection } from '../lib/readingSelection';
+import { deviceStorageMessage } from '../lib/deviceReadingDatabase';
+import { usePersonalLibrary } from './usePersonalLibrary';
+import { GlossaryEditor } from './GlossaryEditor';
+import { BookGlossaryWorkspace, glossarySyncNotice } from './BookGlossaryWorkspace';
+import { useBookGlossary } from './BookGlossaryProvider';
+import { bookGlossaryScope, bookGlossaryDisplay } from '../lib/bookGlossaryProjection';
+import { sha256 } from '../lib/validation';
+import { canonicalReaderPages, glossaryReaderProjection, glossaryReaderParts, type CanonicalReaderRange } from '../lib/glossaryReader';
+import type { GlossaryDisplay, GlossaryDisplayEntry } from '../lib/glossaryDisplay';
+export type { ReadingDocument } from '../lib/readingDocument';
+import { reflowReaderLocation, turnReaderPage, visibleReaderFragment, type ReaderLocation, type ReaderFragment, } from "./readerPosition";
+type Fragment = ReaderFragment;
+export type PagedReaderProps = {
+    document: ReadingDocument;
+    anchor?: ReadingAnchor;
+    /** A deliberate view switch must take precedence over a saved remote position. */
+    anchorIsNavigation?: boolean;
+    preview?: boolean;
+    /** Derived display-only documents must never create canonical notes or highlights. */
+    readOnly?: boolean;
+    editionLabel?: string;
+    readerLabel?: string;
+    contentKindLabel?: string;
+    saved?: boolean;
+    saving?: boolean;
+    onClose: () => void;
+    onSave?: () => void;
+    actionLabel?: string;
+    onAction?: () => void;
+    positionNote?: string;
+    notesNamespace?: string;
+    glossaryTargetLanguage?: string;
+    glossaryEntriesOverride?: GlossaryDisplayEntry[];
+    actionError?: string;
+    onAnchorChange: (anchor: ReadingAnchor) => void;
+    onPaginationChange?: (value: { documentId: string; pages: readonly (readonly CanonicalReaderRange[])[]; page: number }) => void;
+    /** Ancillary tools use the entire reader slot, without an enclosing translation toolbar. */
+    onPanelChange?: (open: boolean) => void;
+    onBoundaryPageTurn?: (direction: -1 | 1) => void;
+    hasPreviousBoundary?: boolean;
+    hasNextBoundary?: boolean;
+};
+function boundaries(text: string) {
+    const result = [0];
+    if (typeof Intl.Segmenter === "function") {
+        const segmenter = new Intl.Segmenter(undefined, {
+            granularity: "grapheme",
+        });
+        for (const segment of segmenter.segment(text))
+            result.push(segment.index + segment.segment.length);
+    }
+    else {
+        for (const char of text)
+            result.push(result[result.length - 1] + char.length);
+    }
+    return result;
+}
+/** Measure the exact reader DOM. Every source character belongs to exactly one fragment. */
+export function paginateReaderParagraphs(paragraphs: ReadingDocument["paragraphs"], measure: HTMLDivElement, height: number, displays: ReadonlyMap<string, GlossaryDisplay>): Fragment[][] {
+    const pages: Fragment[][] = [];
+    let fragments: Fragment[] = [];
+    measure.replaceChildren();
+    const flush = () => {
+        if (fragments.length)
+            pages.push(fragments);
+        fragments = [];
+        measure.replaceChildren();
+    };
+    for (const paragraph of paragraphs) {
+        if (!paragraph.text.length) {
+            const element = document.createElement('p');
+            element.className = 'reader-paragraph reader-paragraph-empty';
+            measure.append(element);
+            if (measure.getBoundingClientRect().height > height - 2 && fragments.length) { element.remove(); flush(); measure.append(element); }
+            if (measure.getBoundingClientRect().height > height - 2) throw new Error(t('읽기 영역이 너무 작습니다. 글자 크기를 줄이거나 화면 높이를 늘려 주세요.'));
+            fragments.push({ paragraphId: paragraph.paragraphId, text: '', start: 0, end: 0 });
+            continue;
+        }
+        const stops = boundaries(paragraph.text);
+        let first = 0;
+        while (first < stops.length - 1) {
+            const element = document.createElement("p");
+            element.className = "reader-paragraph";
+            measure.append(element);
+            const fits = (end: number) => {
+                const visible = visibleReaderFragment({ paragraphId: paragraph.paragraphId, text: paragraph.text.slice(stops[first], stops[end]), start: stops[first], end: stops[end] }, !fragments.length);
+                setMeasuredText(element, visible.text, visible.start, displays.get(paragraph.paragraphId)?.emphasizedRanges ?? []);
+                return measure.getBoundingClientRect().height <= height - 2;
+            };
+            let low = first;
+            let high = stops.length - 1;
+            while (low < high) {
+                const mid = Math.ceil((low + high) / 2);
+                if (fits(mid))
+                    low = mid;
+                else
+                    high = mid - 1;
+            }
+            if (low === first) {
+                element.remove();
+                if (!fragments.length)
+                    throw new Error(t("\uC77D\uAE30 \uC601\uC5ED\uC774 \uB108\uBB34 \uC791\uC2B5\uB2C8\uB2E4. \uAE00\uC790 \uD06C\uAE30\uB97C \uC904\uC774\uAC70\uB098 \uD654\uBA74 \uB192\uC774\uB97C \uB298\uB824 \uC8FC\uC138\uC694."));
+                flush();
+                continue;
+            }
+            const start = stops[first];
+            const end = stops[low];
+            const text = paragraph.text.slice(start, end);
+            const visible = visibleReaderFragment({ paragraphId: paragraph.paragraphId, text, start, end }, !fragments.length);
+            setMeasuredText(element, visible.text, visible.start, displays.get(paragraph.paragraphId)?.emphasizedRanges ?? []);
+            fragments.push({ paragraphId: paragraph.paragraphId, text, start, end });
+            first = low;
+            if (first < stops.length - 1)
+                flush();
+        }
+    }
+    flush();
+    return pages;
+}
+function setMeasuredText(element: HTMLElement, text: string, start: number, emphasis: readonly { start: number; end: number }[]) {
+    if (!emphasis.length) { element.textContent = text; return; }
+    element.replaceChildren(...glossaryReaderParts(text, start, emphasis).map(part => {
+        if (!part.emphasized) return document.createTextNode(part.text);
+        const node = document.createElement('strong'); node.textContent = part.text; return node;
+    }));
+}
+export function PagedReader({ document: readingDocument, anchor, anchorIsNavigation = false, preview = false, readOnly = false, editionLabel, readerLabel, contentKindLabel, saved, saving, onClose, onSave, actionLabel, onAction, positionNote, notesNamespace, glossaryTargetLanguage, glossaryEntriesOverride, actionError, onAnchorChange, onPaginationChange, onPanelChange, onBoundaryPageTurn, hasPreviousBoundary = false, hasNextBoundary = false, }: PagedReaderProps) {
+    const root = useRef<HTMLElement>(null);
+    const { preferences, update: updatePreferences, error: preferencesError } = useReaderPreferences(notesNamespace);
+    const fullscreen = useReaderFullscreen(root);
+    const viewport = useRef<HTMLDivElement>(null);
+    const measure = useRef<HTMLDivElement>(null);
+    const location = useRef<ReaderLocation>({ page: 0, anchor });
+    const fontSize = preferences.fontSize;
+    const [pages, setPages] = useState<Fragment[][]>([]);
+    const [canonicalPages, setCanonicalPages] = useState<CanonicalReaderRange[][]>([]);
+    const measuredLayout = useRef<{ node: HTMLDivElement; width: number; height: number; documentId: string; pages: CanonicalReaderRange[][] } | undefined>(undefined);
+    const [page, setPage] = useState(0);
+    const [error, setError] = useState("");
+    const [toolsOpen, setToolsOpen] = useState(false);
+    const [glossaryOpen, setGlossaryOpen] = useState(false);
+    const [progressOpen, setProgressOpen] = useState(false);
+    useLayoutEffect(() => {
+        onPanelChange?.(toolsOpen || glossaryOpen || progressOpen);
+        return () => onPanelChange?.(false);
+    }, [toolsOpen, glossaryOpen, progressOpen, onPanelChange]);
+    const progress = useReadingProgress(readingDocument, notesNamespace, anchor, !preview && !readOnly, anchorIsNavigation);
+    useReadingNoteSync(readingDocument, notesNamespace, !preview && !readOnly);
+    const personal = usePersonalLibrary(preview || readOnly ? '' : notesNamespace ?? '');
+    const glossaryIdentity = readingDocument.glossaryIdentity ?? (readingDocument.kind === 'local' && readingDocument.local
+        ? { providerId: 'uploaded-document', bookId: `local:${readingDocument.local.contentHash}` } : undefined);
+    const accountScope = readingDocument.glossaryIdentity && readingDocument.kind !== 'local' && !preview && !readOnly
+        ? bookGlossaryScope(readingDocument.glossaryIdentity.providerId, readingDocument.glossaryIdentity.bookId, glossaryTargetLanguage ?? readingDocument.language) : undefined;
+    const accountGlossary = useBookGlossary(notesNamespace ?? '', accountScope);
+    const [glossaryEntries, setGlossaryEntries] = useState<GlossaryDisplayEntry[]>([]);
+    const displayEntries = useMemo(() => glossaryEntriesOverride ?? (accountScope && accountGlossary.supported ? accountGlossary.state?.enabled
+        ? bookGlossaryDisplay(accountGlossary.state.local) : !accountGlossary.state || accountGlossary.state.errorCode === 'storage' ? [] : glossaryEntries : glossaryEntries), [glossaryEntriesOverride, !!accountScope, accountGlossary.supported, accountGlossary.state, glossaryEntries]);
+    const accountNotice = accountScope && accountGlossary.supported && (!accountGlossary.state || accountGlossary.state.errorCode || accountGlossary.state.status === 'loading') ? glossarySyncNotice(accountGlossary.state) : '';
+    const [glossaryError, setGlossaryError] = useState('');
+    const { projection, projectionError } = useMemo(() => {
+        try { return { projection: glossaryReaderProjection(readingDocument, displayEntries), projectionError: '' }; }
+        catch (error) { return { projection: glossaryReaderProjection(readingDocument, []), projectionError: error instanceof Error ? error.message : '용어의 종류와 표시 설정을 확인해 주세요.' }; }
+    }, [readingDocument, displayEntries]);
+    useEffect(() => {
+        let active = true;
+        setGlossaryEntries([]); setGlossaryError('');
+        if (personal && glossaryIdentity) void personal.getGlossary(glossaryIdentity.providerId, glossaryIdentity.bookId)
+            .then(async glossary => Promise.all(glossary.entries.map(async entry => ({ ...entry, id: entry.id ?? (await sha256(entry.source.toLowerCase())).slice(0, 24) }))))
+            .then(entries => { if (active) setGlossaryEntries(entries); })
+            .catch(error => { if (active) setGlossaryError(error instanceof Error ? error.message : ''); });
+        return () => { active = false; };
+    }, [personal, glossaryIdentity?.providerId, glossaryIdentity?.bookId, glossaryOpen]);
+    const article = useRef<HTMLElement>(null);
+    const notes = useMemo(() => notesNamespace && !readOnly ? createReadingNotes(notesNamespace) : undefined, [notesNamespace, readOnly]);
+    const [highlights, setHighlights] = useState<ReadingNote[]>([]);
+    const paragraphIndices = useMemo(() => new Map(readingDocument.paragraphs.map((p, index) => [p.paragraphId, index])), [readingDocument]);
+    const highlightRanges = useMemo(() => highlights.flatMap(item => item.range ? [item.range] : []), [highlights]);
+    const displayHighlightRanges = useMemo(() => highlightRanges.map(projection.displayRange), [highlightRanges, projection]);
+    const [selection, setSelection] = useState<ReadingSelection>();
+    const [highlightBusy, setHighlightBusy] = useState(false), [highlightMessage, setHighlightMessage] = useState('');
+    const [highlightError, setHighlightError] = useState('');
+    useEffect(() => {
+        let active = true;
+        setHighlights([]); setSelection(undefined); setHighlightError(''); setHighlightMessage('');
+        const refresh = () => notes?.list(readingDocument).then(snapshot => {
+            if (active) setHighlights(snapshot.items.filter(item => item.kind === 'highlight'));
+        }).catch(error => { if (active) setHighlightError(deviceStorageMessage(error)); });
+        void refresh();
+        const unsubscribe = notesNamespace ? subscribeReadingNotes(notesNamespace, readingDocument.id, () => { void refresh(); }) : undefined;
+        return () => { active = false; unsubscribe?.(); };
+    }, [notes, readingDocument, toolsOpen]);
+    useEffect(() => {
+        if (!notes || toolsOpen || glossaryOpen || preview) return;
+        const update = () => {
+            try { setSelection(article.current ? captureReadingSelection(readingDocument, article.current, window.getSelection(), projection.sourceAnchor) : undefined); }
+            catch (error) { setSelection(undefined); setHighlightError(deviceStorageMessage(error)); }
+        };
+        document.addEventListener('selectionchange', update);
+        return () => document.removeEventListener('selectionchange', update);
+    }, [notes, readingDocument, toolsOpen, glossaryOpen, preview, projection]);
+    async function saveHighlight() {
+        if (!notes || !selection || highlightBusy) return;
+        setHighlightBusy(true); setHighlightError(''); setHighlightMessage('');
+        try {
+            const saved = await notes.add(readingDocument, { kind: 'highlight', title: Array.from(selection.quote.trim()).slice(0, 60).join(''),
+                anchor: selection.range.start, range: selection.range });
+            setHighlights(value => [...value.filter(note => note.id !== saved.id), saved]); window.getSelection()?.removeAllRanges(); setSelection(undefined);
+            setHighlightMessage('선택한 내용을 강조했습니다. 읽기 도구에서 삭제하거나 내보낼 수 있습니다.');
+        } catch (error) { setHighlightError(deviceStorageMessage(error)); }
+        finally { setHighlightBusy(false); }
+    }
+    useLayoutEffect(() => {
+        const node = viewport.current;
+        const measuring = measure.current;
+        if (!node || !measuring) return;
+        let active = true;
+        const reflow = () => {
+          if (!active) return;
+          // Width and height belong to this DOM instance. A saved bounds state can
+          // refer to the previous reader before a tool panel or font change.
+          const width = node.clientWidth, height = node.clientHeight;
+          if (width < 1 || height < 1) {
+            measuredLayout.current = undefined;
+            setPages([]); setCanonicalPages([]);
+            setError(t('읽기 영역이 너무 작습니다. 글자 크기를 줄이거나 화면 높이를 늘려 주세요.'));
+            return;
+          }
+          measuring.style.width = `${width}px`;
+          try {
+            const next = paginateReaderParagraphs(projection.document.paragraphs, measuring, height, projection.displays);
+            const relocated = reflowReaderLocation(next, location.current.anchor ? projection.displayAnchor(location.current.anchor) : undefined);
+            location.current = { ...relocated, anchor: location.current.anchor ?? (relocated.anchor ? projection.sourceAnchor(relocated.anchor) : undefined) };
+            setPages(next);
+            const canonical = canonicalReaderPages(next, projection);
+            measuredLayout.current = { node, width, height, documentId: readingDocument.id, pages: canonical };
+            setCanonicalPages(canonical);
+            setPage(relocated.page);
+            setError("");
+          }
+          catch (failure) {
+            setPages([]);
+            setCanonicalPages([]);
+            setError(failure instanceof Error
+                ? failure.message
+                : t("\uD398\uC774\uC9C0\uB97C \uB098\uB204\uC9C0 \uBABB\uD588\uC2B5\uB2C8\uB2E4."));
+          }
+        };
+        const observer = new ResizeObserver(reflow);
+        observer.observe(node);
+        reflow();
+        // A late-loaded font changes line breaks even when the viewport stays fixed.
+        const fonts = document.fonts;
+        void fonts?.ready.then(reflow);
+        fonts?.addEventListener('loadingdone', reflow);
+        return () => { active = false; observer.disconnect(); fonts?.removeEventListener('loadingdone', reflow); };
+    }, [projection, fontSize, preferences.fontFamily, preferences.lineHeight, preferences.pageMargin, toolsOpen, glossaryOpen, progressOpen]);
+    const syncedAnchor = progress.state?.restoration?.anchor;
+    const restorationSequence = progress.state?.restoration?.sequence;
+    const appliedProgress = useRef<{ documentId: string; source: unknown; sequence: number | undefined } | undefined>(undefined);
+    useLayoutEffect(() => {
+        if (!syncedAnchor) return;
+        if (!validReadingPosition(readingDocument, syncedAnchor)) return;
+        const applied = appliedProgress.current;
+        if (applied?.documentId === readingDocument.id && applied.source === progress.restorationSource && applied.sequence === restorationSequence) return;
+        appliedProgress.current = { documentId: readingDocument.id, source: progress.restorationSource, sequence: restorationSequence };
+        if (location.current.anchor?.paragraphId === syncedAnchor.paragraphId && location.current.anchor.characterOffset === syncedAnchor.characterOffset) return;
+        const moved = reflowReaderLocation(pages, projection.displayAnchor(syncedAnchor));
+        location.current = { ...moved, anchor: syncedAnchor };
+        setPage(moved.page);
+        // Restore local reader stores, but only explicit user movement enters the outgoing queue.
+        onAnchorChange(syncedAnchor);
+    }, [syncedAnchor, restorationSequence, progress.restorationSource, pages, projection, readingDocument, onAnchorChange]);
+    const turnPage = useCallback((direction: -1 | 1) => {
+        const next = turnReaderPage(pages, location.current, direction);
+        if (next === location.current) {
+            if (pages.length && (direction < 0 ? hasPreviousBoundary : hasNextBoundary)) onBoundaryPageTurn?.(direction);
+            return;
+        }
+        const source = next.anchor ? projection.sourceAnchor(next.anchor) : undefined;
+        location.current = { ...next, anchor: source };
+        window.getSelection()?.removeAllRanges(); setSelection(undefined);
+        setPage(next.page);
+        if (source) {
+            onAnchorChange(source);
+            progress.move(source);
+        }
+    }, [pages, onAnchorChange, projection, onBoundaryPageTurn, hasPreviousBoundary, hasNextBoundary, progress.move]);
+    useEffect(() => {
+        const measured = measuredLayout.current;
+        // Parent layout notifications can change the reader slot during this commit.
+        // Never send rolling translation a transient layout from the previous slot.
+        if (!toolsOpen && !glossaryOpen && !progressOpen && canonicalPages.length && page === location.current.page && measured?.pages === canonicalPages &&
+            measured.documentId === readingDocument.id && measured.node === viewport.current &&
+            measured.width === measured.node.clientWidth && measured.height === measured.node.clientHeight)
+            onPaginationChange?.({ documentId: readingDocument.id, pages: canonicalPages, page });
+    }, [readingDocument.id, canonicalPages, page, onPaginationChange, toolsOpen, glossaryOpen, progressOpen]);
+    const previous = useCallback(() => turnPage(-1), [turnPage]);
+    const next = useCallback(() => turnPage(1), [turnPage]);
+    usePageKeys(previous, next, !error && !toolsOpen && !glossaryOpen && !progressOpen, preferences.pageKeys);
+    const touch = useReaderTouch(preferences.touchDirection, turnPage);
+    const typography = { fontFamily: readerFontFamilies[preferences.fontFamily], lineHeight: preferences.lineHeight };
+    const percentage = pages.length
+        ? Math.round(((page + 1) / pages.length) * 100)
+        : 0;
+    if (progressOpen && progress.available) return <ReadingProgressPanel document={readingDocument} progress={progress} onClose={() => setProgressOpen(false)}/>;
+    if (glossaryOpen && personal && glossaryIdentity) return <section className="novel-workspace"><div className="workflow-heading">
+        <button className="button-quiet" onClick={() => setGlossaryOpen(false)}>{t('읽기로 돌아가기')}</button><h2>{t('책별 용어집')}</h2></div>
+        <>{accountScope ? <BookGlossaryWorkspace username={notesNamespace ?? ''} targetLanguage={accountScope.targetLanguage} storage={personal} providerId={glossaryIdentity.providerId} bookId={glossaryIdentity.bookId} onChange={() => {}}/> : <GlossaryEditor storage={personal} providerId={glossaryIdentity.providerId} bookId={glossaryIdentity.bookId} onChange={() => {}}/>}</></section>;
+    if (toolsOpen && notesNamespace) return <ReaderTools namespace={notesNamespace} document={readingDocument}
+      anchor={location.current.anchor ?? firstAnchor(readingDocument)} onClose={() => setToolsOpen(false)}
+      onJump={anchor => { const moved = reflowReaderLocation(pages, projection.displayAnchor(anchor)); location.current = { ...moved, anchor }; setPage(moved.page); onAnchorChange(anchor); progress.move(anchor); setToolsOpen(false); }}/>
+    return (<section ref={root} className={readOnly ? "reader reader-read-only" : "reader"} aria-label={readerLabel ?? (readingDocument.kind === 'local' ? t('로컬 파일 읽기') : readingDocument.kind === "original"
+            ? t("\uC6D0\uBB38 \uC77D\uAE30") : readingDocument.kind === "introduction"
+            ? t("\uC18C\uAC1C \uC77D\uAE30") : t("\uBC88\uC5ED\uBB38 \uC77D\uAE30"))}>
+      <header className="reader-toolbar">
+        <button className="button-quiet reader-back" onClick={onClose} aria-label={t("\uC774\uC804 \uD654\uBA74\uC73C\uB85C \uB3CC\uC544\uAC00\uAE30")}>
+          <Icon name="back"/>
+          <span>{t("\uB3CC\uC544\uAC00\uAE30")}</span>
+        </button>
+        <div className="reader-title">
+          <span className="eyebrow">
+            {editionLabel ?? (preview
+            ? t("\uBBF8\uB9AC\uBCF4\uAE30 \uC77D\uAE30") : readingDocument.kind === 'local' ? 'LOCAL DOCUMENT' : readingDocument.kind === "original"
+            ? "ORIGINAL EDITION"
+            : readingDocument.kind === "introduction"
+                ? "ABOUT THIS BOOK"
+                : "TRANSLATED EDITION")}
+          </span>
+          <strong title={readingDocument.bookTitle}>
+            {readingDocument.bookTitle}
+          </strong>
+        </div>
+        <select className="reader-action-choice" aria-label={t('읽기 메뉴')} value="" onChange={event => {
+          const action = event.target.value;
+          if (action === 'save') onSave?.();
+          else if (action === 'action') onAction?.();
+          else if (action === 'tools') setToolsOpen(true);
+          else if (action === 'glossary') setGlossaryOpen(true);
+          else if (action === 'fullscreen') void fullscreen.toggle();
+        }}>
+          <option value="" disabled>{t('읽기 메뉴')}</option>
+          {!preview && onSave && <option value="save" disabled={saving || saved}>{t(saving ? '보관 중' : saved ? '기기에 보관됨' : '기기에 보관')}</option>}
+          {onAction && <option value="action">{actionLabel}</option>}
+          {!preview && !readOnly && notesNamespace && <option value="tools">{t('읽기 도구')}</option>}
+          {!preview && personal && glossaryIdentity && <option value="glossary">{t('용어집')}</option>}
+          <option value="fullscreen">{t(fullscreen.fullscreen ? '전체 화면 해제' : '전체 화면')}</option>
+        </select>
+      </header>
+      {!preview && notes && selection && <button className="button-outline reader-highlight-action" disabled={highlightBusy} onPointerDown={event => event.preventDefault()} onClick={() => void saveHighlight()}>{t(highlightBusy ? '저장 중…' : '선택 강조')}</button>}
+      {actionError && <div role="alert" className="workflow-message">{t(actionError)}</div>}
+      {accountNotice && <div role="status" className="workflow-message">{t(accountNotice)}</div>}
+      {glossaryError && <div role="alert" className="workflow-message">{t(glossaryError)}</div>}
+      {projectionError && <div role="alert" className="workflow-message">{t(projectionError)}</div>}
+      {highlightError && <div role="alert" className="workflow-message">{t(highlightError)} <button className="button-text" onClick={() => setHighlightError('')}>{t('닫기')}</button></div>}
+      {highlightMessage && <div role="status" className="workflow-message">{t(highlightMessage)} <button className="button-text" onClick={() => setHighlightMessage('')}>{t('닫기')}</button></div>}
+      {(preferencesError || fullscreen.error) && <div role="alert" className="workflow-message">{t(preferencesError || fullscreen.error)}</div>}
+      <div className="reader-sheet" style={{ padding: `${preferences.pageMargin}px ${preferences.pageMargin}px 0` }}>
+        <div className="reader-chapter">
+          <span title={readingDocument.chapterTitle}>
+            {readingDocument.chapterTitle}
+          </span>
+          <span>
+            {readingDocument.language.toUpperCase()} ·{" "}
+            {contentKindLabel ?? (readingDocument.kind === 'local' ? t('로컬 파일') : readingDocument.kind === "original"
+            ? t("\uC6D0\uBB38") : readingDocument.kind === "introduction"
+            ? t("\uC18C\uAC1C") : t("\uBC88\uC5ED\uBB38"))}
+          </span>
+        </div>
+        <div className="reader-page-area" ref={viewport} style={{ fontSize }} {...touch}>
+          <div className="reader-measure reader-typeset" style={typography} aria-hidden="true" ref={measure}/>
+          {error ? (<div role="alert" className="reader-error">
+              {error}
+            </div>) : (<article ref={article} className="reader-typeset reader-page" style={typography} aria-label={t("{0}\uBC88\uC9F8 \uD398\uC774\uC9C0", [page + 1])}>
+              {pages[page]?.map((fragment, index) => visibleReaderFragment(fragment, index === 0)).map((fragment) => (<p className={`reader-paragraph${fragment.text.length ? '' : ' reader-paragraph-empty'}`} key={`${fragment.paragraphId}:${fragment.start}`} data-paragraph-id={fragment.paragraphId} data-character-offset={fragment.start}>
+                  {glossaryReaderParts(fragment.text, fragment.start, projection.displays.get(fragment.paragraphId)?.emphasizedRanges ?? [],
+                    highlightedReaderParts(projection.document, fragment, displayHighlightRanges, paragraphIndices)).map((part, index) => {
+                      const text = part.emphasized ? <strong>{part.text}</strong> : part.text;
+                      return part.highlighted ? <mark className="reader-highlight" key={index}>{text}</mark> : <span key={index}>{text}</span>;
+                    })}
+                </p>))}
+            </article>)}
+        </div>
+      <div className={`reader-bottom-rule${progress.available ? ' reader-progress-rule' : ''}`}>
+          {progress.available ? <button className="button-text reader-progress-status" onClick={() => setProgressOpen(true)} aria-label={t('읽기 위치 동기화')}>
+            {t(readingProgressStatus(progress))}
+          </button> : <span>
+            {preview
+            ? t("\uB9C8\uC74C\uC5D0 \uB4DC\uB294 \uC18D\uB3C4\uB85C, \uD55C \uD398\uC774\uC9C0\uC529.") : (positionNote ?? t("\uC77D\uC740 \uC704\uCE58\uAC00 \uC774 \uAE30\uAE30\uC5D0 \uAE30\uC5B5\uB429\uB2C8\uB2E4."))}
+          </span>}
+          <span>{percentage}%</span>
+        </div>
+      </div>
+      <footer className="reader-footer">
+        <div className="font-controls" aria-label={t("\uAE00\uC790 \uD06C\uAE30")}>
+          <button className="icon-button" aria-label={t("\uAE00\uC790 \uC791\uAC8C")} disabled={fontSize <= 14} onClick={() => updatePreferences({ fontSize: Math.max(14, fontSize - 2) })}>
+            <Icon name="minus" size={16}/>
+          </button>
+          <span aria-live="polite">{t("\uAC00")}<small>{fontSize}</small>
+          </span>
+          <button className="icon-button" aria-label={t("\uAE00\uC790 \uD06C\uAC8C")} disabled={fontSize >= 36} onClick={() => updatePreferences({ fontSize: Math.min(36, fontSize + 2) })}>
+            <Icon name="plus" size={16}/>
+          </button>
+        </div>
+        <nav className="reader-navigation" aria-label={t("\uCC45 \uD398\uC774\uC9C0")}>
+          <button className="button-quiet" onClick={previous} aria-label={t("\uC774\uC804 \uD398\uC774\uC9C0")} disabled={!pages.length || (page === 0 && !(onBoundaryPageTurn && hasPreviousBoundary))}>
+            <Icon name="back"/>
+            <span>{t("\uC774\uC804")}</span>
+          </button>
+          <span className="page-count" aria-live="polite">
+            {pages.length ? String(page + 1).padStart(2, "0") : "—"}{" "}
+            <span className="muted">
+              / {pages.length ? String(pages.length).padStart(2, "0") : "—"}
+            </span>
+          </span>
+          <button className="button-quiet" onClick={next} aria-label={t("\uB2E4\uC74C \uD398\uC774\uC9C0")} disabled={!pages.length || (page === pages.length - 1 && !(onBoundaryPageTurn && hasNextBoundary))}>
+            <span>{t("\uB2E4\uC74C")}</span>
+            <Icon name="arrow"/>
+          </button>
+        </nav>
+        <span className="keyboard-hint">{t("\u2190 \u2192 \uD0A4\uB85C \uD398\uC774\uC9C0 \uB118\uAE30\uAE30")}</span>
+      </footer>
+    </section>);
+}

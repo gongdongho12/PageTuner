@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -29,6 +30,7 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.FolderOpen
+import androidx.compose.material.icons.filled.Fullscreen
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Search
@@ -49,11 +51,15 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -68,10 +74,15 @@ import com.dongholab.pagetuner.library.LocalBook
 import com.dongholab.pagetuner.reader.ReaderAnnotation
 import com.dongholab.pagetuner.reader.ReaderAnnotationType
 import com.dongholab.pagetuner.reader.ReaderBookmark
+import com.dongholab.pagetuner.reader.ReaderDisplayPosition
+import com.dongholab.pagetuner.reader.ReaderDisplayNavigation
 import com.dongholab.pagetuner.reader.PageTurnMode
 import com.dongholab.pagetuner.reader.PdfFitMode
 import com.dongholab.pagetuner.translation.TranslationDisplayMode
 import com.dongholab.pagetuner.translation.PageTranslation
+import com.dongholab.pagetuner.translation.glossary.BookGlossaryEntry
+import com.dongholab.pagetuner.translation.glossary.GlossaryTextProcessor
+import com.dongholab.pagetuner.translation.glossary.GlossaryDisplayText
 import com.dongholab.pagetuner.ui.text.localizedName
 import com.dongholab.pagetuner.ui.theme.EinkInk
 import com.dongholab.pagetuner.ui.theme.EinkLine
@@ -88,6 +99,7 @@ fun ReaderHeader(
     onToggleControls: () -> Unit,
     onManualRefresh: () -> Unit,
     onShowDetails: () -> Unit,
+    onEnterFullscreen: () -> Unit,
 ) {
     Row(
         modifier = Modifier.fillMaxWidth(),
@@ -130,17 +142,26 @@ fun ReaderHeader(
             horizontalArrangement = Arrangement.spacedBy(4.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            IconButton(onClick = onManualRefresh) {
-                Icon(
-                    imageVector = Icons.Filled.Refresh,
-                    contentDescription = stringResource(R.string.action_manual_refresh),
-                    tint = EinkInk,
-                )
+            if (controlsVisible) {
+                IconButton(onClick = onManualRefresh) {
+                    Icon(
+                        imageVector = Icons.Filled.Refresh,
+                        contentDescription = stringResource(R.string.action_manual_refresh),
+                        tint = EinkInk,
+                    )
+                }
+                IconButton(onClick = onShowDetails) {
+                    Icon(
+                        imageVector = Icons.Filled.Info,
+                        contentDescription = stringResource(R.string.action_show_details),
+                        tint = EinkInk,
+                    )
+                }
             }
-            IconButton(onClick = onShowDetails) {
+            IconButton(onClick = onEnterFullscreen) {
                 Icon(
-                    imageVector = Icons.Filled.Info,
-                    contentDescription = stringResource(R.string.action_show_details),
+                    imageVector = Icons.Filled.Fullscreen,
+                    contentDescription = stringResource(R.string.action_enter_fullscreen),
                     tint = EinkInk,
                 )
             }
@@ -161,13 +182,15 @@ fun ReaderHeader(
                     tint = EinkInk,
                 )
             }
-            Button(
-                onClick = onOpen,
-                colors = ButtonDefaults.buttonColors(containerColor = EinkInk, contentColor = EinkPaper),
-            ) {
-                Icon(Icons.Filled.FolderOpen, contentDescription = null, modifier = Modifier.size(18.dp))
-                Spacer(Modifier.width(8.dp))
-                Text(stringResource(R.string.action_open))
+            if (controlsVisible) {
+                Button(
+                    onClick = onOpen,
+                    colors = ButtonDefaults.buttonColors(containerColor = EinkInk, contentColor = EinkPaper),
+                ) {
+                    Icon(Icons.Filled.FolderOpen, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(8.dp))
+                    Text(stringResource(R.string.action_open))
+                }
             }
         }
     }
@@ -185,6 +208,8 @@ fun ReaderPager(
     onNext: () -> Unit,
     onPreviousChapter: () -> Unit,
     onNextChapter: () -> Unit,
+    canPreviousDisplayPage: Boolean = pageIndex > 0,
+    canNextDisplayPage: Boolean = pageIndex < pageCount - 1,
 ) {
     Column(
         modifier = Modifier.fillMaxWidth(),
@@ -197,20 +222,22 @@ fun ReaderPager(
         ) {
             TextButton(
                 onClick = onPrevious,
-                enabled = !busy && pageIndex > 0,
+                enabled = !busy && canPreviousDisplayPage,
             ) {
                 Icon(Icons.AutoMirrored.Filled.KeyboardArrowLeft, contentDescription = null)
                 Text(stringResource(R.string.action_previous))
             }
             Text(
-                text = "${pageIndex + 1} / $pageCount",
-                style = MaterialTheme.typography.titleMedium,
+                text = stringResource(R.string.reader_source_position, pageIndex + 1, pageCount),
+                modifier = Modifier.weight(1f),
+                style = MaterialTheme.typography.bodySmall,
                 color = EinkInk,
                 fontFamily = FontFamily.Monospace,
+                textAlign = androidx.compose.ui.text.style.TextAlign.Center,
             )
             TextButton(
                 onClick = onNext,
-                enabled = !busy && pageIndex < pageCount - 1,
+                enabled = !busy && canNextDisplayPage,
             ) {
                 Text(stringResource(R.string.action_next))
                 Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null)
@@ -356,14 +383,16 @@ fun ReaderBookmarkPanel(
     onRemoveBookmark: (ReaderBookmark) -> Unit,
 ) {
     Surface(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier.fillMaxSize(),
         color = EinkPaper,
         shape = RoundedCornerShape(6.dp),
         border = BorderStroke(1.dp, EinkLine),
         shadowElevation = 0.dp,
     ) {
         Column(
-            modifier = Modifier.padding(10.dp),
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(10.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             Text(
@@ -405,9 +434,11 @@ fun ReaderBookmarkPanel(
                     color = EinkMuted,
                 )
             } else {
-                com.dongholab.pagetuner.ui.common.EinkPagingContainer(
+                com.dongholab.pagetuner.ui.common.AdaptiveCollection(
                     items = bookmarks,
-                    pageSize = 5,
+                    modifier = Modifier.weight(1f),
+                    estimatedPagedItemHeight = 64.dp,
+                    fallbackPageSize = 5,
                     busy = busy,
                 ) { bookmark ->
                     ReaderBookmarkRow(
@@ -432,7 +463,9 @@ private fun ReaderBookmarkRow(
     onRemoveBookmark: (ReaderBookmark) -> Unit,
 ) {
     Surface(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(64.dp),
         color = if (selected) EinkSoft else EinkPaper,
         shape = RoundedCornerShape(4.dp),
         border = BorderStroke(1.dp, if (selected) EinkInk else EinkLine),
@@ -496,14 +529,16 @@ fun ReaderAnnotationPanel(
     onRemoveAnnotation: (ReaderAnnotation) -> Unit,
 ) {
     Surface(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier.fillMaxSize(),
         color = EinkPaper,
         shape = RoundedCornerShape(6.dp),
         border = BorderStroke(1.dp, EinkLine),
         shadowElevation = 0.dp,
     ) {
         Column(
-            modifier = Modifier.padding(10.dp),
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(10.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             Text(
@@ -562,9 +597,11 @@ fun ReaderAnnotationPanel(
                     color = EinkMuted,
                 )
             } else {
-                com.dongholab.pagetuner.ui.common.EinkPagingContainer(
+                com.dongholab.pagetuner.ui.common.AdaptiveCollection(
                     items = annotations.reversed(),
-                    pageSize = 5,
+                    modifier = Modifier.weight(1f),
+                    estimatedPagedItemHeight = 76.dp,
+                    fallbackPageSize = 4,
                     busy = busy,
                 ) { annotation ->
                     ReaderAnnotationRow(
@@ -589,7 +626,9 @@ private fun ReaderAnnotationRow(
     onRemoveAnnotation: (ReaderAnnotation) -> Unit,
 ) {
     Surface(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(76.dp),
         color = if (selected) EinkSoft else EinkPaper,
         shape = RoundedCornerShape(4.dp),
         border = BorderStroke(1.dp, if (selected) EinkInk else EinkLine),
@@ -671,6 +710,7 @@ fun ReaderSurface(
     pdfFitMode: PdfFitMode,
     displayMode: DisplayMode,
     translation: PageTranslation?,
+    glossaryEntries: List<BookGlossaryEntry> = emptyList(),
     translationDisplayMode: TranslationDisplayMode,
     pageTurnMode: PageTurnMode,
     pageTurningEnabled: Boolean,
@@ -679,138 +719,37 @@ fun ReaderSurface(
     pageMarginDp: Int,
     onPreviousPage: () -> Unit,
     onNextPage: () -> Unit,
+    fullScreen: Boolean = false,
+    onExitFullscreen: () -> Unit = {},
     modifier: Modifier = Modifier,
+    document: ReaderDocument? = null,
+    displayPosition: ReaderDisplayPosition = ReaderDisplayPosition(page.index),
+    pageChangeRevision: Long = 0,
+    onDisplayNavigation: (ReaderDisplayNavigation) -> Unit = {},
+    onDisplayPositionResolved: (ReaderDisplayPosition) -> Unit = {},
 ) {
-    val showOriginal = translation == null || translationDisplayMode != TranslationDisplayMode.TranslationOnly
-    val showTranslation = translation != null && translationDisplayMode != TranslationDisplayMode.OriginalOnly
-
     Surface(
-        modifier = modifier.fillMaxSize(),
-        color = Color.White,
-        contentColor = EinkInk,
-        shape = RoundedCornerShape(6.dp),
-        border = BorderStroke(1.dp, EinkLine),
-        shadowElevation = 0.dp,
+        modifier = modifier.fillMaxSize(), color = Color.White, contentColor = EinkInk,
+        shape = if (fullScreen) RectangleShape else RoundedCornerShape(6.dp),
+        border = if (fullScreen) null else BorderStroke(1.dp, EinkLine), shadowElevation = 0.dp,
     ) {
-        Box(modifier = Modifier.fillMaxSize()) {
-            if (pdfPageBitmap != null) {
-                if (showOriginal) {
-                    Image(
-                        bitmap = pdfPageBitmap.asImageBitmap(),
-                        contentDescription = null,
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(10.dp),
-                        contentScale = when (pdfFitMode) {
-                            PdfFitMode.FitPage -> ContentScale.Fit
-                            PdfFitMode.FitWidth -> ContentScale.FillWidth
-                        },
-                    )
-                }
-                if (translation != null && showTranslation) {
-                    TranslationPanel(
-                        translation = translation,
-                        fontSizeSp = fontSizeSp,
-                        lineSpacing = lineSpacing,
-                        modifier = Modifier
-                            .align(
-                                if (showOriginal) {
-                                    Alignment.BottomCenter
-                                } else {
-                                    Alignment.Center
-                                },
-                            )
-                            .fillMaxWidth()
-                            .padding(12.dp),
-                    )
-                }
-            } else {
-                Column(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(pageMarginDp.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp),
-                ) {
-                    if (showOriginal) {
-                        OriginalPageContent(
-                            page = page,
-                            documentFormat = documentFormat,
-                            displayMode = displayMode,
-                            fontSizeSp = fontSizeSp,
-                            lineSpacing = lineSpacing,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .fillMaxHeight(if (showTranslation) 0.55f else 1f),
-                        )
-                    }
-                    if (translation != null && showTranslation) {
-                        TranslationPanel(
-                            translation = translation,
-                            fontSizeSp = fontSizeSp,
-                            lineSpacing = lineSpacing,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .weight(
-                                    if (showOriginal) {
-                                        0.45f
-                                    } else {
-                                        1f
-                                    },
-                                ),
-                        )
-                    }
-                }
-            }
-            PageTurnTapZones(
-                pageTurnMode = pageTurnMode,
-                enabled = pageTurningEnabled,
-                onPreviousPage = onPreviousPage,
-                onNextPage = onNextPage,
+        Box(Modifier.fillMaxSize()) {
+            ReaderMeasuredContent(
+                document = document ?: ReaderDocument("reader-surface", "", documentFormat, listOf(page)),
+                page = page, position = displayPosition, pageChangeRevision = pageChangeRevision,
+                pdfPageBitmap = pdfPageBitmap, pdfFitMode = pdfFitMode, displayMode = displayMode,
+                translation = translation, glossaryEntries = glossaryEntries,
+                translationDisplayMode = translationDisplayMode, fontSizeSp = fontSizeSp,
+                lineSpacing = lineSpacing, pageMarginDp = pageMarginDp,
+                onNavigation = onDisplayNavigation, onPositionResolved = onDisplayPositionResolved,
             )
+            PageTurnTapZones(pageTurnMode, pageTurningEnabled, onPreviousPage, onNextPage,
+                onCenterTap = onExitFullscreen.takeIf { fullScreen })
         }
     }
 }
-
 @Composable
-private fun OriginalPageContent(
-    page: ReaderPage,
-    documentFormat: DocumentFormat,
-    displayMode: DisplayMode,
-    fontSizeSp: Int,
-    lineSpacing: Float,
-    modifier: Modifier = Modifier,
-) {
-    Column(
-        modifier = modifier,
-        verticalArrangement = Arrangement.spacedBy(10.dp),
-    ) {
-        Text(
-            text = page.plainText.ifBlank {
-                if (documentFormat == DocumentFormat.PDF) {
-                    stringResource(R.string.viewer_pdf_rendering)
-                } else {
-                    stringResource(R.string.viewer_no_text)
-                }
-            },
-            modifier = Modifier.fillMaxWidth(),
-            style = MaterialTheme.typography.bodyLarge.copy(fontSize = fontSizeSp.sp),
-            color = EinkInk,
-            lineHeight = (fontSizeSp * lineSpacing).sp,
-        )
-        page.images.take(2).forEach { image ->
-            EmbeddedPageImage(
-                image = image,
-                displayMode = displayMode,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .weight(0.45f),
-            )
-        }
-    }
-}
-
-@Composable
-private fun EmbeddedPageImage(
+internal fun EmbeddedPageImage(
     image: ReaderPageImage,
     displayMode: DisplayMode,
     modifier: Modifier = Modifier,
@@ -850,37 +789,14 @@ private fun EmbeddedPageImage(
     }
 }
 
-@Composable
-private fun TranslationPanel(
-    translation: PageTranslation,
-    fontSizeSp: Int,
-    lineSpacing: Float,
-    modifier: Modifier = Modifier,
-) {
-    Surface(
-        modifier = modifier,
-        color = EinkSoft,
-        shape = RoundedCornerShape(6.dp),
-        border = BorderStroke(1.dp, EinkLine),
-    ) {
-        Column(
-            modifier = Modifier.padding(14.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            Text(
-                text = stringResource(R.string.saved_translation_title),
-                style = MaterialTheme.typography.titleMedium,
-                color = EinkInk,
-                fontWeight = FontWeight.SemiBold,
-            )
-            Text(
-                text = translation.text.ifBlank {
-                    stringResource(R.string.translation_preparing)
-                },
-                style = MaterialTheme.typography.bodyLarge.copy(fontSize = fontSizeSp.sp),
-                color = EinkInk,
-                lineHeight = (fontSizeSp * lineSpacing).sp,
-                overflow = TextOverflow.Ellipsis,
+internal fun GlossaryDisplayText.toEmphasizedAnnotatedString(): AnnotatedString = buildAnnotatedString {
+    append(text)
+    emphasizedRanges.forEach { range ->
+        if (range.first >= 0 && range.last < text.length && !range.isEmpty()) {
+            addStyle(
+                style = SpanStyle(fontWeight = FontWeight.Bold),
+                start = range.first,
+                end = range.last + 1,
             )
         }
     }
@@ -892,8 +808,10 @@ fun PageTurnTapZones(
     enabled: Boolean,
     onPreviousPage: () -> Unit,
     onNextPage: () -> Unit,
+    onCenterTap: (() -> Unit)? = null,
 ) {
-    if (!enabled || pageTurnMode == PageTurnMode.ButtonsOnly) return
+    val pageTapEnabled = enabled && pageTurnMode != PageTurnMode.ButtonsOnly
+    if (!pageTapEnabled && onCenterTap == null) return
 
     val leftAction: () -> Unit = when (pageTurnMode) {
         PageTurnMode.LeftPreviousRightNext -> onPreviousPage
@@ -906,14 +824,16 @@ fun PageTurnTapZones(
         PageTurnMode.ButtonsOnly -> ({})
     }
     val leftInteraction = remember { MutableInteractionSource() }
+    val centerInteraction = remember { MutableInteractionSource() }
     val rightInteraction = remember { MutableInteractionSource() }
 
     Row(modifier = Modifier.fillMaxSize()) {
         Box(
             modifier = Modifier
-                .weight(1f)
+                .weight(4f)
                 .fillMaxSize()
                 .clickable(
+                    enabled = pageTapEnabled,
                     interactionSource = leftInteraction,
                     indication = null,
                     onClick = leftAction,
@@ -921,9 +841,21 @@ fun PageTurnTapZones(
         )
         Box(
             modifier = Modifier
-                .weight(1f)
+                .weight(2f)
                 .fillMaxSize()
                 .clickable(
+                    enabled = onCenterTap != null,
+                    interactionSource = centerInteraction,
+                    indication = null,
+                    onClick = { onCenterTap?.invoke() },
+                ),
+        )
+        Box(
+            modifier = Modifier
+                .weight(4f)
+                .fillMaxSize()
+                .clickable(
+                    enabled = pageTapEnabled,
                     interactionSource = rightInteraction,
                     indication = null,
                     onClick = rightAction,

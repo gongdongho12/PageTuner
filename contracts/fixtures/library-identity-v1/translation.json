@@ -1,0 +1,41 @@
+{
+  "id": "portable:translation",
+  "bookTitle": "Book 🌏",
+  "chapterTitle": "One",
+  "language": "ko",
+  "kind": "translation",
+  "paragraphs": [
+    {
+      "paragraphId": "p:1",
+      "text": " 안녕 🌏:\n줄|x "
+    },
+    {
+      "paragraphId": "p|2",
+      "text": "마침"
+    }
+  ],
+  "extensions": {
+    "serverRecordId": "048586be-de37-4e17-a374-b0c375fcd65e",
+    "documentIdentity": {
+      "version": 1,
+      "kind": "TRANSLATION",
+      "contentProviderId": "source:edge",
+      "bookId": "book|原🌏",
+      "chapterId": "chapter:one",
+      "sourceRevision": "source-v1",
+      "sourceLanguage": "en",
+      "paragraphHash": "39e7d98bbb06ecab989117f120254ed86fe960efd2dc67070cf4681d19b15870",
+      "targetLanguage": "ko",
+      "translationProviderId": "translator|one",
+      "modelId": "",
+      "promptRevision": "",
+      "glossaryRevision": "",
+      "artifactId": "6c52c79b4868b1cd58b3f8a401db1413c2ebc24782f7fe335282db8b1dc3e3b7",
+      "payloadHash": "d52a93b8eef57628c4ab4226df7e5280571dee34e16cc1cb3595739ae093a9dd",
+      "revision": "a02060f80dd7fe9877cb5219ce3f50b5827395ea5382d381e0c4eda304d4fa77"
+    },
+    "passive": {
+      "keep": "unchanged"
+    }
+  }
+}

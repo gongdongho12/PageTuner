@@ -2,6 +2,8 @@ package com.dongholab.pagetuner.source
 
 import android.content.Context
 import com.dongholab.pagetuner.document.DocumentIds
+import com.dongholab.pagetuner.source.webnovel.WebNovelProviderManifest
+import com.dongholab.pagetuner.source.webnovel.WebNovelProviderPlugins
 import java.io.File
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -126,12 +128,42 @@ object RemoteSourceAccountJson {
 
 fun defaultWtrLabAccount(
     nowMillis: Long = System.currentTimeMillis(),
-): RemoteSourceAccount {
-    return RemoteSourceAccount(
-        id = "default_wtr_lab",
+): RemoteSourceAccount = WebNovelProviderPlugins.wtrLab.manifest.toRemoteSourceAccount(nowMillis)
+
+fun defaultNovelBuddyAccount(
+    nowMillis: Long = System.currentTimeMillis(),
+): RemoteSourceAccount = WebNovelProviderPlugins.novelBuddy.manifest.toRemoteSourceAccount(nowMillis)
+
+fun defaultWebNovelAccounts(
+    nowMillis: Long = System.currentTimeMillis(),
+): List<RemoteSourceAccount> = WebNovelProviderPlugins.discoverable.map { plugin ->
+    plugin.manifest.toRemoteSourceAccount(nowMillis)
+}
+
+private fun WebNovelProviderManifest.toRemoteSourceAccount(nowMillis: Long): RemoteSourceAccount =
+    RemoteSourceAccount(
+        id = accountId,
         sourceType = RemoteSourceType.WebNovel,
-        title = "WTR-Lab Web Novels",
-        endpoint = "https://wtr-lab.com/en",
+        title = "$displayName Web Novels",
+        endpoint = requireNotNull(defaultCatalogUrl) {
+            "Fallback provider '$id' cannot be exposed as a default source account."
+        },
+        createdAtMillis = nowMillis,
+        updatedAtMillis = nowMillis,
+    )
+
+fun webNovelSourceAccount(
+    endpoint: String,
+    title: String,
+    nowMillis: Long = System.currentTimeMillis(),
+): RemoteSourceAccount {
+    val normalizedUrl = endpoint.trim()
+    val safeTitle = title.trim().ifBlank { normalizedUrl }
+    return RemoteSourceAccount(
+        id = DocumentIds.sha256("${RemoteSourceType.WebNovel.name}|$normalizedUrl").take(16),
+        sourceType = RemoteSourceType.WebNovel,
+        title = safeTitle,
+        endpoint = normalizedUrl,
         createdAtMillis = nowMillis,
         updatedAtMillis = nowMillis,
     )
@@ -153,5 +185,3 @@ fun pageTurnerWebCatalogAccount(
         updatedAtMillis = nowMillis,
     )
 }
-
-

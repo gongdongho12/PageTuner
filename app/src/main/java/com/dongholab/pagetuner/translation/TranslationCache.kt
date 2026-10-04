@@ -1,10 +1,11 @@
 package com.dongholab.pagetuner.translation
 
 import android.content.Context
-import com.dongholab.pagetuner.document.DocumentIds
+import com.dongholab.pagetuner.core.translation.TranslationSegmentIdentity
+import com.dongholab.pagetuner.storage.replaceFileAtomically
 import java.io.File
 import java.io.FileOutputStream
-import java.io.IOException
+import java.lang.ref.WeakReference
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
@@ -16,9 +17,15 @@ data class TranslationCacheKey(
     val targetLanguage: String,
     val providerId: String,
 ) {
-    val id: String = DocumentIds.sha256(
-        listOf(documentId, segmentId, sourceLanguage, targetLanguage, providerId).joinToString("|"),
+    val identity: TranslationSegmentIdentity = TranslationSegmentIdentity(
+        documentId = documentId,
+        segmentId = segmentId,
+        sourceLanguage = sourceLanguage,
+        targetLanguage = targetLanguage,
+        providerId = providerId,
     )
+
+    val id: String = identity.id
 }
 
 data class CachedTranslation(
@@ -31,6 +38,11 @@ interface TranslationCache {
     suspend fun getMany(keys: List<TranslationCacheKey>): Map<String, CachedTranslation>
 
     suspend fun putAll(records: List<CachedTranslation>)
+
+    /** Atomically writes all records only if existing keys are absent or have identical text. */
+    suspend fun putAllIfCompatible(records: List<CachedTranslation>): Boolean {
+        throw UnsupportedOperationException("This translation cache does not support atomic conditional writes.")
+    }
 
     suspend fun deleteMany(keys: List<TranslationCacheKey>): Int
 }
@@ -49,8 +61,8 @@ class JsonFileTranslationCache internal constructor(
         ),
     )
 
-    private val lock = Any()
-    private var memory: MutableMap<String, CachedTranslation>? = null
+    private val state = sharedState(cacheFile)
+    private val lock: Any = state
 
     override suspend fun getMany(keys: List<TranslationCacheKey>): Map<String, CachedTranslation> {
         return withContext(Dispatchers.IO) {
@@ -66,10 +78,26 @@ class JsonFileTranslationCache internal constructor(
 
         withContext(Dispatchers.IO) {
             synchronized(lock) {
-                val cache = loadLocked()
+                val cache = loadLocked().toMutableMap()
                 records.forEach { cache[it.key.id] = it }
                 saveLocked(cache)
+                state.memory = cache
             }
+        }
+    }
+
+    override suspend fun putAllIfCompatible(records: List<CachedTranslation>): Boolean = withContext(Dispatchers.IO) {
+        synchronized(lock) {
+            val current = loadLocked()
+            if (records.any { record -> current[record.key.id]?.let { it.key != record.key || it.text != record.text } == true }) {
+                return@synchronized false
+            }
+            if (records.isEmpty()) return@synchronized true
+            val updated = current.toMutableMap()
+            records.forEach { updated[it.key.id] = it }
+            saveLocked(updated)
+            state.memory = updated
+            true
         }
     }
 
@@ -78,20 +106,23 @@ class JsonFileTranslationCache internal constructor(
 
         return withContext(Dispatchers.IO) {
             synchronized(lock) {
-                val cache = loadLocked()
+                val cache = loadLocked().toMutableMap()
                 val deleted = keys.count { key -> cache.remove(key.id) != null }
-                if (deleted > 0) saveLocked(cache)
+                if (deleted > 0) {
+                    saveLocked(cache)
+                    state.memory = cache
+                }
                 deleted
             }
         }
     }
 
     private fun loadLocked(): MutableMap<String, CachedTranslation> {
-        memory?.let { return it }
+        state.memory?.let { return it }
 
         if (!cacheFile.exists()) {
-            memory = mutableMapOf()
-            return requireNotNull(memory)
+            state.memory = mutableMapOf()
+            return requireNotNull(state.memory)
         }
 
         val root = JSONObject(cacheFile.readText(Charsets.UTF_8))
@@ -114,7 +145,7 @@ class JsonFileTranslationCache internal constructor(
             )
         }
 
-        memory = loaded
+        state.memory = loaded
         return loaded
     }
 
@@ -151,9 +182,7 @@ class JsonFileTranslationCache internal constructor(
                 output.write(bytes)
                 output.fd.sync()
             }
-            if (!tmpFile.renameTo(this)) {
-                throw IOException("Could not replace translation cache file.")
-            }
+            replaceFileAtomically(tmpFile, this)
         } finally {
             if (tmpFile.exists()) {
                 tmpFile.delete()
@@ -162,6 +191,16 @@ class JsonFileTranslationCache internal constructor(
     }
 
     companion object {
+        private class CacheState(var memory: MutableMap<String, CachedTranslation>? = null)
+        private val states = mutableMapOf<String, WeakReference<CacheState>>()
+
+        /** All live instances for one canonical cache file share both its lock and committed snapshot. */
+        private fun sharedState(file: File): CacheState = synchronized(states) {
+            states.entries.removeAll { it.value.get() == null }
+            val path = file.canonicalPath
+            states[path]?.get() ?: CacheState().also { states[path] = WeakReference(it) }
+        }
+
         private fun translationCacheFileForContext(
             context: Context,
             localBookRelativePath: String?,

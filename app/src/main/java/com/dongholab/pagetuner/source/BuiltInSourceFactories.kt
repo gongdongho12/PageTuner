@@ -59,8 +59,8 @@ class GoogleDriveSourceFactory : RemoteBookSourceFactory {
 
 class WebNovelSourceFactory : RemoteBookSourceFactory {
     override val sourceType: RemoteSourceType = RemoteSourceType.WebNovel
-    override val displayName: String = "Web Novel Reader (wtr-lab)"
-    override val description: String = "Web novel chapter extraction and text reading"
+    override val displayName: String = "Web Novel Reader"
+    override val description: String = "Adapter-based web novel extraction and offline reading"
 
     override fun createSource(account: RemoteSourceAccount): RemoteBookSource {
         return WebNovelRemoteBookSource(
