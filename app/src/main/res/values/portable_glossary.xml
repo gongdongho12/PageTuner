@@ -1,0 +1,10 @@
+<resources>
+    <string name="portable_glossary_export">Export ZIP with latest account glossary</string>
+    <string name="portable_glossary_export_description">Connect this document first. Read the chosen language from the current server account; pending edits and conflicts must be resolved.</string>
+    <string name="portable_glossary_export_replace">Replace only the chosen glossary snapshot in the exported copy. Other languages stay. Importing this ZIP does not apply or delete a glossary.</string>
+    <string name="portable_glossary_export_language">Glossary language (exact code, e.g. ko)</string>
+    <string name="portable_glossary_absent">Latest account snapshot: no glossary has been saved.</string>
+    <string name="portable_glossary_deleted">Latest account snapshot: glossary was deleted.</string>
+    <string name="portable_glossary_present">Latest account snapshot: saved glossary, including an intentionally empty list.</string>
+    <string name="portable_export_expired">This export expired after the account or export request changed. Export the document again.</string>
+</resources>

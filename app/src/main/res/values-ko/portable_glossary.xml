@@ -1,0 +1,10 @@
+<resources>
+    <string name="portable_glossary_export">최신 계정 용어집 포함 ZIP 내보내기</string>
+    <string name="portable_glossary_export_description">문서를 먼저 서버에 연결하세요. 선택 언어의 최신 계정 용어집을 읽습니다. 대기 중인 수정과 충돌은 먼저 해결하세요.</string>
+    <string name="portable_glossary_export_replace">내보낼 사본의 선택 용어집만 교체하고 다른 언어는 보존합니다. ZIP을 가져오기만 하면 용어집이 적용되거나 삭제되지 않습니다.</string>
+    <string name="portable_glossary_export_language">용어집 언어 (정확한 코드, 예: ko)</string>
+    <string name="portable_glossary_absent">최신 계정 스냅샷: 저장된 용어집 없음</string>
+    <string name="portable_glossary_deleted">최신 계정 스냅샷: 삭제된 용어집</string>
+    <string name="portable_glossary_present">최신 계정 스냅샷: 저장된 용어집 (의도적인 빈 목록 포함)</string>
+    <string name="portable_export_expired">계정 또는 내보내기 요청이 바뀌어 만료되었습니다. 문서를 다시 내보내세요.</string>
+</resources>
