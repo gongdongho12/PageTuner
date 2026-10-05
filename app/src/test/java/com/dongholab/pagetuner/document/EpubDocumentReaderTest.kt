@@ -8,10 +8,34 @@ import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertThrows
 import org.junit.Assert.fail
 import org.junit.Test
 
 class EpubDocumentReaderTest {
+    @Test fun fileExportKeepsCompleteSpineTextBeforePaginationWithoutDecodingImages() {
+        val long = "a".repeat(399) + "🌏" + "z".repeat(1800)
+        val value = buildEpub(mapOf(
+            "META-INF/container.xml" to "<container><rootfiles><rootfile full-path=\"package\"/></rootfiles></container>",
+            "package" to "<package><manifest><item id=\"a\" href=\"first.xhtml\" media-type=\"application/xhtml+xml\"/><item id=\"b\" href=\"last\" media-type=\"application/xhtml+xml\"/></manifest><spine><itemref idref=\"b\"/><itemref idref=\"a\"/></spine></package>",
+            "first.xhtml" to "<html><body><p>$long</p><p>After all pages.</p><img src=\"missing.png\" alt=\"Illustration\"/></body></html>",
+            "last" to "<html><body><p>Spine first.</p></body></html>"
+        ))
+        assertEquals(listOf("Spine first.", "$long\n\nAfter all pages.\n\n[Image: Illustration]"), EpubDocumentReader.extractTextForExport(value))
+    }
+
+    @Test fun fileExportRejectsMissingSpineContentAndExpandedOrTextLimitsWithoutTruncation() {
+        val value = minimalEpub("<p>" + "x".repeat(2000) + "</p>")
+        assertThrows(EpubReadLimitException::class.java) { EpubDocumentReader.extractTextForExport(value, maxTextCharacters = 1000) }
+        assertThrows(EpubReadLimitException::class.java) { EpubDocumentReader.extractTextForExport(value, maxExpandedBytes = 100) }
+        assertThrows(EpubReadLimitException::class.java) { EpubDocumentReader.extractTextForExport(value, maxEntries = 1) }
+        val missing = buildEpub(mapOf(
+            "META-INF/container.xml" to "<container><rootfiles><rootfile full-path=\"book.opf\"/></rootfiles></container>",
+            "book.opf" to "<package><manifest><item id=\"a\" href=\"absent.xhtml\" media-type=\"application/xhtml+xml\"/></manifest><spine><itemref idref=\"a\"/></spine></package>"
+        ))
+        assertThrows(IllegalArgumentException::class.java) { EpubDocumentReader.extractTextForExport(missing) }
+    }
+
     @Test
     fun sharingBudgetRejectsRepeatedImageAllocationsBeforeRetainingWholeDocument() {
         val epub = minimalEpub("<p>Hello</p><img src=\"image.png\"/><img src=\"image.png\"/>", mapOf("image.png" to onePixelPng))

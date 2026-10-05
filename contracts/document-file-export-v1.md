@@ -76,7 +76,7 @@ two raw titles against the input limit. The extension must be exactly `txt`,
    units without splitting a surrogate pair, then remove edge dots and spaces
    again. If empty, use `document`.
 4. Inspect the component before the first period, after removing trailing ASCII
-   spaces and converting to uppercase. If it is a Windows device name (`CON`,
+   spaces and converting ASCII `a`–`z` to uppercase. If it is a Windows device name (`CON`,
    `PRN`, `AUX`, `NUL`, `CONIN$`, `CONOUT$`, or `COM`/`LPT` followed by one
    character from `123456789¹²³`), prefix an underscore. Apply the same
    120-unit truncation and edge-dot/space trimming again.

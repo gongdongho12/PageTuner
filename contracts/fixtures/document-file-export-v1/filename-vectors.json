@@ -103,5 +103,12 @@
     "chapterTitle": "Chapter 1",
     "extension": "pdf",
     "expected": "Book - Chapter 1.pdf"
+  },
+  {
+    "name": "unicode-lookalike-not-ascii-device",
+    "bookTitle": "conın$",
+    "chapterTitle": "",
+    "extension": "pdf",
+    "expected": "conın$.pdf"
   }
 ]

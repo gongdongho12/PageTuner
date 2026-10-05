@@ -118,7 +118,8 @@ object DocumentFileExports {
         var stem = boundedStem(buildString(raw.length) {
             raw.forEach { append(if (isForbiddenFilenameChar(it)) '_' else it) }
         }).ifEmpty { "document" }
-        val deviceName = stem.substringBefore('.').trimEnd(' ').uppercase()
+        val deviceName = stem.substringBefore('.').trimEnd(' ')
+            .map { if (it in 'a'..'z') it.uppercaseChar() else it }.joinToString("")
         if (deviceName in setOf("CON", "PRN", "AUX", "NUL", "CONIN$", "CONOUT$") ||
             Regex("(?:COM|LPT)[1-9¹²³]").matches(deviceName)
         ) {
