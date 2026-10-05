@@ -390,6 +390,10 @@
     <string name="document_file_export">Export file</string>
     <string name="document_file_txt">Save text (.txt)</string>
     <string name="document_file_markdown">Save Markdown (.md)</string>
+    <string name="document_file_epub">Save text EPUB (.epub)</string>
+    <string name="document_file_pdf_document">Create PDF from text</string>
+    <string name="document_file_epub_description">Create an EPUB with the complete stored text and titles. Original images, layout and reading records are not included.</string>
+    <string name="document_file_pdf_document_description">Create a new A4 PDF from the complete stored text. Uses system fonts, up to 2,000 pages and 32 MiB.</string>
     <string name="document_file_pdf">Save original PDF</string>
     <string name="document_file_text_description">Save all stored text for this document or chapter. Images and reading records stay in the library.</string>
     <string name="document_file_pdf_description">Save the exact original PDF. Extracted text and account records are not added.</string>

@@ -390,6 +390,10 @@
     <string name="document_file_export">파일 내보내기</string>
     <string name="document_file_txt">텍스트(.txt) 저장</string>
     <string name="document_file_markdown">마크다운(.md) 저장</string>
+    <string name="document_file_epub">텍스트 EPUB(.epub) 저장</string>
+    <string name="document_file_pdf_document">본문으로 PDF 만들기</string>
+    <string name="document_file_epub_description">보관된 전체 본문과 제목으로 EPUB를 만듭니다. 원본 이미지·레이아웃·읽기 기록은 포함하지 않습니다.</string>
+    <string name="document_file_pdf_document_description">전체 보관 본문으로 새 A4 PDF를 만듭니다. 시스템 글꼴을 사용하며 최대 2,000쪽·32 MiB입니다.</string>
     <string name="document_file_pdf">PDF 원본 저장</string>
     <string name="document_file_text_description">현재 보관된 문서 또는 회차의 전체 본문을 저장합니다. 이미지와 읽기 기록은 보관함에 남습니다.</string>
     <string name="document_file_pdf_description">원본 PDF 파일을 그대로 저장합니다. 추출 본문과 계정 기록은 추가하지 않습니다.</string>

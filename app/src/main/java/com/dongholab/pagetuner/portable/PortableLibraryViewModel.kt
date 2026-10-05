@@ -22,6 +22,8 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.async
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -162,10 +164,12 @@ class PortableLibraryViewModel(private val context: Context, private val local: 
     fun prepareDocumentFile(entry: PortableLibraryEntry, format: PortableDocumentFileFormat) {
         val current = fileExportSelection.guard("portable:${entry.key}")
         operation {
+            val exportContext = currentCoroutineContext()
+            val active = { exportContext.ensureActive(); current() }
             current()
             awaitReaderWrites(entry)
             current()
-            val prepared = PortableDocumentFiles.fromArchive(store.read(entry), entry.documentIndex, format)
+            val prepared = PortableDocumentFiles.fromArchive(store.read(entry), entry.documentIndex, format, active)
             publishDocumentFile(prepared, current)
         }
     }
@@ -173,6 +177,8 @@ class PortableLibraryViewModel(private val context: Context, private val local: 
     fun prepareNativeDocumentFile(book: LocalBook, format: PortableDocumentFileFormat) {
         val current = fileExportSelection.guard("native:${book.id}")
         operation {
+            val exportContext = currentCoroutineContext()
+            val active = { exportContext.ensureActive(); current() }
             current()
             val snapshot = requireNotNull(local.readSnapshot(book.id, LibraryExchangeLimits.ARCHIVE_BYTES)) {
                 context.getString(R.string.document_file_source_changed)
@@ -190,7 +196,7 @@ class PortableLibraryViewModel(private val context: Context, private val local: 
                     val bytes = decoded.exportOriginal(result.loadedDocument.document, snapshot.bytes)
                     PortableDocumentFiles.pdf(snapshot.book.title, snapshot.book.currentChapterTitle ?: snapshot.book.title, bytes)
                 } finally { result.loadedDocument.pdfSnapshot?.close() }
-            } else PortableDocumentFiles.fromNative(snapshot, format)
+            } else PortableDocumentFiles.fromNative(snapshot, format, active)
             current()
             publishDocumentFile(prepared, current)
         }
