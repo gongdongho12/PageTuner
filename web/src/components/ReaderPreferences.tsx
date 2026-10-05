@@ -13,6 +13,7 @@ const CHANGE_EVENT = 'pageturner-reader-preferences'
 type PreferenceController = ReturnType<typeof createReaderPreferenceController>
 type Binding = { namespace: string; client: ReaderPreferenceClient | null; controller: PreferenceController; state: ReaderPreferenceState }
 const AccountPreferences = createContext<Binding | null>(null)
+const AccountSyncEnabled = createContext(true)
 type VisitPreferences = { preferences: ReaderPreferences; update: (patch: Partial<ReaderPreferences>) => void; reset: () => void }
 const VisitPreferencesContext = createContext<VisitPreferences | null>(null)
 /** LAN sharing does not require browser storage or create an account preference journal. */
@@ -20,10 +21,10 @@ export function VisitReaderPreferencesProvider({ children }: { children: ReactNo
   const [preferences, setPreferences] = useState<ReaderPreferences>({ ...defaultReaderPreferences })
   return <VisitPreferencesContext.Provider value={{ preferences, update: patch => setPreferences(value => ({ ...value, ...patch })), reset: () => setPreferences({ ...defaultReaderPreferences }) }}>{children}</VisitPreferencesContext.Provider>
 }
-export function ReaderPreferencesProvider({ namespace, client = null, children }: { namespace: string; client?: ReaderPreferenceClient | null; children: ReactNode }) {
+export function ReaderPreferencesProvider({ namespace, client = null, accountSyncEnabled = true, children }: { namespace: string; client?: ReaderPreferenceClient | null; accountSyncEnabled?: boolean; children: ReactNode }) {
   const [binding, setBinding] = useState<Binding | null>(null)
   useEffect(() => {
-    if (!namespace) { setBinding(null); return }
+    if (!namespace || !accountSyncEnabled) { setBinding(null); return }
     let stopped = false, controller: PreferenceController | null = null, unsubscribe: (() => void) | undefined
     let store: ReturnType<typeof createReaderPreferenceStore> | undefined
     const start = () => {
@@ -48,9 +49,9 @@ export function ReaderPreferencesProvider({ namespace, client = null, children }
     const interval = setInterval(retry, 30_000)
     window.addEventListener('online', retry); window.addEventListener('focus', retry); window.addEventListener(CHANGE_EVENT, start)
     return () => { stopped = true; clearInterval(interval); window.removeEventListener('online', retry); window.removeEventListener('focus', retry); window.removeEventListener(CHANGE_EVENT, start); unsubscribe?.(); if (controller) void controller.close().finally(() => store?.close()); else store?.close() }
-  }, [namespace, client])
-  const current = binding?.namespace === namespace && binding.client === client ? binding : null
-  return <Namespace.Provider value={namespace}><AccountPreferences.Provider value={current}>{children}</AccountPreferences.Provider></Namespace.Provider>
+  }, [namespace, client, accountSyncEnabled])
+  const current = accountSyncEnabled && binding?.namespace === namespace && binding.client === client ? binding : null
+  return <Namespace.Provider value={namespace}><AccountSyncEnabled.Provider value={accountSyncEnabled}><AccountPreferences.Provider value={current}>{children}</AccountPreferences.Provider></AccountSyncEnabled.Provider></Namespace.Provider>
 }
 export function useReaderPreferenceSync(namespace: string) {
   const binding = useContext(AccountPreferences)
@@ -91,6 +92,7 @@ export function useReaderPreferences(namespace?: string) {
 
 export function ReaderPreferencesPanel({ namespace, onClose }: { namespace: string; onClose: () => void }) {
   const visit = useContext(VisitPreferencesContext)
+  const accountSyncEnabled = useContext(AccountSyncEnabled) && !visit
   const { preferences, update, reset, error } = useReaderPreferences(namespace)
   const [showSync, setShowSync] = useState(false)
   const rows = ['fontSize', 'fontFamily', 'lineHeight', 'pageMargin', 'pageKeys', 'touchDirection', 'listMode'] as const
@@ -101,13 +103,13 @@ export function ReaderPreferencesPanel({ namespace, onClose }: { namespace: stri
     touchDirection: [['left-previous', '왼쪽 이전 · 오른쪽 다음'], ['left-next', '왼쪽 다음 · 오른쪽 이전'], ['buttons-only', '버튼으로만 넘기기']],
     listMode: [['paged', '페이지 방식'], ['scroll', '터치 스크롤']],
   }
-  if (showSync) return <ReaderPreferenceSyncPanel namespace={namespace} onClose={() => setShowSync(false)}/>
+  if (showSync && accountSyncEnabled) return <ReaderPreferenceSyncPanel namespace={namespace} onClose={() => setShowSync(false)}/>
   return <section className="reading-workspace" aria-label={t('독서 설정')}><header className="reading-tools-header"><button className="button-quiet" onClick={onClose}>{t('돌아가기')}</button><strong>{t('독서 설정')}</strong><button className="button-outline" onClick={reset}>{t('기본값으로 초기화')}</button></header>
-    {namespace && <button className="button-outline reader-preference-sync-entry" onClick={() => setShowSync(true)}>{t('계정 설정 동기화')}</button>}
+    {namespace && accountSyncEnabled && <button className="button-outline reader-preference-sync-entry" onClick={() => setShowSync(true)}>{t('계정 설정 동기화')}</button>}
     {error && <div role="alert" className="workflow-message">{t(error)}</div>}
     <AdaptiveCollection mode="paged" items={rows} itemKey={item => item} rowHeight={112} renderItem={field => <div className="reading-field"><label htmlFor={`reader-setting-${field}`}>{t(labels[field])}</label>
       {field === 'fontSize' || field === 'lineHeight' || field === 'pageMargin' ? <div className="reader-setting-range"><input id={`reader-setting-${field}`} type="range" min={field === 'fontSize' ? 14 : field === 'lineHeight' ? 1.1 : 0} max={field === 'fontSize' ? 36 : field === 'lineHeight' ? 2.4 : 48} step={field === 'lineHeight' ? 0.01 : 1} value={preferences[field]} onChange={event => update({ [field]: Number(event.target.value) })}/><output>{preferences[field]}</output></div>
       : <select id={`reader-setting-${field}`} value={preferences[field]} onChange={event => update({ [field]: event.target.value })}>{options[field].map(([value, label]) => <option value={value} key={value}>{t(label)}</option>)}</select>}
-    </div>}/><p className="reading-tools-caption">{t(visit ? '설정과 읽기 위치는 이 연결에서만 유지됩니다. 휴대폰의 책과 기록은 변경하지 않습니다.' : '계정 동기화를 시작하면 글자 크기·행간·여백·터치 방향·목록 표시를 공유합니다. 글꼴과 페이지 키는 이 기기의 설정입니다.')}</p>
+    </div>}/><p className="reading-tools-caption">{t(visit ? '설정과 읽기 위치는 이 연결에서만 유지됩니다. 휴대폰의 책과 기록은 변경하지 않습니다.' : accountSyncEnabled ? '계정 동기화를 시작하면 글자 크기·행간·여백·터치 방향·목록 표시를 공유합니다. 글꼴과 페이지 키는 이 기기의 설정입니다.' : '파일과 독서 설정은 이 브라우저의 기기 보관함에 저장됩니다.')}</p>
   </section>
 }

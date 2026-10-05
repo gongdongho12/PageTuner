@@ -5,6 +5,7 @@ import {
 import { translate as t } from "../lib/locale";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { usePersonalLibrary } from "./usePersonalLibrary";
+import { StartReadingPanel } from './StartReadingPanel';
 import {
   ApiError,
   type TranslationResponse,
@@ -104,6 +105,8 @@ export function NovelWorkspace({
   username,
   onConnect,
   onPreview,
+  onOpenFiles,
+  onOpenExchange,
   onOpenJsonCatalog,
   onReadingChange,
   onSaveTranslation,
@@ -118,6 +121,8 @@ export function NovelWorkspace({
   username: string;
   onConnect: () => void;
   onPreview: () => void;
+  onOpenFiles?: () => void;
+  onOpenExchange?: () => void;
   onOpenJsonCatalog?: () => void;
   onReadingChange: (reading: boolean) => void;
   onSaveTranslation: (translation: TranslationResponse) => void;
@@ -229,9 +234,9 @@ export function NovelWorkspace({
     };
   }, [client, run]);
   useLayoutEffect(() => {
-    onReadingChange(!!reader);
+    onReadingChange(!!reader || !client);
     return () => onReadingChange(false);
-  }, [!!reader, onReadingChange]);
+  }, [!!reader, client, onReadingChange]);
   const stopReadRequest = () => {
     generation.current++;
     request.current?.abort();
@@ -450,30 +455,8 @@ export function NovelWorkspace({
   };
   if (cachedLibraryOpen && catalogCache) return <CachedCatalogBrowser cache={catalogCache} onClose={() => setCachedLibraryOpen(false)} onConnect={onConnect}/>;
   if (!client)
-    return (
-      <section className="workflow-welcome">
-        <span className="eyebrow">FIND YOUR NEXT STORY</span>
-        <h2>
-          {t("이야기를 찾고,")}
-          <br />
-          {t("당신의 언어로 읽으세요.")}
-        </h2>
-        <p>
-          {t("웹소설의 목차와 원문을 불러오고")}
-          <br />
-          {t("번역한 이야기를 서재에 모아 보세요.")}
-        </p>
-        <button className="button-primary" onClick={onConnect}>
-          {t("서버에 연결")}
-          <Icon name="arrow" />
-        </button>
-        <button className="button-text" onClick={onPreview}>
-          {t("미리보기 읽기")}
-          <Icon name="book" />
-        </button>
-        {catalogCache && <button className="button-outline" onClick={() => setCachedLibraryOpen(true)}>{t('저장된 목록')}</button>}
-      </section>
-    );
+    return <StartReadingPanel onFiles={onOpenFiles} onExchange={onOpenExchange} onConnect={onConnect} onPreview={onPreview}
+      onSaved={catalogCache ? () => setCachedLibraryOpen(true) : undefined}/>;
   if (reader) {
     const WorkspaceReader = reader.chapter ? RollingTranslationReader : TranslationComparisonReader;
     return (

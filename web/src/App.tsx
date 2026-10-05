@@ -94,6 +94,9 @@ function chapterTitle(book: { chapterId: string }) {
     : book.chapterId;
 }
 const accountKey = "pageturner.last-account";
+// A colon cannot occur in a registered account name or HTTP Basic username.
+// Device-only storage remains separate when the user later signs into an account.
+const deviceOnlyNamespace = 'pageturner:device-only';
 function lastAccount() {
   try {
     return localStorage.getItem(accountKey) ?? "";
@@ -241,7 +244,7 @@ export default function App() {
     "translations" | "originals" | "files" | "exchange"
   >("translations");
   const [username, setUsername] = useState(lastAccount);
-  const [formUsername, setFormUsername] = useState(lastAccount);
+  const [formUsername, setFormUsername] = useState(() => lastAccount() === deviceOnlyNamespace ? '' : lastAccount());
   const [client, setClient] = useState<Client | null>(null);
   const [jsonCatalogClient, setJsonCatalogClient] = useState<JsonCatalogClient | null>(null);
   const [jsonCatalogOpen, setJsonCatalogOpen] = useState(false);
@@ -817,6 +820,15 @@ export default function App() {
         book.translation.recordId === recordId &&
         book.translation.revision === revision,
     );
+  const openDeviceOnly = (view: 'files' | 'exchange') => {
+    resetSession();
+    setConnecting(false);
+    setConnectionError('');
+    setUsername(deviceOnlyNamespace);
+    setFormUsername('');
+    setDeviceView(view);
+    selectTab('device');
+  };
   const deviceItems: DeviceItem[] = [
     ...localBooks.map((book) => ({ kind: "book" as const, book })),
     ...corruptRecords.map((record) => ({ kind: "corrupt" as const, record })),
@@ -832,12 +844,12 @@ export default function App() {
           ? t("오프라인 화면 준비 실패 \u00B7 온라인에서 다시 열어 주세요")
           : t("현재 화면에서 오프라인 읽기 가능");
   return (
-    <ReaderPreferencesProvider namespace={username} client={preferenceClient}>
-    <ReadingProgressProvider username={username} client={progressClient}>
-    <ReadingNoteProvider username={username} client={noteClient}>
-    <LibraryOrganizationProvider username={username} client={organizationClient}>
-    <SourceFavoriteProvider username={username} client={favoriteClient}>
-    <BookGlossaryProvider username={username} client={glossaryClient}>
+    <ReaderPreferencesProvider namespace={username} client={preferenceClient} accountSyncEnabled={username !== deviceOnlyNamespace}>
+    <ReadingProgressProvider username={username === deviceOnlyNamespace ? '' : username} client={progressClient}>
+    <ReadingNoteProvider username={username === deviceOnlyNamespace ? '' : username} client={noteClient}>
+    <LibraryOrganizationProvider username={username === deviceOnlyNamespace ? '' : username} client={organizationClient}>
+    <SourceFavoriteProvider username={username === deviceOnlyNamespace ? '' : username} client={favoriteClient}>
+    <BookGlossaryProvider username={username === deviceOnlyNamespace ? '' : username} client={glossaryClient}>
       <div className={`app-shell${reading || workflowReading ? ' app-shell-reading' : ''}`}>
         <header className="app-header">
           <a
@@ -1043,6 +1055,8 @@ export default function App() {
                     username={username}
                     onConnect={() => selectTab("connection")}
                     onPreview={openPreview}
+                    onOpenFiles={() => openDeviceOnly('files')}
+                    onOpenExchange={() => openDeviceOnly('exchange')}
                     onOpenJsonCatalog={() => setJsonCatalogOpen(true)}
                     onReadingChange={setWorkflowReading}
                     onSaveTranslation={(translation) =>
@@ -1254,7 +1268,7 @@ export default function App() {
                   <section className="library-panel">
                     <div className="library-caption">
                       <span>
-                        {username
+                        {username === deviceOnlyNamespace ? t('계정 없이 쓰는 기기 보관함') : username
                           ? t("{0}의 기기 보관함", [username])
                           : t("나만의 기기 보관함")}
                       </span>
@@ -1273,6 +1287,7 @@ export default function App() {
                           <br />
                           {t("오프라인 서재를 열어 보세요.")}
                         </p>
+                        <button className="button-outline" onClick={() => openDeviceOnly('files')}>{t('계정 없이 파일 읽기')}</button>
                         <form
                           onSubmit={(event) => {
                             event.preventDefault();
