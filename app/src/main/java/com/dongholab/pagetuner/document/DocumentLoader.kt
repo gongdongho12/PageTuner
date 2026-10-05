@@ -8,6 +8,7 @@ import com.dongholab.pagetuner.R
 data class LoadedReaderDocument(
     val document: ReaderDocument,
     val pdfSourceUri: String? = null,
+    val pdfSnapshot: PdfDecodedSnapshot? = null,
 )
 
 fun Context.sampleDocument(): ReaderDocument {
@@ -27,15 +28,15 @@ fun Context.readReaderDocument(
     val format = preferredFormat ?: detectReaderDocumentFormat(uri, title)
 
     return when (format) {
-        DocumentFormat.PDF -> LoadedReaderDocument(
-            document = PdfDocumentReader.read(
+        DocumentFormat.PDF -> {
+            val snapshot = PdfDocumentReader.read(
                 context = this,
                 uri = uri,
                 title = title,
                 fallbackTitle = getString(R.string.document_untitled),
-            ),
-            pdfSourceUri = uri.toString(),
-        )
+            )
+            LoadedReaderDocument(snapshot.document, uri.toString(), snapshot)
+        }
         DocumentFormat.EPUB -> {
             val bytes = contentResolver.openInputStream(uri)?.use { it.readBytes() }
                 ?: error("Unable to open EPUB file.")

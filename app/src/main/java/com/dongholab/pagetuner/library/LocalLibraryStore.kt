@@ -5,6 +5,11 @@ import android.net.Uri
 import com.dongholab.pagetuner.document.DocumentFormat
 import com.dongholab.pagetuner.document.DocumentIds
 import com.dongholab.pagetuner.document.LoadedReaderDocument
+import com.dongholab.pagetuner.document.PdfDocumentReader
+import com.dongholab.pagetuner.document.readPdfBytes
+import com.dongholab.pagetuner.core.backup.exchange.PdfDecoderInput
+import com.dongholab.pagetuner.core.backup.exchange.LibraryExchangeLimits
+import com.dongholab.pagetuner.R
 import com.dongholab.pagetuner.document.detectReaderDocumentFormat
 import com.dongholab.pagetuner.document.readReaderDocument
 import com.dongholab.pagetuner.document.readerDocumentDisplayName
@@ -45,7 +50,7 @@ class LocalLibraryStore(context: Context) {
 
         val title = appContext.readerDocumentDisplayName(uri)
         val format = appContext.detectReaderDocumentFormat(uri, title)
-        val bytes = appContext.contentResolver.openInputStream(uri)?.use { it.readBytes() }
+        val bytes = appContext.contentResolver.openInputStream(uri)?.use { if (format == DocumentFormat.PDF) readPdfBytes(it) else it.readBytes() }
             ?: throw IOException("Unable to open source document.")
         importBytes(
             title = title,
@@ -75,6 +80,23 @@ class LocalLibraryStore(context: Context) {
         val book = readBooks().firstOrNull { it.id == bookId }
             ?: throw IOException("Local book metadata was not found.")
         openStoredBook(book)
+    }
+
+    /** Export preparation does not open the book, remap positions or modify native metadata. */
+    suspend fun preparePdfExport(bookId: String): LocalLibraryOpenResult = withContext(Dispatchers.IO) {
+        val book = readBooks().firstOrNull { it.id == bookId } ?: throw IOException("Local book metadata was not found.")
+        require(book.format == DocumentFormat.PDF)
+        val stored = readLocalBookSnapshot(libraryDir, book, LibraryExchangeLimits.ARCHIVE_BYTES)
+        val uri = Uri.fromFile(safeBookFile(book))
+        val decoded = PdfDocumentReader.readInput(appContext, PdfDecoderInput.capture(stored.bytes), uri.toString(),
+            book.currentChapterTitle ?: book.title, appContext.getString(R.string.document_untitled))
+        try {
+            decoded.exportOriginal(decoded.document, readLocalBookSnapshot(libraryDir, book, LibraryExchangeLimits.ARCHIVE_BYTES).bytes)
+            require(book.pageCount == decoded.context.pageCount && book.currentPageIndex in 0 until decoded.context.pageCount) {
+                "Saved PDF page metadata does not match the actual source."
+            }
+            LocalLibraryOpenResult(book, LoadedReaderDocument(decoded.document, uri.toString(), decoded))
+        } catch (error: Throwable) { decoded.close(); throw error }
     }
 
     suspend fun updateProgress(bookId: String, pageIndex: Int) = withContext(Dispatchers.IO) {
@@ -177,9 +199,18 @@ class LocalLibraryStore(context: Context) {
             preferredTitle = book.currentChapterTitle ?: book.title,
         )
         val loadedPageCount = loaded.document.pageCount.coerceAtLeast(1)
+        if (loaded.document.format == DocumentFormat.PDF) {
+            try {
+                val decoded = requireNotNull(loaded.pdfSnapshot)
+                require(book.contentHash == decoded.context.originalFileSha256 && book.fileSizeBytes == decoded.input().byteLength &&
+                    book.pageCount == decoded.context.pageCount && book.currentPageIndex in 0 until decoded.context.pageCount) {
+                    "Saved PDF source or page metadata changed; reading records were preserved."
+                }
+            } catch (error: Throwable) { loaded.pdfSnapshot?.close(); throw error }
+        }
         val updatedBook = book.copy(
             pageCount = loadedPageCount,
-            currentPageIndex = remapReaderPageIndex(
+            currentPageIndex = if (loaded.document.format == DocumentFormat.PDF) book.currentPageIndex else remapReaderPageIndex(
                 currentPageIndex = book.currentPageIndex,
                 previousPageCount = book.pageCount,
                 newPageCount = loadedPageCount,
@@ -218,6 +249,7 @@ class LocalLibraryStore(context: Context) {
             preferredTitle = title,
             preferredFormat = format,
         )
+        if (format == DocumentFormat.PDF) require(loaded.pdfSnapshot?.context?.originalFileSha256 == contentHash) { "PDF source changed during import." }
         val now = System.currentTimeMillis()
         val book = LocalBook(
             id = contentHash.take(24),

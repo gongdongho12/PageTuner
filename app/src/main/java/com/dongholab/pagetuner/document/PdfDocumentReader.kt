@@ -7,10 +7,12 @@ import android.graphics.pdf.PdfRenderer
 import android.graphics.pdf.content.PdfPageTextContent
 import android.net.Uri
 import android.os.Build
+import android.os.ParcelFileDescriptor
+import com.dongholab.pagetuner.core.backup.exchange.*
 import com.dongholab.pagetuner.display.applyDisplayMode
 import com.dongholab.pagetuner.display.DisplayMode
 import java.io.IOException
-import kotlin.math.max
+import java.io.File
 import kotlin.math.roundToInt
 
 object PdfDocumentReader {
@@ -23,71 +25,61 @@ object PdfDocumentReader {
         uri: Uri,
         title: String,
         fallbackTitle: String,
-    ): ReaderDocument {
-        val pageTexts = openRenderer(context, uri) { renderer ->
-            if (renderer.pageCount <= 0) {
-                listOf("")
-            } else {
-                List(renderer.pageCount) { pageIndex ->
-                    renderer.extractText(pageIndex)
-                }
+    ): PdfDecodedSnapshot {
+        val bytes = context.contentResolver.openInputStream(uri)?.use(::readPdfBytes) ?: throw IOException("Unable to read PDF file.")
+        return readInput(context, PdfDecoderInput.capture(bytes), uri.toString(), title, fallbackTitle)
+    }
+
+    internal fun readInput(context: Context, input: PdfDecoderInput, sourceLabel: String, title: String, fallbackTitle: String): PdfDecodedSnapshot =
+        PdfDecodedSnapshot.decode(input, title, sourceLabel, fallbackTitle) { captured ->
+            openRenderer(context, captured) { renderer ->
+                val count = renderer.pageCount
+                require(count in 1..LibraryExchangeLimits.MAX_PARAGRAPHS) { "PDF page count exceeds the reader limit or is empty." }
+                var characters = 0L
+                PdfDecodedPages(count, List(count) { index -> renderer.extractText(index).also { text ->
+                    characters += text?.length ?: 0
+                    require(characters <= LibraryExchangeLimits.MAX_CHARACTERS) { "PDF text exceeds the reader limit." }
+                } })
             }
         }
-        val documentId = DocumentIds.stableId(
-            title = title,
-            body = "pdf:$uri:${pageTexts.size}:${pageTexts.joinToString(separator = "\n")}",
-        )
-        val pages = pageTexts.mapIndexed { pageIndex, text ->
-            ReaderPage(
-                index = pageIndex,
-                segments = createPdfTextSegments(
-                    documentId = documentId,
-                    pageIndex = pageIndex,
-                    rawText = text,
-                ),
-            )
-        }
-
-        return ReaderDocument(
-            id = documentId,
-            title = title.ifBlank { fallbackTitle },
-            format = DocumentFormat.PDF,
-            pages = pages,
-        )
-    }
 
     fun renderPage(
         context: Context,
-        uri: Uri,
+        snapshot: PdfDecodedSnapshot,
         pageIndex: Int,
         displayMode: DisplayMode,
     ): Bitmap {
-        return openRenderer(context, uri) { renderer ->
-            val safePageIndex = pageIndex.coerceIn(0, renderer.pageCount - 1)
-            renderer.openPage(safePageIndex).use { page ->
-                val scale = minOf(
-                    MaxRenderWidthPx.toFloat() / page.width.toFloat(),
-                    MaxRenderHeightPx.toFloat() / page.height.toFloat(),
-                ).coerceAtLeast(1f)
-                val width = max(1, (page.width * scale).roundToInt())
-                val height = max(1, (page.height * scale).roundToInt())
+        snapshot.requireCurrent()
+        require(pageIndex in 0 until snapshot.context.pageCount)
+        return openRenderer(context, snapshot.input()) { renderer ->
+            require(renderer.pageCount == snapshot.context.pageCount) { "PDF decoder page count changed." }
+            snapshot.requireCurrent()
+            renderer.openPage(pageIndex).use { page ->
+                val (width, height) = renderSize(page.width, page.height)
                 val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
                 bitmap.eraseColor(Color.WHITE)
                 page.render(bitmap, null, null, PdfRenderer.Page.RENDER_MODE_FOR_DISPLAY)
                 bitmap.applyDisplayMode(displayMode)
+                try { snapshot.requireCurrent() } catch (error: Exception) { bitmap.recycle(); throw error }
                 bitmap
             }
         }
     }
 
-    private fun PdfRenderer.extractText(pageIndex: Int): String {
-        if (Build.VERSION.SDK_INT < 35) return ""
+    internal fun renderSize(width: Int, height: Int): Pair<Int, Int> {
+        require(width > 0 && height > 0) { "PDF page dimensions are invalid." }
+        val scale = minOf(MaxRenderWidthPx.toDouble() / width, MaxRenderHeightPx.toDouble() / height)
+        return (width * scale).roundToInt().coerceIn(1, MaxRenderWidthPx) to (height * scale).roundToInt().coerceIn(1, MaxRenderHeightPx)
+    }
+
+    private fun PdfRenderer.extractText(pageIndex: Int): String? {
+        if (Build.VERSION.SDK_INT < 35) return null
 
         return runCatching {
             openPage(pageIndex).use { page ->
                 page.extractText()
             }
-        }.getOrDefault("")
+        }.getOrNull()
     }
 
     @Suppress("NewApi")
@@ -99,17 +91,22 @@ object PdfDocumentReader {
 
     private fun <T> openRenderer(
         context: Context,
-        uri: Uri,
+        input: PdfDecoderInput,
         block: (PdfRenderer) -> T,
     ): T {
-        val descriptor = context.contentResolver.openFileDescriptor(uri, "r")
-            ?: throw IOException("Unable to open PDF file.")
-
-        descriptor.use { parcelFileDescriptor ->
-            PdfRenderer(parcelFileDescriptor).use { renderer ->
-                return block(renderer)
-            }
-        }
+        val directory = File(context.cacheDir, "pdf-decoder").also { require(it.isDirectory || it.mkdirs()) }
+        val file = File.createTempFile("source-", ".pdf", directory)
+        try {
+            file.writeBytes(input.copyBytes())
+            require(file.length() == input.byteLength && file.inputStream().use { exchangeSha256(readPdfBytes(it)) } == input.originalFileSha256)
+            val descriptor = ParcelFileDescriptor.open(file, ParcelFileDescriptor.MODE_READ_ONLY)
+            // The decoder owns an unlinked, read-only descriptor: subsequent URI/cache replacement cannot affect it.
+            val renderer = try {
+                require(file.delete()) { "Unable to isolate PDF decoder input." }
+                PdfRenderer(descriptor)
+            } catch (error: Throwable) { descriptor.close(); throw error }
+            renderer.use { return block(it) } // PdfRenderer owns and closes the descriptor exactly once.
+        } finally { file.delete() }
     }
 
     internal fun createPdfTextSegments(
@@ -145,7 +142,13 @@ object PdfDocumentReader {
                 current = StringBuilder()
             }
             if (sentence.length > MaxSegmentChars) {
-                sentence.chunked(MaxSegmentChars).forEach { chunks += it.trim() }
+                var start = 0
+                while (start < sentence.length) {
+                    var end = minOf(start + MaxSegmentChars, sentence.length)
+                    if (end < sentence.length && sentence[end - 1].isHighSurrogate() && sentence[end].isLowSurrogate()) end--
+                    chunks += sentence.substring(start, end).trim()
+                    start = end
+                }
             } else {
                 if (current.isNotEmpty()) current.append(' ')
                 current.append(sentence)
