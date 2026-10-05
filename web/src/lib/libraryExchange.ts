@@ -95,6 +95,9 @@ function parseJson(bytes: Uint8Array): Record<string, unknown> {
   return object(JSON.parse(input))
 }
 
+// Typed passive extensions reuse the same duplicate-key and JSON grammar checks.
+export { parseJson as parseExchangeJson }
+
 /** Parse to an explicit portable shape: account identifiers and arbitrary storage rows never leak. */
 export function validateExchangeDocument(value: unknown): ExchangeDocument {
   const v = object(value)
