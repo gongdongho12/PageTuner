@@ -4,10 +4,12 @@
 
 ## 현재 진행 단위
 
-- [ ] **S4b2b2c — 동일 PDF 원본 bytes·실제 디코더 페이지 수·표시 본문 연결** 마무리. [draft PR #46](https://github.com/gongdongho12/PageTuner/pull/46)의 공통 입력 커밋 `c9dad4a` CI는 성공했고, 앱·웹 변경은 검증·수정 중이다.
-- [ ] PDF 검토 결함 수정: Android 계측 소스 컴파일, 부분 추출 PDF를 완성 번역으로 내보내지 않기, 캐시 표시 전 원본 문맥 검사.
-- [ ] 공유 웹 PDF의 일반 HTTP/WebCrypto 없음·읽던 위치·도구 왕복 회귀 검사.
-- [ ] 앱·웹 전체 검사와 실제 브라우저 결과를 기록하고, 플랫폼별 커밋·푸시 후 PR #46의 **마지막 head** CI 확인.
+- [x] **S4b2b2c — 동일 PDF 원본 bytes·실제 디코더 페이지 수·표시 본문 연결** 구현·자동검사. [draft PR #46](https://github.com/gongdongho12/PageTuner/pull/46), 공통 `c9dad4a`·웹 `95e6708`·앱 `e4429e7`. 물리 Android 실행은 V3에 남는다.
+- [x] PDF 검토 결함 수정: Android 계측 소스 컴파일, 부분 추출 PDF 번역 export 거절, 캐시 표시 전 원본 문맥 검사.
+- [x] 공유 웹 PDF의 WebCrypto 없음·읽던 위치·도구 왕복을 실제 Chrome/PDF.js와 모의 공유 응답으로 검사. 물리 핫스팟은 별도 미검증.
+- [x] 앱567 통과/16 제외·웹564·core37/runtime36, APK/lint/계측 소스/경계·실제 브라우저 결과 기록. [상세](PDF_DECODER_CONTEXT.md)
+- [ ] PR #46의 문서까지 포함한 **마지막 head** CI 확인.
+- [ ] **사용자 우선 — 기본 사용 흐름**: 최초 실행에서 로컬 파일/ZIP 가져오기→읽기→보관·재열기를 쉽게 제공하고 서버 연결·웹소설·번역 진입과 실행 안내를 정리한다. 현재 8080 서버가 내려가 있어 실제 서버 흐름 검증은 아직 실행할 수 없다.
 
 ## S4 — 앱 ↔ 웹 ZIP 및 원본 연결
 
