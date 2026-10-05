@@ -34,6 +34,7 @@
 
 | 기능 | Android 앱 | 웹 대응 | 범위·근거 |
 | --- | --- | --- | --- |
+| 별도 본문 파일 내보내기 | 완료 / 실기기 SAF 대기 | 완료 / OS 다운로드 왕복 검증 대기 | TXT·Markdown 읽기용 사본과 검증된 PDF 원본. 회차 문서는 해당 회차만 포함하며 삽화·기록/계정은 텍스트 파일에서 제외. 공통 fixture, 계정별 저장소 및 PDF bytes 자동검사, ko/en 모바일 브라우저 준비 화면 검사. 기존 ZIP 교환·기록 export와 분리. [범위·검증](DOCUMENT_FILE_EXPORT.md), [PR #48](https://github.com/gongdongho12/PageTuner/pull/48) |
 | 폰 핫스팟·Wi-Fi 서재 공유 | 완료 / 실기기 검증 대기 | 완료 / 읽기 전용 | 설정에서 공유 시작·사설 주소·8자리 코드·알림 중지·2시간 만료. native/ZIP/다운로드 웹소설의 저장 원문·완성 번역·PDF/삽화를 폰 HTTP에서 읽는다. 별도 계정·인터넷 없이 동작하고 기록 쓰기/부분 번역 캐시/클라우드 전용 문서는 제외. 실제 사설 IP HTTP와 WebCrypto/SW 없는 브라우저에서 검증했으며 물리 폰 핫스팟은 V3다. [범위·검증](LOCAL_LIBRARY_SHARING.md) |
 | TXT·Markdown 파일 가져오기 | 완료 | 완료 | 웹은 32MB 이하 파일, BOM/엄격 UTF-8 및 명시적 레거시 인코딩, 내용 해시 ID, 계정별 기기 보관을 지원한다. 일반 서버 artifact와 별도 모델이다. [DocumentLoader](../app/src/main/java/com/dongholab/pagetuner/document/DocumentLoader.kt), [localDocuments](../web/src/lib/localDocuments.ts), [LocalWorkspace](../web/src/components/LocalWorkspace.tsx) |
 | EPUB 가져오기·본문·장 이동 | 완료 | 완료 | 양쪽 OPF/spine 순서를 읽는다. 웹은 안전한 XML 텍스트 추출과 문단 ID 기반 목차 이동이며 원본 CSS 레이아웃을 실행하지 않는다. [EpubDocumentReader](../app/src/main/java/com/dongholab/pagetuner/document/EpubDocumentReader.kt), [epubDocument](../web/src/lib/epubDocument.ts), [ReaderTools](../web/src/components/ReaderTools.tsx) |
