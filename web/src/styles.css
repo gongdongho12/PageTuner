@@ -357,6 +357,13 @@ select {
 .start-reading-action { height: 100%; min-height: 0; padding: 12px 16px; display: flex; flex-direction: column; justify-content: space-between; gap: 8px; }
 .start-reading-action p { margin: 0; font-size: 13px; line-height: 1.6; overflow-wrap: anywhere; }
 .start-reading-action button { min-height: 44px; flex-shrink: 0; }
+.document-export-title { max-height: 3.2em; overflow: hidden; overflow-wrap: anywhere; }
+.document-export-field { justify-content: space-between; }
+.document-export-field p { margin: 0; line-height: 1.6; }
+.document-export-filename { overflow-wrap: anywhere; max-height: 4.8em; overflow: hidden; }
+.document-export-download { display: flex; min-height: 44px; align-items: center; justify-content: center; text-decoration: none; }
+.document-export-choice { gap: 4px; }
+.document-export-choice > strong, .document-export-choice > span { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
 .workflow-welcome {
   flex: 1;
   min-height: 0;
