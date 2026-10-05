@@ -1,7 +1,7 @@
 import type { ReadingDocument } from './readingDocument'
 import { localSha256 } from './localSha256'
 
-export type DocumentExportFormat = 'txt' | 'markdown' | 'pdf'
+export type DocumentExportFormat = 'txt' | 'markdown' | 'epub' | 'pdf'
 export type DocumentFileExport = { blob: Blob; name: string; type: string }
 
 const maximumInputUnits = 5_000_000
@@ -12,7 +12,7 @@ const invalid = (): never => { throw new Error('문서 파일을 내보낼 수 �
 const tooLarge = (): never => { throw new Error('문서가 파일 내보내기 크기 제한을 초과합니다. 내용을 나누어 주세요.') }
 const trimTitle = (value: string) => value.replace(/^[ \t\r\n]+|[ \t\r\n]+$/g, '')
 
-function checkedText(value: string): string {
+export function checkedDocumentExportText(value: string): string {
   if (typeof value !== 'string') return invalid()
   for (let index = 0; index < value.length; index++) {
     const unit = value.charCodeAt(index)
@@ -28,12 +28,12 @@ function checkedText(value: string): string {
 function titles(bookTitle: string, chapterTitle: string) {
   if (typeof bookTitle !== 'string' || typeof chapterTitle !== 'string') return invalid()
   if (bookTitle.length + chapterTitle.length > maximumInputUnits) return tooLarge()
-  const book = trimTitle(checkedText(bookTitle)) || 'Untitled'
-  const normalizedChapter = trimTitle(checkedText(chapterTitle))
+  const book = trimTitle(checkedDocumentExportText(bookTitle)) || 'Untitled'
+  const normalizedChapter = trimTitle(checkedDocumentExportText(chapterTitle))
   return { book, chapter: normalizedChapter === book ? '' : normalizedChapter }
 }
 
-function filename(book: string, chapter: string, extension: 'txt' | 'md' | 'pdf') {
+function filename(book: string, chapter: string, extension: 'txt' | 'md' | 'pdf' | 'epub') {
   const edgeTrim = (value: string) => value.replace(/^[ .]+|[ .]+$/g, '')
   const bounded = (value: string) => {
     let end = Math.min(value.length, 120)
@@ -50,9 +50,30 @@ function isPdf(document: ReadingDocument) {
   return document.local?.format === 'pdf' || document.assets?.pdf !== undefined
 }
 
+export function documentExportFilename(bookTitle: string, chapterTitle: string, extension: 'txt' | 'md' | 'pdf' | 'epub'): string {
+  if (!['txt', 'md', 'pdf', 'epub'].includes(extension)) return invalid()
+  const { book, chapter } = titles(bookTitle, chapterTitle)
+  return filename(book, chapter, extension)
+}
+
+/** Only complete non-PDF prose, with no persisted identity or account state attached. */
+export function documentTextExportSnapshot(document: ReadingDocument) {
+  if (isPdf(document) || !Array.isArray(document.paragraphs)) return invalid()
+  if (document.paragraphs.length > maximumParagraphs) return tooLarge()
+  const { book, chapter } = titles(document.bookTitle, document.chapterTitle)
+  let inputUnits = document.bookTitle.length + document.chapterTitle.length
+  const paragraphs = document.paragraphs.map(paragraph => {
+    if (!paragraph || typeof paragraph.text !== 'string') return invalid()
+    inputUnits += paragraph.text.length
+    if (inputUnits > maximumInputUnits) return tooLarge()
+    return checkedDocumentExportText(paragraph.text)
+  })
+  return Object.freeze({ book, chapter, paragraphs: Object.freeze(paragraphs), inputUnits })
+}
+
 /** Available choices never offer extracted PDF text as a complete TXT/Markdown document. */
 export function documentExportFormats(document: ReadingDocument): DocumentExportFormat[] {
-  if (!isPdf(document)) return ['txt', 'markdown']
+  if (!isPdf(document)) return ['txt', 'markdown', 'epub']
   const blob = document.assets?.pdf, metadata = document.local
   return blob instanceof Blob && blob.size > 0 && blob.size <= maximumPdfBytes && metadata?.format === 'pdf' &&
     Number.isSafeInteger(metadata.byteLength) && metadata.byteLength === blob.size && /^[a-f0-9]{64}$/.test(metadata.contentHash) ? ['pdf'] : []
@@ -61,6 +82,13 @@ export function documentExportFormats(document: ReadingDocument): DocumentExport
 /** Exports one fixed local snapshot; never fetches, binds or sends account records. */
 export async function prepareDocumentFileExport(document: ReadingDocument, format: DocumentExportFormat, signal?: AbortSignal): Promise<DocumentFileExport> {
   signal?.throwIfAborted()
+  if (format === 'epub') {
+    // Capture before module loading yields; selection metadata must not change the prepared file.
+    const snapshot = documentTextExportSnapshot(document), language = document.language
+    const { prepareDocumentEbookSnapshot } = await import('./documentEbookExport')
+    signal?.throwIfAborted()
+    return prepareDocumentEbookSnapshot(snapshot, language, signal)
+  }
   const { book, chapter } = titles(document.bookTitle, document.chapterTitle)
   if (format === 'pdf') {
     const blob = document.assets?.pdf, metadata = document.local ? { ...document.local } : undefined
@@ -73,15 +101,8 @@ export async function prepareDocumentFileExport(document: ReadingDocument, forma
     if (digest !== metadata.contentHash) return invalid()
     return { blob: new Blob([bytes], { type: 'application/pdf' }), name: filename(book, chapter, 'pdf'), type: 'application/pdf' }
   }
-  if ((format !== 'txt' && format !== 'markdown') || isPdf(document) || !Array.isArray(document.paragraphs)) return invalid()
-  if (document.paragraphs.length > maximumParagraphs) return tooLarge()
-  let units = document.bookTitle.length + document.chapterTitle.length
-  const paragraphs = document.paragraphs.map(paragraph => {
-    if (!paragraph || typeof paragraph.text !== 'string') return invalid()
-    units += paragraph.text.length
-    if (units > maximumInputUnits) return tooLarge()
-    return checkedText(paragraph.text)
-  })
+  if (format !== 'txt' && format !== 'markdown') return invalid()
+  const { paragraphs } = documentTextExportSnapshot(document)
   const escape = (value: string) => value.replace(/[!-/:-@[-`{-~]/g, '\\$&')
   const header = format === 'txt' ? book + (chapter ? `\n${chapter}` : '') : `# ${escape(book)}` + (chapter ? `\n\n## ${escape(chapter)}` : '')
   const text = header + '\n\n' + paragraphs.map(value => format === 'markdown' ? escape(value) : value).join('\n\n') + '\n'
