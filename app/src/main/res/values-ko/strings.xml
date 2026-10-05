@@ -387,6 +387,17 @@
     <string name="portable_identity_hash">전체 문단 해시</string>
     <string name="portable_import">ZIP 가져오기</string>
     <string name="portable_export">ZIP 내보내기</string>
+    <string name="document_file_export">파일 내보내기</string>
+    <string name="document_file_txt">텍스트(.txt) 저장</string>
+    <string name="document_file_markdown">마크다운(.md) 저장</string>
+    <string name="document_file_pdf">PDF 원본 저장</string>
+    <string name="document_file_text_description">현재 보관된 문서 또는 회차의 전체 본문을 저장합니다. 이미지와 읽기 기록은 보관함에 남습니다.</string>
+    <string name="document_file_pdf_description">원본 PDF 파일을 그대로 저장합니다. 추출 본문과 계정 기록은 추가하지 않습니다.</string>
+    <string name="document_file_zip_description">책과 자산, 읽기 기록을 ZIP에 담아 앱과 웹 사이에 옮깁니다.</string>
+    <string name="document_file_translation_description">완성된 캐시 번역을 포함하는 기존 ZIP 내보내기입니다.</string>
+    <string name="document_file_saved">파일을 저장했습니다.</string>
+    <string name="document_file_source_changed">선택한 문서가 변경되었습니다. 다시 선택한 뒤 내보내 주세요.</string>
+    <string name="document_file_pdf_only">PDF 본문은 전체 추출 검증이 필요합니다. PDF 원본으로 내보내 주세요.</string>
     <string name="portable_summary">PC 웹과 책을 주고받습니다. 독서 기록과 보관된 이미지를 포함합니다. ZIP 최대 32 MiB.</string>
     <string name="portable_imported_library">가져온 ZIP</string>
     <string name="portable_native_library">기기 서재</string>

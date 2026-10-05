@@ -107,6 +107,7 @@ export function NovelWorkspace({
   onPreview,
   onOpenFiles,
   onOpenExchange,
+  onOpenExport,
   onOpenJsonCatalog,
   onReadingChange,
   onSaveTranslation,
@@ -123,6 +124,7 @@ export function NovelWorkspace({
   onPreview: () => void;
   onOpenFiles?: () => void;
   onOpenExchange?: () => void;
+  onOpenExport?: () => void;
   onOpenJsonCatalog?: () => void;
   onReadingChange: (reading: boolean) => void;
   onSaveTranslation: (translation: TranslationResponse) => void;
@@ -455,7 +457,7 @@ export function NovelWorkspace({
   };
   if (cachedLibraryOpen && catalogCache) return <CachedCatalogBrowser cache={catalogCache} onClose={() => setCachedLibraryOpen(false)} onConnect={onConnect}/>;
   if (!client)
-    return <StartReadingPanel onFiles={onOpenFiles} onExchange={onOpenExchange} onConnect={onConnect} onPreview={onPreview}
+    return <StartReadingPanel onFiles={onOpenFiles} onExchange={onOpenExchange} onExport={onOpenExport} onConnect={onConnect} onPreview={onPreview}
       onSaved={catalogCache ? () => setCachedLibraryOpen(true) : undefined}/>;
   if (reader) {
     const WorkspaceReader = reader.chapter ? RollingTranslationReader : TranslationComparisonReader;

@@ -17,6 +17,17 @@
 
 2026-10-05 사용자 우선 변경: 기본 사용 가능한 형태로 마무리하고 커밋·푸시·현재 범위 정리를 요청했다. B1 계정 없는 로컬 읽기 진입은 PR #47에서 완료했다. [기본 사용 안내](QUICK_START.md)를 먼저 읽고, 가능한 서버 기본 흐름 재검증을 우선하되 서버 시작 정책 거절을 우회하지 않는다. 서버 의존성이 준비되지 않았으면 S4c3a 분류 passive snapshot 등 진행 가능한 큐를 계속한다. 전체 프로젝트는 미완료다.
 
+추가 사용자 요청 **B2 별도 export**는 PR #48에서 TXT/Markdown 및 원본 PDF 파일 내보내기로 구현했다. [지원 범위](DOCUMENT_FILE_EXPORT.md)를 따른다. ZIP 교환·본문 파일·읽기 기록 export는 서로 별도이며 전체 책의 미보관 회차를 자동 수집하지 않는다. 다음 실행은 #48 최종 head CI와 아래 최신 기록부터 확인한다.
+
+### 2026-10-05 별도 파일 export — B2
+
+- PR #47 정확한 최종 `7d965cbd628692936cbe6a09902d7af204a15932`의 [CI run37285043930](https://github.com/gongdongho12/PageTuner/actions/runs/37285043930) 성공을 재확인했다. `codex/document-file-export` → `codex/local-reader-start`(#47)인 [draft PR #48](https://github.com/gongdongho12/PageTuner/pull/48)을 생성했다. 공통 `d6d3438`, 웹 `cd28cfb`와 Android 구현을 작은 검증 단위별 커밋·푸시했다. 최종 문서 포함 head의 CI는 PR에서 정확한 SHA로 확인한다.
+- TXT/Markdown 공통 규격·36개 fixture, 원본 PDF 복사, Android 형식별 SAF와 웹 별도 파일 패널을 연결했다. 계정 없는 보관함 및 기기 원문/번역/ZIP을 지원한다. 한 회차 문서는 해당 회차만 포함하며 서버 데이터를 자동 수집·전송하지 않는다.
+- 독립 리뷰에서 Android TXT/Markdown 화면용 재분할에 의한 공백/긴 Unicode 손실, EPUB 누락·확장자 없는 spine 경로, 파일명 ASCII 대소문자 규칙, 웹 손상 ZIP의 전체 export 차단·원본 PDF 없는 상태 안내를 수정했다. EPUB는 원래 레이아웃이 아닌 전체 spine 텍스트 사본이다.
+- 로컬 웹613/73파일·생성 계약15·typecheck/production+sharing build, Android575 통과/16 opt-in 제외·core-content9·APK/lint/계측 소스/모듈 경계 성공. 새 목록 benchmark 누락을 고친 뒤 Android 전체를 다시 통과했다. 로그는 `.gradle-home/document-export-web-final.log`, `.gradle-home/document-export-android-final.log`에 보존했다.
+- 실제 인앱 브라우저에서 시험 TXT 가져오기→TXT/Markdown 준비, native PDF·canonical 0문단 ZIP PDF 원본 준비, 읽기 도구→파일 export 진입, ko/en 390×844/844×390의 페이지·버튼·잘림을 확인했다. downloadMedia 파일 경로 반환이 시간 초과여서 실제 OS 다운로드 재가져오기 왕복은 미검증이다. 실제 Blob bytes/ZIP codec 동등성은 자동 테스트와 구분한다. Android 실기기 SAF/회전/재생성은 V3다. [범위·검증](DOCUMENT_FILE_EXPORT.md)
+- 서버 시작 거절을 재시도하지 않았고 preview DB/8080·원본 폴더 변경은 보존했다. 웹5174와 갱신 APK를 제공한다. 전체 S4/프로젝트는 미완료이며 다음은 가능하면 서버 기본 흐름 재검증, 외부 환경 없이 가능한 S4c3a 분류 passive snapshot이다. 자동 병합하지 않는다.
+
 상태: `진행` / `대기` / `검증 대기` / `외부 검증 대기` / `완료` / `플랫폼 확인`.
 
 | ID | 순서 | 상태 | 항목 | 완료 조건·의존성 |

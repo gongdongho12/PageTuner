@@ -46,6 +46,7 @@ class PortableLibraryViewModel(private val context: Context, private val local: 
     private val mutableOpened = MutableSharedFlow<PortableOpened>(extraBufferCapacity = 1)
     val opened = mutableOpened.asSharedFlow()
     private val exportTickets = PortableExportTickets()
+    private val fileExportSelection = PortableFileExportSelection()
     private val glossaryJournal = FileServerBookGlossaryStore(File(context.filesDir, "server-book-glossaries"))
     val glossaryAdoption = PortableGlossaryAdoption(viewModelScope, ::currentDocument,
         { entry -> store.read(entry).documents[entry.documentIndex] }, bindings::read, glossaryJournal::read)
@@ -92,6 +93,7 @@ class PortableLibraryViewModel(private val context: Context, private val local: 
         }
     }
     fun cancelExport(id: String) { exportTickets.cancel(id) }
+    fun selectFileExport(key: String?) { fileExportSelection.select(key) }
     fun refresh() = operation { mutableState.update { it.copy(entries = store.list()) } }
 
     fun importArchive(uri: Uri) = operation {
@@ -157,6 +159,53 @@ class PortableLibraryViewModel(private val context: Context, private val local: 
         } finally { result.loadedDocument.pdfSnapshot?.close() }
     }
 
+    fun prepareDocumentFile(entry: PortableLibraryEntry, format: PortableDocumentFileFormat) {
+        val current = fileExportSelection.guard("portable:${entry.key}")
+        operation {
+            current()
+            awaitReaderWrites(entry)
+            current()
+            val prepared = PortableDocumentFiles.fromArchive(store.read(entry), entry.documentIndex, format)
+            publishDocumentFile(prepared, current)
+        }
+    }
+
+    fun prepareNativeDocumentFile(book: LocalBook, format: PortableDocumentFileFormat) {
+        val current = fileExportSelection.guard("native:${book.id}")
+        operation {
+            current()
+            val snapshot = requireNotNull(local.readSnapshot(book.id, LibraryExchangeLimits.ARCHIVE_BYTES)) {
+                context.getString(R.string.document_file_source_changed)
+            }
+            require(snapshot.book.contentHash == book.contentHash && snapshot.book.format == book.format &&
+                snapshot.book.currentRemoteChapterId == book.currentRemoteChapterId) {
+                context.getString(R.string.document_file_source_changed)
+            }
+            current()
+            val prepared = if (book.format == DocumentFormat.PDF) {
+                require(format == PortableDocumentFileFormat.PDF) { context.getString(R.string.document_file_pdf_only) }
+                val result = local.preparePdfExport(book.id)
+                try {
+                    val decoded = requireNotNull(result.loadedDocument.pdfSnapshot)
+                    val bytes = decoded.exportOriginal(result.loadedDocument.document, snapshot.bytes)
+                    PortableDocumentFiles.pdf(snapshot.book.title, snapshot.book.currentChapterTitle ?: snapshot.book.title, bytes)
+                } finally { result.loadedDocument.pdfSnapshot?.close() }
+            } else PortableDocumentFiles.fromNative(snapshot, format)
+            current()
+            publishDocumentFile(prepared, current)
+        }
+    }
+
+    private suspend fun publishDocumentFile(value: PreparedDocumentFile, current: () -> Unit) {
+        current()
+        val request = exportTickets.begin(value.filename, mimeType = value.mimeType)
+        try {
+            exportTickets.prepare(request, value.bytes, null, current)
+            current()
+            mutableExportReady.emit(request)
+        } catch (error: Exception) { exportTickets.cancel(request.id); throw error }
+    }
+
     /** Future explicit upload UI must await queued reader edits before preparing the committed ZIP. */
     suspend fun currentPdfContent(entry: PortableLibraryEntry): ValidatedPdfContent {
         awaitReaderWrites(entry)
@@ -183,8 +232,8 @@ class PortableLibraryViewModel(private val context: Context, private val local: 
         if (requestId == null) return
         if (uri == null) { exportTickets.cancel(requestId); return }
         operation {
-            exportTickets.write(requestId, currentConnection) { context.contentResolver.openOutputStream(uri, "wt") }
-            mutableState.update { it.copy(status = R.string.portable_exported) }
+            val saved = exportTickets.write(requestId, currentConnection) { context.contentResolver.openOutputStream(uri, "wt") }
+            mutableState.update { it.copy(status = if (saved.mimeType == "application/zip") R.string.portable_exported else R.string.document_file_saved) }
         }
     }
 

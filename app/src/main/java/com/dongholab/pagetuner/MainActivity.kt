@@ -648,7 +648,7 @@ fun PageTurnerApp() {
         uri?.let(portableViewModel::importArchive)
     }
     var portableExportRequestId by rememberSaveable { mutableStateOf<String?>(null) }
-    val portableExportLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/zip")) { uri: Uri? ->
+    val portableExportLauncher = rememberLauncherForActivityResult(com.dongholab.pagetuner.portable.PortableCreateDocument()) { uri: Uri? ->
         val requestId = portableExportRequestId
         portableExportRequestId = null
         portableViewModel.writeExport(uri, requestId, serverLibraryViewModel::readingConnection)
@@ -659,7 +659,7 @@ fun PageTurnerApp() {
             if (portableExportRequestId != null) portableViewModel.cancelExport(request.id)
             else {
                 portableExportRequestId = request.id
-                try { portableExportLauncher.launch(request.filename) }
+                try { portableExportLauncher.launch(request) }
                 catch (error: Exception) { portableExportRequestId = null; portableViewModel.cancelExport(request.id); throw error }
             }
         } }
@@ -1046,6 +1046,9 @@ fun PageTurnerApp() {
                                         portableViewModel.prepareNativeExport(book, includeTranslation, settings, activeTranslationProvider.id, activeGlossary)
                                     },
                                     onExport = portableViewModel::prepareExport,
+                                    onFileExportSelection = portableViewModel::selectFileExport,
+                                    onNativeFileExport = portableViewModel::prepareNativeDocumentFile,
+                                    onFileExport = portableViewModel::prepareDocumentFile,
                                     onOpen = { entry, originalPdf -> portableViewModel.open(entry, originalPdf) },
                                     onVerify = {
                                         if (it.document.assets.any { asset -> asset.role == "pdf" })

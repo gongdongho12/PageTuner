@@ -48,6 +48,7 @@ import { BookGlossaryProvider } from './components/BookGlossaryProvider';
 import { SourceFavoriteProvider } from './components/SourceFavoriteProvider';
 import { LocalWorkspace } from "./components/LocalWorkspace";
 import { LibraryExchangeWorkspace } from "./components/LibraryExchangeWorkspace";
+import { DocumentFileExportWorkspace } from './components/DocumentFileExportWorkspace';
 import { OriginalLibrary } from "./components/OriginalLibrary";
 import { JsonCatalogWorkspace } from './components/JsonCatalogWorkspace';
 import { createJsonCatalogClient, type JsonCatalogClient } from './lib/jsonCatalogApi';
@@ -241,7 +242,7 @@ export default function App() {
   const { setLocale } = useLocale();
   const [tab, setTab] = useState<Tab>("novels");
   const [deviceView, setDeviceView] = useState<
-    "translations" | "originals" | "files" | "exchange"
+    "translations" | "originals" | "files" | "exchange" | "export"
   >("translations");
   const [username, setUsername] = useState(lastAccount);
   const [formUsername, setFormUsername] = useState(() => lastAccount() === deviceOnlyNamespace ? '' : lastAccount());
@@ -820,7 +821,7 @@ export default function App() {
         book.translation.recordId === recordId &&
         book.translation.revision === revision,
     );
-  const openDeviceOnly = (view: 'files' | 'exchange') => {
+  const openDeviceOnly = (view: 'files' | 'exchange' | 'export') => {
     resetSession();
     setConnecting(false);
     setConnectionError('');
@@ -1033,6 +1034,7 @@ export default function App() {
                       {t("로컬 파일")}
                     </button>
                     <button aria-pressed={deviceView === 'exchange'} onClick={() => setDeviceView('exchange')}>{t('앱 · 웹 ZIP 교환')}</button>
+                    <button aria-pressed={deviceView === 'export'} onClick={() => setDeviceView('export')}>{t('파일 내보내기')}</button>
                   </nav>
                 )}
                 {opening ? (
@@ -1057,6 +1059,7 @@ export default function App() {
                     onPreview={openPreview}
                     onOpenFiles={() => openDeviceOnly('files')}
                     onOpenExchange={() => openDeviceOnly('exchange')}
+                    onOpenExport={() => { if (username) { setDeviceView('export'); selectTab('device'); } else openDeviceOnly('export'); }}
                     onOpenJsonCatalog={() => setJsonCatalogOpen(true)}
                     onReadingChange={setWorkflowReading}
                     onSaveTranslation={(translation) =>
@@ -1092,6 +1095,8 @@ export default function App() {
                     }}
                     onBrowse={() => selectTab("novels")}
                   /></>
+                ) : tab === 'device' && deviceView === 'export' && username ? (
+                  <DocumentFileExportWorkspace key={username} username={username} onClose={() => setDeviceView('files')} onReadingChange={setWorkflowReading}/>
                 ) : tab === 'device' && deviceView === 'exchange' && username ? (
                   <LibraryExchangeWorkspace key={username} username={username} identityClient={identityClient} pdfContentClient={pdfContentClient} targetLanguage={accountProfile?.targetLanguage ?? "ko"} onReadingChange={setWorkflowReading}/>
                 ) : tab === "device" && deviceView === "files" && username ? (

@@ -4,6 +4,7 @@
 
 ## 현재 진행 단위
 
+- [x] **B2 별도 문서 파일 내보내기**: 웹·Android TXT/Markdown 및 검증된 PDF 원본, 기존 ZIP/읽기 기록 내보내기 분리. [draft PR #48](https://github.com/gongdongho12/PageTuner/pull/48), [범위·검증](DOCUMENT_FILE_EXPORT.md). OS 다운로드 왕복과 Android 실기기 SAF는 검증 대기로 구분한다.
 - [x] **S4b2b2c — 동일 PDF 원본 bytes·실제 디코더 페이지 수·표시 본문 연결** 구현·자동검사. [draft PR #46](https://github.com/gongdongho12/PageTuner/pull/46), 공통 `c9dad4a`·웹 `95e6708`·앱 `e4429e7`. 물리 Android 실행은 V3에 남는다.
 - [x] PDF 검토 결함 수정: Android 계측 소스 컴파일, 부분 추출 PDF 번역 export 거절, 캐시 표시 전 원본 문맥 검사.
 - [x] 공유 웹 PDF의 WebCrypto 없음·읽던 위치·도구 왕복을 실제 Chrome/PDF.js와 모의 공유 응답으로 검사. 물리 핫스팟은 별도 미검증.

@@ -1,6 +1,7 @@
 package com.dongholab.pagetuner.document
 
 import java.io.ByteArrayInputStream
+import java.io.ByteArrayOutputStream
 import java.io.InputStream
 import java.io.StringReader
 import java.util.zip.ZipInputStream
@@ -14,6 +15,56 @@ class EpubReadLimitException : IllegalArgumentException("EPUB exceeds the reques
 data class EpubReadLimits(val maxTextCharacters: Int, val maxImageReferences: Int, val maxImageBytes: Long)
 
 object EpubDocumentReader {
+    /** Whole spine text before reader pagination. Images/CSS are not part of a readable text file. */
+    fun extractTextForExport(bytes: ByteArray, maxTextCharacters: Int = 5_000_000,
+        maxExpandedBytes: Int = 64 * 1024 * 1024, maxEntries: Int = 512): List<String> {
+        require(bytes.isNotEmpty() && bytes.size <= 32 * 1024 * 1024)
+        require(maxTextCharacters in 1..5_000_000 && maxExpandedBytes in 1..64 * 1024 * 1024 && maxEntries in 1..512)
+        fun readEntries(wanted: Set<String>): Map<String, ByteArray> {
+            val retained = mutableMapOf<String, ByteArray>()
+            val paths = mutableSetOf<String>()
+            var expanded = 0L
+            var retainedBytes = 0L
+            var count = 0
+            ZipInputStream(ByteArrayInputStream(bytes)).use { zip ->
+                val buffer = ByteArray(8192)
+                while (true) {
+                    val entry = zip.nextEntry ?: break
+                    if (++count > maxEntries) throw EpubReadLimitException()
+                    require(!entry.name.startsWith('/') && !entry.name.contains('\\') && entry.name.split('/').none { it == ".." }) {
+                        "Invalid EPUB entry path."
+                    }
+                    if (!entry.isDirectory) require(paths.add(entry.name)) { "Duplicate EPUB entry path." }
+                    val output = if (!entry.isDirectory && entry.name in wanted) ByteArrayOutputStream() else null
+                    while (true) {
+                        val size = zip.read(buffer)
+                        if (size < 0) break
+                        expanded += size
+                        if (output != null) retainedBytes += size
+                        if (expanded > maxExpandedBytes || retainedBytes > maxTextCharacters * 4L) throw EpubReadLimitException()
+                        output?.write(buffer, 0, size)
+                    }
+                    if (output != null) retained[entry.name] = output.toByteArray()
+                }
+            }
+            wanted.forEach { require(retained.containsKey(it)) { "EPUB entry not found: $it" } }
+            return retained
+        }
+        fun xml(path: String) = readEntries(setOf(path)).getValue(path).decodeToString(throwOnInvalidSequence = true)
+        // Resolve the manifest before retaining chapters, including extensionless spine paths.
+        // Every pass bounds all expanded bytes; images are never retained or decoded.
+        val opfPath = parseContainerRootfile(xml("META-INF/container.xml"))
+        val epub = parsePackage(xml(opfPath), opfPath, strictSpine = true)
+        val chapters = readEntries(epub.spinePaths.toSet())
+        var characters = 0L
+        return epub.spinePaths.map { path ->
+            val xhtml = chapters.getValue(path).decodeToString(throwOnInvalidSequence = true)
+            characters += xhtml.length
+            if (characters > maxTextCharacters) throw EpubReadLimitException()
+            extractXhtmlText(xhtml)
+        }
+    }
+
     private data class EpubChapter(
         val title: String?,
         val text: String,
@@ -96,6 +147,7 @@ object EpubDocumentReader {
     private fun parsePackage(
         opfXml: String,
         opfPath: String,
+        strictSpine: Boolean = false,
     ): EpubPackage {
         val document = parseXml(opfXml.byteInputStream())
         val spineManifest = mutableMapOf<String, String>()
@@ -121,9 +173,12 @@ object EpubDocumentReader {
         val spinePaths = mutableListOf<String>()
         val itemRefs = document.getElementsByTagNameNS("*", "itemref")
         for (index in 0 until itemRefs.length) {
-            val idRef = itemRefs.item(index).attributes.getNamedItem("idref")?.nodeValue ?: continue
-            spineManifest[idRef]?.let { spinePaths += it }
+            val idRef = itemRefs.item(index).attributes.getNamedItem("idref")?.nodeValue
+            val path = idRef?.let { spineManifest[it] }
+            if (strictSpine) requireNotNull(path) { "EPUB spine content is missing or unsupported." }
+            path?.let { spinePaths += it }
         }
+        if (strictSpine) require(spinePaths.isNotEmpty()) { "EPUB contains no readable spine content." }
 
         return EpubPackage(
             spinePaths = spinePaths,

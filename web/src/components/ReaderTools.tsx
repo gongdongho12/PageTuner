@@ -11,6 +11,7 @@ import { ReaderSearch } from './ReaderSearch'
 import { useReadingNoteSync } from './ReadingNoteProvider'
 import { ReadingNotePanel, readingNoteStatus } from './ReadingNotePanel'
 import { LibraryOrganizationPanel } from './LibraryOrganizationPanel'
+import { DocumentFileExportPanel } from './DocumentFileExportPanel'
 import './readingTools.css'
 import { downloadReadingExport, readingNotesExport, shareReadingExport } from '../lib/readingExport'
 
@@ -19,7 +20,7 @@ export function ReaderTools({ namespace, document, anchor, onJump, onClose }: {
   onJump: (anchor: ReadingAnchor) => void; onClose: () => void
 }) {
   const storage = useMemo(() => createReadingNotes(namespace), [namespace])
-  const [tab, setTab] = useState<'bookmark' | 'note' | 'highlight' | 'add' | 'outline' | 'images' | 'search' | 'settings' | 'export' | 'sync' | 'organization'>('bookmark')
+  const [tab, setTab] = useState<'bookmark' | 'note' | 'highlight' | 'add' | 'outline' | 'images' | 'search' | 'settings' | 'export' | 'document-export' | 'sync' | 'organization'>('bookmark')
   const sync = useReadingNoteSync(document, namespace)
   const [items, setItems] = useState<ReadingNote[]>([]), [damagedIds, setDamagedIds] = useState<string[]>([])
   const [error, setError] = useState(''), [busy, setBusy] = useState(false)
@@ -44,12 +45,13 @@ export function ReaderTools({ namespace, document, anchor, onJump, onClose }: {
     setBusy(true); setError('')
     try { await action(); await refresh(); setRemoveId(undefined); setRemoveSnapshot(undefined) } catch (error) { setError(deviceStorageMessage(error)) } finally { setBusy(false) }
   }
-  const labels = { bookmark: '북마크', note: '메모', highlight: '강조', add: '현재 위치에 추가', outline: '목차', images: '삽화', search: '본문 검색', settings: '독서 설정', export: '내보내기 · 공유', sync: '읽기 기록 동기화', organization: '문서 분류' }
+  const labels = { bookmark: '북마크', note: '메모', highlight: '강조', add: '현재 위치에 추가', outline: '목차', images: '삽화', search: '본문 검색', settings: '독서 설정', 'document-export': '책 파일 내보내기', export: '읽기 기록 내보내기 · 공유', sync: '읽기 기록 동기화', organization: '문서 분류' }
   const tabs = (Object.keys(labels) as Array<keyof typeof labels>).filter(value => (value !== 'outline' || document.outline?.length) && (value !== 'images' || document.assets?.images?.length) && (value !== 'highlight' || document.local?.format !== 'pdf') && (value !== 'sync' || sync.available) && (value !== 'organization' || document.serverProgress && namespace))
   const rows = items.filter(item => item.kind === tab)
   if (selected) return <PagedReader document={{ id: `reading-note:${selected.id}`, bookTitle: document.bookTitle, chapterTitle: selected.title, language: document.language, kind: 'introduction',
     paragraphs: [{ paragraphId: 'note-body', text: selected.text || selected.excerpt }] }} readOnly onClose={() => setSelected(undefined)} onAnchorChange={() => {}} positionNote={t(sync.available ? '같은 계정의 앱과 웹에서 공유하는 읽기 기록입니다.' : '이 기기에 저장한 읽기 기록입니다.')}/>
   if (tab === 'settings') return <ReaderPreferencesPanel namespace={namespace} onClose={() => setTab('bookmark')}/>
+  if (tab === 'document-export') return <DocumentFileExportPanel document={document} onClose={() => setTab('bookmark')}/>
   if (tab === 'sync') return <ReadingNotePanel document={document} sync={sync} onClose={() => setTab('bookmark')}/>
   if (tab === 'organization') return <LibraryOrganizationPanel key={`${namespace}:${document.id}`} namespace={namespace} document={document} onClose={() => setTab('bookmark')}/>
   if (editing) return <section className="reading-workspace" aria-label={t('읽기 기록 수정')}>

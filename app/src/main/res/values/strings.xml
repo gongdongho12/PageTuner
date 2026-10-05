@@ -387,6 +387,17 @@
     <string name="portable_identity_hash">Complete paragraph hash</string>
     <string name="portable_import">Import ZIP</string>
     <string name="portable_export">Export ZIP</string>
+    <string name="document_file_export">Export file</string>
+    <string name="document_file_txt">Save text (.txt)</string>
+    <string name="document_file_markdown">Save Markdown (.md)</string>
+    <string name="document_file_pdf">Save original PDF</string>
+    <string name="document_file_text_description">Save all stored text for this document or chapter. Images and reading records stay in the library.</string>
+    <string name="document_file_pdf_description">Save the exact original PDF. Extracted text and account records are not added.</string>
+    <string name="document_file_zip_description">Move this book, assets and reading records between the app and web using a ZIP package.</string>
+    <string name="document_file_translation_description">Keep the existing ZIP export with its complete cached translation.</string>
+    <string name="document_file_saved">File saved.</string>
+    <string name="document_file_source_changed">The selected document changed. Select it again before exporting.</string>
+    <string name="document_file_pdf_only">PDF text export requires complete verified extraction. Export the original PDF instead.</string>
     <string name="portable_summary">Exchange books with PC web. Includes reading notes and available images. Maximum ZIP: 32 MiB.</string>
     <string name="portable_imported_library">Imported ZIPs</string>
     <string name="portable_native_library">Device books</string>

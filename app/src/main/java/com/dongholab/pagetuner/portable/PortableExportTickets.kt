@@ -4,7 +4,7 @@ import com.dongholab.pagetuner.translation.sync.ServerReadingConnection
 import java.io.OutputStream
 import java.util.UUID
 
-data class PortableExportRequest(val id: String, val filename: String)
+data class PortableExportRequest(val id: String, val filename: String, val mimeType: String = "application/zip")
 
 internal class PortableExportExpired : IllegalStateException("This export expired. Select the document and export again.")
 
@@ -14,8 +14,9 @@ internal class PortableExportTickets {
         var bytes: ByteArray? = null, var guard: () -> Unit = {}, var writing: Boolean = false)
     private var pending: Pending? = null
 
-    @Synchronized fun begin(filename: String, connection: ServerReadingConnection? = null): PortableExportRequest =
-        PortableExportRequest(UUID.randomUUID().toString(), filename).also { pending = Pending(it, connection) }
+    @Synchronized fun begin(filename: String, connection: ServerReadingConnection? = null,
+        mimeType: String = "application/zip"): PortableExportRequest =
+        PortableExportRequest(UUID.randomUUID().toString(), filename, mimeType).also { pending = Pending(it, connection) }
 
     @Synchronized fun connect(value: ServerReadingConnection?) {
         if (pending?.connection?.let { !sameConnection(it, value) } == true) pending = null
@@ -39,7 +40,7 @@ internal class PortableExportTickets {
     }
 
     /** Check before opening/truncating a destination and again after a potentially blocking provider open. */
-    fun write(id: String, current: () -> ServerReadingConnection?, open: () -> OutputStream?) {
+    fun write(id: String, current: () -> ServerReadingConnection?, open: () -> OutputStream?): PortableExportRequest {
         val value = synchronized(this) {
             val active = pending?.takeIf { it.request.id == id && !it.writing && it.bytes != null }
                 ?: throw PortableExportExpired()
@@ -56,6 +57,7 @@ internal class PortableExportTickets {
                 validate()
                 output.write(requireNotNull(value.bytes))
             }
+            return value.request
         } finally { cancel(id) }
     }
 
