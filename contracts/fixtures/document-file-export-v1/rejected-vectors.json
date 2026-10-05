@@ -1,0 +1,74 @@
+[
+  {
+    "name": "nul-title",
+    "bookTitle": "Bad\u0000title",
+    "chapterTitle": "",
+    "paragraphs": [
+      "text"
+    ],
+    "format": "TXT"
+  },
+  {
+    "name": "backspace-body",
+    "bookTitle": "Book",
+    "chapterTitle": "",
+    "paragraphs": [
+      "text\b"
+    ],
+    "format": "TXT"
+  },
+  {
+    "name": "form-feed-body",
+    "bookTitle": "Book",
+    "chapterTitle": "",
+    "paragraphs": [
+      "text\f"
+    ],
+    "format": "MARKDOWN"
+  },
+  {
+    "name": "delete-body",
+    "bookTitle": "Book",
+    "chapterTitle": "",
+    "paragraphs": [
+      "text"
+    ],
+    "format": "TXT"
+  },
+  {
+    "name": "c1-body",
+    "bookTitle": "Book",
+    "chapterTitle": "",
+    "paragraphs": [
+      "text"
+    ],
+    "format": "TXT"
+  },
+  {
+    "name": "unpaired-high-surrogate-title",
+    "bookTitle": "Book\ud800",
+    "chapterTitle": "",
+    "paragraphs": [
+      "text"
+    ],
+    "format": "TXT"
+  },
+  {
+    "name": "unpaired-low-surrogate-body",
+    "bookTitle": "Book",
+    "chapterTitle": "",
+    "paragraphs": [
+      "\udffftext"
+    ],
+    "format": "MARKDOWN"
+  },
+  {
+    "name": "unpaired-high-before-ascii",
+    "bookTitle": "Book",
+    "chapterTitle": "",
+    "paragraphs": [
+      "\ud800x"
+    ],
+    "format": "TXT"
+  }
+]

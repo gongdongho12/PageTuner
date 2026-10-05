@@ -1,0 +1,173 @@
+[
+  {
+    "name": "txt-ordered-chapter",
+    "bookTitle": "A Book",
+    "chapterTitle": "Chapter 2",
+    "paragraphs": [
+      "First paragraph.",
+      "Second paragraph."
+    ],
+    "format": "TXT",
+    "expected": {
+      "filename": "A Book - Chapter 2.txt",
+      "mimeType": "text/plain",
+      "text": "A Book\nChapter 2\n\nFirst paragraph.\n\nSecond paragraph.\n"
+    }
+  },
+  {
+    "name": "txt-unicode-whitespace-empty-paragraphs",
+    "bookTitle": " 별과 바다 😀 ",
+    "chapterTitle": "\t둘째 장\r\n",
+    "paragraphs": [
+      "  안녕\t세계\r\n다음 줄  ",
+      "",
+      "雪 😀"
+    ],
+    "format": "TXT",
+    "expected": {
+      "filename": "별과 바다 😀 - 둘째 장.txt",
+      "mimeType": "text/plain",
+      "text": "별과 바다 😀\n둘째 장\n\n  안녕\t세계\r\n다음 줄  \n\n\n\n雪 😀\n"
+    }
+  },
+  {
+    "name": "txt-duplicate-normalized-title",
+    "bookTitle": " Book\t",
+    "chapterTitle": "\nBook ",
+    "paragraphs": [
+      "body"
+    ],
+    "format": "TXT",
+    "expected": {
+      "filename": "Book.txt",
+      "mimeType": "text/plain",
+      "text": "Book\n\nbody\n"
+    }
+  },
+  {
+    "name": "txt-empty-titles-no-paragraphs",
+    "bookTitle": " \t",
+    "chapterTitle": "\r\n",
+    "paragraphs": [],
+    "format": "TXT",
+    "expected": {
+      "filename": "Untitled.txt",
+      "mimeType": "text/plain",
+      "text": "Untitled\n\n\n"
+    }
+  },
+  {
+    "name": "txt-single-empty-paragraph",
+    "bookTitle": "Book",
+    "chapterTitle": "",
+    "paragraphs": [
+      ""
+    ],
+    "format": "TXT",
+    "expected": {
+      "filename": "Book.txt",
+      "mimeType": "text/plain",
+      "text": "Book\n\n\n"
+    }
+  },
+  {
+    "name": "txt-two-empty-paragraphs",
+    "bookTitle": "Book",
+    "chapterTitle": "",
+    "paragraphs": [
+      "",
+      ""
+    ],
+    "format": "TXT",
+    "expected": {
+      "filename": "Book.txt",
+      "mimeType": "text/plain",
+      "text": "Book\n\n\n\n\n"
+    }
+  },
+  {
+    "name": "txt-non-ascii-title-space-is-preserved",
+    "bookTitle": " Book ",
+    "chapterTitle": " Book ",
+    "paragraphs": [
+      "x"
+    ],
+    "format": "TXT",
+    "expected": {
+      "filename": " Book .txt",
+      "mimeType": "text/plain",
+      "text": " Book \n\nx\n"
+    }
+  },
+  {
+    "name": "markdown-escaped-prose",
+    "bookTitle": "A *Book*",
+    "chapterTitle": "[Chapter] #1",
+    "paragraphs": [
+      "1. [link](https://example.com) <b>bold</b> &amp;",
+      "```code``` _italic_ ![image](x)"
+    ],
+    "format": "MARKDOWN",
+    "expected": {
+      "filename": "A _Book_ - [Chapter] #1.md",
+      "mimeType": "text/markdown",
+      "text": "# A \\*Book\\*\n\n## \\[Chapter\\] \\#1\n\n1\\. \\[link\\]\\(https\\:\\/\\/example\\.com\\) \\<b\\>bold\\<\\/b\\> \\&amp\\;\n\n\\`\\`\\`code\\`\\`\\` \\_italic\\_ \\!\\[image\\]\\(x\\)\n"
+    }
+  },
+  {
+    "name": "markdown-whitespace-unicode",
+    "bookTitle": "한글 😀",
+    "chapterTitle": "한글 😀",
+    "paragraphs": [
+      "  한글\t😀\r\nline  ",
+      "",
+      "> 雪"
+    ],
+    "format": "MARKDOWN",
+    "expected": {
+      "filename": "한글 😀.md",
+      "mimeType": "text/markdown",
+      "text": "# 한글 😀\n\n  한글\t😀\r\nline  \n\n\n\n\\> 雪\n"
+    }
+  },
+  {
+    "name": "markdown-multiline-title-and-safe-filename",
+    "bookTitle": "Book\n# part",
+    "chapterTitle": "",
+    "paragraphs": [
+      "text"
+    ],
+    "format": "MARKDOWN",
+    "expected": {
+      "filename": "Book_# part.md",
+      "mimeType": "text/markdown",
+      "text": "# Book\n\\# part\n\ntext\n"
+    }
+  },
+  {
+    "name": "markdown-fallback-matches-chapter",
+    "bookTitle": "",
+    "chapterTitle": " Untitled ",
+    "paragraphs": [],
+    "format": "MARKDOWN",
+    "expected": {
+      "filename": "Untitled.md",
+      "mimeType": "text/markdown",
+      "text": "# Untitled\n\n\n"
+    }
+  },
+  {
+    "name": "markdown-every-ascii-punctuation",
+    "bookTitle": "Punctuation",
+    "chapterTitle": "",
+    "paragraphs": [
+      "!\"#$%&'()*+,-./:;<=>?@[\\]^_`{|}~"
+    ],
+    "format": "MARKDOWN",
+    "expected": {
+      "filename": "Punctuation.md",
+      "mimeType": "text/markdown",
+      "text": "# Punctuation\n\n\\!\\\"\\#\\$\\%\\&\\'\\(\\)\\*\\+\\,\\-\\.\\/\\:\\;\\<\\=\\>\\?\\@\\[\\\\\\]\\^\\_\\`\\{\\|\\}\\~\n"
+    }
+  }
+]

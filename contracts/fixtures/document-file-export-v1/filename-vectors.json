@@ -1,0 +1,107 @@
+[
+  {
+    "name": "forbidden-characters",
+    "bookTitle": " A/B: \"C\"? ",
+    "chapterTitle": "",
+    "extension": "txt",
+    "expected": "A_B_ _C__.txt"
+  },
+  {
+    "name": "reserved-device",
+    "bookTitle": "con",
+    "chapterTitle": "",
+    "extension": "txt",
+    "expected": "_con.txt"
+  },
+  {
+    "name": "reserved-device-with-period",
+    "bookTitle": "con.txt",
+    "chapterTitle": "",
+    "extension": "pdf",
+    "expected": "_con.txt.pdf"
+  },
+  {
+    "name": "reserved-device-with-space-before-period",
+    "bookTitle": "NUL .original",
+    "chapterTitle": "",
+    "extension": "pdf",
+    "expected": "_NUL .original.pdf"
+  },
+  {
+    "name": "reserved-superscript",
+    "bookTitle": "COM¹",
+    "chapterTitle": "",
+    "extension": "md",
+    "expected": "_COM¹.md"
+  },
+  {
+    "name": "reserved-console",
+    "bookTitle": "conout$",
+    "chapterTitle": "",
+    "extension": "pdf",
+    "expected": "_conout$.pdf"
+  },
+  {
+    "name": "device-after-trimming-dots",
+    "bookTitle": "..CON. ",
+    "chapterTitle": "",
+    "extension": "txt",
+    "expected": "_CON.txt"
+  },
+  {
+    "name": "device-after-truncation",
+    "bookTitle": "CON                                                                                                                     not-reserved",
+    "chapterTitle": "",
+    "extension": "txt",
+    "expected": "_CON.txt"
+  },
+  {
+    "name": "bounded-reserved-prefix",
+    "bookTitle": "CON.xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+    "chapterTitle": "",
+    "extension": "txt",
+    "expected": "_CON.xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx.txt"
+  },
+  {
+    "name": "all-dots-fallback",
+    "bookTitle": "...",
+    "chapterTitle": "",
+    "extension": "txt",
+    "expected": "document.txt"
+  },
+  {
+    "name": "bidi-filename-only",
+    "bookTitle": "Safe‮fdp⁦",
+    "chapterTitle": "",
+    "extension": "pdf",
+    "expected": "Safe_fdp_.pdf"
+  },
+  {
+    "name": "tab-and-newline",
+    "bookTitle": "A\tB\r\nC",
+    "chapterTitle": "",
+    "extension": "txt",
+    "expected": "A_B__C.txt"
+  },
+  {
+    "name": "surrogate-not-split",
+    "bookTitle": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx😀tail",
+    "chapterTitle": "",
+    "extension": "pdf",
+    "expected": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx.pdf"
+  },
+  {
+    "name": "surrogate-at-limit-kept",
+    "bookTitle": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx😀tail",
+    "chapterTitle": "",
+    "extension": "pdf",
+    "expected": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx😀.pdf"
+  },
+  {
+    "name": "chapter-pdf-copy",
+    "bookTitle": "Book",
+    "chapterTitle": "Chapter 1",
+    "extension": "pdf",
+    "expected": "Book - Chapter 1.pdf"
+  }
+]
