@@ -12,6 +12,8 @@ export type PortableContentProof = { version: 1; representation: PortableReprese
   originalFileSha256: string | null; originalFileByteLength: number | null; assets: ProofResolvedAsset[]; sha256: string }
 export type PortableTextAnchor = { type: 'TEXT'; paragraphId: string; characterOffset: number }
 export type PortablePdfAnchor = { type: 'PDF'; originalFileSha256: string; pageIndex: number }
+/** Runtime decoder observation. This is never read from ZIP/wire metadata. */
+export type VerifiedPdfContext = Readonly<{ originalFileSha256: string; pageCount: number }>
 export const portableProofLimits = { paragraphs: 50_000, textCodeUnits: 5_000_000, references: 512, assets: 511,
   fileBytes: 32 * 1024 * 1024, totalBytes: 64 * 1024 * 1024 } as const
 const invalid = (): never => { throw new Error('Invalid portable content proof') }
@@ -141,7 +143,7 @@ export async function validPortableTextAnchor(proof: PortableContentProof, parag
   return !!p && offset >= 0 && offset <= p.text.length && !(offset > 0 && offset < p.text.length && /[\uD800-\uDBFF]/.test(p.text[offset - 1]) && /[\uDC00-\uDFFF]/.test(p.text[offset]))
 }
 /** pageCount must come from independently opening the exact original PDF, never package metadata. */
-export async function validPortablePdfAnchor(proof: PortableContentProof, verified: { originalFileSha256: string; pageCount: number }, value: unknown): Promise<boolean> {
+export async function validPortablePdfAnchor(proof: PortableContentProof, verified: VerifiedPdfContext, value: unknown): Promise<boolean> {
   const checked = checkedProofSnapshot(proof)
   if (!checked || checked.representation !== 'PDF' || !hex(checked.originalFileSha256) || verified.originalFileSha256 !== checked.originalFileSha256 || !Number.isSafeInteger(verified.pageCount) || verified.pageCount <= 0 || verified.pageCount > 2_147_483_647 || !value || typeof value !== 'object' || Array.isArray(value)) return false
   const v = { ...(value as Record<string, unknown>) }, pageCount = verified.pageCount

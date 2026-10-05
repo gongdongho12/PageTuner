@@ -1,6 +1,6 @@
 import { DOMMatrix, ImageData, Path2D, createCanvas } from "@napi-rs/canvas";
 import { beforeAll, describe, expect, it, vi } from "vitest";
-import { webcrypto } from "node:crypto";
+import { webcrypto, createHash } from "node:crypto";
 import { IDBFactory } from "fake-indexeddb";
 
 function samplePdf(): Uint8Array {
@@ -49,6 +49,110 @@ beforeAll(async () => {
 });
 
 describe("actual PDF.js document parsing and raster rendering", () => {
+  it('binds real two-page decoding and physical anchors to immutable exact bytes', async () => {
+    const { openVerifiedPdf } = await import('./pdfDocument')
+    const { createPortableContentProof, validPortablePdfAnchor } = await import('./portableContentProof')
+    const bytes = samplePdf(), original = bytes.slice(), hash = createHash('sha256').update(bytes).digest('hex')
+    const pending = openVerifiedPdf(bytes); bytes.fill(0); const opened = await pending
+    try {
+      expect(opened.context).toEqual({ originalFileSha256: hash, pageCount: 2 }); expect(opened.pdf.numPages).toBe(2)
+      const proof = await createPortableContentProof({ representation: 'PDF', language: 'ko', paragraphs: [], originalFile: original,
+        assets: [{ path: `assets/${hash}`, mimeType: 'application/pdf', bytes: original }], assetReferences: [{ path: `assets/${hash}`, role: 'pdf' }] })
+      expect(await validPortablePdfAnchor(proof, opened.context, opened.anchor(1))).toBe(true)
+      expect(() => opened.anchor(2)).toThrow(); expect(() => opened.anchor(-1)).toThrow()
+    } finally { await opened.close() }
+    expect(() => opened.anchor(0)).toThrow('closed')
+  })
+  it('uses decoder count with empty or mismatched ZIP canonical paragraphs without synthetic IDs or mutation', async () => {
+    const { parseLocalDocument } = await import('./localDocuments'), { openPdfReadingDocument } = await import('./pdfReadingDocument')
+    const bytes = samplePdf(), native = await parseLocalDocument({ name: 'original.pdf', size: bytes.length, arrayBuffer: async () => bytes.slice().buffer })
+    for (const count of [0, 1, 5]) {
+      const doc = { ...native, id: 'exchange:canonical-copy', paragraphs: Array.from({ length: count }, (_, i) => ({ paragraphId: `original-id-${i}`, text: i ? '' : 'Canonical text is independent' })) }
+      const before = JSON.stringify(doc), opened = await openPdfReadingDocument(doc)
+      try {
+        expect(opened.decoder.context.pageCount).toBe(2); expect(opened.canonical.paragraphs).toEqual(doc.paragraphs)
+        expect(opened.nativePageAnchors).toBeUndefined(); expect(opened.decodedDisplay).toBeUndefined()
+        expect(opened.decoder.anchor(1).type).toBe('PDF'); expect(JSON.stringify(doc)).toBe(before)
+        expect(opened.canonical.paragraphs.some(p => p.paragraphId.startsWith('pdf-view:'))).toBe(false)
+      } finally { await opened.decoder.close() }
+    }
+  })
+  it('matches native display IDs/text/extraction state against the same actual PDF and leaves altered text unmapped', async () => {
+    const { parseLocalDocument } = await import('./localDocuments'), { openPdfReadingDocument } = await import('./pdfReadingDocument')
+    const bytes = samplePdf(), doc = await parseLocalDocument({ name: 'original.pdf', size: bytes.length, arrayBuffer: async () => bytes.slice().buffer })
+    const opened = await openPdfReadingDocument(doc)
+    try {
+      expect(opened.nativePageAnchors?.map(a => a.paragraphId)).toEqual(doc.paragraphs.map(p => p.paragraphId))
+      expect(opened.canonical.paragraphHash).toBe(opened.decodedDisplay?.paragraphHash)
+      expect(opened.decodedDisplay?.hasText).toEqual([true, false]); expect(opened.decodedDisplay?.textErrors).toEqual([false, false])
+      doc.paragraphs[0].text = 'changed after decode'; doc.local.pdfTextPages![0] = false
+      expect(opened.matchesInput()).toBe(false); expect(opened.documentSnapshot.paragraphs[0].text).toContain('Readable original PDF')
+      expect(opened.documentSnapshot.local?.pdfTextPages).toEqual([true, false])
+    } finally { await opened.decoder.close() }
+    const changed = await openPdfReadingDocument(doc)
+    try { expect(changed.nativePageAnchors).toBeUndefined(); expect(changed.canonical.paragraphHash).not.toBe(changed.decodedDisplay?.paragraphHash); expect(changed.decoder.context.pageCount).toBe(2) }
+    finally { await changed.decoder.close() }
+  })
+  it('keeps HTTP phone sharing readable without WebCrypto or fabricated local metadata', async () => {
+    const { openPdfReadingDocument } = await import('./pdfReadingDocument')
+    const bytes = samplePdf(), expected = createHash('sha256').update(bytes).digest('hex')
+    vi.stubGlobal('crypto', undefined)
+    try {
+      const doc = { id: 'phone-copy', kind: 'original' as const, bookTitle: 'Phone', chapterTitle: 'Phone', language: 'ko', paragraphs: [{ paragraphId: 'x'.repeat(4096), text: '' }], assets: { pdf: new Blob([Uint8Array.from(bytes).buffer], { type: 'application/pdf' }) } }
+      const opened = await openPdfReadingDocument(doc)
+      try { expect(opened.decoder.context).toEqual({ originalFileSha256: expected, pageCount: 2 }); expect(opened.nativePageAnchors).toBeUndefined(); expect(opened.documentSnapshot.local).toBeUndefined() }
+      finally { await opened.decoder.close() }
+    } finally { vi.stubGlobal('crypto', webcrypto) }
+  })
+  it('restores phone visit navigation only from explicit physical projections matching the live bytes and count', async () => {
+    const { openPdfReadingDocument } = await import('./pdfReadingDocument')
+    const { sharedReadingDocument } = await import('../sharing/libraryGateway')
+    const bytes = samplePdf(), hash = createHash('sha256').update(bytes).digest('hex'), id = `local-sha256:${hash}`
+    const base = { id: 'phone-copy', kind: 'original' as const, bookTitle: 'Phone', chapterTitle: 'Phone', language: 'ko', assets: { pdf: new Blob([Uint8Array.from(bytes).buffer], { type: 'application/pdf' }) } }
+    const blank = { ...base, paragraphs: [0, 1].map(index => ({ paragraphId: `pdf:${hash}:page:${index + 1}`, text: '' })) }
+    const portable = sharedReadingDocument({ id: 'opaque-phone-inventory-id', title: 'Phone', format: 'pdf', edition: 'original', language: 'ko', revision: 'opaque-revision',
+      paragraphs: [0, 1].map(index => ({ paragraphId: `${id}:p${index}`, text: index ? '' : 'Original canonical text is retained' })), outline: [],
+      assets: [{ id: 'opaque-pdf-asset', role: 'pdf', mimeType: 'application/pdf', byteLength: bytes.length, alt: '' }] }, new Map([['opaque-pdf-asset', base.assets.pdf]])).document
+    for (const doc of [blank, portable]) {
+      const original = JSON.stringify(doc), opened = await openPdfReadingDocument(doc, undefined, true)
+      try {
+        expect(opened.visitPageAnchors).toEqual(doc.paragraphs.map(p => ({ paragraphId: p.paragraphId, characterOffset: 0 })))
+        expect(opened.visitPageAnchors?.findIndex(a => a.paragraphId === doc.paragraphs[1].paragraphId)).toBe(1)
+        expect(opened.nativePageAnchors).toBeUndefined(); expect(opened.decodedDisplay).toBeUndefined()
+        expect(JSON.stringify(doc)).toBe(original); expect(opened.documentSnapshot.local).toBeUndefined()
+      } finally { await opened.decoder.close() }
+      const ordinary = await openPdfReadingDocument(doc)
+      try { expect(ordinary.visitPageAnchors).toBeUndefined() } finally { await ordinary.decoder.close() }
+    }
+    for (const doc of [
+      { ...blank, paragraphs: blank.paragraphs.slice(0, 1) },
+      { ...blank, paragraphs: blank.paragraphs.map(p => ({ ...p, paragraphId: p.paragraphId.replace(hash, '0'.repeat(64)) })) },
+      { ...blank, paragraphs: blank.paragraphs.map(p => ({ ...p, text: 'Not a blank projection' })) },
+      { ...portable, paragraphs: portable.paragraphs.map(p => ({ ...p, paragraphId: p.paragraphId.replace(hash, '0'.repeat(64)) })) },
+      { ...portable, paragraphs: portable.paragraphs.slice().reverse() },
+    ]) {
+      const opened = await openPdfReadingDocument(doc, undefined, true)
+      try { expect(opened.visitPageAnchors).toBeUndefined(); expect(opened.decoder.context.pageCount).toBe(2) }
+      finally { await opened.decoder.close() }
+    }
+  })
+  it('rejects actual byte/hash mismatches and late source mutations, and destroys the live handle on abort', async () => {
+    const { parseLocalDocument } = await import('./localDocuments'), { openPdfReadingDocument } = await import('./pdfReadingDocument'), { openVerifiedPdf } = await import('./pdfDocument')
+    const bytes = samplePdf(), doc = await parseLocalDocument({ name: 'original.pdf', size: bytes.length, arrayBuffer: async () => bytes.slice().buffer })
+    await expect(openPdfReadingDocument({ ...doc, local: { ...doc.local, contentHash: '0'.repeat(64) } })).rejects.toThrow('식별자')
+    await expect(openPdfReadingDocument({ ...doc, local: { ...doc.local, byteLength: bytes.length + 1 } })).rejects.toThrow('원본')
+    const pending = openPdfReadingDocument(doc); doc.paragraphs[0].text = 'changed while loading'
+    await expect(pending).rejects.toThrow('대응')
+    const controller = new AbortController(), opened = await openVerifiedPdf(bytes, controller.signal), destroy = vi.spyOn(opened.pdf, 'destroy')
+    controller.abort(); await opened.close(); expect(destroy).toHaveBeenCalledTimes(1); expect(() => opened.anchor(0)).toThrow()
+    const loadingController = new AbortController(), loading = openVerifiedPdf(bytes, loadingController.signal); loadingController.abort()
+    await expect(loading).rejects.toMatchObject({ name: 'AbortError' })
+  })
+  it('rejects a real zero-page PDF instead of clamping its decoder count', async () => {
+    const { openVerifiedPdf } = await import('./pdfDocument')
+    const empty = new TextEncoder().encode('%PDF-1.4\n1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n2 0 obj\n<< /Type /Pages /Count 0 /Kids [] >>\nendobj\ntrailer\n<< /Root 1 0 R >>\n%%EOF')
+    await expect(openVerifiedPdf(empty)).rejects.toThrow('PDF를 열지 못했습니다')
+  })
   it("extracts text while retaining a readable non-text original page", async () => {
     const { parsePdfPages, openLocalPdf } = await import("./pdfDocument");
     const pages = await parsePdfPages(samplePdf());
