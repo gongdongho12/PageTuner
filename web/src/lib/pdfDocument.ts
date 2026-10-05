@@ -4,6 +4,8 @@ import {
   type PDFDocumentProxy,
 } from "pdfjs-dist/legacy/build/pdf.mjs";
 import workerUrl from "pdfjs-dist/legacy/build/pdf.worker.min.mjs?url";
+import { PdfDecoderInput } from './pdfDecoderInput';
+import type { PortablePdfAnchor, VerifiedPdfContext } from './portableContentProof';
 
 GlobalWorkerOptions.workerSrc = workerUrl;
 
@@ -60,7 +62,8 @@ export async function openLocalPdf(
 ): Promise<PDFDocumentProxy> {
   signal?.throwIfAborted();
   const task = getDocument({
-    data: bytes,
+    // PDF.js may transfer this buffer to its worker. Never detach caller-owned memory.
+    data: bytes.slice(),
     isEvalSupported: false,
     stopAtErrors: true,
     useWorkerFetch: false,
@@ -78,6 +81,7 @@ export async function openLocalPdf(
   try {
     const pdf = await task.promise;
     signal?.throwIfAborted();
+    if (!Number.isSafeInteger(pdf.numPages) || pdf.numPages <= 0) throw new Error('Invalid decoder page count');
     if (pdf.numPages > 2000) {
       await pdf.destroy();
       throw new Error("PDF가 너무 깁니다. 2,000페이지 이하로 나누어 주세요.");
@@ -103,17 +107,34 @@ export async function openLocalPdf(
   }
 }
 
-export async function parsePdfPages(bytes: Uint8Array, signal?: AbortSignal) {
-  const pdf = await openLocalPdf(bytes.slice(), signal);
-  const cancel = () => {
-    void pdf.destroy();
-  };
-  signal?.addEventListener("abort", cancel, { once: true });
+export type VerifiedPdfDocument = {
+  readonly pdf: PDFDocumentProxy; readonly context: VerifiedPdfContext; readonly byteLength: number
+  assertOpen(): void; anchor(pageIndex: number): PortablePdfAnchor; close(): Promise<void>
+}
+/** A live handle, actual raw count and digest derived from exactly the bytes supplied to PDF.js. */
+export async function openVerifiedPdf(bytes: Uint8Array | PdfDecoderInput, signal?: AbortSignal): Promise<VerifiedPdfDocument> {
+  signal?.throwIfAborted()
+  const source = bytes instanceof PdfDecoderInput ? bytes : PdfDecoderInput.capture(bytes)
+  let pdf: PDFDocumentProxy | undefined, closed = false, closing: Promise<void> | undefined
+  const close = () => { closed = true; signal?.removeEventListener('abort', cancel); return closing ??= pdf ? pdf.destroy() : Promise.resolve() }
+  const cancel = () => { void close().catch(() => undefined) }
+  const assertOpen = () => { signal?.throwIfAborted(); if (closed) throw new DOMException('PDF decoder closed', 'AbortError') }
   try {
-    return await extractPdfPages(pdf, signal);
+    pdf = await openLocalPdf(source.copyBytes(), signal)
+    signal?.addEventListener('abort', cancel, { once: true }); assertOpen()
+    const context = await source.verifiedContext(pdf.numPages); assertOpen()
+    return Object.freeze({ pdf, context, byteLength: source.byteLength, assertOpen,
+      anchor(pageIndex: number) { assertOpen(); if (!Number.isSafeInteger(pageIndex) || pageIndex < 0 || pageIndex >= context.pageCount) throw new Error('Invalid PDF page index'); return Object.freeze({ type: 'PDF' as const, originalFileSha256: context.originalFileSha256, pageIndex }) }, close })
+  } catch (error) { await close().catch(() => undefined); throw error }
+}
+
+export async function parsePdfPages(bytes: Uint8Array, signal?: AbortSignal) {
+  const opened = await openVerifiedPdf(bytes, signal);
+  try {
+    const pages = await extractPdfPages(opened.pdf, signal); opened.assertOpen()
+    return { ...pages, verifiedContext: opened.context };
   } finally {
-    signal?.removeEventListener("abort", cancel);
-    await pdf.destroy();
+    await opened.close();
   }
 }
 

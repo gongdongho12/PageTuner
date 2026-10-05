@@ -5,6 +5,7 @@ import androidx.lifecycle.ViewModelProvider
 import com.dongholab.pagetuner.document.LoadedReaderDocument
 import com.dongholab.pagetuner.document.ReaderDocument
 import com.dongholab.pagetuner.document.ReaderPage
+import com.dongholab.pagetuner.document.PdfDecodedSnapshot
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -17,6 +18,7 @@ data class ReaderUiState(
     val characterOffset: Int = 0,
     val displayPosition: ReaderDisplayPosition? = null,
     val pdfSourceUri: String? = null,
+    val pdfSnapshot: PdfDecodedSnapshot? = null,
     val currentBookId: String? = null,
     val controlsVisible: Boolean = true,
     val showDocumentDetails: Boolean = false,
@@ -94,6 +96,8 @@ class ReaderViewModel(
         annotations: List<ReaderAnnotation> = emptyList(),
         characterOffset: Int = 0,
     ) {
+        loaded.pdfSnapshot?.validateDisplayed(loaded.document)
+        if (_uiState.value.pdfSnapshot !== loaded.pdfSnapshot) _uiState.value.pdfSnapshot?.close()
         _uiState.update { current ->
             val page = requestedPageIndex.coerceIn(0, loaded.document.pageCount - 1)
             val text = loaded.document.pages[page].plainText
@@ -105,6 +109,7 @@ class ReaderViewModel(
                 pageIndex = page,
                 characterOffset = offset,
                 pdfSourceUri = loaded.pdfSourceUri,
+                pdfSnapshot = loaded.pdfSnapshot,
                 currentBookId = localBookId,
                 controlsVisible = false,
                 manualRefreshToken = current.manualRefreshToken,
@@ -125,6 +130,7 @@ class ReaderViewModel(
     }
 
     fun resetDocument(document: ReaderDocument) {
+        _uiState.value.pdfSnapshot?.close()
         _uiState.update { current ->
             ReaderUiState(
                 document = document,
@@ -133,6 +139,8 @@ class ReaderViewModel(
             )
         }
     }
+
+    override fun onCleared() { _uiState.value.pdfSnapshot?.close(); super.onCleared() }
 
     fun changePage(targetIndex: Int, userInitiated: Boolean = true): ReaderPageMoveResult {
         return changeReadingPosition(targetIndex, 0, userInitiated)

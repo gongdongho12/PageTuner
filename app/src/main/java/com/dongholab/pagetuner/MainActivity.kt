@@ -177,7 +177,8 @@ private const val ReaderCacheIndicatorDelayMillis = 250L
 // Cache key for PDF page rendering
 // ─────────────────────────────────────────────
 private data class PdfPageCacheKey(
-    val sourceUri: String,
+    val sourceSession: String,
+    val originalFileSha256: String,
     val pageIndex: Int,
     val displayMode: com.dongholab.pagetuner.display.DisplayMode,
 )
@@ -322,7 +323,7 @@ fun PageTurnerApp() {
     val currentPage = readerState.currentPage
     val readerDisplayPosition = readerState.displayPosition ?: com.dongholab.pagetuner.reader.ReaderDisplayPosition(pageIndex, readerState.characterOffset)
     var readerDisplayNavigation by remember(document.id) { mutableStateOf(com.dongholab.pagetuner.reader.ReaderDisplayNavigation()) }
-    val pdfSourceUri = readerState.pdfSourceUri
+    val pdfSnapshot = readerState.pdfSnapshot
     val currentBookId = readerState.currentBookId
     val currentBook = localBooks.firstOrNull { it.id == currentBookId }
     val currentContentAlreadyTranslated = currentBook?.contentIsTranslated == true || serverPreviewTranslatedDocumentId == document.id ||
@@ -663,7 +664,7 @@ fun PageTurnerApp() {
             }
         } }
         launch { portableViewModel.opened.collect { opened ->
-            if (runCatching { opened.validateOpen?.invoke() }.isFailure) return@collect
+            if (runCatching { opened.validateOpen?.invoke() }.isFailure) { opened.loaded.pdfSnapshot?.close(); return@collect }
             portableOpened = opened.takeIf { it.serverReading == null }
             opened.serverReading?.let { reading ->
                 serverProgressViewModel.retainDocument(reading)
@@ -834,31 +835,38 @@ fun PageTurnerApp() {
         )
     }
 
-    LaunchedEffect(document.id, pageIndex, pdfSourceUri, displayMode, readerState.manualRefreshToken) {
-        val source = pdfSourceUri ?: return@LaunchedEffect
+    LaunchedEffect(document.id, pageIndex, pdfSnapshot, displayMode, readerState.manualRefreshToken) {
+        val source = pdfSnapshot ?: return@LaunchedEffect
         if (document.format != DocumentFormat.PDF) return@LaunchedEffect
-        val currentKey = PdfPageCacheKey(source, pageIndex, displayMode)
-        val cached = pdfPageCache[currentKey]
-        if (cached != null) {
-            pdfPageBitmap = cached
-        } else {
-            pdfPageBitmap = null
-        }
-        runCatching {
-            withContext(Dispatchers.IO) {
+        val currentKey = PdfPageCacheKey(source.session, source.context.originalFileSha256, pageIndex, displayMode)
+        fun current() = readerViewModel.uiState.value.pdfSnapshot === source && readerViewModel.uiState.value.pageIndex == pageIndex
+        try {
+            source.validateDisplayed(document)
+            if (!current()) return@LaunchedEffect
+            source.validateDisplayed(readerViewModel.uiState.value.document)
+            pdfPageBitmap = pdfPageCache[currentKey]
+            val cache = pdfPageCache
+            val rendered = withContext(Dispatchers.IO) {
                 (pageIndex - 1..pageIndex + 1)
                     .filter { it in 0 until document.pageCount }
                     .associate { tp ->
-                        val key = PdfPageCacheKey(source, tp, displayMode)
-                        key to (pdfPageCache[key] ?: PdfDocumentReader.renderPage(context, Uri.parse(source), tp, displayMode))
+                        val key = PdfPageCacheKey(source.session, source.context.originalFileSha256, tp, displayMode)
+                        key to (cache[key] ?: PdfDocumentReader.renderPage(context, source, tp, displayMode))
                     }
             }
-        }.onSuccess { rendered ->
+            source.requireCurrent()
+            if (!current()) return@LaunchedEffect
+            source.validateDisplayed(readerViewModel.uiState.value.document)
             pdfPageCache = (pdfPageCache + rendered).filterKeys { k ->
-                k.sourceUri == source && k.displayMode == displayMode && abs(k.pageIndex - pageIndex) <= 1
+                k.sourceSession == source.session && k.originalFileSha256 == source.context.originalFileSha256 &&
+                    k.displayMode == displayMode && abs(k.pageIndex - pageIndex) <= 1
             }
             pdfPageBitmap = rendered[currentKey] ?: pdfPageCache[currentKey]
-        }.onFailure { error ->
+        } catch (cancelled: kotlinx.coroutines.CancellationException) { throw cancelled }
+        catch (error: Exception) {
+            if (!current()) return@LaunchedEffect
+            source.requireCurrent()
+            pdfPageBitmap = null
             translationViewModel.clearStatus()
             val msg = error.readableMessage(context)
             appStatusText = msg; appErrorText = msg

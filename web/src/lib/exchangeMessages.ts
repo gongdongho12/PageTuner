@@ -1,6 +1,7 @@
 export const exchangeEnglish: Record<string, string> = {
   'PDF 서버 보관·연결': 'PDF storage and linking',
   '선택': 'Select',
+  'PDF의 표시 본문을 현재 원본과 대응할 수 없습니다. 원본 읽기는 가능하며 읽기 도구를 사용하려면 다시 가져와 주세요.': 'The displayed text could not be matched to this PDF. Original pages remain readable. Import the file again to use reading tools.',
   '따옴표 안의 공백은 원문입니다. 줄바꿈·탭은 \\n·\\r·\\t처럼 표시하며 원본 내용은 바꾸지 않습니다.': 'Spaces inside quotes belong to the original. Line breaks and tabs appear as \\n, \\r and \\t; the original stays unchanged.',
   '보관할 계정': 'Storage account', '원래 언어': 'Original language', '전체 내용 SHA-256': 'Full content SHA-256',
   'PDF 원본 SHA-256': 'Original PDF SHA-256', 'PDF 원본 크기': 'Original PDF size', '문단·자산 참조 수': 'Paragraphs / asset references',

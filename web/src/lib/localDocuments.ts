@@ -44,8 +44,10 @@ export function textParagraphs(text: string): string[] {
 export async function parseLocalDocument(file: { name: string; size: number; arrayBuffer(): Promise<ArrayBuffer> }, options: { encoding?: LocalEncoding; signal?: AbortSignal } = {}): Promise<LocalDocument> {
   if (file.size <= 0 || file.size > MAX_LOCAL_FILE_BYTES) throw new Error('비어 있지 않은 32MB 이하 파일을 선택해 주세요.')
   options.signal?.throwIfAborted()
-  const bytes = new Uint8Array(await file.arrayBuffer())
-  if (bytes.byteLength > MAX_LOCAL_FILE_BYTES || !bytes.byteLength) throw new Error('비어 있지 않은 32MB 이하 파일을 선택해 주세요.')
+  const input = new Uint8Array(await file.arrayBuffer())
+  if (input.byteLength > MAX_LOCAL_FILE_BYTES || !input.byteLength) throw new Error('비어 있지 않은 32MB 이하 파일을 선택해 주세요.')
+  // The supplied ArrayBuffer may still be owned by the caller; hash, parse and Blob share this private copy.
+  const bytes = Uint8Array.from(input)
   options.signal?.throwIfAborted()
   const contentHash = await localFileHash(bytes)
   const extension = file.name.toLowerCase().split('.').pop()
@@ -53,6 +55,8 @@ export async function parseLocalDocument(file: { name: string; size: number; arr
   if (extension === 'pdf') {
     const { parsePdfPages } = await import('./pdfDocument')
     const pages = await parsePdfPages(bytes, options.signal)
+    options.signal?.throwIfAborted()
+    if (pages.verifiedContext.originalFileSha256 !== contentHash) throw new Error('저장된 PDF 원본이 파일 식별자와 일치하지 않습니다.')
     return { id, kind: 'local', bookTitle: file.name.replace(/\.pdf$/i, ''), chapterTitle: file.name, language: 'auto',
       paragraphs: pages.texts.map((text, index) => ({ paragraphId: `${id}:p${index}`, text })),
       outline: pages.texts.map((_, index) => ({ title: `PDF ${index + 1}`, paragraphId: `${id}:p${index}` })),

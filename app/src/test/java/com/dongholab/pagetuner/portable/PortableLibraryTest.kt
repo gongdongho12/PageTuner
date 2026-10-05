@@ -175,7 +175,12 @@ class PortableLibraryTest {
         assertThrows(IllegalArgumentException::class.java) { PortableDocumentMapper.native(nativeBook(), pdf) }
         val epub = ReaderDocument("epub", "EPUB", DocumentFormat.EPUB, listOf(ReaderPage(0, listOf(TextSegment("s", 0, 0, "text")), imageCount = 1)))
         assertThrows(IllegalArgumentException::class.java) { PortableDocumentMapper.native(nativeBook(), epub) }
-        val archive = PortableDocumentMapper.native(nativeBook(), pdf, "%PDF-1.4\noriginal".toByteArray())
+        val bytes = "%PDF-1.4\noriginal".toByteArray()
+        assertThrows(IllegalArgumentException::class.java) { PortableDocumentMapper.native(nativeBook(), pdf, bytes) }
+        // Stub decoder evidence only; actual PdfRenderer coverage is in the Android instrumentation source.
+        val snapshot = PdfDecodedSnapshot.decode(PdfDecoderInput.capture(bytes), "PDF", "source", "PDF") { PdfDecodedPages(1, listOf("")) }
+        val book = nativeBook().copy(format = DocumentFormat.PDF, contentHash = exchangeSha256(bytes), fileSizeBytes = bytes.size.toLong())
+        val archive = PortableDocumentMapper.native(book, snapshot.document, bytes, pdfSnapshot = snapshot)
         val decoded = LibraryExchangeCodec.read(LibraryExchangeCodec.write(archive))
         assertTrue(decoded.documents.single().paragraphs.isEmpty())
         assertEquals("pdf", decoded.documents.single().assets.single().role)

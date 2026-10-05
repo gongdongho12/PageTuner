@@ -26,3 +26,13 @@ The anchor namespace is explicit. A TEXT anchor identifies paragraphId and UTF-1
 A PDF anchor identifies originalFileSha256 and zero-based pageIndex. A caller provides an independently decoded PDF context containing the same originalFileSha256 and pageCount (integer 1..2,147,483,647). Require proof representation PDF, proof/context/anchor file hashes identical, and pageIndex within count. Never derive pageCount from claimed wire metadata or convert between the two anchor namespaces. EPUB uses exact text anchors; reflowed screen page numbers are not portable.
 
 Shared vectors in fixtures/portable-content-proof-v1 cover Unicode/delimiters/empty text, image-only PDF, and repeated EPUB image references with absent versus empty alt. They test byte/hash comparison, not PDF/EPUB decoding, physical device UI or server authorization. Runtime-specific tests cover tampering and anchor boundaries.
+
+## Decoder-owned context (S4b2b2c)
+
+`VerifiedPdfContext` is a memory-only result supplied by the local decoder adapter. It is not a wire attestation, authorization token, or trusted value when read from a saved document. Its public value constructor does not establish that decoding happened.
+
+The shared Kotlin `PdfDecoderInput.capture` checks the chosen bound (at most 32 MiB) before making a private copy and computing SHA-256. `copyBytes` returns a separate copy for a decoder. `verifiedContext(rawPageCount)` rejects zero/negative counts; the adapter must pass the unmodified count returned by the decoder that actually opened this input. It must not pass a fallback page, a persisted pageCount, a reflowed page count, or a count from a different source. Platform decoder limits may be smaller than the pure context's positive Int range.
+
+Adapters must keep the captured bytes, decoded page count, and extracted display text in the same operation. If a decoder takes ownership of or mutates an input buffer, it gets its own copy. A later URI read or cached metadata is not evidence that the original bytes were decoded. Rendering and native export must retain or revalidate the same source. Cancellation, replacement, and failed decode must release platform resources and must not publish a context for another selection.
+
+Extracted display text is separate from a ZIP's canonical paragraphs and ordered asset references. Do not overwrite canonical IDs/text with generated page placeholders. A decoder's unavailable or partially failed extraction must remain distinguishable from a successfully empty image page. Physical page validation does not authorize extracted-text anchors, and a PDF's physical page index never becomes an existing S1/S2 text anchor.

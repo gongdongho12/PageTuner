@@ -61,22 +61,8 @@ class PortableLibraryViewModel(private val context: Context, private val local: 
             val document = archive.documents[entry.documentIndex]
             val ref = document.assets.single { it.role == "pdf" }
             val asset = archive.assets.single { it.path == ref.path }
-            val file = File(context.cacheDir, "portable-pdf/${asset.sha256}.pdf")
-            file.parentFile?.mkdirs()
-            val cachedHash = if (file.exists() && file.length() <= PdfContentValidation.MAX_PAYLOAD_BYTES) runCatching {
-                file.inputStream().use { DocumentIds.sha256(readPortableBytes(it, PdfContentValidation.MAX_PAYLOAD_BYTES)) }
-            }.getOrNull() else null
-            if (cachedHash != asset.sha256) {
-                val temporary = File(file.parentFile, "${java.util.UUID.randomUUID()}.tmp")
-                try {
-                    temporary.writeBytes(asset.bytes)
-                    guard()
-                    com.dongholab.pagetuner.storage.replaceFileAtomically(temporary, file)
-                } finally { temporary.delete() }
-            }
-            guard()
-            val loaded = context.readReaderDocument(Uri.fromFile(file), document.bookTitle, DocumentFormat.PDF)
-            guard()
+            val loaded = loadPortablePdf(document, asset)
+            try { guard() } catch (error: Throwable) { loaded.pdfSnapshot?.close(); throw error }
             val reader = loaded.document.copy(id = entry.readerId)
             val mapping = PortableReaderMapping(reader, List(reader.pageCount) { null })
             val pageState = PortablePageMetadata.read(document, mapping, pdf = true)
@@ -85,6 +71,15 @@ class PortableLibraryViewModel(private val context: Context, private val local: 
         }
         guard()
         mutableOpened.emit(opened)
+    }
+
+    private fun loadPortablePdf(document: ExchangeDocument, asset: ExchangeAsset): LoadedReaderDocument {
+        // Keep the old label only for reader/cache ID compatibility; the decoder receives actual ZIP bytes.
+        val label = Uri.fromFile(File(context.cacheDir, "portable-pdf/${asset.sha256}.pdf")).toString()
+        val decoded = PdfDocumentReader.readInput(context, PdfDecoderInput.capture(asset.bytes), label, document.bookTitle,
+            context.getString(R.string.document_untitled))
+        require(decoded.context.originalFileSha256 == asset.sha256)
+        return LoadedReaderDocument(decoded.document, pdfSnapshot = decoded)
     }
 
     init { refresh() }
@@ -129,32 +124,37 @@ class PortableLibraryViewModel(private val context: Context, private val local: 
     fun prepareNativeExport(book: LocalBook, translation: Boolean = false, settings: TranslationSettings? = null,
         cacheProviderId: String? = null, currentGlossary: BookGlossary? = null) = operation {
         val request = exportTickets.begin("PageTurner-${book.title.portableFilename()}.ptlibrary.zip")
-        val result = local.openBook(book.id)
-        val document = result.loadedDocument.document
-        val pdfBytes = if (document.format == DocumentFormat.PDF) {
-            val uri = Uri.parse(requireNotNull(result.loadedDocument.pdfSourceUri))
-            context.contentResolver.openInputStream(uri)?.use(::readPortableBytes) ?: error(context.getString(R.string.portable_error_asset))
-        } else null
-        val glossary = BookGlossaryStore(context).load(book.id)
-        var value = PortableDocumentMapper.native(result.book, document, pdfBytes, glossary)
-        if (translation) {
-            val mapping = ServerDocumentMapping.create(document, requireNotNull(settings), currentGlossary, requireNotNull(cacheProviderId))
-            val cached = JsonFileTranslationCache(context, book.relativePath).getMany(mapping.keys)
-            require(cached.size == mapping.keys.size && mapping.keys.isNotEmpty()) { context.getString(R.string.portable_error_incomplete) }
-            val artifact = mapping.toArtifact(cached)
-            val original = value.documents.single()
-            val translated = original.copy(id = "${original.id}:translation:${artifact.payloadHash}", language = artifact.targetLanguage, kind = "translation",
-                paragraphs = artifact.paragraphs.map { ExchangeParagraph(it.paragraphId, it.text) },
-                // Native notes are source-page based, not translated-text ranges.
-                position = null, notes = emptyList(), assets = emptyList(),
-                extensionsJson = JSONObject().put("translation", JSONObject().put("sourceDocumentId", original.id)
-                    .put("sourceRevision", artifact.sourceRevision).put("providerId", artifact.providerId)
-                    .put("sourceLanguage", artifact.sourceLanguage).put("targetLanguage", artifact.targetLanguage)
-                    .put("modelId", artifact.modelId).put("promptRevision", artifact.promptRevision).put("glossaryRevision", artifact.glossaryRevision)).toString())
-            value = value.copy(documents = value.documents + translated)
-        }
-        exportTickets.prepare(request, LibraryExchangeCodec.write(value), null)
-        mutableExportReady.emit(request)
+        val result = if (book.format == DocumentFormat.PDF) local.preparePdfExport(book.id) else local.openBook(book.id)
+        try {
+            val document = result.loadedDocument.document
+            if (translation && document.format == DocumentFormat.PDF) {
+                requireNotNull(result.loadedDocument.pdfSnapshot).validateCompleteText(document)
+            }
+            val pdfBytes = if (document.format == DocumentFormat.PDF) {
+                val uri = Uri.parse(requireNotNull(result.loadedDocument.pdfSourceUri))
+                context.contentResolver.openInputStream(uri)?.use(::readPortableBytes) ?: error(context.getString(R.string.portable_error_asset))
+            } else null
+            val glossary = BookGlossaryStore(context).load(book.id)
+            var value = PortableDocumentMapper.native(result.book, document, pdfBytes, glossary, result.loadedDocument.pdfSnapshot)
+            if (translation) {
+                val mapping = ServerDocumentMapping.create(document, requireNotNull(settings), currentGlossary, requireNotNull(cacheProviderId))
+                val cached = JsonFileTranslationCache(context, book.relativePath).getMany(mapping.keys)
+                require(cached.size == mapping.keys.size && mapping.keys.isNotEmpty()) { context.getString(R.string.portable_error_incomplete) }
+                val artifact = mapping.toArtifact(cached)
+                val original = value.documents.single()
+                val translated = original.copy(id = "${original.id}:translation:${artifact.payloadHash}", language = artifact.targetLanguage, kind = "translation",
+                    paragraphs = artifact.paragraphs.map { ExchangeParagraph(it.paragraphId, it.text) },
+                    // Native notes are source-page based, not translated-text ranges.
+                    position = null, notes = emptyList(), assets = emptyList(),
+                    extensionsJson = JSONObject().put("translation", JSONObject().put("sourceDocumentId", original.id)
+                        .put("sourceRevision", artifact.sourceRevision).put("providerId", artifact.providerId)
+                        .put("sourceLanguage", artifact.sourceLanguage).put("targetLanguage", artifact.targetLanguage)
+                        .put("modelId", artifact.modelId).put("promptRevision", artifact.promptRevision).put("glossaryRevision", artifact.glossaryRevision)).toString())
+                value = value.copy(documents = value.documents + translated)
+            }
+            exportTickets.prepare(request, LibraryExchangeCodec.write(value), null)
+            mutableExportReady.emit(request)
+        } finally { result.loadedDocument.pdfSnapshot?.close() }
     }
 
     /** Future explicit upload UI must await queued reader edits before preparing the committed ZIP. */
@@ -227,10 +227,7 @@ class PortableLibraryViewModel(private val context: Context, private val local: 
             if (originalPdf || document.paragraphs.isEmpty() && document.assets.any { it.role == "pdf" }) {
                 val ref = requireNotNull(document.assets.firstOrNull { it.role == "pdf" })
                 val asset = requireNotNull(value.assets.firstOrNull { it.path == ref.path })
-                val file = File(context.cacheDir, "portable-pdf/${asset.sha256}.pdf")
-                file.parentFile?.mkdirs()
-                if (!file.exists() || DocumentIds.sha256(file.readBytes()) != asset.sha256) file.writeBytes(asset.bytes)
-                val loaded = context.readReaderDocument(Uri.fromFile(file), document.bookTitle, DocumentFormat.PDF)
+                val loaded = loadPortablePdf(document, asset)
                 val reader = loaded.document.copy(id = entry.readerId)
                 val mapping = PortableReaderMapping(reader, List(reader.pageCount) { null })
                 val pageState = PortablePageMetadata.read(document, mapping, pdf = true)

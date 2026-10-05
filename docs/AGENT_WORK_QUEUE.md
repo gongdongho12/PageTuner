@@ -2,7 +2,7 @@
 
 사용자 지시(2026-09-16): 남은 일을 목록으로 관리하고, 다음 작업을 매번 묻지 않고 에이전트 루프로 진행한다. 서버·공통 계약·Android·웹을 함께 완성하고 검증 가능한 커밋과 PR을 계속 만든다.
 
-이 파일이 다음 실행의 작업 큐다. [기능 대응표](APP_WEB_FEATURE_MATRIX.md)는 기능 범위의 근거이며, 코드·테스트와 맞지 않는 오래된 계획은 그대로 완료 판단에 쓰지 않는다.
+이 파일이 다음 실행의 작업 큐다. [남은 작업 체크리스트](REMAINING_WORK_CHECKLIST.md)는 미완료 항목을 모은 요약이다. [기능 대응표](APP_WEB_FEATURE_MATRIX.md)는 기능 범위의 근거이며, 코드·테스트와 맞지 않는 오래된 계획은 그대로 완료 판단에 쓰지 않는다.
 
 ## 실행 규칙
 
@@ -37,7 +37,7 @@
 | S4b2b2 | S4b2 하위 | 진행 | 보관 자산의 앱·웹 명시적 연결과 위치 대응 | S4b2b2a 손실 없는 준비·소비자와 S4b2b2b 명시적 PDF 연결 구현. 실제 서버 UI 종단·실기기 검증과 decoder 기반 물리 위치/네이티브 본문·원본 연결/EPUB bytes 전달 형식은 미완료 |
 | S4b2b2a | S4b2b2 하위 | 완료 | ZIP PDF 전체 내용 준비·Android 저장 API 소비자 | canonical 문서와 bytes를 동일 저장소 읽기에서 준비하고 원래 문단·언어·ordered 참조를 보존. strict codec·bounded HTTP·독립 proof 계산·늦은 응답 폐기. 웹 534·core 34·runtime 36·앱 537 및 실제 ZIP→격리 서버 왕복 검증. 업로드/연결 UI와 binding 권한은 후속. [근거](PDF_CONTENT_CLIENTS.md) |
 | S4b2b2b | S4b2b2 하위 | 구현 완료 / 실제 서버·기기 검증 대기 | 앱·웹 PDF 업로드와 별도 명시적 연결 화면 | 별도 account/origin/localKey/full-proof binding·최종 transaction/lock nonce 검사·같은 ID 명시 재시도·검증 후 기기 읽기. 웹 554·앱 558 통과/16 opt-in 제외, mock API 실제 브라우저 28개 화면 경계 검사. PostgreSQL/QA 서버 시작이 정책 거절되어 이번 UI의 실제 서버 통합 검증은 남김. [근거](PDF_CONTENT_BINDING.md) |
-| S4b2b2c | S4b2b2 하위 | 대기 | 같은 불변 PDF bytes를 연 decoder 문맥 | 보정 전 실제 pageCount와 원본 hash·표시 본문을 연결한다. ReaderDocument 보정 pageCount나 title/URI 기반 ID를 proof로 승격하지 않는다. PDF 계정 위치 API/EPUB는 별도 후속 |
+| S4b2b2c | S4b2b2 하위 | 구현·자동검사·웹 검증 완료 / 실기기 대기 | 같은 불변 PDF bytes를 연 decoder 문맥 | 실제 bytes/raw pageCount/표시 본문을 묶고 ZIP canonical을 보존한다. 웹564·앱567 통과/16 제외·core37·runtime36·APK/lint/계측 소스/경계, 실제 Chrome 2쪽·0/3문단·WebCrypto 없음·공유 위치 및 기존 연결 회귀 확인. PDF 계정 위치 API/EPUB는 후속. [근거](PDF_DECODER_CONTEXT.md) |
 | Q1 | 우선 수정 | 완료 | 기존 계정 비밀번호/PATCH transport의 HTTP 자동 재전송 차단 | 수정 전 실제 503 소켓에서 각각 2회 전송을 재현하고 본문 one-shot으로 수정. 계정 대상 27개·앱 전체544 통과/16 opt-in 제외. 503/408/421/리다이렉션/응답 유실과 원래 bytes·응답 유지 검증. 가입/CSRF 조회 및 기존 비밀번호 결과 불명확 처리 정책 유지. [근거](ACCOUNT_MUTATION_TRANSPORT.md) |
 | S4c | S4 하위 | 진행 | 최신 동기화 기록의 ZIP 내보내기·가져오기 | 현재 위치·메모·분류·원래 ID와 언어 범위가 있는 용어집의 무손실 스냅샷, 충돌/대기 상태 구분, 자격 증명·CAS/outbox mutation 이전 금지 |
 | S4c1 | S4c 하위 | 완료 | 용어집 passive ZIP snapshot 계약·codec | 원래 scope/ID/순서/공백/별칭/종류/활성/대소문자, 미등록/삭제/빈목록 구분. Kotlin·웹·실제 ZIP JVM 왕복 검증. 계정 GET·화면·채택은 S4c2. 전체 extensions 256 KiB 초과는 거절. [근거](PORTABLE_GLOSSARY_SNAPSHOTS.md) |
@@ -69,6 +69,10 @@
 WTR/NovelBuddy 수집·서버 번역·원문/번역 서재·Google 웹 번역 실호출, 4개 제공자 공통 구현, 표준 ZIP 교환, 회원가입·언어 설정·비밀번호 변경은 기존 PR 체인에 있다. 제공자 구현이 실제 유료 키 검증을 뜻하지는 않는다. 계정 비밀번호 변경은 PR #23, 기반 목록 페이지 수정은 PR #22다.
 
 ## 현재 실행 기록
+
+- 2026-10-05 S4b2b2c: 시작 시 PR #45 최종 `db7f4a809de201fc0db1d311ce2faf03a5d61d3f` [CI](https://github.com/gongdongho12/PageTuner/actions/runs/37223706192) 성공을 확인했다. [draft PR #46](https://github.com/gongdongho12/PageTuner/pull/46)은 `codex/verified-pdf-decoder-context` → `codex/explicit-pdf-binding`(#45)이다. 공통 `c9dad4a`·사용자 요청 체크리스트 `d6bbfa7`·웹 `95e6708`·Android `e4429e7`을 작은 검증 단위별 커밋·푸시했다. 체크리스트 head의 [CI](https://github.com/gongdongho12/PageTuner/actions/runs/37280289118)는 성공했고 마지막 문서까지 포함한 최종 head CI는 PR에서 확인한다.
+- 같은 원본 입력·실제 decoder count·display fingerprint, private descriptor, 취소/교체, 원본 재확인 export를 연결했다. 리뷰에서 일반 HTTP의 WebCrypto 부재, Android opaque 공유 ID, 부분 추출 번역 ZIP, 캐시 즉시 표시 순서, export 예외 시 close를 수정했다. 웹564/70파일·앱567 통과/16 opt-in 제외·core37·runtime36·APK/lint/계측 소스·경계 성공. Chrome의 실제 2쪽 PDF와 canonical 0/3문단 ZIP, 네이티브 import, 공유 도구/재열기 위치, 기존 연결 mock 회귀28개 경계를 확인했다. [상세](PDF_DECODER_CONTEXT.md). 실제 Android decoder 및 PostgreSQL UI 검증과 구분한다.
+- 2026-10-05 사용자 추가 지시: **기본적으로 쓸 수 있는 형태**를 우선한다. 다음 실행은 최초 실행부터 로컬 파일/ZIP 읽기·보관, 서버 연결 후 웹소설/번역의 기본 경로와 실행 안내를 점검하고 사용을 막는 문제를 먼저 수정한다. 현재 8080 연결은 거절되며 서버가 실행 중이지 않았다. 이전 QA 서버 시작 정책 거절을 우회하지 않고 서버 없는 기기 기능과 실제 서버 검증을 구분한다. 이후 S4c3a 분류 passive snapshot 및 남은 큐를 계속한다. 원본 PR34 미커밋 변경은 보존한다.
 
 - 2026-10-05 S4b2b2b 구현·로컬 검증: 시작 시 PR #44 최종 `cf3467b6aa75c8d6eeb732a56109b37438a87868`의 [CI](https://github.com/gongdongho12/PageTuner/actions/runs/37220456671) 성공과 첨부 worktree의 깨끗한 상태를 확인했다. [draft PR #45](https://github.com/gongdongho12/PageTuner/pull/45), base `codex/account-mutation-single-send`(#44), head `codex/explicit-pdf-binding`에 서버 사전 할당 한도 `e91a42b`, 웹 저장소 `5a3f20e`, 웹 화면 `3bb5513`·문장 분할 `5150d7b`, Android `df124bc`를 작은 단위로 검증·커밋·푸시했다. 웹 저장소 head `5a3f20e`의 [CI](https://github.com/gongdongho12/PageTuner/actions/runs/37222503250)는 성공했고 마지막 Android·문서를 포함한 정확한 최종 head CI는 PR #45에서 확인한다. 자동 병합하지 않았다.
 - S4b2b2b 검증: 웹554개/68파일·계약15·typecheck/build, Android558 통과/16 opt-in 제외·core-backup34·runtime36·APK/lint/계측 소스/경계, 서버parser4/security7 성공. final transaction/lock 안에서 최신 ZIP와 기존 binding nonce를 비교하고 계정/선택/close·A→B→A·다른 writer 경합을 검사했다. 리뷰의 stale compare 후보, sparse 배열 동등성, binding decode/잠금 순서, 오래된 UI callback, 캐시 bounded read, 개행·영문 잘림·locale 갱신 문제를 고쳤다. 테스트의 재export timestamp 비교 오류는 실제 저장 ZIP bytes 전후 무변경 검사로 바로잡았다.

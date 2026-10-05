@@ -65,7 +65,8 @@ data class PortableReaderMapping(val document: ReaderDocument, val anchors: List
 
 /** Explicit book content projection: settings, credentials, server account IDs and API keys never enter a package. */
 object PortableDocumentMapper {
-    fun native(book: LocalBook, document: ReaderDocument, originalPdf: ByteArray? = null, glossary: BookGlossary? = null): LibraryExchangePackage {
+    fun native(book: LocalBook, document: ReaderDocument, originalPdf: ByteArray? = null, glossary: BookGlossary? = null,
+        pdfSnapshot: PdfDecodedSnapshot? = null): LibraryExchangePackage {
         val paragraphs = document.pages.flatMap { it.segments }.filter { it.text.isNotEmpty() }
             .map { ExchangeParagraph(it.id, it.text) }
         require(paragraphs.map { it.paragraphId }.distinct().size == paragraphs.size) { "Duplicate native paragraph identities." }
@@ -73,7 +74,13 @@ object PortableDocumentMapper {
         val assets = mutableListOf<ExchangeAsset>()
         val references = mutableListOf<ExchangeAssetReference>()
         if (document.format == DocumentFormat.PDF) {
-            val asset = ExchangeAsset(requireNotNull(originalPdf) { "Original PDF bytes are unavailable." }, "application/pdf")
+            val decoded = requireNotNull(pdfSnapshot) { "PDF decoder context is unavailable; reopen the original PDF." }
+            require(book.format == DocumentFormat.PDF && book.contentHash == decoded.context.originalFileSha256 && book.fileSizeBytes == decoded.input().byteLength &&
+                book.pageCount == decoded.context.pageCount && book.currentPageIndex in 0 until decoded.context.pageCount) {
+                "Native PDF metadata belongs to a different source."
+            }
+            val bytes = decoded.exportOriginal(document, requireNotNull(originalPdf) { "Original PDF bytes are unavailable." })
+            val asset = ExchangeAsset(bytes, "application/pdf")
             assets += asset
             references += ExchangeAssetReference(asset.path, "pdf")
         }
@@ -95,6 +102,7 @@ object PortableDocumentMapper {
             .put("pageAnnotations", JSONArray(book.annotations.filter { pageAnchors.getOrNull(it.pageIndex) == null }.map {
                 JSONObject().put("id", it.id).put("pageIndex", it.pageIndex).put("text", it.text).put("kind", it.type.name).put("createdAtMillis", it.createdAtMillis)
             }))
+        if (document.format == DocumentFormat.PDF) nativeMetadata.put("pdfTextExtraction", requireNotNull(pdfSnapshot).extraction.name.lowercase(Locale.ROOT))
         val notes = book.bookmarks.mapNotNull { bookmark ->
             pageAnchors.getOrNull(bookmark.pageIndex)?.let { anchor ->
                 ExchangeNote(bookmark.id, "bookmark", bookmark.label.orEmpty(), "", "", anchor, createdAt = portableTimestamp(bookmark.createdAtMillis))
