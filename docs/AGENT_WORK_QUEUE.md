@@ -15,9 +15,19 @@
 
 ## 우선순위 큐
 
-2026-10-05 사용자 우선 변경: 기본 사용 가능한 형태로 마무리하고 커밋·푸시·현재 범위 정리를 요청했다. B1 계정 없는 로컬 읽기 진입은 PR #47에서 완료했다. [기본 사용 안내](QUICK_START.md)를 먼저 읽고, 가능한 서버 기본 흐름 재검증을 우선하되 서버 시작 정책 거절을 우회하지 않는다. 서버 의존성이 준비되지 않았으면 S4c3a 분류 passive snapshot 등 진행 가능한 큐를 계속한다. 전체 프로젝트는 미완료다.
+2026-10-05 사용자 우선 변경: 기본 사용 가능한 형태로 마무리하고 커밋·푸시·현재 범위 정리를 요청했다. B1 계정 없는 로컬 읽기 진입은 PR #47에서 완료했다. [기본 사용 안내](QUICK_START.md)를 먼저 읽고, 가능한 서버 기본 흐름 재검증을 우선하되 서버 시작 정책 거절을 우회하지 않는다. 서버 의존성이 준비되지 않았으면 S4c3b 최신 분류 export·명시적 채택 등 진행 가능한 큐를 계속한다. 전체 프로젝트는 미완료다.
 
 추가 사용자 요청 **B2 별도 export**는 PR #48에서 TXT/Markdown 및 원본 PDF 파일 내보내기로 구현했다. [지원 범위](DOCUMENT_FILE_EXPORT.md)를 따른다. ZIP 교환·본문 파일·읽기 기록 export는 서로 별도이며 전체 책의 미보관 회차를 자동 수집하지 않는다. 후속 EPUB·PDF 생성은 B3/PR #49이며 다음 실행은 가장 최신 PR의 최종 head CI와 아래 최신 기록부터 확인한다.
+
+### 2026-10-05 문서 분류 passive ZIP snapshot — S4c3a
+
+- PR #49 정확한 최종 `ec25689da7bd7d7e1eeb24a8f75d547f42199ac0`의 [CI run37292663894](https://github.com/gongdongho12/PageTuner/actions/runs/37292663894) 성공(3분42초)을 재확인했다. 서버8080은 내려가 있어 이전 정책 거절을 재시도하지 않고 독립 S4c3a를 진행했다.
+- [draft PR #50](https://github.com/gongdongho12/PageTuner/pull/50), base `codex/pdf-epub-document-export`(#49), head `codex/portable-organization-snapshot`. 계약·공통 `7ca17ed`, 웹 `9411fe6`, JVM runtime `8b0cbdf`를 작은 단위로 커밋·푸시했다. 최종 문서 포함 head CI는 PR의 정확한 SHA와 대조한다. 자동 병합하지 않는다.
+- `libraryOrganizationSnapshot`은 전체 text DocumentIdentity와 absent/present-empty를 구분하고 폴더·ordered tags·favorite를 그대로 보존한다. 원래 Unicode/대소문자/공백, 기존 넓은 legacy 분류·용어집 snapshot·알 수 없는 확장을 유지한다. typed 읽기/교체는 전체 내용 proof·sibling identity·기존 snapshot을 검증하며 미지원/변조·전체 extensions256 KiB 초과를 명시 거절한다. generic ZIP은 미지원 값을 수동 자료로 보존한다.
+- 독립 검토에서 org.json의 비문자열 객체 강제변환, 반환 문서의 입력 목록 공유, Kotlin의 전체 문서8MiB 검사 지연을 수정하고 회귀 검사를 추가했다. 원문 hash만으로 원래 provider/book/chapter의 소유권까지 검증할 수 없음을 문서화했다.
+- 공통 core-backup **45개**, JVM runtime **50개**, 웹 **660개/76파일**·계약15·typecheck/production build 통과. production codec으로 **웹 ZIP → JVM 읽기/proof/재출력 → 웹 읽기/proof**를 실행해 공유 7개 사례의 전체 문서·모든 snapshot 필드·legacy 분류·형제 확장 동등성을 확인했다. API 요청은 0회였다. 로컬 JVM 왕복은 물리 Android SAF나 브라우저 OS 다운로드 검증과 구분한다.
+- 이번 단위는 계약·codec만 완료했다. 최신 계정 GET export·앱/웹 화면·명시적 채택은 **S4c3b**, 최신 S1/S2 ZIP·PDF 계정 위치/네이티브 업로드·EPUB 원본 교환과 전체 S4는 미완료다. 다음 실행은 [구현·후속 경계](PORTABLE_ORGANIZATION_SNAPSHOT.md)를 먼저 읽는다.
+- Android **585개 통과/16 opt-in 제외**·APK/lint/계측 소스 컴파일/경계도 성공했다. JVM runtime 및 ZIP 교차 검사는 기존 CI와 별도 로컬 근거다. `.gradle-home/organization-snapshot-{core,android,web,jvm}.log`와 교차 검증 JSON에 기록했고 실기기/OS 다운로드 완료로 표시하지 않는다.
 
 ### 2026-10-05 EPUB·PDF 생성 export — B3
 
@@ -67,7 +77,8 @@
 | S4c2 | S4c 하위 | 완료 / 실기기 검증 대기 | 최신 계정 용어집 ZIP export·명시적 채택 | S4c2a 내보내기와 S4c2b 명시적 채택 완료. S1/S2/분류 통합은 이후 S4c 잔여 범위 |
 | S4c2a | S4c2 하위 | 완료 / 실기기 검증 대기 | 최신 계정 용어집의 명시적 ZIP 내보내기 | 직접 읽기 전용 조회·원본 identity/언어/binding 확인·계정/client 세대 및 SAF 요청 티켓. pending/conflict/더 최신 journal·미지원 확장/256 KiB 초과를 거절한다. 웹 484·앱 511 통과/15 opt-in 제외, 실제 서버 변경 후 다운로드 ZIP의 무손실 반영 확인. [근거](PORTABLE_GLOSSARY_EXPORT.md) |
 | S4c2b | S4c2 하위 | 완료 / 실기기 검증 대기 | ZIP 계정 용어집의 명시적 채택 | readonly 비교·최종 서버/기기/base 재검증·정확한 새 CAS/outbox. absent 정보만 표시, deleted/빈목록 구분. 웹 506·앱 523 통과/15 opt-in 제외, 실제 500항목 무손실 채택과 오래된 비교 거절 확인. [근거](PORTABLE_GLOSSARY_ADOPTION.md) |
-| S4c3a | S4c 하위 | 대기 | 문서 분류의 passive ZIP snapshot 계약·codec | 정확한 DocumentIdentity, absent/present 명시적 빈 값, 폴더·ordered tags·favorite 보존. 용어집 deleted를 재사용하지 않고 기존 organization/extension 및 256 KiB 한도를 보존. 최신 계정 GET export·명시적 채택은 별도 후속 |
+| S4c3a | S4c 하위 | 완료 | 문서 분류의 passive ZIP snapshot 계약·codec | 정확한 text DocumentIdentity와 전체 proof, absent/present-empty·폴더·ordered tags·favorite, 기존 organization/extension 보존. core45/runtime50/web660 및 실제 웹→JVM→웹 ZIP 7사례 동등성 검사. 계정 조회/화면/채택은 S4c3b. [근거](PORTABLE_ORGANIZATION_SNAPSHOT.md) |
+| S4c3b | S4c 하위 | 대기 | 최신 계정 분류 ZIP export·명시적 채택 | 직접 GET·계정/origin/client/선택 세대·현재 저장소 문서와 text binding nonce 재검증. pending/queued/conflict와 기기 base 보존, 명시적 선택 후 새 CAS mutation. absent는 정보만 표시하며 present-empty와 구분 |
 | W1 | 5 | 대기 | 웹 로컬 번역 캐시의 서버 업로드·복원 | 전체 문단 검증, 원문 revision 대응, 미완성/다른 제공자 충돌 처리, 앱에서 재조회 |
 | W2 | 6 | 대기 | 웹 진단 화면 | 민감정보 제거된 제한 크기 로그, 번역/수집/동기화 오류 구분, 복사/내보내기·삭제, 작은 화면 페이지 탐색 |
 | W3 | 7 | 대기 | 번역 작업 제어와 묶음 범위 개선 | 앱·웹 일시정지/재개 동작 통일 가능 범위, 현재 20회차 제한의 서버 큐 확장, 재시작·중복 제출·취소 검증 |
