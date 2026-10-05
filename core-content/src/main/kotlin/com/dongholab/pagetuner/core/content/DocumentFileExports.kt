@@ -18,13 +18,7 @@ object DocumentFileExports {
         paragraphs: List<String>,
         format: DocumentFileFormat,
     ): DocumentTextFile {
-        require(paragraphs.size <= MAX_PARAGRAPHS) { "Too many paragraphs to export." }
-        val inputLength = bookTitle.length.toLong() + chapterTitle.length +
-            paragraphs.sumOf { it.length.toLong() }
-        require(inputLength <= MAX_INPUT_CODE_UNITS) { "Document text exceeds the export input limit." }
-        validateText(bookTitle)
-        validateText(chapterTitle)
-        paragraphs.forEach(::validateText)
+        validateInput(bookTitle, chapterTitle, paragraphs)
         val titles = normalizeTitles(bookTitle, chapterTitle)
         val markdown = format == DocumentFileFormat.MARKDOWN
         val outputLength = renderedLength(titles.book, markdown) +
@@ -54,9 +48,9 @@ object DocumentFileExports {
         )
     }
 
-    /** A safe suggestion for a readable text copy or verified original PDF; no path components. */
+    /** A safe suggestion for a readable document copy; no path components. */
     fun safeFilename(bookTitle: String, chapterTitle: String, extension: String): String {
-        require(extension in setOf("txt", "md", "pdf")) { "Unsupported document file extension." }
+        require(extension in setOf("txt", "md", "pdf", "epub")) { "Unsupported document file extension." }
         require(bookTitle.length.toLong() + chapterTitle.length <= MAX_INPUT_CODE_UNITS) {
             "Document titles exceed the export input limit."
         }
@@ -65,17 +59,33 @@ object DocumentFileExports {
         return filename(normalizeTitles(bookTitle, chapterTitle), extension)
     }
 
-    private data class Titles(val book: String, val chapter: String?)
+    internal data class Titles(val book: String, val chapter: String?)
 
-    private fun normalizeTitles(bookTitle: String, chapterTitle: String): Titles {
+    internal fun normalizeTitles(bookTitle: String, chapterTitle: String): Titles {
         val book = bookTitle.trim(::isTitleEdgeWhitespace).ifEmpty { "Untitled" }
         val chapter = chapterTitle.trim(::isTitleEdgeWhitespace).takeIf { it.isNotEmpty() && it != book }
         return Titles(book, chapter)
     }
 
-    private fun isTitleEdgeWhitespace(char: Char): Boolean = char == ' ' || char == '\t' || char == '\r' || char == '\n'
+    internal fun isTitleEdgeWhitespace(char: Char): Boolean = char == ' ' || char == '\t' || char == '\r' || char == '\n'
 
-    private fun validateText(value: String) {
+    internal fun validateInput(
+        bookTitle: String,
+        chapterTitle: String,
+        paragraphs: List<String>,
+        additionalText: String = "",
+    ) {
+        require(paragraphs.size <= MAX_PARAGRAPHS) { "Too many paragraphs to export." }
+        val inputLength = bookTitle.length.toLong() + chapterTitle.length + additionalText.length +
+            paragraphs.sumOf { it.length.toLong() }
+        require(inputLength <= MAX_INPUT_CODE_UNITS) { "Document text exceeds the export input limit." }
+        validateText(bookTitle)
+        validateText(chapterTitle)
+        validateText(additionalText)
+        paragraphs.forEach(::validateText)
+    }
+
+    internal fun validateText(value: String) {
         var index = 0
         while (index < value.length) {
             val code = value[index].code
