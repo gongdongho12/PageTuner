@@ -1,40 +1,49 @@
 # 별도 문서 파일 내보내기
 
-2026-10-05. [draft PR #48](https://github.com/gongdongho12/PageTuner/pull/48), base `codex/local-reader-start`(#47). ZIP 교환과 별도로 선택한 문서의 읽기용 TXT·Markdown 또는 보관된 원본 PDF를 저장한다. 서버 연결이나 계정 API 호출은 필요 없다.
+2026-10-05. [후속 PR #49](https://github.com/gongdongho12/PageTuner/pull/49), `codex/pdf-epub-document-export`에서 [기존 PR #48](https://github.com/gongdongho12/PageTuner/pull/48)의 TXT·Markdown·PDF 원본 저장에 읽기용 EPUB와 본문 기반 PDF 생성을 추가했다. 서버 연결이나 계정 API 호출 없이 선택한 보관 문서를 내보낸다.
 
 ## 사용 경로
 
-- 웹: 첫 화면 **파일 내보내기**, 또는 **이 기기 보관 → 파일 내보내기**에서 책을 선택한다. **읽기 메뉴 → 읽기 도구 → 책 파일 내보내기**에서도 같은 패널을 연다. 형식을 선택해 파일을 준비한 뒤 **파일 저장**을 누른다.
-- Android: **Local → ZIP → 책의 파일 내보내기**에서 형식을 고르고 시스템 파일 저장 화면에서 위치를 선택한다. ZIP과 번역 포함 ZIP도 같은 하위 패널에 유지한다.
-- 웹 읽기 도구의 기존 메모·북마크 JSON/Markdown은 **읽기 기록 내보내기 · 공유**로 구분한다.
+- 웹: 첫 화면 **파일 내보내기**, 또는 **이 기기 보관 → 파일 내보내기**에서 책을 선택한다. **읽기 메뉴 → 읽기 도구 → 책 파일 내보내기**에서도 같은 패널을 연다.
+- TXT·Markdown·EPUB·PDF 원본은 형식을 선택해 준비한 뒤 **파일 저장**을 누른다.
+- 웹 **PDF 문서 만들기**는 전체 본문을 A4 인쇄 문서로 준비한다. **PDF로 저장 · 인쇄**를 누르고 브라우저 인쇄 창의 대상에서 **PDF로 저장**을 선택한다. 인쇄 창이 지원되지 않으면 **인쇄용 문서 보기**로 문서를 열어 브라우저 메뉴에서 인쇄한다. 저장 완료 여부는 브라우저에서 확인하며 앱 화면은 성공으로 단정하지 않는다.
+- Android: **Local → ZIP → 책의 파일 내보내기**에서 형식을 고른다. EPUB와 생성 PDF도 시스템 파일 저장 화면에서 위치를 선택한다. ZIP과 번역 포함 ZIP은 같은 하위 패널에 유지한다.
+- 웹 읽기 도구의 메모·북마크 JSON/Markdown은 **읽기 기록 내보내기 · 공유**로 구분한다.
 
 ## 지원 범위
 
 | 형식 | 내용 | 한계 |
 | --- | --- | --- |
 | TXT | 제목·회차 제목과 선택 문서의 전체 보관 본문, UTF-8/BOM 없음 | 한 회차 문서는 해당 회차만 저장. 다른 회차를 자동 수집·합치지 않음 |
-| Markdown | 제목 heading과 본문. ASCII 문장부호를 escape해 본문을 문법으로 실행하지 않음 | 원래 Markdown/EPUB 레이아웃 복원이 아닌 읽기용 사본 |
-| PDF | 내용 hash를 확인한 보관 원본 bytes 그대로 | TXT→PDF 변환이나 부분 추출 본문 export가 아님. 원본이 없거나 검증 실패 시 거절 |
+| Markdown | 제목 heading과 본문. ASCII 문장부호를 escape해 본문을 문법으로 실행하지 않음 | 원래 Markdown 문법이나 EPUB 레이아웃을 복원하지 않음 |
+| EPUB 전자책 만들기 | 제목·언어·순서 있는 전체 본문·목차를 담는 새 EPUB 3 | 텍스트 중심의 읽기용 문서. 원본 EPUB의 이미지·CSS·레이아웃·원본 식별자를 보존하지 않음 |
+| PDF 문서 만들기 | 제목·전체 본문을 새 A4 문서로 배치. Android는 `PdfDocument`로 PDF bytes 생성, 웹은 브라우저 인쇄로 저장 | 텍스트 문서 대상. 화면에 보이는 한 페이지만 캡처하지 않음. 글꼴·줄바꿈·페이지 수는 플랫폼별로 다를 수 있음 |
+| PDF 원본 저장 | 내용 hash를 확인한 보관 원본 bytes 그대로 | 원본이 없거나 검증에 실패하면 거절. 기존 PDF의 부분 추출 텍스트로 EPUB·새 PDF를 생성하지 않음 |
 
-TXT·Markdown은 삽화·메모·읽기 위치·계정·binding·동기화 대기열을 포함하지 않는다. EPUB는 읽기용 spine 본문만 포함하고 이미지/CSS/레이아웃은 포함하지 않는다. PDF는 삽화 등을 포함한 원본 파일 전체다. 기록·식별자를 옮길 때는 기존 ZIP을 사용한다. 웹은 원문·번역·로컬 파일·가져온 ZIP 보관함을 계정별로 읽으며 서버 전용 자료는 먼저 기기에 보관해야 한다. Android는 로컬 파일 또는 가져온 ZIP의 저장 본문을 내보낸다.
+TXT·Markdown·새 EPUB·새 PDF에는 삽화·메모·읽기 위치·계정·binding·동기화 대기열·원본 식별자가 들어가지 않는다. PDF 원본 저장은 삽화 등을 포함한 원본 파일 전체를 보존한다. 기록·식별자를 옮길 때는 기존 ZIP을 사용한다. 웹은 원문·번역·로컬 파일·가져온 ZIP 보관함을 계정별로 읽으며 서버 전용 자료는 먼저 기기에 보관해야 한다. Android는 로컬 파일 또는 가져온 ZIP의 저장 본문을 사용한다.
 
-기존 파서가 보관 전에 변환한 웹 텍스트를 원래 업로드 파일 bytes와 같다고 주장하지 않는다. Android의 저장된 TXT/Markdown은 페이지 분할 전 UTF-8 본문을 사용하고, EPUB는 전체 spine을 페이지 분할 전에 읽는다. ZIP은 canonical 문단을 순서대로 사용한다. 양쪽의 동일 제목·문단 입력은 [공통 규격](../contracts/document-file-export-v1.md)과 JSON fixture로 같은 파일을 만든다.
+기존 파서가 보관 전에 변환한 웹 텍스트를 원래 업로드 파일 bytes와 같다고 주장하지 않는다. Android의 저장된 TXT/Markdown은 페이지 분할 전 UTF-8 본문을 사용하고, 원본 EPUB에서 텍스트를 읽을 때는 전체 spine을 페이지 분할 전에 읽는다. ZIP은 canonical 문단을 순서대로 사용한다.
+
+동일 제목·문단의 TXT·Markdown은 [공통 텍스트 규격](../contracts/document-file-export-v1.md)을 따른다. 새 EPUB는 [공통 EPUB 규격](../contracts/document-ebook-export-v1.md)의 동일 리소스 문자열을 ZIP으로 묶는다. 본문 XHTML의 SHA-256에서 새 출판물 식별자를 만들며, 이를 원본 EPUB의 ID나 revision으로 사용하지 않는다. ZIP 압축 bytes와 생성 PDF bytes의 플랫폼 간 동일성은 보장하지 않는다.
 
 ## 크기·오류·대기 처리
 
-- 제목 포함 입력 5,000,000 UTF-16 code unit, 100,000문단, 출력 12,000,000 code unit 이하. 잘못된 surrogate·지원하지 않는 제어문자·한도 초과는 자르지 않고 거절한다.
-- 원본 PDF는 최대 32 MiB. PDF 서버 업로드의 decoded 4 MiB 한도와 별개다. 파일명은 경로·Windows 장치 이름·방향 제어 문자를 정리하고 최대 120 code unit stem을 사용한다.
-- Android EPUB export는 원본 32 MiB, 전체 압축 해제 64 MiB, 512 entry, spine XHTML 합계 5,000,000 code unit 한도다. 누락/중복 경로와 초과 입력은 거절한다.
-- 웹은 파일 준비 동안 문서/계정 화면 변경·닫기를 감지해 늦은 결과를 버리고 Blob URL을 해제한다. 손상된 ZIP 보관함이 다른 정상 보관함 전체를 막지 않으며 실패한 보관함을 표시한다.
+- 텍스트 입력은 원시 제목과 본문 합계 5,000,000 UTF-16 code unit, 100,000문단 이하다. 새 EPUB와 웹 PDF 인쇄 준비는 원시 언어 문자열도 입력 합계에 포함한다. 잘못된 surrogate·지원하지 않는 제어문자·한도 초과는 자르지 않고 거절한다.
+- TXT·Markdown 출력은 12,000,000 code unit 이하, EPUB 리소스와 웹 PDF 인쇄 HTML은 각각 전체 32,000,000 code unit 이하다.
+- 새 EPUB는 UTF-8로 인코딩한 각 리소스 8 MiB, 전체 리소스 32 MiB, 완성 ZIP 32 MiB 이하로 제한한다. `mimetype`를 첫 번째 비압축 항목으로 쓰며 XML escape·CR 문자 참조로 본문을 보존한다.
+- Android 새 PDF는 최대 2,000쪽·32 MiB다. 측정된 줄 경계와 실제 페이지 높이를 확인하고 끝까지 들어가지 않으면 실패로 처리한다. 웹 PDF의 최종 페이지 수·크기·저장은 브라우저 인쇄 창에서 확인한다.
+- 원본 PDF는 최대 32 MiB이며 PDF 서버 업로드의 decoded 4 MiB 한도와 별개다. 파일명은 경로·Windows 장치 이름·방향 제어 문자를 정리하고 최대 120 code unit stem을 사용한다.
+- Android에서 원본 EPUB의 텍스트를 추출하는 경로는 원본 32 MiB, 전체 압축 해제 64 MiB, 512 entry, spine XHTML 합계 5,000,000 code unit 한도다. 누락/중복 경로와 초과 입력은 거절한다. 이는 새 EPUB 생성 한도와 구분한다.
+- 웹은 준비 동안 문서/계정 화면 변경·닫기를 감지해 늦은 결과를 버리고 Blob URL·인쇄 frame을 해제한다. 손상된 ZIP 보관함이 다른 정상 보관함 전체를 막지 않으며 실패한 보관함을 표시한다.
 - Android는 진행 중 reader 저장을 기다리고 최신 저장소에서 준비한다. SAF는 요청별 MIME·고정 bytes·메모리 ticket을 사용하고 선택 변경·취소·프로세스 재생성 후 오래된 결과를 거절한다. ZIP ticket 기본 MIME은 유지한다.
 
-## 검증 근거
+## 이번 작업의 검증 근거
 
-- 최종 로컬 웹 **613개/73파일**, 생성 계약15·TypeScript·production/sharing build 통과. Android **575개 통과/16 opt-in 제외**, core-content **9개**, APK/lint/계측 소스 컴파일/모듈 경계 검사 통과. 최초 전체 검사에서 새 목록의 benchmark fixture 누락 1건을 발견해 수정한 뒤 전체를 재실행했다.
-- 공통 Kotlin JUnit과 웹은 동일 JSON fixture(본문12·파일명16·거절8)를 사용한다. Unicode·CRLF·빈 문단·긴 본문·Markdown 문법·예약 파일명·크기 제한을 검사한다.
-- 웹 exporter는 실제 ZIP write/read → 읽기 문서 → PDF 선택 → 원본 bytes 동등성, 잘못된 hash/크기·원본 없음·취소·WebCrypto 없음·URL 정리와 계정/기록 미포함을 검사한다. 실제 IndexedDB 테스트로 네 보관함·계정 격리·손상된 ZIP 실패 분리를 확인한다.
-- Android 회귀는 native 원문 whitespace/긴 Unicode, EPUB 전체 spine/확장자 없는 경로/누락·한도, ZIP canonical 본문, 원본 PDF bytes, SAF MIME·취소·선택 A→B→A·열기 중 선택 변경·재생성을 검사한다. 새 AdaptiveCollection 형식 패널의 계측 benchmark fixture를 추가했다.
-- 실제 인앱 브라우저에서 서버 없이 시험 TXT 가져오기 → TXT/Markdown 파일 준비, native PDF 및 canonical 문단이 없는 ZIP PDF 원본 파일 준비, 읽기 도구 진입을 확인했다. ko/en, 390×844/844×390에서 행 내부 잘림 없음과 페이지 조작·44px 이상 버튼을 확인했다.
-- 인앱 브라우저의 `downloadMedia`는 파일 경로 반환 대기에서 시간 초과였다. 실제 OS 다운로드·재가져오기 왕복을 성공으로 기록하지 않는다. 준비된 Blob bytes의 정확성은 별도 자동검사이며 Android 실기기 SAF·회전·재생성은 V3다.
+- 웹 전체 검사 **643개/75파일**, 생성 계약 **15개**, TypeScript·production/sharing build가 통과했다. 이후 형식 다시 선택 시 첫 페이지로 복귀하는 UI 수정과 오류 문구 번역에도 TypeScript·build를 다시 확인했다. 이 후속 수정 이후 전체 643개를 다시 실행한 것으로 표시하지 않는다. core-content **18개**가 통과했다.
+- Android 최종 로컬 검사는 **601개 중 585개 통과·16개 opt-in 제외**, APK·lint·계측 소스 컴파일·모듈 경계 검사 통과다. 최초 lint 2건과 PDF 마지막 줄의 padding 재측정 처리를 수정한 뒤 재검사했다. 실제 연결 기기가 없어 계측 테스트는 실행하지 않았다.
+- EPUB 공통 Kotlin·웹 검사는 동일 정확 출력 벡터 **10개**와 거절 벡터 **9개**를 사용한다. Unicode·CRLF·빈 문단·악성 HTML의 일반 텍스트 처리·언어 fallback·입력/출력/리소스 한도를 검사한다. TXT·Markdown·원본 PDF의 기존 회귀 검사도 유지한다.
+- 같은 실제 exporter를 Node SSR에서 호출해 만든 **CJK 120문단 EPUB**를 **EPUBCheck 5.4.0**으로 검사해 **오류 0·경고 0**을 확인했다. 이 파일을 실제 브라우저 가져오기 화면에서 열어 제목 2개를 포함한 **122문단·리더 33쪽**, 마지막 **120번째 본문과 진행률 100%**를 확인했다. 다운로드 링크 표시도 확인했지만 OS 다운로드 자체를 거친 왕복으로 기록하지 않는다.
+- 실제 브라우저 **ko/en·390×844 / 844×390**에서 EPUB/PDF 형식 선택과 PDF 준비 패널의 네 항목, 화면 넘침·문단 잘림 없음, 보이는 조작 버튼의 **44px 이상** 크기를 확인했다. **다른 형식 선택** 시 첫 페이지 복귀도 확인했다. 브라우저 보안 정책이 Blob 미리보기 URL 이동을 차단하여 인쇄 문서 렌더링·최종 PDF 시각 검사·OS 저장 확인은 실행하지 못했다. 우회하지 않았으며 준비 화면 확인을 PDF 저장 성공으로 기록하지 않는다.
+- Android PDF 계측에는 다중 A4 페이지·한글 렌더·여백·전체 추출 본문·한도·취소 검사를 추가했다. 실제 PDF 생성/렌더 품질과 SAF·회전·재생성의 기기 검증은 V3에 남는다.
 
-최종 로컬 검사와 최종 head CI 결과는 [작업 큐](AGENT_WORK_QUEUE.md)의 이번 실행 기록 및 PR에 남긴다. PR은 draft로 유지하며 전체 S4/전체 프로젝트 완료를 뜻하지 않는다.
+최종 로컬 검사와 최종 head CI 결과는 [작업 큐](AGENT_WORK_QUEUE.md)의 이번 실행 기록 및 후속 PR에 남긴다. 이 기능의 구현은 전체 S4/전체 프로젝트 완료나 main 배포 완료를 뜻하지 않는다.

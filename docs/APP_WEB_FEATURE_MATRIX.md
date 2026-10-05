@@ -1,6 +1,6 @@
 # 앱·웹 기능 대응표
 
-기준일: 2026-10-02. 현재 작업 트리의 화면 진입점, 상태 모델, 저장소와 API 호출을 기준으로 정리했다. **앱의 모든 기능이 웹에 옮겨진 상태는 아니다.** 현재 공통 흐름은 웹소설 수집, 챕터 원문 저장, 서버 번역 실행, 번역본 조회·보관·읽기까지 연결되어 있다. 로컬 파일·독서 도구·계정·개인 서재도 연결됐으며 아래에 남은 차이와 확인된 연결 결함을 별도로 표시한다.
+기준일: 2026-10-05. 현재 작업 트리의 화면 진입점, 상태 모델, 저장소와 API 호출을 기준으로 정리했다. **앱의 모든 기능이 웹에 옮겨진 상태는 아니다.** 현재 공통 흐름은 웹소설 수집, 챕터 원문 저장, 서버 번역 실행, 번역본 조회·보관·읽기까지 연결되어 있다. 로컬 파일·독서 도구·계정·개인 서재도 연결됐으며 아래에 남은 차이와 확인된 연결 결함을 별도로 표시한다.
 
 ## 판정 방법
 
@@ -13,6 +13,8 @@
 이 문서는 구현 범위표다. 실제 테스트 실행, 외부 소설 사이트 응답, 번역 공급자 가용성은 [검증 기록](WEB_FRONTEND_VALIDATION.md)과 [소설·번역 워크플로](NOVEL_TRANSLATION_WORKFLOW.md)를 함께 확인한다. UI가 없는 기능과 기기 전용 기능을 합쳐 임의의 완료율을 계산하지 않는다.
 
 ## 화면 진입점과 공통 실행 경계
+
+2026-10-05 문서 내보내기 후속: [PR #49](https://github.com/gongdongho12/PageTuner/pull/49), `codex/pdf-epub-document-export`(base PR #48)에 새 EPUB와 본문 기반 PDF를 추가했다. 웹 643개/75파일·계약 15개·build/typecheck·core-content 18개 통과, Android 최종 601개 중 585개 통과·16개 제외와 APK/lint/계측 소스/모듈 경계 통과. 웹 전체 검사 후 UI·문구 수정은 typecheck/build를 재확인했다. 실제 CJK 120문단 EPUB는 EPUBCheck 5.4.0 오류 0·경고 0이고 웹 가져오기에서 제목 포함 122문단·33쪽·마지막 본문·100% 진행률을 확인했다. 동일 exporter의 Node SSR 생성 파일을 사용했으며 OS 다운로드는 미검증이다. ko/en·390×844/844×390 형식/PDF 준비 패널의 넘침·문단 잘림 없음과 보이는 버튼 44px 이상을 확인했다. Blob 미리보기 이동이 보안 정책으로 차단되어 인쇄 렌더·PDF 시각 검사·OS 저장은 확인하지 못했다. Android 실제 기기도 미연결이다. [상세 범위·검증](DOCUMENT_FILE_EXPORT.md).
 
 2026-10-05 기본 사용 진입: 웹 첫 화면에서 **파일 읽기/ZIP 가져오기**로 서버·계정 없이 별도 기기 보관함을 연다. 기존 로그인 계정의 파일·동기화 journal과 분리하고 로컬 독서 설정을 유지한다. 웹566개/71파일·계약15·build/typecheck, 새 실제 저장소 격리/ZIP 왕복2개, 인앱 브라우저 PDF 가져오기→읽기→새로고침 위치/설정 복원·ZIP2문서 가져오기·내보내기 완료 표시·390×844/844×390 확인. APK 공유 자산 재묶음·모듈 경계 성공. 서버8080은 내려가 있어 회원가입/웹소설/번역의 이번 실서버 재검증은 미완료다. 다운로드 경로 대기 시간 초과를 실제 다운로드 재가져오기 성공으로 간주하지 않는다. [현재 기본 사용 범위](QUICK_START.md), [draft PR #47](https://github.com/gongdongho12/PageTuner/pull/47).
 
@@ -34,7 +36,9 @@
 
 | 기능 | Android 앱 | 웹 대응 | 범위·근거 |
 | --- | --- | --- | --- |
-| 별도 본문 파일 내보내기 | 완료 / 실기기 SAF 대기 | 완료 / OS 다운로드 왕복 검증 대기 | TXT·Markdown 읽기용 사본과 검증된 PDF 원본. 회차 문서는 해당 회차만 포함하며 삽화·기록/계정은 텍스트 파일에서 제외. 공통 fixture, 계정별 저장소 및 PDF bytes 자동검사, ko/en 모바일 브라우저 준비 화면 검사. 기존 ZIP 교환·기록 export와 분리. [범위·검증](DOCUMENT_FILE_EXPORT.md), [PR #48](https://github.com/gongdongho12/PageTuner/pull/48) |
+| TXT·Markdown·PDF 원본 내보내기 | 완료 / 실기기 SAF 대기 | 완료 / OS 다운로드 왕복 검증 대기 | TXT·Markdown은 읽기용 사본, PDF 원본 저장은 검증된 원본 bytes 전체다. 회차 문서는 해당 회차만 포함하며 삽화·기록/계정은 새 텍스트 파일에서 제외. 기존 ZIP 교환·기록 export와 분리. [범위·검증](DOCUMENT_FILE_EXPORT.md), [기존 PR #48](https://github.com/gongdongho12/PageTuner/pull/48) |
+| 읽기용 EPUB 생성 | 구현·자동검사 / 실기기 SAF 대기 | 구현·자동검사·실제 가져오기 확인 / OS 다운로드 대기 | 제목·언어·전체 문단·목차의 새 EPUB 3. 공통 정확 리소스 fixture와 EPUBCheck 5.4.0 오류 0·경고 0, CJK 120문단의 실제 웹 가져오기·마지막 본문 확인. UTF-8 리소스당 8 MiB·전체/ZIP 32 MiB, 입력 5백만 code unit·10만 문단. 초과 입력은 절단하지 않으며 이미지·원본 EPUB 레이아웃·기록·원본 ID를 포함하지 않는다. [공통 계약](../contracts/document-ebook-export-v1.md), [검증](DOCUMENT_FILE_EXPORT.md) |
+| 본문 기반 PDF 생성 | 구현 / 실제 기기 렌더·SAF 대기 | 구현 / 인쇄 렌더·OS 저장 검증 대기 | 선택 텍스트 전체로 A4 문서를 만든다. Android는 PdfDocument로 최대 2,000쪽·32 MiB PDF를 생성하고 웹은 브라우저 PDF 저장·인쇄용 문서 보기로 연결한다. PDF 원본 저장과 구분한다. 이미지·메모·원본 ID는 제외하며 준비 화면을 저장 성공으로 표시하지 않는다. [범위·검증](DOCUMENT_FILE_EXPORT.md) |
 | 폰 핫스팟·Wi-Fi 서재 공유 | 완료 / 실기기 검증 대기 | 완료 / 읽기 전용 | 설정에서 공유 시작·사설 주소·8자리 코드·알림 중지·2시간 만료. native/ZIP/다운로드 웹소설의 저장 원문·완성 번역·PDF/삽화를 폰 HTTP에서 읽는다. 별도 계정·인터넷 없이 동작하고 기록 쓰기/부분 번역 캐시/클라우드 전용 문서는 제외. 실제 사설 IP HTTP와 WebCrypto/SW 없는 브라우저에서 검증했으며 물리 폰 핫스팟은 V3다. [범위·검증](LOCAL_LIBRARY_SHARING.md) |
 | TXT·Markdown 파일 가져오기 | 완료 | 완료 | 웹은 32MB 이하 파일, BOM/엄격 UTF-8 및 명시적 레거시 인코딩, 내용 해시 ID, 계정별 기기 보관을 지원한다. 일반 서버 artifact와 별도 모델이다. [DocumentLoader](../app/src/main/java/com/dongholab/pagetuner/document/DocumentLoader.kt), [localDocuments](../web/src/lib/localDocuments.ts), [LocalWorkspace](../web/src/components/LocalWorkspace.tsx) |
 | EPUB 가져오기·본문·장 이동 | 완료 | 완료 | 양쪽 OPF/spine 순서를 읽는다. 웹은 안전한 XML 텍스트 추출과 문단 ID 기반 목차 이동이며 원본 CSS 레이아웃을 실행하지 않는다. [EpubDocumentReader](../app/src/main/java/com/dongholab/pagetuner/document/EpubDocumentReader.kt), [epubDocument](../web/src/lib/epubDocument.ts), [ReaderTools](../web/src/components/ReaderTools.tsx) |
