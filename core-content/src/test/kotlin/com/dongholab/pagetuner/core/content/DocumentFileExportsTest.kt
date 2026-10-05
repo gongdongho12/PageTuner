@@ -71,7 +71,7 @@ class DocumentFileExportsTest {
 
     @Test
     fun filenameExtensionCannotBecomeAPathAndTitlesAreValidated() {
-        listOf("../pdf", ".txt", "TXT", "epub", "").forEach { extension ->
+        listOf("../pdf", ".txt", "TXT", "EPUB", "").forEach { extension ->
             assertThrows(IllegalArgumentException::class.java) {
                 DocumentFileExports.safeFilename("Book", "", extension)
             }

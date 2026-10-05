@@ -1,0 +1,391 @@
+[
+  {
+    "name": "selected-chapter",
+    "bookTitle": "Book",
+    "chapterTitle": "Chapter",
+    "language": "en",
+    "paragraphs": [
+      "First paragraph.",
+      "Second paragraph."
+    ],
+    "expected": {
+      "filename": "Book - Chapter.epub",
+      "mimeType": "application/epub+zip",
+      "entries": [
+        {
+          "path": "mimetype",
+          "text": "application/epub+zip"
+        },
+        {
+          "path": "META-INF/container.xml",
+          "text": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<container version=\"1.0\" xmlns=\"urn:oasis:names:tc:opendocument:xmlns:container\">\n  <rootfiles>\n    <rootfile full-path=\"EPUB/package.opf\" media-type=\"application/oebps-package+xml\" />\n  </rootfiles>\n</container>\n"
+        },
+        {
+          "path": "EPUB/package.opf",
+          "text": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<package xmlns=\"http://www.idpf.org/2007/opf\" version=\"3.0\" unique-identifier=\"publication-id\">\n  <metadata xmlns:dc=\"http://purl.org/dc/elements/1.1/\">\n    <dc:identifier id=\"publication-id\">urn:sha256:6b0c83cb7797bc9f042c5e50d641e25fbf209688cbad8bb464752e505cc5138f</dc:identifier>\n    <dc:title>Book - Chapter</dc:title>\n    <dc:language>en</dc:language>\n    <meta property=\"dcterms:modified\">2000-01-01T00:00:00Z</meta>\n  </metadata>\n  <manifest>\n    <item id=\"nav\" href=\"nav.xhtml\" media-type=\"application/xhtml+xml\" properties=\"nav\" />\n    <item id=\"content\" href=\"content.xhtml\" media-type=\"application/xhtml+xml\" />\n    <item id=\"styles\" href=\"styles.css\" media-type=\"text/css\" />\n  </manifest>\n  <spine>\n    <itemref idref=\"content\" />\n  </spine>\n</package>\n"
+        },
+        {
+          "path": "EPUB/nav.xhtml",
+          "text": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<html xmlns=\"http://www.w3.org/1999/xhtml\" xmlns:epub=\"http://www.idpf.org/2007/ops\" xml:lang=\"en\" lang=\"en\">\n<head>\n  <title>Book - Chapter</title>\n</head>\n<body>\n  <nav epub:type=\"toc\" id=\"toc\">\n    <ol>\n      <li><a href=\"content.xhtml#document\">Chapter</a></li>\n    </ol>\n  </nav>\n</body>\n</html>\n"
+        },
+        {
+          "path": "EPUB/content.xhtml",
+          "text": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<html xmlns=\"http://www.w3.org/1999/xhtml\" xml:lang=\"en\" lang=\"en\">\n<head>\n  <title>Book - Chapter</title>\n  <link rel=\"stylesheet\" type=\"text/css\" href=\"styles.css\" />\n</head>\n<body>\n  <section id=\"document\">\n    <h1>Book</h1>\n    <h2>Chapter</h2>\n    <p>First paragraph.</p>\n    <p>Second paragraph.</p>\n  </section>\n</body>\n</html>\n"
+        },
+        {
+          "path": "EPUB/styles.css",
+          "text": "body { font-family: serif; line-height: 1.5; }\nh1, h2, p { white-space: pre-wrap; overflow-wrap: anywhere; }\np { margin: 1em 0; min-height: 1em; }\n"
+        }
+      ]
+    }
+  },
+  {
+    "name": "unicode-whitespace-cr-empty-paragraphs",
+    "bookTitle": " 별과 바다 😀 ",
+    "chapterTitle": "\t둘째 장\r\n",
+    "language": " KO-KR ",
+    "paragraphs": [
+      "  안녕\t세계\r\n다음 줄  ",
+      "",
+      "雪 😀\r"
+    ],
+    "expected": {
+      "filename": "별과 바다 😀 - 둘째 장.epub",
+      "mimeType": "application/epub+zip",
+      "entries": [
+        {
+          "path": "mimetype",
+          "text": "application/epub+zip"
+        },
+        {
+          "path": "META-INF/container.xml",
+          "text": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<container version=\"1.0\" xmlns=\"urn:oasis:names:tc:opendocument:xmlns:container\">\n  <rootfiles>\n    <rootfile full-path=\"EPUB/package.opf\" media-type=\"application/oebps-package+xml\" />\n  </rootfiles>\n</container>\n"
+        },
+        {
+          "path": "EPUB/package.opf",
+          "text": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<package xmlns=\"http://www.idpf.org/2007/opf\" version=\"3.0\" unique-identifier=\"publication-id\">\n  <metadata xmlns:dc=\"http://purl.org/dc/elements/1.1/\">\n    <dc:identifier id=\"publication-id\">urn:sha256:5786c9178c0382a161c5238c167189797886d1bfd1e0535e51552532adfd25ac</dc:identifier>\n    <dc:title>별과 바다 😀 - 둘째 장</dc:title>\n    <dc:language>ko-kr</dc:language>\n    <meta property=\"dcterms:modified\">2000-01-01T00:00:00Z</meta>\n  </metadata>\n  <manifest>\n    <item id=\"nav\" href=\"nav.xhtml\" media-type=\"application/xhtml+xml\" properties=\"nav\" />\n    <item id=\"content\" href=\"content.xhtml\" media-type=\"application/xhtml+xml\" />\n    <item id=\"styles\" href=\"styles.css\" media-type=\"text/css\" />\n  </manifest>\n  <spine>\n    <itemref idref=\"content\" />\n  </spine>\n</package>\n"
+        },
+        {
+          "path": "EPUB/nav.xhtml",
+          "text": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<html xmlns=\"http://www.w3.org/1999/xhtml\" xmlns:epub=\"http://www.idpf.org/2007/ops\" xml:lang=\"ko-kr\" lang=\"ko-kr\">\n<head>\n  <title>별과 바다 😀 - 둘째 장</title>\n</head>\n<body>\n  <nav epub:type=\"toc\" id=\"toc\">\n    <ol>\n      <li><a href=\"content.xhtml#document\">둘째 장</a></li>\n    </ol>\n  </nav>\n</body>\n</html>\n"
+        },
+        {
+          "path": "EPUB/content.xhtml",
+          "text": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<html xmlns=\"http://www.w3.org/1999/xhtml\" xml:lang=\"ko-kr\" lang=\"ko-kr\">\n<head>\n  <title>별과 바다 😀 - 둘째 장</title>\n  <link rel=\"stylesheet\" type=\"text/css\" href=\"styles.css\" />\n</head>\n<body>\n  <section id=\"document\">\n    <h1>별과 바다 😀</h1>\n    <h2>둘째 장</h2>\n    <p>  안녕\t세계&#xD;\n다음 줄  </p>\n    <p></p>\n    <p>雪 😀&#xD;</p>\n  </section>\n</body>\n</html>\n"
+        },
+        {
+          "path": "EPUB/styles.css",
+          "text": "body { font-family: serif; line-height: 1.5; }\nh1, h2, p { white-space: pre-wrap; overflow-wrap: anywhere; }\np { margin: 1em 0; min-height: 1em; }\n"
+        }
+      ]
+    }
+  },
+  {
+    "name": "html-entities-quotes-remain-inert",
+    "bookTitle": " <Book> & \"Title\" ",
+    "chapterTitle": "C <D>",
+    "language": "en-US",
+    "paragraphs": [
+      "<script>alert(\"secret\")</script>",
+      "<img src='https://example.invalid/?a=1&b=2'> &copy; &#xD;",
+      "[link](javascript:alert(1)) **text**"
+    ],
+    "expected": {
+      "filename": "_Book_ & _Title_ - C _D_.epub",
+      "mimeType": "application/epub+zip",
+      "entries": [
+        {
+          "path": "mimetype",
+          "text": "application/epub+zip"
+        },
+        {
+          "path": "META-INF/container.xml",
+          "text": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<container version=\"1.0\" xmlns=\"urn:oasis:names:tc:opendocument:xmlns:container\">\n  <rootfiles>\n    <rootfile full-path=\"EPUB/package.opf\" media-type=\"application/oebps-package+xml\" />\n  </rootfiles>\n</container>\n"
+        },
+        {
+          "path": "EPUB/package.opf",
+          "text": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<package xmlns=\"http://www.idpf.org/2007/opf\" version=\"3.0\" unique-identifier=\"publication-id\">\n  <metadata xmlns:dc=\"http://purl.org/dc/elements/1.1/\">\n    <dc:identifier id=\"publication-id\">urn:sha256:edaf6db70fd96205bf593bb20dd67dd5a4bc6c1b5ca9d11e8f28b6ca38ef3ca5</dc:identifier>\n    <dc:title>&lt;Book&gt; &amp; &quot;Title&quot; - C &lt;D&gt;</dc:title>\n    <dc:language>en-us</dc:language>\n    <meta property=\"dcterms:modified\">2000-01-01T00:00:00Z</meta>\n  </metadata>\n  <manifest>\n    <item id=\"nav\" href=\"nav.xhtml\" media-type=\"application/xhtml+xml\" properties=\"nav\" />\n    <item id=\"content\" href=\"content.xhtml\" media-type=\"application/xhtml+xml\" />\n    <item id=\"styles\" href=\"styles.css\" media-type=\"text/css\" />\n  </manifest>\n  <spine>\n    <itemref idref=\"content\" />\n  </spine>\n</package>\n"
+        },
+        {
+          "path": "EPUB/nav.xhtml",
+          "text": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<html xmlns=\"http://www.w3.org/1999/xhtml\" xmlns:epub=\"http://www.idpf.org/2007/ops\" xml:lang=\"en-us\" lang=\"en-us\">\n<head>\n  <title>&lt;Book&gt; &amp; &quot;Title&quot; - C &lt;D&gt;</title>\n</head>\n<body>\n  <nav epub:type=\"toc\" id=\"toc\">\n    <ol>\n      <li><a href=\"content.xhtml#document\">C &lt;D&gt;</a></li>\n    </ol>\n  </nav>\n</body>\n</html>\n"
+        },
+        {
+          "path": "EPUB/content.xhtml",
+          "text": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<html xmlns=\"http://www.w3.org/1999/xhtml\" xml:lang=\"en-us\" lang=\"en-us\">\n<head>\n  <title>&lt;Book&gt; &amp; &quot;Title&quot; - C &lt;D&gt;</title>\n  <link rel=\"stylesheet\" type=\"text/css\" href=\"styles.css\" />\n</head>\n<body>\n  <section id=\"document\">\n    <h1>&lt;Book&gt; &amp; &quot;Title&quot;</h1>\n    <h2>C &lt;D&gt;</h2>\n    <p>&lt;script&gt;alert(&quot;secret&quot;)&lt;/script&gt;</p>\n    <p>&lt;img src=&apos;https://example.invalid/?a=1&amp;b=2&apos;&gt; &amp;copy; &amp;#xD;</p>\n    <p>[link](javascript:alert(1)) **text**</p>\n  </section>\n</body>\n</html>\n"
+        },
+        {
+          "path": "EPUB/styles.css",
+          "text": "body { font-family: serif; line-height: 1.5; }\nh1, h2, p { white-space: pre-wrap; overflow-wrap: anywhere; }\np { margin: 1em 0; min-height: 1em; }\n"
+        }
+      ]
+    }
+  },
+  {
+    "name": "empty-titles-and-empty-document",
+    "bookTitle": " \t",
+    "chapterTitle": "\r\n",
+    "language": null,
+    "paragraphs": [],
+    "expected": {
+      "filename": "Untitled.epub",
+      "mimeType": "application/epub+zip",
+      "entries": [
+        {
+          "path": "mimetype",
+          "text": "application/epub+zip"
+        },
+        {
+          "path": "META-INF/container.xml",
+          "text": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<container version=\"1.0\" xmlns=\"urn:oasis:names:tc:opendocument:xmlns:container\">\n  <rootfiles>\n    <rootfile full-path=\"EPUB/package.opf\" media-type=\"application/oebps-package+xml\" />\n  </rootfiles>\n</container>\n"
+        },
+        {
+          "path": "EPUB/package.opf",
+          "text": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<package xmlns=\"http://www.idpf.org/2007/opf\" version=\"3.0\" unique-identifier=\"publication-id\">\n  <metadata xmlns:dc=\"http://purl.org/dc/elements/1.1/\">\n    <dc:identifier id=\"publication-id\">urn:sha256:7fa26d3407dc3f9d3887a5b4fab43f9cb9aca88c45bdb15afa55bcf93c729fef</dc:identifier>\n    <dc:title>Untitled</dc:title>\n    <dc:language>und</dc:language>\n    <meta property=\"dcterms:modified\">2000-01-01T00:00:00Z</meta>\n  </metadata>\n  <manifest>\n    <item id=\"nav\" href=\"nav.xhtml\" media-type=\"application/xhtml+xml\" properties=\"nav\" />\n    <item id=\"content\" href=\"content.xhtml\" media-type=\"application/xhtml+xml\" />\n    <item id=\"styles\" href=\"styles.css\" media-type=\"text/css\" />\n  </manifest>\n  <spine>\n    <itemref idref=\"content\" />\n  </spine>\n</package>\n"
+        },
+        {
+          "path": "EPUB/nav.xhtml",
+          "text": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<html xmlns=\"http://www.w3.org/1999/xhtml\" xmlns:epub=\"http://www.idpf.org/2007/ops\" xml:lang=\"und\" lang=\"und\">\n<head>\n  <title>Untitled</title>\n</head>\n<body>\n  <nav epub:type=\"toc\" id=\"toc\">\n    <ol>\n      <li><a href=\"content.xhtml#document\">Untitled</a></li>\n    </ol>\n  </nav>\n</body>\n</html>\n"
+        },
+        {
+          "path": "EPUB/content.xhtml",
+          "text": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<html xmlns=\"http://www.w3.org/1999/xhtml\" xml:lang=\"und\" lang=\"und\">\n<head>\n  <title>Untitled</title>\n  <link rel=\"stylesheet\" type=\"text/css\" href=\"styles.css\" />\n</head>\n<body>\n  <section id=\"document\">\n    <h1>Untitled</h1>\n  </section>\n</body>\n</html>\n"
+        },
+        {
+          "path": "EPUB/styles.css",
+          "text": "body { font-family: serif; line-height: 1.5; }\nh1, h2, p { white-space: pre-wrap; overflow-wrap: anywhere; }\np { margin: 1em 0; min-height: 1em; }\n"
+        }
+      ]
+    }
+  },
+  {
+    "name": "duplicate-title-single-blank-invalid-language",
+    "bookTitle": " Book\t",
+    "chapterTitle": "\nBook ",
+    "language": "en_US",
+    "paragraphs": [
+      ""
+    ],
+    "expected": {
+      "filename": "Book.epub",
+      "mimeType": "application/epub+zip",
+      "entries": [
+        {
+          "path": "mimetype",
+          "text": "application/epub+zip"
+        },
+        {
+          "path": "META-INF/container.xml",
+          "text": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<container version=\"1.0\" xmlns=\"urn:oasis:names:tc:opendocument:xmlns:container\">\n  <rootfiles>\n    <rootfile full-path=\"EPUB/package.opf\" media-type=\"application/oebps-package+xml\" />\n  </rootfiles>\n</container>\n"
+        },
+        {
+          "path": "EPUB/package.opf",
+          "text": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<package xmlns=\"http://www.idpf.org/2007/opf\" version=\"3.0\" unique-identifier=\"publication-id\">\n  <metadata xmlns:dc=\"http://purl.org/dc/elements/1.1/\">\n    <dc:identifier id=\"publication-id\">urn:sha256:4ab842cccb00266e9c49a5c509557a750ad72ca9d2baabe857ba7c57e966bc42</dc:identifier>\n    <dc:title>Book</dc:title>\n    <dc:language>und</dc:language>\n    <meta property=\"dcterms:modified\">2000-01-01T00:00:00Z</meta>\n  </metadata>\n  <manifest>\n    <item id=\"nav\" href=\"nav.xhtml\" media-type=\"application/xhtml+xml\" properties=\"nav\" />\n    <item id=\"content\" href=\"content.xhtml\" media-type=\"application/xhtml+xml\" />\n    <item id=\"styles\" href=\"styles.css\" media-type=\"text/css\" />\n  </manifest>\n  <spine>\n    <itemref idref=\"content\" />\n  </spine>\n</package>\n"
+        },
+        {
+          "path": "EPUB/nav.xhtml",
+          "text": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<html xmlns=\"http://www.w3.org/1999/xhtml\" xmlns:epub=\"http://www.idpf.org/2007/ops\" xml:lang=\"und\" lang=\"und\">\n<head>\n  <title>Book</title>\n</head>\n<body>\n  <nav epub:type=\"toc\" id=\"toc\">\n    <ol>\n      <li><a href=\"content.xhtml#document\">Book</a></li>\n    </ol>\n  </nav>\n</body>\n</html>\n"
+        },
+        {
+          "path": "EPUB/content.xhtml",
+          "text": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<html xmlns=\"http://www.w3.org/1999/xhtml\" xml:lang=\"und\" lang=\"und\">\n<head>\n  <title>Book</title>\n  <link rel=\"stylesheet\" type=\"text/css\" href=\"styles.css\" />\n</head>\n<body>\n  <section id=\"document\">\n    <h1>Book</h1>\n    <p></p>\n  </section>\n</body>\n</html>\n"
+        },
+        {
+          "path": "EPUB/styles.css",
+          "text": "body { font-family: serif; line-height: 1.5; }\nh1, h2, p { white-space: pre-wrap; overflow-wrap: anywhere; }\np { margin: 1em 0; min-height: 1em; }\n"
+        }
+      ]
+    }
+  },
+  {
+    "name": "reserved-device-and-script-region-language",
+    "bookTitle": "CON",
+    "chapterTitle": "",
+    "language": "zh-Hans-CN",
+    "paragraphs": [
+      "读书"
+    ],
+    "expected": {
+      "filename": "_CON.epub",
+      "mimeType": "application/epub+zip",
+      "entries": [
+        {
+          "path": "mimetype",
+          "text": "application/epub+zip"
+        },
+        {
+          "path": "META-INF/container.xml",
+          "text": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<container version=\"1.0\" xmlns=\"urn:oasis:names:tc:opendocument:xmlns:container\">\n  <rootfiles>\n    <rootfile full-path=\"EPUB/package.opf\" media-type=\"application/oebps-package+xml\" />\n  </rootfiles>\n</container>\n"
+        },
+        {
+          "path": "EPUB/package.opf",
+          "text": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<package xmlns=\"http://www.idpf.org/2007/opf\" version=\"3.0\" unique-identifier=\"publication-id\">\n  <metadata xmlns:dc=\"http://purl.org/dc/elements/1.1/\">\n    <dc:identifier id=\"publication-id\">urn:sha256:faaf3730f90fc577fbb864c6a4c106c8c28cb7f5987669cf33d5834c5d7e137c</dc:identifier>\n    <dc:title>CON</dc:title>\n    <dc:language>zh-hans-cn</dc:language>\n    <meta property=\"dcterms:modified\">2000-01-01T00:00:00Z</meta>\n  </metadata>\n  <manifest>\n    <item id=\"nav\" href=\"nav.xhtml\" media-type=\"application/xhtml+xml\" properties=\"nav\" />\n    <item id=\"content\" href=\"content.xhtml\" media-type=\"application/xhtml+xml\" />\n    <item id=\"styles\" href=\"styles.css\" media-type=\"text/css\" />\n  </manifest>\n  <spine>\n    <itemref idref=\"content\" />\n  </spine>\n</package>\n"
+        },
+        {
+          "path": "EPUB/nav.xhtml",
+          "text": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<html xmlns=\"http://www.w3.org/1999/xhtml\" xmlns:epub=\"http://www.idpf.org/2007/ops\" xml:lang=\"zh-hans-cn\" lang=\"zh-hans-cn\">\n<head>\n  <title>CON</title>\n</head>\n<body>\n  <nav epub:type=\"toc\" id=\"toc\">\n    <ol>\n      <li><a href=\"content.xhtml#document\">CON</a></li>\n    </ol>\n  </nav>\n</body>\n</html>\n"
+        },
+        {
+          "path": "EPUB/content.xhtml",
+          "text": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<html xmlns=\"http://www.w3.org/1999/xhtml\" xml:lang=\"zh-hans-cn\" lang=\"zh-hans-cn\">\n<head>\n  <title>CON</title>\n  <link rel=\"stylesheet\" type=\"text/css\" href=\"styles.css\" />\n</head>\n<body>\n  <section id=\"document\">\n    <h1>CON</h1>\n    <p>读书</p>\n  </section>\n</body>\n</html>\n"
+        },
+        {
+          "path": "EPUB/styles.css",
+          "text": "body { font-family: serif; line-height: 1.5; }\nh1, h2, p { white-space: pre-wrap; overflow-wrap: anywhere; }\np { margin: 1em 0; min-height: 1em; }\n"
+        }
+      ]
+    }
+  },
+  {
+    "name": "language-attribute-injection-falls-back",
+    "bookTitle": "A\r\nB",
+    "chapterTitle": "",
+    "language": "en\" onload=\"alert(1)",
+    "paragraphs": [
+      "\t  spaced text ‮ stays\rline\n"
+    ],
+    "expected": {
+      "filename": "A__B.epub",
+      "mimeType": "application/epub+zip",
+      "entries": [
+        {
+          "path": "mimetype",
+          "text": "application/epub+zip"
+        },
+        {
+          "path": "META-INF/container.xml",
+          "text": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<container version=\"1.0\" xmlns=\"urn:oasis:names:tc:opendocument:xmlns:container\">\n  <rootfiles>\n    <rootfile full-path=\"EPUB/package.opf\" media-type=\"application/oebps-package+xml\" />\n  </rootfiles>\n</container>\n"
+        },
+        {
+          "path": "EPUB/package.opf",
+          "text": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<package xmlns=\"http://www.idpf.org/2007/opf\" version=\"3.0\" unique-identifier=\"publication-id\">\n  <metadata xmlns:dc=\"http://purl.org/dc/elements/1.1/\">\n    <dc:identifier id=\"publication-id\">urn:sha256:3a6dc4b578560c74cabc138c09b70b80e43645b7c82f76059cb0dd2f4e8798ae</dc:identifier>\n    <dc:title>A&#xD;\nB</dc:title>\n    <dc:language>und</dc:language>\n    <meta property=\"dcterms:modified\">2000-01-01T00:00:00Z</meta>\n  </metadata>\n  <manifest>\n    <item id=\"nav\" href=\"nav.xhtml\" media-type=\"application/xhtml+xml\" properties=\"nav\" />\n    <item id=\"content\" href=\"content.xhtml\" media-type=\"application/xhtml+xml\" />\n    <item id=\"styles\" href=\"styles.css\" media-type=\"text/css\" />\n  </manifest>\n  <spine>\n    <itemref idref=\"content\" />\n  </spine>\n</package>\n"
+        },
+        {
+          "path": "EPUB/nav.xhtml",
+          "text": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<html xmlns=\"http://www.w3.org/1999/xhtml\" xmlns:epub=\"http://www.idpf.org/2007/ops\" xml:lang=\"und\" lang=\"und\">\n<head>\n  <title>A&#xD;\nB</title>\n</head>\n<body>\n  <nav epub:type=\"toc\" id=\"toc\">\n    <ol>\n      <li><a href=\"content.xhtml#document\">A&#xD;\nB</a></li>\n    </ol>\n  </nav>\n</body>\n</html>\n"
+        },
+        {
+          "path": "EPUB/content.xhtml",
+          "text": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<html xmlns=\"http://www.w3.org/1999/xhtml\" xml:lang=\"und\" lang=\"und\">\n<head>\n  <title>A&#xD;\nB</title>\n  <link rel=\"stylesheet\" type=\"text/css\" href=\"styles.css\" />\n</head>\n<body>\n  <section id=\"document\">\n    <h1>A&#xD;\nB</h1>\n    <p>\t  spaced text ‮ stays&#xD;line\n</p>\n  </section>\n</body>\n</html>\n"
+        },
+        {
+          "path": "EPUB/styles.css",
+          "text": "body { font-family: serif; line-height: 1.5; }\nh1, h2, p { white-space: pre-wrap; overflow-wrap: anywhere; }\np { margin: 1em 0; min-height: 1em; }\n"
+        }
+      ]
+    }
+  },
+  {
+    "name": "fallback-book-matching-chapter-is-omitted",
+    "bookTitle": " ",
+    "chapterTitle": "Untitled",
+    "language": "sl-rozaj-biske",
+    "paragraphs": [
+      "one"
+    ],
+    "expected": {
+      "filename": "Untitled.epub",
+      "mimeType": "application/epub+zip",
+      "entries": [
+        {
+          "path": "mimetype",
+          "text": "application/epub+zip"
+        },
+        {
+          "path": "META-INF/container.xml",
+          "text": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<container version=\"1.0\" xmlns=\"urn:oasis:names:tc:opendocument:xmlns:container\">\n  <rootfiles>\n    <rootfile full-path=\"EPUB/package.opf\" media-type=\"application/oebps-package+xml\" />\n  </rootfiles>\n</container>\n"
+        },
+        {
+          "path": "EPUB/package.opf",
+          "text": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<package xmlns=\"http://www.idpf.org/2007/opf\" version=\"3.0\" unique-identifier=\"publication-id\">\n  <metadata xmlns:dc=\"http://purl.org/dc/elements/1.1/\">\n    <dc:identifier id=\"publication-id\">urn:sha256:c96b4b9394218c7878e85cec698946bc2da015def1e6e84e0a3198e2ee599fd2</dc:identifier>\n    <dc:title>Untitled</dc:title>\n    <dc:language>sl-rozaj-biske</dc:language>\n    <meta property=\"dcterms:modified\">2000-01-01T00:00:00Z</meta>\n  </metadata>\n  <manifest>\n    <item id=\"nav\" href=\"nav.xhtml\" media-type=\"application/xhtml+xml\" properties=\"nav\" />\n    <item id=\"content\" href=\"content.xhtml\" media-type=\"application/xhtml+xml\" />\n    <item id=\"styles\" href=\"styles.css\" media-type=\"text/css\" />\n  </manifest>\n  <spine>\n    <itemref idref=\"content\" />\n  </spine>\n</package>\n"
+        },
+        {
+          "path": "EPUB/nav.xhtml",
+          "text": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<html xmlns=\"http://www.w3.org/1999/xhtml\" xmlns:epub=\"http://www.idpf.org/2007/ops\" xml:lang=\"sl-rozaj-biske\" lang=\"sl-rozaj-biske\">\n<head>\n  <title>Untitled</title>\n</head>\n<body>\n  <nav epub:type=\"toc\" id=\"toc\">\n    <ol>\n      <li><a href=\"content.xhtml#document\">Untitled</a></li>\n    </ol>\n  </nav>\n</body>\n</html>\n"
+        },
+        {
+          "path": "EPUB/content.xhtml",
+          "text": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<html xmlns=\"http://www.w3.org/1999/xhtml\" xml:lang=\"sl-rozaj-biske\" lang=\"sl-rozaj-biske\">\n<head>\n  <title>Untitled</title>\n  <link rel=\"stylesheet\" type=\"text/css\" href=\"styles.css\" />\n</head>\n<body>\n  <section id=\"document\">\n    <h1>Untitled</h1>\n    <p>one</p>\n  </section>\n</body>\n</html>\n"
+        },
+        {
+          "path": "EPUB/styles.css",
+          "text": "body { font-family: serif; line-height: 1.5; }\nh1, h2, p { white-space: pre-wrap; overflow-wrap: anywhere; }\np { margin: 1em 0; min-height: 1em; }\n"
+        }
+      ]
+    }
+  },
+  {
+    "name": "auto-language-sentinel-falls-back",
+    "bookTitle": " \t",
+    "chapterTitle": "\r\n",
+    "language": " AUTO ",
+    "paragraphs": [],
+    "expected": {
+      "filename": "Untitled.epub",
+      "mimeType": "application/epub+zip",
+      "entries": [
+        {
+          "path": "mimetype",
+          "text": "application/epub+zip"
+        },
+        {
+          "path": "META-INF/container.xml",
+          "text": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<container version=\"1.0\" xmlns=\"urn:oasis:names:tc:opendocument:xmlns:container\">\n  <rootfiles>\n    <rootfile full-path=\"EPUB/package.opf\" media-type=\"application/oebps-package+xml\" />\n  </rootfiles>\n</container>\n"
+        },
+        {
+          "path": "EPUB/package.opf",
+          "text": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<package xmlns=\"http://www.idpf.org/2007/opf\" version=\"3.0\" unique-identifier=\"publication-id\">\n  <metadata xmlns:dc=\"http://purl.org/dc/elements/1.1/\">\n    <dc:identifier id=\"publication-id\">urn:sha256:7fa26d3407dc3f9d3887a5b4fab43f9cb9aca88c45bdb15afa55bcf93c729fef</dc:identifier>\n    <dc:title>Untitled</dc:title>\n    <dc:language>und</dc:language>\n    <meta property=\"dcterms:modified\">2000-01-01T00:00:00Z</meta>\n  </metadata>\n  <manifest>\n    <item id=\"nav\" href=\"nav.xhtml\" media-type=\"application/xhtml+xml\" properties=\"nav\" />\n    <item id=\"content\" href=\"content.xhtml\" media-type=\"application/xhtml+xml\" />\n    <item id=\"styles\" href=\"styles.css\" media-type=\"text/css\" />\n  </manifest>\n  <spine>\n    <itemref idref=\"content\" />\n  </spine>\n</package>\n"
+        },
+        {
+          "path": "EPUB/nav.xhtml",
+          "text": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<html xmlns=\"http://www.w3.org/1999/xhtml\" xmlns:epub=\"http://www.idpf.org/2007/ops\" xml:lang=\"und\" lang=\"und\">\n<head>\n  <title>Untitled</title>\n</head>\n<body>\n  <nav epub:type=\"toc\" id=\"toc\">\n    <ol>\n      <li><a href=\"content.xhtml#document\">Untitled</a></li>\n    </ol>\n  </nav>\n</body>\n</html>\n"
+        },
+        {
+          "path": "EPUB/content.xhtml",
+          "text": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<html xmlns=\"http://www.w3.org/1999/xhtml\" xml:lang=\"und\" lang=\"und\">\n<head>\n  <title>Untitled</title>\n  <link rel=\"stylesheet\" type=\"text/css\" href=\"styles.css\" />\n</head>\n<body>\n  <section id=\"document\">\n    <h1>Untitled</h1>\n  </section>\n</body>\n</html>\n"
+        },
+        {
+          "path": "EPUB/styles.css",
+          "text": "body { font-family: serif; line-height: 1.5; }\nh1, h2, p { white-space: pre-wrap; overflow-wrap: anywhere; }\np { margin: 1em 0; min-height: 1em; }\n"
+        }
+      ]
+    }
+  },
+  {
+    "name": "auto-detect-language-sentinel-falls-back",
+    "bookTitle": " \t",
+    "chapterTitle": "\r\n",
+    "language": "Auto-Detect",
+    "paragraphs": [],
+    "expected": {
+      "filename": "Untitled.epub",
+      "mimeType": "application/epub+zip",
+      "entries": [
+        {
+          "path": "mimetype",
+          "text": "application/epub+zip"
+        },
+        {
+          "path": "META-INF/container.xml",
+          "text": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<container version=\"1.0\" xmlns=\"urn:oasis:names:tc:opendocument:xmlns:container\">\n  <rootfiles>\n    <rootfile full-path=\"EPUB/package.opf\" media-type=\"application/oebps-package+xml\" />\n  </rootfiles>\n</container>\n"
+        },
+        {
+          "path": "EPUB/package.opf",
+          "text": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<package xmlns=\"http://www.idpf.org/2007/opf\" version=\"3.0\" unique-identifier=\"publication-id\">\n  <metadata xmlns:dc=\"http://purl.org/dc/elements/1.1/\">\n    <dc:identifier id=\"publication-id\">urn:sha256:7fa26d3407dc3f9d3887a5b4fab43f9cb9aca88c45bdb15afa55bcf93c729fef</dc:identifier>\n    <dc:title>Untitled</dc:title>\n    <dc:language>und</dc:language>\n    <meta property=\"dcterms:modified\">2000-01-01T00:00:00Z</meta>\n  </metadata>\n  <manifest>\n    <item id=\"nav\" href=\"nav.xhtml\" media-type=\"application/xhtml+xml\" properties=\"nav\" />\n    <item id=\"content\" href=\"content.xhtml\" media-type=\"application/xhtml+xml\" />\n    <item id=\"styles\" href=\"styles.css\" media-type=\"text/css\" />\n  </manifest>\n  <spine>\n    <itemref idref=\"content\" />\n  </spine>\n</package>\n"
+        },
+        {
+          "path": "EPUB/nav.xhtml",
+          "text": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<html xmlns=\"http://www.w3.org/1999/xhtml\" xmlns:epub=\"http://www.idpf.org/2007/ops\" xml:lang=\"und\" lang=\"und\">\n<head>\n  <title>Untitled</title>\n</head>\n<body>\n  <nav epub:type=\"toc\" id=\"toc\">\n    <ol>\n      <li><a href=\"content.xhtml#document\">Untitled</a></li>\n    </ol>\n  </nav>\n</body>\n</html>\n"
+        },
+        {
+          "path": "EPUB/content.xhtml",
+          "text": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<html xmlns=\"http://www.w3.org/1999/xhtml\" xml:lang=\"und\" lang=\"und\">\n<head>\n  <title>Untitled</title>\n  <link rel=\"stylesheet\" type=\"text/css\" href=\"styles.css\" />\n</head>\n<body>\n  <section id=\"document\">\n    <h1>Untitled</h1>\n  </section>\n</body>\n</html>\n"
+        },
+        {
+          "path": "EPUB/styles.css",
+          "text": "body { font-family: serif; line-height: 1.5; }\nh1, h2, p { white-space: pre-wrap; overflow-wrap: anywhere; }\np { margin: 1em 0; min-height: 1em; }\n"
+        }
+      ]
+    }
+  }
+]

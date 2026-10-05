@@ -64,7 +64,7 @@ surface a useful export error and must not report a successful save.
 `DocumentFileExports.safeFilename(bookTitle, chapterTitle, extension)` shares
 the title normalization and validation above. For this helper, count only the
 two raw titles against the input limit. The extension must be exactly `txt`,
-`md`, or `pdf` without a leading period; all other values are rejected.
+`md`, `pdf`, or `epub` without a leading period; all other values are rejected.
 
 1. Start with the normalized book title. If the normalized chapter is present,
    append ` - ` and the chapter title.
@@ -85,9 +85,11 @@ two raw titles against the input limit. The extension must be exactly `txt`,
 
 These are filename suggestions; platform file pickers decide the destination
 and collision behavior. PDF adapters may use this naming helper for a verified
-copy of original PDF bytes. This does not add PDF generation to the text API:
-a PDF without a verified original byte payload is not a TXT/Markdown conversion
-source or a newly generated PDF export.
+copy of original PDF bytes or a separately labelled generated prose PDF.
+The text API itself still emits only TXT/Markdown. PDF sources require verified
+original bytes and are not converted from potentially partial extracted text.
+New EPUB publications use [the EPUB resource contract](document-ebook-export-v1.md);
+platform PDF generators consume the complete validated text snapshot separately.
 
 ## Shared vectors
 

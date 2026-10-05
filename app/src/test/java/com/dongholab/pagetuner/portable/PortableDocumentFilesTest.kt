@@ -39,7 +39,7 @@ class PortableDocumentFilesTest {
         assertEquals("application/pdf", exported.mimeType)
         assertEquals(DocumentFileExports.safeFilename(doc.bookTitle, doc.chapterTitle, "pdf"), exported.filename)
         assertArrayEquals(original, exported.bytes)
-        for (format in listOf(PortableDocumentFileFormat.TXT, PortableDocumentFileFormat.MARKDOWN)) {
+        for (format in PortableDocumentFileFormat.entries.filter { it != PortableDocumentFileFormat.PDF }) {
             assertThrows(IllegalArgumentException::class.java) { PortableDocumentFiles.fromArchive(archive, 0, format) }
         }
         asset.bytes.fill(0)

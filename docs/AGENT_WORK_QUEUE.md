@@ -17,7 +17,17 @@
 
 2026-10-05 사용자 우선 변경: 기본 사용 가능한 형태로 마무리하고 커밋·푸시·현재 범위 정리를 요청했다. B1 계정 없는 로컬 읽기 진입은 PR #47에서 완료했다. [기본 사용 안내](QUICK_START.md)를 먼저 읽고, 가능한 서버 기본 흐름 재검증을 우선하되 서버 시작 정책 거절을 우회하지 않는다. 서버 의존성이 준비되지 않았으면 S4c3a 분류 passive snapshot 등 진행 가능한 큐를 계속한다. 전체 프로젝트는 미완료다.
 
-추가 사용자 요청 **B2 별도 export**는 PR #48에서 TXT/Markdown 및 원본 PDF 파일 내보내기로 구현했다. [지원 범위](DOCUMENT_FILE_EXPORT.md)를 따른다. ZIP 교환·본문 파일·읽기 기록 export는 서로 별도이며 전체 책의 미보관 회차를 자동 수집하지 않는다. 다음 실행은 #48 최종 head CI와 아래 최신 기록부터 확인한다.
+추가 사용자 요청 **B2 별도 export**는 PR #48에서 TXT/Markdown 및 원본 PDF 파일 내보내기로 구현했다. [지원 범위](DOCUMENT_FILE_EXPORT.md)를 따른다. ZIP 교환·본문 파일·읽기 기록 export는 서로 별도이며 전체 책의 미보관 회차를 자동 수집하지 않는다. 후속 EPUB·PDF 생성은 B3/PR #49이며 다음 실행은 가장 최신 PR의 최종 head CI와 아래 최신 기록부터 확인한다.
+
+### 2026-10-05 EPUB·PDF 생성 export — B3
+
+- 사용자 후속 요청에 따라 [draft PR #49](https://github.com/gongdongho12/PageTuner/pull/49), base `codex/document-file-export`(#48), head `codex/pdf-epub-document-export`로 확장했다. 공통 `2bed321`·웹 `4a60b31`·Android `62c46ef`를 각각 커밋·푸시했다. 구현 head `62c46efde5648f1dee7ebf157e5da5a15574c014`의 [CI run37292135670](https://github.com/gongdongho12/PageTuner/actions/runs/37292135670) 성공(3분8초)을 확인했다. 후속 문서 head CI는 PR의 정확한 SHA와 대조한다. 자동 병합하지 않는다.
+- EPUB는 전체 선택 본문·제목·언어·목차의 새 읽기용 전자책이다. Kotlin·웹 exact 10개/거절 9개 fixture, 첫 STORED mimetype, XML escaping/CR·Unicode 보존을 공유한다. 입력 5M UTF-16/100k문단, 각 압축 해제 entry 8MiB·전체/ZIP 32MiB를 초과하면 자르지 않고 거절한다. 계정 identity·CAS/outbox·기록·삽화/원래 EPUB 레이아웃을 복원하지 않는다.
+- PDF는 웹의 전체 본문 A4 인쇄 문서와 브라우저 PDF 저장, Android의 직접 PdfDocument/StaticLayout 생성 및 SAF 저장이다. 화면 페이지 캡처를 쓰지 않는다. Android는 2,000쪽/32MiB와 문자·줄 경계/최종 패딩을 검사한다. 기존 원본 PDF bytes 복사는 유지하고 부분 추출 PDF를 변환하지 않는다.
+- 로컬 웹 **643개/75파일**·생성 계약15·typecheck/production build, 공통 core-content **18개**, Android **585개 통과/16 opt-in 제외**·APK/lint/계측 소스 컴파일/모듈 경계 통과. 최초 lint의 상수/중복 API annotation 2건을 수정해 재통과했다. 마지막 줄 패딩 증가 시 이전 완전한 줄로 되돌리는 검증 및 정확한 본문 coverage/종료 회귀를 추가했다. 최종 UI 문구/형식 목록 초기화 후 production build 및 sharing APK 자산도 재생성했다. 로그는 `.gradle-home/ebook-export-web.log`, `ebook-export-web-final-build.log`, `ebook-export-android-final.log`, `ebook-export-apk-final-assets.log`에 보존했다.
+- 공식 EPUBCheck 5.4.0으로 production exporter가 생성한 120문단 한글 EPUB을 검사해 오류/경고 0건. 그 파일을 실제 인앱 브라우저에 가져와 제목 2개 포함 122문단·33쪽·마지막 120번째 문단/100%까지 읽었다. 이는 실제 OS 다운로드 동작 검증과 구분한다. 웹 EPUB 준비 link, ko/en 390×844·844×390 PDF 준비/페이지 이동·44px 버튼·줄 잘림 없음을 확인하고 형식 변경 후 첫 페이지로 복귀하도록 수정했다.
+- 인앱 브라우저 보안 정책이 Blob 인쇄 미리보기 URL 열기를 차단했다. 다른 브라우저/CDP/프로세스로 우회하지 않았다. 실제 PDF 저장·glyph·페이지 렌더링은 검증 대기이며 Android 실제 PDF/SAF/회전/재생성도 V3다. 계측 소스 컴파일을 실기기 실행으로 표시하지 않는다. [지원 범위·근거](DOCUMENT_FILE_EXPORT.md)
+- 웹5174와 원본 폴더 변경·기존 DB를 보존했다. 서버 시작 거절은 재시도하지 않았다. 다음은 준비된 환경에서 기본 서버 흐름 재검증 또는 독립 S4c3a 분류 passive ZIP snapshot이다. 전체 프로젝트·S4·EPUB 원본 보관/identity 교환은 미완료다.
 
 ### 2026-10-05 별도 파일 export — B2
 

@@ -1,0 +1,83 @@
+[
+  {
+    "name": "nul-in-title",
+    "bookTitle": "Bad\u0000title",
+    "chapterTitle": "",
+    "language": "en",
+    "paragraphs": [
+      "body"
+    ]
+  },
+  {
+    "name": "c1-in-paragraph",
+    "bookTitle": "Book",
+    "chapterTitle": "",
+    "language": "en",
+    "paragraphs": [
+      "bad\u0085text"
+    ]
+  },
+  {
+    "name": "unpaired-high-surrogate",
+    "bookTitle": "Book",
+    "chapterTitle": "",
+    "language": "en",
+    "paragraphs": [
+      "bad\ud800"
+    ]
+  },
+  {
+    "name": "unpaired-low-surrogate-in-title",
+    "bookTitle": "Book",
+    "chapterTitle": "\udfff",
+    "language": "en",
+    "paragraphs": [
+      "body"
+    ]
+  },
+  {
+    "name": "xml-fffe-in-paragraph",
+    "bookTitle": "Book",
+    "chapterTitle": "",
+    "language": "en",
+    "paragraphs": [
+      "bad\ufffe"
+    ]
+  },
+  {
+    "name": "xml-ffff-in-title",
+    "bookTitle": "Bad\uffff",
+    "chapterTitle": "",
+    "language": "en",
+    "paragraphs": [
+      "body"
+    ]
+  },
+  {
+    "name": "control-in-language",
+    "bookTitle": "Book",
+    "chapterTitle": "",
+    "language": "en\u000b",
+    "paragraphs": [
+      "body"
+    ]
+  },
+  {
+    "name": "unpaired-surrogate-in-language",
+    "bookTitle": "Book",
+    "chapterTitle": "",
+    "language": "\ud800",
+    "paragraphs": [
+      "body"
+    ]
+  },
+  {
+    "name": "xml-fffe-in-language",
+    "bookTitle": "Book",
+    "chapterTitle": "",
+    "language": "\ufffe",
+    "paragraphs": [
+      "body"
+    ]
+  }
+]

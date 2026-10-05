@@ -27,9 +27,11 @@ Node.js 20.19 이상(20.x) 또는 22.12 이상을 사용한다. 최초 의존성
 
 ## 책을 일반 파일로 내보내기
 
-웹 첫 화면 **파일 내보내기** 또는 **이 기기 보관 → 파일 내보내기**에서 책을 고른다. TXT·Markdown 형식을 선택한 뒤 **파일 저장**을 누르면 된다. 읽는 중에는 **읽기 도구 → 책 파일 내보내기**에서도 연다. PDF는 원본 PDF 파일을 저장한다. Android는 **Local → ZIP → 책의 파일 내보내기**에서 형식을 고른다.
+웹 첫 화면 **파일 내보내기** 또는 **이 기기 보관 → 파일 내보내기**에서 책을 고른다. TXT·Markdown·**EPUB 전자책 만들기**를 선택해 준비한 뒤 **파일 저장**을 누른다. 읽는 중에는 **읽기 도구 → 책 파일 내보내기**에서도 연다. **PDF 원본 저장**은 보관된 원본 PDF를 그대로 저장한다.
 
-본문 파일에는 메모·읽기 위치·계정 정보가 포함되지 않는다. 한 회차 문서는 그 회차만 저장하며 EPUB 이미지·원래 레이아웃은 TXT/Markdown에 포함하지 않는다. 원본 PDF 최대 32 MiB, 텍스트 입력 최대 500만 UTF-16 code unit 등의 한도와 [상세 범위·검증](DOCUMENT_FILE_EXPORT.md)을 확인한다. 기록까지 옮길 때는 아래 ZIP을 사용한다.
+텍스트 문서의 **PDF 문서 만들기**는 새 A4 문서를 준비한다. 웹에서는 **PDF로 저장 · 인쇄**를 누르고 브라우저 인쇄 창에서 **PDF로 저장**을 고른다. 인쇄 창이 지원되지 않으면 **인쇄용 문서 보기**를 열어 브라우저 인쇄 메뉴를 사용한다. 모든 페이지와 저장 결과는 브라우저에서 확인한다. Android는 **Local → ZIP → 책의 파일 내보내기**에서 EPUB 또는 PDF 생성을 선택하고 시스템 파일 저장 화면으로 저장한다.
+
+새 본문 파일에는 삽화·메모·읽기 위치·계정 정보·원본 식별자가 포함되지 않는다. 한 회차 문서는 그 회차만 저장하며 새 EPUB도 원래 EPUB의 이미지·레이아웃을 복원하지 않는다. 텍스트 입력 최대 500만 UTF-16 code unit·10만 문단, EPUB 리소스당 8 MiB·전체/ZIP 32 MiB, Android 새 PDF 최대 2,000쪽·32 MiB 등의 [상세 범위·검증](DOCUMENT_FILE_EXPORT.md)을 확인한다. 한도를 넘는 본문은 자르지 않고 실패로 표시한다. 기록까지 옮길 때는 아래 ZIP을 사용한다.
 
 ## 앱 ↔ PC 웹 ZIP 교환
 
@@ -63,10 +65,12 @@ Node.js 20.19 이상(20.x) 또는 22.12 이상을 사용한다. 최초 의존성
 .\gradlew.bat -PbuildTarget=all :app:assembleDebug
 ```
 
-APK 빌드·단위 테스트·lint·계측 소스 컴파일은 완료했지만 연결된 실기기가 없어 설치 후 SAF/회전/프로세스 재생성/핫스팟/절전 검증은 남았다. 폰 서재 공유 기능의 구현과 물리 비행기·핫스팟 환경 검증을 구분한다.
+이번 EPUB/생성 PDF 후속의 최종 로컬 검사는 601개 중 585개 통과·16개 opt-in 제외이고 APK·lint·계측 소스 컴파일·모듈 경계 검사도 통과했다. 연결된 실기기가 없어 생성 PDF의 글꼴·여백·전체 텍스트와 SAF/회전/프로세스 재생성/핫스팟/절전 검증은 남았다. 폰 서재 공유 기능의 구현과 물리 비행기·핫스팟 환경 검증도 구분한다.
 
 ## 이번 검증 근거
 
+- EPUB·본문 기반 PDF 후속: [PR #49](https://github.com/gongdongho12/PageTuner/pull/49), `codex/pdf-epub-document-export`, base [PR #48](https://github.com/gongdongho12/PageTuner/pull/48). 웹 643개/75파일·생성 계약 15개·TypeScript·production/sharing build, core-content 18개 통과. 이후 작은 UI·문구 수정은 TypeScript·build를 다시 확인했다. CJK 120문단의 실제 생성 EPUB는 EPUBCheck 5.4.0 오류 0·경고 0이었고, 실제 웹 가져오기에서 제목 포함 122문단·33쪽과 마지막 본문·100% 진행률을 확인했다. 파일은 동일 exporter를 Node SSR로 호출해 생성했으며 OS 다운로드를 거친 왕복은 아니다. [상세](DOCUMENT_FILE_EXPORT.md)
+- ko/en·390×844/844×390에서 EPUB/PDF 형식·PDF 준비 패널의 넘침과 문단 잘림 없음, 보이는 버튼 44px 이상, 형식 다시 선택 시 첫 페이지 복귀를 확인했다. Blob 미리보기 URL 이동이 브라우저 보안 정책으로 차단되어 인쇄 문서 렌더링·실제 생성 PDF 시각 검사·OS 저장은 확인하지 못했고 우회하지 않았다.
 - PDF decoder 변경: [draft PR #46](https://github.com/gongdongho12/PageTuner/pull/46), 최종 `bdb2e0b`의 [CI 성공](https://github.com/gongdongho12/PageTuner/actions/runs/37281711919). 앱 567 통과/16 opt-in 제외, core 37/runtime 36, APK/lint/계측 소스/경계. [상세](PDF_DECODER_CONTEXT.md)
 - 계정 없는 시작 화면: [draft PR #47](https://github.com/gongdongho12/PageTuner/pull/47). 웹 566개/71파일, 생성 계약 15개·TypeScript·프로덕션 빌드 통과.
 - 실제 인앱 브라우저: 계정 없이 2쪽 PDF 가져오기·읽기·새로고침 후 2쪽 복원, 글자 크기 21 저장·복원 후 20으로 복구, ZIP 2문서 가져오기와 PDF.js 읽기, ZIP 내보내기 완료 표시, 390×844/844×390 화면 확인.

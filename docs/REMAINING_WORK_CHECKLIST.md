@@ -4,6 +4,9 @@
 
 ## 현재 진행 단위
 
+- [x] **B2 후속 EPUB·본문 기반 PDF 구현**: [PR #49](https://github.com/gongdongho12/PageTuner/pull/49), `codex/pdf-epub-document-export`, base PR #48. 새 EPUB는 텍스트·언어·목차를 담고 원본 EPUB 복원을 주장하지 않는다. Android는 A4 PDF를 생성하고 웹은 브라우저 **PDF로 저장**·인쇄용 문서 보기로 연결한다. PDF 원본 저장과 구분하며 삽화·메모·원본 식별자는 새 문서에 포함하지 않는다.
+- [x] **B2 후속 로컬 검사·EPUB 검증**: 웹 643개/75파일·계약 15개·core-content 18개, Android 최종 601개 중 585개 통과/16개 제외·APK/lint/계측 소스/모듈 경계 통과. 웹 전체 검사 후 UI·문구 수정은 typecheck/build 재확인. 실제 CJK 120문단 EPUB는 EPUBCheck 5.4.0 오류 0·경고 0이고 웹 가져오기에서 제목 포함 122문단·33쪽·마지막 본문·100% 진행률 확인. ko/en·390×844/844×390 형식/PDF 준비 패널의 넘침·문단 잘림 없음, 보이는 버튼 44px 이상 확인. [범위·검증](DOCUMENT_FILE_EXPORT.md)
+- [ ] **B2 후속 실제 PDF 렌더·저장 검증**: PDF 시각 검사·브라우저 OS 저장·Android 실기기 렌더/SAF는 남았다. Blob 미리보기 이동 정책 차단은 우회하지 않는다. EPUB UI 가져오기는 같은 exporter의 Node SSR 생성 파일을 사용했으며 OS 다운로드를 거친 왕복으로 기록하지 않는다. 최종 head CI 결과는 작업 큐에서 별도로 확인한다.
 - [x] **B2 별도 문서 파일 내보내기**: 웹·Android TXT/Markdown 및 검증된 PDF 원본, 기존 ZIP/읽기 기록 내보내기 분리. [draft PR #48](https://github.com/gongdongho12/PageTuner/pull/48), [범위·검증](DOCUMENT_FILE_EXPORT.md). OS 다운로드 왕복과 Android 실기기 SAF는 검증 대기로 구분한다.
 - [x] **S4b2b2c — 동일 PDF 원본 bytes·실제 디코더 페이지 수·표시 본문 연결** 구현·자동검사. [draft PR #46](https://github.com/gongdongho12/PageTuner/pull/46), 공통 `c9dad4a`·웹 `95e6708`·앱 `e4429e7`. 물리 Android 실행은 V3에 남는다.
 - [x] PDF 검토 결함 수정: Android 계측 소스 컴파일, 부분 추출 PDF 번역 export 거절, 캐시 표시 전 원본 문맥 검사.
@@ -18,7 +21,7 @@
 - [ ] **S4b2b2b 실제 서버 UI 종단 검증**: ZIP PDF 업로드 → 별도 연결 → 재검증 → 읽기 → 해제. PR #45 구현·mock API 브라우저 검사는 완료했지만 실제 PostgreSQL UI 검사는 남았다. 이전 서버 시작 정책 거절은 우회하지 않는다.
 - [ ] **네이티브 PDF 계정 연결**: 원본 bytes와 표시 본문을 검증한 뒤 별도 업로드·연결 UX 제공. PDF snapshot UUID로 기존 텍스트 S1/S2 API를 열지 않는다.
 - [ ] **PDF 계정 물리 위치·메모 계약과 연동**: 실제 bytes hash와 디코더 문맥에 묶인 위치를 사용하고 화면 쪽 번호·wire pageCount로 추정하지 않는다.
-- [ ] **EPUB 원본 보관·전달 형식·연결**: 원본 bytes 보존, 전체 proof, 앱·웹 교환 형식과 위치 대응. 파싱 뒤 원본을 버리는 경로와 ZIP v1 MIME 제약 해결.
+- [ ] **EPUB 원본 보관·전달 형식·연결**: 원본 bytes 보존, 전체 proof, 앱·웹 교환 형식과 위치 대응. 파싱 뒤 원본을 버리는 경로와 ZIP v1 MIME 제약 해결. 새 읽기용 EPUB 생성은 이 원본 보존·계정 연결 작업의 완료를 뜻하지 않는다.
 - [ ] **S4c3a 분류 passive ZIP snapshot 계약·codec**: 정확한 DocumentIdentity, absent/present 및 명시적 빈 값, 폴더·태그 순서·즐겨찾기를 보존한다. 분류에 없는 deleted 상태를 만들지 않는다.
 - [ ] **분류 최신 export·명시적 채택**: 직접 GET, 계정/origin/세대와 binding 재검증, pending/conflict 보존, 사용자 선택 후 새 mutation. 기존 로컬 organization과 분리한다.
 - [ ] **S1 최신 읽던 위치의 ZIP 통합**: 정확한 문단 ID·UTF-16 offset·원본 revision/hash를 유지하고 기기 값·대기 중 값·서버 최신 값을 구분한다.
@@ -45,8 +48,8 @@
 
 - [ ] **V1 용어집 실제 화면** — JSON 파일 왕복, 별칭·조사·강조 선택, 종류/활성 편집 회귀.
 - [ ] **V2 유료 번역 서비스** — 실제 DeepSeek·Google Cloud·OpenAI 호환 키로 연결·전체 번역·읽기·재시도. fixture 성공과 구분.
-- [ ] **V3 Android 실기기** — 실제 PDF decoder, 계정·ZIP·SAF·회전·프로세스 재생성·번역·동기화·전자잉크 키, 핫스팟·화면 꺼짐·절전. 계측 소스 컴파일만으로 체크하지 않는다.
-- [ ] **V4 OS/브라우저 차이** — 디렉터리 권한·볼륨 키·시스템 바·전자잉크 변환·OS 공유의 대체 동작과 한계, 손상 항목 복구.
+- [ ] **V3 Android 실기기** — 실제 PDF decoder와 생성 PDF의 한글·여백·전체 본문, 새 EPUB 가져오기·SAF 저장, 계정·ZIP·회전·프로세스 재생성·번역·동기화·전자잉크 키, 핫스팟·화면 꺼짐·절전. 계측 소스 컴파일만으로 체크하지 않는다.
+- [ ] **V4 OS/브라우저 차이** — 생성 PDF 인쇄 렌더·전체 페이지·OS 저장, EPUB 다운로드·재가져오기, 디렉터리 권한·볼륨 키·시스템 바·전자잉크 변환·OS 공유의 대체 동작과 한계, 손상 항목 복구. 이번 브라우저의 Blob 미리보기 이동 차단과 준비 패널 검사를 구분한다.
 - [ ] **V5 CI 검사 범위 확대** — 현재 PR CI와 별도의 로컬 전체 검사를 구분. workflow 권한이 확보되면 보존된 `portable-glossary-ci.patch`와 새 PDF PostgreSQL 검사의 CI 반영을 검토한다. 같은 권한 거절을 반복하지 않는다.
 
 ## 작업 운영

@@ -60,6 +60,8 @@ fun PortableLibraryPanel(books: List<LocalBook>, currentBookId: String?, state: 
         else {
             options += ExportOption(R.string.document_file_txt, R.string.document_file_text_description) { file(PortableDocumentFileFormat.TXT) }
             options += ExportOption(R.string.document_file_markdown, R.string.document_file_text_description) { file(PortableDocumentFileFormat.MARKDOWN) }
+            options += ExportOption(R.string.document_file_epub, R.string.document_file_epub_description) { file(PortableDocumentFileFormat.EPUB) }
+            options += ExportOption(R.string.document_file_pdf_document, R.string.document_file_pdf_document_description) { file(PortableDocumentFileFormat.PDF_DOCUMENT) }
         }
         if (selected is PortableRow.Native && selected.book.id == currentBookId && !selected.book.contentIsTranslated) {
             options += ExportOption(R.string.portable_with_translation, R.string.document_file_translation_description) { onNativeExport(selected.book, true) }

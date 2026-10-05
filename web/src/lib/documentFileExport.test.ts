@@ -5,7 +5,7 @@ import { documentExportFormats, downloadDocumentFileExport, prepareDocumentFileE
 import type { ReadingDocument } from './readingDocument'
 
 type TextVector = { name: string; bookTitle: string; chapterTitle: string; paragraphs: string[]; format: 'TXT' | 'MARKDOWN'; expected: { filename: string; mimeType: string; text: string } }
-type FilenameVector = { name: string; bookTitle: string; chapterTitle: string; extension: 'txt' | 'md' | 'pdf'; expected: string }
+type FilenameVector = { name: string; bookTitle: string; chapterTitle: string; extension: 'txt' | 'md' | 'pdf' | 'epub'; expected: string }
 const vectors = JSON.parse(readFileSync(new URL('../../../contracts/fixtures/document-file-export-v1/vectors.json', import.meta.url), 'utf8')) as TextVector[]
 const filenameVectors = JSON.parse(readFileSync(new URL('../../../contracts/fixtures/document-file-export-v1/filename-vectors.json', import.meta.url), 'utf8')) as FilenameVector[]
 const rejectedVectors = JSON.parse(readFileSync(new URL('../../../contracts/fixtures/document-file-export-v1/rejected-vectors.json', import.meta.url), 'utf8')) as Omit<TextVector, 'expected'>[]
@@ -59,8 +59,8 @@ describe('plain document downloads with the shared Kotlin contract', () => {
     await expect(prepareDocumentFileExport(many, 'txt')).rejects.toThrow('크기 제한')
   })
   it('offers TXT and Markdown for body documents and refuses unknown requested formats', async () => {
-    expect(documentExportFormats(textDocument())).toEqual(['txt', 'markdown'])
-    await expect(prepareDocumentFileExport(textDocument(), 'epub' as DocumentExportFormat)).rejects.toThrow()
+    expect(documentExportFormats(textDocument())).toEqual(['txt', 'markdown', 'epub'])
+    await expect(prepareDocumentFileExport(textDocument(), 'unsupported' as DocumentExportFormat)).rejects.toThrow()
   })
 })
 
@@ -90,7 +90,7 @@ describe('bounded original PDF download', () => {
     expect(new Uint8Array(await result.blob.arrayBuffer())).toEqual(sourcePdf)
     expect(hash(new Uint8Array(await result.blob.arrayBuffer()))).toBe(document.local?.contentHash)
     expect(document).toEqual(before); expect(fetcher).not.toHaveBeenCalled()
-    for (const format of ['txt', 'markdown'] as const) await expect(prepareDocumentFileExport(document, format)).rejects.toThrow()
+    for (const format of ['txt', 'markdown', 'epub'] as const) await expect(prepareDocumentFileExport(document, format)).rejects.toThrow()
   })
   it('refuses absent bytes, missing/wrong hash or length and oversize PDF before reading', async () => {
     const original = pdfDocument()
