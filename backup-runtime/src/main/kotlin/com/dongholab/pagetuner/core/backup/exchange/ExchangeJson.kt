@@ -131,10 +131,13 @@ internal object ExchangeJson {
             it.paragraphId?.let { id -> require(id in paragraphMap) { "Unknown image paragraph." } }
             it.alt?.let { value -> bounded(value, 2000) }
         }
-        document.extensionsJson?.let {
-            require(it.toByteArray(Charsets.UTF_8).size <= LibraryExchangeLimits.EXTENSIONS_BYTES) { "Extensions exceed the byte limit." }
-            checkMetadata(parseObject(it.toByteArray(Charsets.UTF_8)), 0)
-        }
+        document.extensionsJson?.let(::validateExtensions)
+    }
+
+    /** The same passive metadata bounds apply to explicit typed extension readers and the ZIP codec. */
+    internal fun validateExtensions(raw: String) {
+        require(raw.toByteArray(Charsets.UTF_8).size <= LibraryExchangeLimits.EXTENSIONS_BYTES) { "Extensions exceed the byte limit." }
+        checkMetadata(parseObject(raw.toByteArray(Charsets.UTF_8)), 0)
     }
 
     private val forbiddenKeys = setOf("authorization", "password", "passwd", "token", "apikey", "accesstoken", "refreshtoken", "secret", "clientsecret", "credentials", "cookie", "setcookie", "basicauth")

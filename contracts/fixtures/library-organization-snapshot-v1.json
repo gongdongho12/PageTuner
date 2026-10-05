@@ -1,0 +1,1059 @@
+{
+  "cases": [
+    {
+      "name": "original-present",
+      "document": {
+        "id": "original-present",
+        "bookTitle": "Book 🌏",
+        "chapterTitle": "One",
+        "language": "en",
+        "kind": "original",
+        "paragraphs": [
+          {
+            "paragraphId": "p:1",
+            "text": " Hello 🌏:\nline|x "
+          },
+          {
+            "paragraphId": "p|2",
+            "text": "끝"
+          }
+        ],
+        "extensions": {
+          "documentIdentity": {
+            "version": 1,
+            "kind": "ORIGINAL",
+            "contentProviderId": "source:edge",
+            "bookId": "book|原🌏",
+            "chapterId": "chapter:one",
+            "sourceRevision": "dd6d7c2cdba67ae5f62a649a19b5008ac2a80ee9e6c7c0063a6da27167908aba",
+            "sourceLanguage": "en",
+            "paragraphHash": "7159c2d1dc60047b5c1ab52058e3d166481adf1fcdd60aea73387df70fb2ba70"
+          },
+          "passive": {
+            "keep": "unchanged"
+          },
+          "bookGlossarySnapshots": {
+            "version": 1,
+            "snapshots": [
+              {
+                "providerId": "wtr-lab",
+                "bookId": "https://wtr-lab.com/en/novel/42/river",
+                "targetLanguage": "ko",
+                "presence": "present",
+                "entries": [
+                  {
+                    "id": "original-entry-2:人物🌏",
+                    "sourceTerm": " Alice ",
+                    "translatedTerm": " 앨리스 ",
+                    "displayTerm": " 아리 ",
+                    "kind": "Character",
+                    "caseSensitive": true,
+                    "enabled": true
+                  },
+                  {
+                    "id": "disabled-place-1",
+                    "sourceTerm": "River",
+                    "translatedTerm": "강",
+                    "displayTerm": "",
+                    "kind": "Place",
+                    "caseSensitive": false,
+                    "enabled": false
+                  },
+                  {
+                    "id": "term-3",
+                    "sourceTerm": "River",
+                    "translatedTerm": " 리버 ",
+                    "displayTerm": "  ",
+                    "kind": "Term",
+                    "caseSensitive": false,
+                    "enabled": true
+                  }
+                ]
+              },
+              {
+                "providerId": "wtr-lab",
+                "bookId": "https://wtr-lab.com/en/novel/42/river",
+                "targetLanguage": "en",
+                "presence": "present",
+                "entries": []
+              },
+              {
+                "providerId": "wtr-lab",
+                "bookId": "https://wtr-lab.com/en/novel/42/river",
+                "targetLanguage": "ja",
+                "presence": "deleted",
+                "entries": null
+              },
+              {
+                "providerId": "wtr-lab",
+                "bookId": "https://wtr-lab.com/en/novel/42/river",
+                "targetLanguage": "zh-hans",
+                "presence": "absent",
+                "entries": null
+              }
+            ]
+          },
+          "unknown": {
+            "version": 99,
+            "ordered": [
+              "z",
+              "A",
+              "a"
+            ],
+            "text": " keep 🌏 ",
+            "decimal": 0.125
+          }
+        },
+        "outline": [],
+        "notes": [],
+        "assets": [],
+        "glossary": [
+          {
+            "source": "Legacy",
+            "target": "기존",
+            "caseSensitive": true,
+            "enabled": true
+          }
+        ],
+        "organization": {
+          "folder": "Legacy xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+          "tags": [
+            "Legacy  Tag",
+            "legacy",
+            "é",
+            "é"
+          ],
+          "favorite": false
+        }
+      },
+      "snapshot": {
+        "version": 1,
+        "identity": {
+          "version": 1,
+          "kind": "ORIGINAL",
+          "contentProviderId": "source:edge",
+          "bookId": "book|原🌏",
+          "chapterId": "chapter:one",
+          "sourceRevision": "dd6d7c2cdba67ae5f62a649a19b5008ac2a80ee9e6c7c0063a6da27167908aba",
+          "sourceLanguage": "en",
+          "paragraphHash": "7159c2d1dc60047b5c1ab52058e3d166481adf1fcdd60aea73387df70fb2ba70"
+        },
+        "presence": "present",
+        "organization": {
+          "folder": "판타지 / Part  A",
+          "tags": [
+            "Reading",
+            "reading",
+            "é",
+            "é",
+            "원문🌏",
+            "중간  공백",
+            "mid﻿bom",
+            "​edge"
+          ],
+          "favorite": true
+        }
+      }
+    },
+    {
+      "name": "original-absent",
+      "document": {
+        "id": "original-absent",
+        "bookTitle": "Book 🌏",
+        "chapterTitle": "One",
+        "language": "en",
+        "kind": "original",
+        "paragraphs": [
+          {
+            "paragraphId": "p:1",
+            "text": " Hello 🌏:\nline|x "
+          },
+          {
+            "paragraphId": "p|2",
+            "text": "끝"
+          }
+        ],
+        "extensions": {
+          "documentIdentity": {
+            "version": 1,
+            "kind": "ORIGINAL",
+            "contentProviderId": "source:edge",
+            "bookId": "book|原🌏",
+            "chapterId": "chapter:one",
+            "sourceRevision": "dd6d7c2cdba67ae5f62a649a19b5008ac2a80ee9e6c7c0063a6da27167908aba",
+            "sourceLanguage": "en",
+            "paragraphHash": "7159c2d1dc60047b5c1ab52058e3d166481adf1fcdd60aea73387df70fb2ba70"
+          },
+          "passive": {
+            "keep": "unchanged"
+          },
+          "bookGlossarySnapshots": {
+            "version": 1,
+            "snapshots": [
+              {
+                "providerId": "wtr-lab",
+                "bookId": "https://wtr-lab.com/en/novel/42/river",
+                "targetLanguage": "ko",
+                "presence": "present",
+                "entries": [
+                  {
+                    "id": "original-entry-2:人物🌏",
+                    "sourceTerm": " Alice ",
+                    "translatedTerm": " 앨리스 ",
+                    "displayTerm": " 아리 ",
+                    "kind": "Character",
+                    "caseSensitive": true,
+                    "enabled": true
+                  },
+                  {
+                    "id": "disabled-place-1",
+                    "sourceTerm": "River",
+                    "translatedTerm": "강",
+                    "displayTerm": "",
+                    "kind": "Place",
+                    "caseSensitive": false,
+                    "enabled": false
+                  },
+                  {
+                    "id": "term-3",
+                    "sourceTerm": "River",
+                    "translatedTerm": " 리버 ",
+                    "displayTerm": "  ",
+                    "kind": "Term",
+                    "caseSensitive": false,
+                    "enabled": true
+                  }
+                ]
+              },
+              {
+                "providerId": "wtr-lab",
+                "bookId": "https://wtr-lab.com/en/novel/42/river",
+                "targetLanguage": "en",
+                "presence": "present",
+                "entries": []
+              },
+              {
+                "providerId": "wtr-lab",
+                "bookId": "https://wtr-lab.com/en/novel/42/river",
+                "targetLanguage": "ja",
+                "presence": "deleted",
+                "entries": null
+              },
+              {
+                "providerId": "wtr-lab",
+                "bookId": "https://wtr-lab.com/en/novel/42/river",
+                "targetLanguage": "zh-hans",
+                "presence": "absent",
+                "entries": null
+              }
+            ]
+          },
+          "unknown": {
+            "version": 99,
+            "ordered": [
+              "z",
+              "A",
+              "a"
+            ],
+            "text": " keep 🌏 ",
+            "decimal": 0.125
+          }
+        },
+        "outline": [],
+        "notes": [],
+        "assets": [],
+        "glossary": [
+          {
+            "source": "Legacy",
+            "target": "기존",
+            "caseSensitive": true,
+            "enabled": true
+          }
+        ],
+        "organization": {
+          "folder": "Legacy xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+          "tags": [
+            "Legacy  Tag",
+            "legacy",
+            "é",
+            "é"
+          ],
+          "favorite": false
+        }
+      },
+      "snapshot": {
+        "version": 1,
+        "identity": {
+          "version": 1,
+          "kind": "ORIGINAL",
+          "contentProviderId": "source:edge",
+          "bookId": "book|原🌏",
+          "chapterId": "chapter:one",
+          "sourceRevision": "dd6d7c2cdba67ae5f62a649a19b5008ac2a80ee9e6c7c0063a6da27167908aba",
+          "sourceLanguage": "en",
+          "paragraphHash": "7159c2d1dc60047b5c1ab52058e3d166481adf1fcdd60aea73387df70fb2ba70"
+        },
+        "presence": "absent",
+        "organization": null
+      }
+    },
+    {
+      "name": "original-present-empty-no-sibling",
+      "document": {
+        "id": "original-present-empty-no-sibling",
+        "bookTitle": "Book 🌏",
+        "chapterTitle": "One",
+        "language": "en",
+        "kind": "original",
+        "paragraphs": [
+          {
+            "paragraphId": "p:1",
+            "text": " Hello 🌏:\nline|x "
+          },
+          {
+            "paragraphId": "p|2",
+            "text": "끝"
+          }
+        ],
+        "extensions": {
+          "passive": {
+            "keep": "unchanged"
+          },
+          "bookGlossarySnapshots": {
+            "version": 1,
+            "snapshots": [
+              {
+                "providerId": "wtr-lab",
+                "bookId": "https://wtr-lab.com/en/novel/42/river",
+                "targetLanguage": "ko",
+                "presence": "present",
+                "entries": [
+                  {
+                    "id": "original-entry-2:人物🌏",
+                    "sourceTerm": " Alice ",
+                    "translatedTerm": " 앨리스 ",
+                    "displayTerm": " 아리 ",
+                    "kind": "Character",
+                    "caseSensitive": true,
+                    "enabled": true
+                  },
+                  {
+                    "id": "disabled-place-1",
+                    "sourceTerm": "River",
+                    "translatedTerm": "강",
+                    "displayTerm": "",
+                    "kind": "Place",
+                    "caseSensitive": false,
+                    "enabled": false
+                  },
+                  {
+                    "id": "term-3",
+                    "sourceTerm": "River",
+                    "translatedTerm": " 리버 ",
+                    "displayTerm": "  ",
+                    "kind": "Term",
+                    "caseSensitive": false,
+                    "enabled": true
+                  }
+                ]
+              },
+              {
+                "providerId": "wtr-lab",
+                "bookId": "https://wtr-lab.com/en/novel/42/river",
+                "targetLanguage": "en",
+                "presence": "present",
+                "entries": []
+              },
+              {
+                "providerId": "wtr-lab",
+                "bookId": "https://wtr-lab.com/en/novel/42/river",
+                "targetLanguage": "ja",
+                "presence": "deleted",
+                "entries": null
+              },
+              {
+                "providerId": "wtr-lab",
+                "bookId": "https://wtr-lab.com/en/novel/42/river",
+                "targetLanguage": "zh-hans",
+                "presence": "absent",
+                "entries": null
+              }
+            ]
+          },
+          "unknown": {
+            "version": 99,
+            "ordered": [
+              "z",
+              "A",
+              "a"
+            ],
+            "text": " keep 🌏 ",
+            "decimal": 0.125
+          }
+        },
+        "outline": [],
+        "notes": [],
+        "assets": [],
+        "glossary": [
+          {
+            "source": "Legacy",
+            "target": "기존",
+            "caseSensitive": true,
+            "enabled": true
+          }
+        ],
+        "organization": {
+          "folder": "Legacy xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+          "tags": [
+            "Legacy  Tag",
+            "legacy",
+            "é",
+            "é"
+          ],
+          "favorite": false
+        }
+      },
+      "snapshot": {
+        "version": 1,
+        "identity": {
+          "version": 1,
+          "kind": "ORIGINAL",
+          "contentProviderId": "source:edge",
+          "bookId": "book|原🌏",
+          "chapterId": "chapter:one",
+          "sourceRevision": "dd6d7c2cdba67ae5f62a649a19b5008ac2a80ee9e6c7c0063a6da27167908aba",
+          "sourceLanguage": "en",
+          "paragraphHash": "7159c2d1dc60047b5c1ab52058e3d166481adf1fcdd60aea73387df70fb2ba70"
+        },
+        "presence": "present",
+        "organization": {
+          "folder": "",
+          "tags": [],
+          "favorite": false
+        }
+      }
+    },
+    {
+      "name": "original-language-case",
+      "document": {
+        "id": "original-language-case",
+        "bookTitle": "Book 🌏",
+        "chapterTitle": "One",
+        "language": "EN",
+        "kind": "original",
+        "paragraphs": [
+          {
+            "paragraphId": "p:1",
+            "text": " Hello 🌏:\nline|x "
+          },
+          {
+            "paragraphId": "p|2",
+            "text": "끝"
+          }
+        ],
+        "extensions": {
+          "documentIdentity": {
+            "version": 1,
+            "kind": "ORIGINAL",
+            "contentProviderId": "source:edge",
+            "bookId": "book|原🌏",
+            "chapterId": "chapter:one",
+            "sourceRevision": "dd6d7c2cdba67ae5f62a649a19b5008ac2a80ee9e6c7c0063a6da27167908aba",
+            "sourceLanguage": "EN",
+            "paragraphHash": "7159c2d1dc60047b5c1ab52058e3d166481adf1fcdd60aea73387df70fb2ba70"
+          },
+          "passive": {
+            "keep": "unchanged"
+          },
+          "bookGlossarySnapshots": {
+            "version": 1,
+            "snapshots": [
+              {
+                "providerId": "wtr-lab",
+                "bookId": "https://wtr-lab.com/en/novel/42/river",
+                "targetLanguage": "ko",
+                "presence": "present",
+                "entries": [
+                  {
+                    "id": "original-entry-2:人物🌏",
+                    "sourceTerm": " Alice ",
+                    "translatedTerm": " 앨리스 ",
+                    "displayTerm": " 아리 ",
+                    "kind": "Character",
+                    "caseSensitive": true,
+                    "enabled": true
+                  },
+                  {
+                    "id": "disabled-place-1",
+                    "sourceTerm": "River",
+                    "translatedTerm": "강",
+                    "displayTerm": "",
+                    "kind": "Place",
+                    "caseSensitive": false,
+                    "enabled": false
+                  },
+                  {
+                    "id": "term-3",
+                    "sourceTerm": "River",
+                    "translatedTerm": " 리버 ",
+                    "displayTerm": "  ",
+                    "kind": "Term",
+                    "caseSensitive": false,
+                    "enabled": true
+                  }
+                ]
+              },
+              {
+                "providerId": "wtr-lab",
+                "bookId": "https://wtr-lab.com/en/novel/42/river",
+                "targetLanguage": "en",
+                "presence": "present",
+                "entries": []
+              },
+              {
+                "providerId": "wtr-lab",
+                "bookId": "https://wtr-lab.com/en/novel/42/river",
+                "targetLanguage": "ja",
+                "presence": "deleted",
+                "entries": null
+              },
+              {
+                "providerId": "wtr-lab",
+                "bookId": "https://wtr-lab.com/en/novel/42/river",
+                "targetLanguage": "zh-hans",
+                "presence": "absent",
+                "entries": null
+              }
+            ]
+          },
+          "unknown": {
+            "version": 99,
+            "ordered": [
+              "z",
+              "A",
+              "a"
+            ],
+            "text": " keep 🌏 ",
+            "decimal": 0.125
+          }
+        },
+        "outline": [],
+        "notes": [],
+        "assets": [],
+        "glossary": [
+          {
+            "source": "Legacy",
+            "target": "기존",
+            "caseSensitive": true,
+            "enabled": true
+          }
+        ],
+        "organization": {
+          "folder": "Legacy xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+          "tags": [
+            "Legacy  Tag",
+            "legacy",
+            "é",
+            "é"
+          ],
+          "favorite": false
+        }
+      },
+      "snapshot": {
+        "version": 1,
+        "identity": {
+          "version": 1,
+          "kind": "ORIGINAL",
+          "contentProviderId": "source:edge",
+          "bookId": "book|原🌏",
+          "chapterId": "chapter:one",
+          "sourceRevision": "dd6d7c2cdba67ae5f62a649a19b5008ac2a80ee9e6c7c0063a6da27167908aba",
+          "sourceLanguage": "EN",
+          "paragraphHash": "7159c2d1dc60047b5c1ab52058e3d166481adf1fcdd60aea73387df70fb2ba70"
+        },
+        "presence": "present",
+        "organization": {
+          "folder": "Case",
+          "tags": [
+            "EN",
+            "en"
+          ],
+          "favorite": false
+        }
+      }
+    },
+    {
+      "name": "translation-present",
+      "document": {
+        "id": "translation-present",
+        "bookTitle": "Book 🌏",
+        "chapterTitle": "One",
+        "language": "ko",
+        "kind": "translation",
+        "paragraphs": [
+          {
+            "paragraphId": "p:1",
+            "text": " 안녕 🌏:\n줄|x "
+          },
+          {
+            "paragraphId": "p|2",
+            "text": "마침"
+          }
+        ],
+        "extensions": {
+          "documentIdentity": {
+            "version": 1,
+            "kind": "TRANSLATION",
+            "contentProviderId": "source:edge",
+            "bookId": "book|原🌏",
+            "chapterId": "chapter:one",
+            "sourceRevision": "source-v1",
+            "sourceLanguage": "en",
+            "paragraphHash": "39e7d98bbb06ecab989117f120254ed86fe960efd2dc67070cf4681d19b15870",
+            "targetLanguage": "ko",
+            "translationProviderId": "translator|one",
+            "modelId": "",
+            "promptRevision": "",
+            "glossaryRevision": "",
+            "artifactId": "6c52c79b4868b1cd58b3f8a401db1413c2ebc24782f7fe335282db8b1dc3e3b7",
+            "payloadHash": "d52a93b8eef57628c4ab4226df7e5280571dee34e16cc1cb3595739ae093a9dd",
+            "revision": "a02060f80dd7fe9877cb5219ce3f50b5827395ea5382d381e0c4eda304d4fa77"
+          },
+          "passive": {
+            "keep": "unchanged"
+          },
+          "bookGlossarySnapshots": {
+            "version": 1,
+            "snapshots": [
+              {
+                "providerId": "wtr-lab",
+                "bookId": "https://wtr-lab.com/en/novel/42/river",
+                "targetLanguage": "ko",
+                "presence": "present",
+                "entries": [
+                  {
+                    "id": "original-entry-2:人物🌏",
+                    "sourceTerm": " Alice ",
+                    "translatedTerm": " 앨리스 ",
+                    "displayTerm": " 아리 ",
+                    "kind": "Character",
+                    "caseSensitive": true,
+                    "enabled": true
+                  },
+                  {
+                    "id": "disabled-place-1",
+                    "sourceTerm": "River",
+                    "translatedTerm": "강",
+                    "displayTerm": "",
+                    "kind": "Place",
+                    "caseSensitive": false,
+                    "enabled": false
+                  },
+                  {
+                    "id": "term-3",
+                    "sourceTerm": "River",
+                    "translatedTerm": " 리버 ",
+                    "displayTerm": "  ",
+                    "kind": "Term",
+                    "caseSensitive": false,
+                    "enabled": true
+                  }
+                ]
+              },
+              {
+                "providerId": "wtr-lab",
+                "bookId": "https://wtr-lab.com/en/novel/42/river",
+                "targetLanguage": "en",
+                "presence": "present",
+                "entries": []
+              },
+              {
+                "providerId": "wtr-lab",
+                "bookId": "https://wtr-lab.com/en/novel/42/river",
+                "targetLanguage": "ja",
+                "presence": "deleted",
+                "entries": null
+              },
+              {
+                "providerId": "wtr-lab",
+                "bookId": "https://wtr-lab.com/en/novel/42/river",
+                "targetLanguage": "zh-hans",
+                "presence": "absent",
+                "entries": null
+              }
+            ]
+          },
+          "unknown": {
+            "version": 99,
+            "ordered": [
+              "z",
+              "A",
+              "a"
+            ],
+            "text": " keep 🌏 ",
+            "decimal": 0.125
+          }
+        },
+        "outline": [],
+        "notes": [],
+        "assets": [],
+        "glossary": [
+          {
+            "source": "Legacy",
+            "target": "기존",
+            "caseSensitive": true,
+            "enabled": true
+          }
+        ],
+        "organization": {
+          "folder": "Legacy xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+          "tags": [
+            "Legacy  Tag",
+            "legacy",
+            "é",
+            "é"
+          ],
+          "favorite": false
+        }
+      },
+      "snapshot": {
+        "version": 1,
+        "identity": {
+          "version": 1,
+          "kind": "TRANSLATION",
+          "contentProviderId": "source:edge",
+          "bookId": "book|原🌏",
+          "chapterId": "chapter:one",
+          "sourceRevision": "source-v1",
+          "sourceLanguage": "en",
+          "paragraphHash": "39e7d98bbb06ecab989117f120254ed86fe960efd2dc67070cf4681d19b15870",
+          "targetLanguage": "ko",
+          "translationProviderId": "translator|one",
+          "modelId": "",
+          "promptRevision": "",
+          "glossaryRevision": "",
+          "artifactId": "6c52c79b4868b1cd58b3f8a401db1413c2ebc24782f7fe335282db8b1dc3e3b7",
+          "payloadHash": "d52a93b8eef57628c4ab4226df7e5280571dee34e16cc1cb3595739ae093a9dd",
+          "revision": "a02060f80dd7fe9877cb5219ce3f50b5827395ea5382d381e0c4eda304d4fa77"
+        },
+        "presence": "present",
+        "organization": {
+          "folder": "판타지 / Part  A",
+          "tags": [
+            "Reading",
+            "reading",
+            "é",
+            "é",
+            "원문🌏",
+            "중간  공백",
+            "mid﻿bom",
+            "​edge"
+          ],
+          "favorite": true
+        }
+      }
+    },
+    {
+      "name": "translation-absent-no-sibling",
+      "document": {
+        "id": "translation-absent-no-sibling",
+        "bookTitle": "Book 🌏",
+        "chapterTitle": "One",
+        "language": "ko",
+        "kind": "translation",
+        "paragraphs": [
+          {
+            "paragraphId": "p:1",
+            "text": " 안녕 🌏:\n줄|x "
+          },
+          {
+            "paragraphId": "p|2",
+            "text": "마침"
+          }
+        ],
+        "extensions": {
+          "passive": {
+            "keep": "unchanged"
+          },
+          "bookGlossarySnapshots": {
+            "version": 1,
+            "snapshots": [
+              {
+                "providerId": "wtr-lab",
+                "bookId": "https://wtr-lab.com/en/novel/42/river",
+                "targetLanguage": "ko",
+                "presence": "present",
+                "entries": [
+                  {
+                    "id": "original-entry-2:人物🌏",
+                    "sourceTerm": " Alice ",
+                    "translatedTerm": " 앨리스 ",
+                    "displayTerm": " 아리 ",
+                    "kind": "Character",
+                    "caseSensitive": true,
+                    "enabled": true
+                  },
+                  {
+                    "id": "disabled-place-1",
+                    "sourceTerm": "River",
+                    "translatedTerm": "강",
+                    "displayTerm": "",
+                    "kind": "Place",
+                    "caseSensitive": false,
+                    "enabled": false
+                  },
+                  {
+                    "id": "term-3",
+                    "sourceTerm": "River",
+                    "translatedTerm": " 리버 ",
+                    "displayTerm": "  ",
+                    "kind": "Term",
+                    "caseSensitive": false,
+                    "enabled": true
+                  }
+                ]
+              },
+              {
+                "providerId": "wtr-lab",
+                "bookId": "https://wtr-lab.com/en/novel/42/river",
+                "targetLanguage": "en",
+                "presence": "present",
+                "entries": []
+              },
+              {
+                "providerId": "wtr-lab",
+                "bookId": "https://wtr-lab.com/en/novel/42/river",
+                "targetLanguage": "ja",
+                "presence": "deleted",
+                "entries": null
+              },
+              {
+                "providerId": "wtr-lab",
+                "bookId": "https://wtr-lab.com/en/novel/42/river",
+                "targetLanguage": "zh-hans",
+                "presence": "absent",
+                "entries": null
+              }
+            ]
+          },
+          "unknown": {
+            "version": 99,
+            "ordered": [
+              "z",
+              "A",
+              "a"
+            ],
+            "text": " keep 🌏 ",
+            "decimal": 0.125
+          }
+        },
+        "outline": [],
+        "notes": [],
+        "assets": [],
+        "glossary": [
+          {
+            "source": "Legacy",
+            "target": "기존",
+            "caseSensitive": true,
+            "enabled": true
+          }
+        ],
+        "organization": {
+          "folder": "Legacy xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+          "tags": [
+            "Legacy  Tag",
+            "legacy",
+            "é",
+            "é"
+          ],
+          "favorite": false
+        }
+      },
+      "snapshot": {
+        "version": 1,
+        "identity": {
+          "version": 1,
+          "kind": "TRANSLATION",
+          "contentProviderId": "source:edge",
+          "bookId": "book|原🌏",
+          "chapterId": "chapter:one",
+          "sourceRevision": "source-v1",
+          "sourceLanguage": "en",
+          "paragraphHash": "39e7d98bbb06ecab989117f120254ed86fe960efd2dc67070cf4681d19b15870",
+          "targetLanguage": "ko",
+          "translationProviderId": "translator|one",
+          "modelId": "",
+          "promptRevision": "",
+          "glossaryRevision": "",
+          "artifactId": "6c52c79b4868b1cd58b3f8a401db1413c2ebc24782f7fe335282db8b1dc3e3b7",
+          "payloadHash": "d52a93b8eef57628c4ab4226df7e5280571dee34e16cc1cb3595739ae093a9dd",
+          "revision": "a02060f80dd7fe9877cb5219ce3f50b5827395ea5382d381e0c4eda304d4fa77"
+        },
+        "presence": "absent",
+        "organization": null
+      }
+    },
+    {
+      "name": "translation-present-empty",
+      "document": {
+        "id": "translation-present-empty",
+        "bookTitle": "Book 🌏",
+        "chapterTitle": "One",
+        "language": "ko",
+        "kind": "translation",
+        "paragraphs": [
+          {
+            "paragraphId": "p:1",
+            "text": " 안녕 🌏:\n줄|x "
+          },
+          {
+            "paragraphId": "p|2",
+            "text": "마침"
+          }
+        ],
+        "extensions": {
+          "documentIdentity": {
+            "version": 1,
+            "kind": "TRANSLATION",
+            "contentProviderId": "source:edge",
+            "bookId": "book|原🌏",
+            "chapterId": "chapter:one",
+            "sourceRevision": "source-v1",
+            "sourceLanguage": "en",
+            "paragraphHash": "39e7d98bbb06ecab989117f120254ed86fe960efd2dc67070cf4681d19b15870",
+            "targetLanguage": "ko",
+            "translationProviderId": "translator|one",
+            "modelId": "",
+            "promptRevision": "",
+            "glossaryRevision": "",
+            "artifactId": "6c52c79b4868b1cd58b3f8a401db1413c2ebc24782f7fe335282db8b1dc3e3b7",
+            "payloadHash": "d52a93b8eef57628c4ab4226df7e5280571dee34e16cc1cb3595739ae093a9dd",
+            "revision": "a02060f80dd7fe9877cb5219ce3f50b5827395ea5382d381e0c4eda304d4fa77"
+          },
+          "passive": {
+            "keep": "unchanged"
+          },
+          "bookGlossarySnapshots": {
+            "version": 1,
+            "snapshots": [
+              {
+                "providerId": "wtr-lab",
+                "bookId": "https://wtr-lab.com/en/novel/42/river",
+                "targetLanguage": "ko",
+                "presence": "present",
+                "entries": [
+                  {
+                    "id": "original-entry-2:人物🌏",
+                    "sourceTerm": " Alice ",
+                    "translatedTerm": " 앨리스 ",
+                    "displayTerm": " 아리 ",
+                    "kind": "Character",
+                    "caseSensitive": true,
+                    "enabled": true
+                  },
+                  {
+                    "id": "disabled-place-1",
+                    "sourceTerm": "River",
+                    "translatedTerm": "강",
+                    "displayTerm": "",
+                    "kind": "Place",
+                    "caseSensitive": false,
+                    "enabled": false
+                  },
+                  {
+                    "id": "term-3",
+                    "sourceTerm": "River",
+                    "translatedTerm": " 리버 ",
+                    "displayTerm": "  ",
+                    "kind": "Term",
+                    "caseSensitive": false,
+                    "enabled": true
+                  }
+                ]
+              },
+              {
+                "providerId": "wtr-lab",
+                "bookId": "https://wtr-lab.com/en/novel/42/river",
+                "targetLanguage": "en",
+                "presence": "present",
+                "entries": []
+              },
+              {
+                "providerId": "wtr-lab",
+                "bookId": "https://wtr-lab.com/en/novel/42/river",
+                "targetLanguage": "ja",
+                "presence": "deleted",
+                "entries": null
+              },
+              {
+                "providerId": "wtr-lab",
+                "bookId": "https://wtr-lab.com/en/novel/42/river",
+                "targetLanguage": "zh-hans",
+                "presence": "absent",
+                "entries": null
+              }
+            ]
+          },
+          "unknown": {
+            "version": 99,
+            "ordered": [
+              "z",
+              "A",
+              "a"
+            ],
+            "text": " keep 🌏 ",
+            "decimal": 0.125
+          }
+        },
+        "outline": [],
+        "notes": [],
+        "assets": [],
+        "glossary": [
+          {
+            "source": "Legacy",
+            "target": "기존",
+            "caseSensitive": true,
+            "enabled": true
+          }
+        ],
+        "organization": {
+          "folder": "Legacy xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+          "tags": [
+            "Legacy  Tag",
+            "legacy",
+            "é",
+            "é"
+          ],
+          "favorite": false
+        }
+      },
+      "snapshot": {
+        "version": 1,
+        "identity": {
+          "version": 1,
+          "kind": "TRANSLATION",
+          "contentProviderId": "source:edge",
+          "bookId": "book|原🌏",
+          "chapterId": "chapter:one",
+          "sourceRevision": "source-v1",
+          "sourceLanguage": "en",
+          "paragraphHash": "39e7d98bbb06ecab989117f120254ed86fe960efd2dc67070cf4681d19b15870",
+          "targetLanguage": "ko",
+          "translationProviderId": "translator|one",
+          "modelId": "",
+          "promptRevision": "",
+          "glossaryRevision": "",
+          "artifactId": "6c52c79b4868b1cd58b3f8a401db1413c2ebc24782f7fe335282db8b1dc3e3b7",
+          "payloadHash": "d52a93b8eef57628c4ab4226df7e5280571dee34e16cc1cb3595739ae093a9dd",
+          "revision": "a02060f80dd7fe9877cb5219ce3f50b5827395ea5382d381e0c4eda304d4fa77"
+        },
+        "presence": "present",
+        "organization": {
+          "folder": "",
+          "tags": [],
+          "favorite": false
+        }
+      }
+    }
+  ]
+}

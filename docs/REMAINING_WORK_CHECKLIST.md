@@ -4,6 +4,9 @@
 
 ## 현재 진행 단위
 
+- [x] **S4c3a 분류 passive ZIP snapshot**: [draft PR #50](https://github.com/gongdongho12/PageTuner/pull/50), base PR #49. 전체 text identity·내용 proof, absent/present-empty, 태그 순서·Unicode·기존 분류·형제 확장을 보존한다. core45/runtime50/web660, 실제 웹→JVM→웹 ZIP 7사례 전체 동등성 검증. [범위·후속 경계](PORTABLE_ORGANIZATION_SNAPSHOT.md)
+- [x] **S4c3a 앱 통합 회귀**: Android585 통과/16 opt-in 제외·APK/lint/계측 소스/경계 성공. JVM ZIP 왕복과 물리 기기 SAF·브라우저 다운로드는 구분한다. 최종 head CI는 PR에서 확인한다.
+- [ ] **S4c3b 최신 계정 분류 export·명시적 채택**: passive codec은 계정 값을 조회하거나 바꾸지 않는다. 직접 GET·현재 문서/binding nonce·세대 검증과 화면 연결이 다음 작업이다.
 - [x] **B2 후속 EPUB·본문 기반 PDF 구현**: [PR #49](https://github.com/gongdongho12/PageTuner/pull/49), `codex/pdf-epub-document-export`, base PR #48. 새 EPUB는 텍스트·언어·목차를 담고 원본 EPUB 복원을 주장하지 않는다. Android는 A4 PDF를 생성하고 웹은 브라우저 **PDF로 저장**·인쇄용 문서 보기로 연결한다. PDF 원본 저장과 구분하며 삽화·메모·원본 식별자는 새 문서에 포함하지 않는다.
 - [x] **B2 후속 로컬 검사·EPUB 검증**: 웹 643개/75파일·계약 15개·core-content 18개, Android 최종 601개 중 585개 통과/16개 제외·APK/lint/계측 소스/모듈 경계 통과. 웹 전체 검사 후 UI·문구 수정은 typecheck/build 재확인. 실제 CJK 120문단 EPUB는 EPUBCheck 5.4.0 오류 0·경고 0이고 웹 가져오기에서 제목 포함 122문단·33쪽·마지막 본문·100% 진행률 확인. ko/en·390×844/844×390 형식/PDF 준비 패널의 넘침·문단 잘림 없음, 보이는 버튼 44px 이상 확인. [범위·검증](DOCUMENT_FILE_EXPORT.md)
 - [ ] **B2 후속 실제 PDF 렌더·저장 검증**: PDF 시각 검사·브라우저 OS 저장·Android 실기기 렌더/SAF는 남았다. Blob 미리보기 이동 정책 차단은 우회하지 않는다. EPUB UI 가져오기는 같은 exporter의 Node SSR 생성 파일을 사용했으며 OS 다운로드를 거친 왕복으로 기록하지 않는다. 최종 head CI 결과는 작업 큐에서 별도로 확인한다.
@@ -22,8 +25,8 @@
 - [ ] **네이티브 PDF 계정 연결**: 원본 bytes와 표시 본문을 검증한 뒤 별도 업로드·연결 UX 제공. PDF snapshot UUID로 기존 텍스트 S1/S2 API를 열지 않는다.
 - [ ] **PDF 계정 물리 위치·메모 계약과 연동**: 실제 bytes hash와 디코더 문맥에 묶인 위치를 사용하고 화면 쪽 번호·wire pageCount로 추정하지 않는다.
 - [ ] **EPUB 원본 보관·전달 형식·연결**: 원본 bytes 보존, 전체 proof, 앱·웹 교환 형식과 위치 대응. 파싱 뒤 원본을 버리는 경로와 ZIP v1 MIME 제약 해결. 새 읽기용 EPUB 생성은 이 원본 보존·계정 연결 작업의 완료를 뜻하지 않는다.
-- [ ] **S4c3a 분류 passive ZIP snapshot 계약·codec**: 정확한 DocumentIdentity, absent/present 및 명시적 빈 값, 폴더·태그 순서·즐겨찾기를 보존한다. 분류에 없는 deleted 상태를 만들지 않는다.
-- [ ] **분류 최신 export·명시적 채택**: 직접 GET, 계정/origin/세대와 binding 재검증, pending/conflict 보존, 사용자 선택 후 새 mutation. 기존 로컬 organization과 분리한다.
+- [x] **S4c3a 분류 passive ZIP snapshot 계약·codec**: 정확한 DocumentIdentity, absent/present 및 명시적 빈 값, 폴더·태그 순서·즐겨찾기를 보존한다. 분류에 없는 deleted 상태를 만들지 않는다. PR #50, [검증](PORTABLE_ORGANIZATION_SNAPSHOT.md).
+- [ ] **S4c3b 분류 최신 export·명시적 채택**: 직접 GET, 계정/origin/세대와 binding nonce·현재 문서 재검증, pending/queued/conflict 보존, 사용자 선택 후 새 mutation. 기존 로컬 organization과 분리한다.
 - [ ] **S1 최신 읽던 위치의 ZIP 통합**: 정확한 문단 ID·UTF-16 offset·원본 revision/hash를 유지하고 기기 값·대기 중 값·서버 최신 값을 구분한다.
 - [ ] **S2 최신 북마크·메모·강조의 ZIP 통합**: 항목 ID·삭제 정보·범위를 보존하고 명시적 채택·충돌 처리를 연결한다.
 - [ ] 최신 기록의 **앱 → 웹 → 앱 / 웹 → 앱 → 웹** 왕복 검증. 자격 증명·binding·CAS/outbox mutation을 ZIP에 넣지 않는다. 전체 extensions 256 KiB 초과는 절단 없이 거절한다.
