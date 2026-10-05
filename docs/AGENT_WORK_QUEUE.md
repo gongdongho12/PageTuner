@@ -15,6 +15,8 @@
 
 ## 우선순위 큐
 
+2026-10-05 사용자 우선 변경: 기본 사용 가능한 형태로 마무리하고 커밋·푸시·현재 범위 정리를 요청했다. B1 계정 없는 로컬 읽기 진입은 PR #47에서 완료했다. [기본 사용 안내](QUICK_START.md)를 먼저 읽고, 가능한 서버 기본 흐름 재검증을 우선하되 서버 시작 정책 거절을 우회하지 않는다. 서버 의존성이 준비되지 않았으면 S4c3a 분류 passive snapshot 등 진행 가능한 큐를 계속한다. 전체 프로젝트는 미완료다.
+
 상태: `진행` / `대기` / `검증 대기` / `외부 검증 대기` / `완료` / `플랫폼 확인`.
 
 | ID | 순서 | 상태 | 항목 | 완료 조건·의존성 |
@@ -184,3 +186,13 @@ S4b1 재구현 없이 공유 실제 로컬 책 확인, 공유 본문 선택 방�
 - S4c1 [draft PR #39](https://github.com/gongdongho12/PageTuner/pull/39)은 `codex/portable-glossary-snapshots` → `codex/portable-reading-position`(#38). core/runtime `ba7a91b`, 웹 `ffbc7fb`를 나눠 푸시했다. 공통 모델15·core-backup19·backup-runtime24·웹453/61파일·Android480 통과/15개 opt-in 제외, APK/lint/계측소스/경계 성공. 실제 웹 ZIP→공통 JVM runtime→웹 왕복으로 전체 문서와 모든 glossary 필드를 대조했다. [근거·한계](PORTABLE_GLOSSARY_SNAPSHOTS.md).
 - 검토에서 Unicode sibling 치환 결함을 수정했고 최종 blocking finding 없음. CI workflow task 추가는 OAuth `workflow` 권한 부족으로 거절돼 기능 변경과 분리했다. `.gradle-home/portable-glossary-ci.patch`는 F:/workspace/PageTuner에 보존하며 V5는 미완료다. 새 UI/API/미리보기 DB 변경은 없고 Android 실기기는 연결 장치가 없어 V3에 남는다.
 - 다음 실행은 PR #39 최종 head CI·최신 큐와 첨부 worktree 상태부터 확인한 뒤 S4c2 fresh 계정 용어집 export/명시적 채택을 진행한다. S4c1 codec만으로 최신 계정 기록 내보내기나 S4 전체를 완료 표시하지 않는다. S4b2b 실제 원본 자산의 서버 보관·연결, S1/S2/분류의 ZIP 통합, V1/V2/V3 및 나머지 큐가 남아 있어 반복 실행을 유지한다. 현재 작업 경로는 C:/Users/gongd/.codex/worktrees/glossary-portable-snapshot/PageTuner이며 원래 F:/workspace/PageTuner의 별도 변경은 그대로 보호한다.
+
+### 2026-10-05 기본 사용 마무리 — B1
+
+- S4b2b2c [PR #46](https://github.com/gongdongho12/PageTuner/pull/46)의 정확한 최종 `bdb2e0b42e84cb6e84295e0194087654f32e6332` [CI run37281711919](https://github.com/gongdongho12/PageTuner/actions/runs/37281711919) 성공(3분35초)을 확인했다. decoder 변경을 다시 만들지 않는다.
+- `codex/local-reader-start`의 `f2d8845`로 계정 없는 로컬 파일·ZIP 첫 화면과 기기 보관함을 구현·푸시했다. [draft PR #47](https://github.com/gongdongho12/PageTuner/pull/47), base `codex/verified-pdf-decoder-context`(#46)를 유지한다. 처음 브라우저 검사에서 guest namespace가 계정 provider로 들어가던 crash를 발견해 계정 journal을 비활성화하고 독립 검토를 거쳤다. 원래 계정 자료는 보존한다.
+- 웹566개/71파일·생성 계약15·typecheck/production build, 실제 IndexedDB 기기/계정 격리 및 ZIP 본문·메모·위치·분류 왕복2개 통과. APK 공유 자산 재묶음과 모듈 경계 성공(24초). PDF46의 앱567 통과/16 opt-in 제외·core37/runtime36·lint/계측 소스 결과는 해당 단위 근거로 유지한다.
+- 실제 인앱 브라우저에서 2쪽 PDF 가져오기·읽기·2쪽 새로고침 복원·글자 크기21 저장/복원 후20 복구, canonical0/3문단 ZIP2개 가져오기·실제PDF2쪽읽기, ZIP 내보내기 완료 표시, 390×844/844×390 페이징을 확인했다. 다운로드 파일 경로 대기가 시간 초과되어 이번 화면 검증을 다운로드 파일 재가져오기까지 성공했다고 기록하지 않는다. ZIP bytes 왕복은 독립 자동검사 근거다.
+- 브라우저 검사용 복합 스크립트 작성/실행 명령은 자동 승인 검토에서 blocked by policy로 거절됐고 구체적 이유는 제공되지 않았다. 해당 명령을 재실행하지 않고 전용 브라우저 UI 도구로 가능한 화면 동작만 확인했다. 이전 PostgreSQL/QA 서버 시작 거절은 그대로 지키며 우회하지 않았다.
+- [남은 작업 체크리스트](REMAINING_WORK_CHECKLIST.md)를 만들고 패널 열기를 등록했으며 [실행 방법과 지원 범위](QUICK_START.md)를 추가했다. 현재8080 백엔드는 내려가 있고 웹5174는 로컬 읽기 미리보기로 남긴다. API 프록시는 기본8080으로 복구했다. 원본F:/workspace/PageTuner의 기존 변경을 건드리지 않았다.
+- 다음 실행은 PR #47 최종 head/CI·미완성 변경을 먼저 확인한다. 서버 사용 가능 조건이 확보되면 기본 회원가입→소설→Google웹번역을 재검증하고, 불가능하면 S4c3a 분류 passive ZIP snapshot 계약/codec을 진행한다. S4 전체·실기기V3·유료API V2·V1 화면·workflow권한 V5는 미완료다. 자동 병합하지 않는다.

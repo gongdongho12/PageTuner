@@ -351,6 +351,12 @@ select {
   min-width: 65px;
   font-size: 11px;
 }
+.start-reading .reading-tools-header { flex-wrap: wrap; gap: 8px 20px; }
+.start-reading h2 { font-size: 22px; margin: 0; }
+.start-reading .reading-tools-header > span { font-size: 12px; color: var(--muted); }
+.start-reading-action { height: 100%; min-height: 0; padding: 12px 16px; display: flex; flex-direction: column; justify-content: space-between; gap: 8px; }
+.start-reading-action p { margin: 0; font-size: 13px; line-height: 1.6; overflow-wrap: anywhere; }
+.start-reading-action button { min-height: 44px; flex-shrink: 0; }
 .workflow-welcome {
   flex: 1;
   min-height: 0;

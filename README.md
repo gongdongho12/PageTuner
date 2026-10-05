@@ -6,6 +6,8 @@ Korean: [README.ko.md](README.ko.md)
 
 Working checklist: [TODO.md](TODO.md)
 
+Current app/web quick start (Korean): [QUICK_START.md](docs/QUICK_START.md). Remaining cross-platform work: [REMAINING_WORK_CHECKLIST.md](docs/REMAINING_WORK_CHECKLIST.md).
+
 PageTurner is an Android e-ink reader prototype focused on page-based reading,
 paced translation, and offline reuse of translated text. The codebase is an
 independent implementation; GPL readers may be used as product references only,
