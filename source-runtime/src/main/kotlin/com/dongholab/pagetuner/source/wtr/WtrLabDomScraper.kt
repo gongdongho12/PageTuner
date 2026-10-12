@@ -198,30 +198,11 @@ object WtrLabDomScraper {
         chapterNumber: Int,
         rawJson: String,
         language: String = "en",
+        contentJson: String? = null,
     ): ChapterContentResponse {
-        val root = JSONObject(rawJson)
-        if (!root.optBoolean("success")) {
-            if (root.optString("code") == "1401") {
-                throw WebNovelAuthenticationRequiredException("WTR-LAB")
-            }
-            val reason = when {
-                root.optBoolean("requireTurnstile") -> "browser verification is required"
-                root.optString("code").isNotBlank() -> root.optString("code")
-                root.optString("error").isNotBlank() -> root.optString("error")
-                root.optString("message").isNotBlank() -> root.optString("message")
-                else -> "unknown reader response"
-            }
-            throw java.io.IOException("WTR-LAB reader request failed: $reason")
-        }
-
-        val chapter = root.optJSONObject("chapter")
-            ?: throw java.io.IOException("WTR-LAB reader response did not identify its chapter.")
-        val resolvedNovelId = chapter.opt("raw_id")?.toString()?.toLongOrNull()
-        val resolvedChapterNumber = chapter.opt("order")?.toString()?.toIntOrNull()
-        if (novelId <= 0L || chapterNumber <= 0 || resolvedNovelId != novelId || resolvedChapterNumber != chapterNumber) {
-            throw java.io.IOException("WTR-LAB reader response did not match the requested novel and chapter.")
-        }
-        val responseData = root.optJSONObject("data")
+        val root = readerResponse(rawJson)
+        val chapter = readerChapter(root, novelId, chapterNumber)
+        val responseData = (contentJson?.let(::readerResponse) ?: root).optJSONObject("data")
         val contentData = responseData?.optJSONObject("data") ?: responseData
         val glossary = readerGlossary(contentData)
         val patches = readerPatches(contentData, language)
@@ -234,7 +215,7 @@ object WtrLabDomScraper {
             contentData?.optString("title"),
             chapter.optString("title"),
             chapter.optString("name"),
-            "Chapter $resolvedChapterNumber",
+            "Chapter $chapterNumber",
         )
 
         return ChapterContentResponse(
@@ -244,6 +225,60 @@ object WtrLabDomScraper {
             titleTranslated = contentData?.optString("title")?.takeIf(String::isNotBlank),
             paragraphs = paragraphs,
         )
+    }
+
+    /** Only follow a content location after validating the POST's chapter identity. */
+    fun readerContentUrl(
+        novelId: Long,
+        chapterNumber: Int,
+        rawJson: String,
+        language: String,
+        readerUrl: String,
+    ): String? {
+        val root = readerResponse(rawJson)
+        val chapter = readerChapter(root, novelId, chapterNumber)
+        val responseData = root.optJSONObject("data")
+        val contentData = responseData?.optJSONObject("data") ?: responseData
+        // Keep supporting both historical inline body shapes without a second request.
+        if (readerBody(contentData?.opt("body")).any(String::isNotBlank)) return null
+        if (!root.has("content_url")) return null
+        val contentUrl = root.opt("content_url") as? String
+            ?: throw java.io.IOException("WTR-LAB reader response has an invalid content location.")
+        val chapterId = chapter.opt("id")?.toString()?.toLongOrNull()?.takeIf { it > 0 }
+            ?: throw java.io.IOException("WTR-LAB reader response did not identify its content chapter.")
+        return WtrLabReaderContent.validateUrl(contentUrl, readerUrl, novelId, chapterId, language)
+    }
+
+    private fun readerResponse(rawJson: String): JSONObject {
+        val root = try {
+            JSONObject(rawJson)
+        } catch (_: org.json.JSONException) {
+            throw java.io.IOException("WTR-LAB reader returned invalid JSON.")
+        }
+        if (!root.optBoolean("success")) {
+            if (root.optString("code") == "1401") {
+                throw WebNovelAuthenticationRequiredException("WTR-LAB")
+            }
+            val reason = when {
+                root.optBoolean("requireTurnstile") -> "browser verification is required"
+                Regex("[0-9]{1,8}").matches(root.optString("code")) -> "provider code ${root.optString("code")}"
+                root.optString("error").isNotBlank() || root.optString("message").isNotBlank() -> "provider rejected the request"
+                else -> "unknown reader response"
+            }
+            throw java.io.IOException("WTR-LAB reader request failed: $reason")
+        }
+        return root
+    }
+
+    private fun readerChapter(root: JSONObject, novelId: Long, chapterNumber: Int): JSONObject {
+        val chapter = root.optJSONObject("chapter")
+            ?: throw java.io.IOException("WTR-LAB reader response did not identify its chapter.")
+        val resolvedNovelId = chapter.opt("raw_id")?.toString()?.toLongOrNull()
+        val resolvedChapterNumber = chapter.opt("order")?.toString()?.toIntOrNull()
+        if (novelId <= 0L || chapterNumber <= 0 || resolvedNovelId != novelId || resolvedChapterNumber != chapterNumber) {
+            throw java.io.IOException("WTR-LAB reader response did not match the requested novel and chapter.")
+        }
+        return chapter
     }
 
     private fun readerBody(rawBody: Any?): List<String> = when (rawBody) {

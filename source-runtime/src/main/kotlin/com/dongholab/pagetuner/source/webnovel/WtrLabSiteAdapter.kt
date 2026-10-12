@@ -176,11 +176,19 @@ class WtrLabSiteAdapter(
                     .put("chapter_no", number)
                     .toString()
                 val response = postReaderJson(readerApiUrl(url), requestBody, url)
+                val contentUrl = WtrLabDomScraper.readerContentUrl(
+                    novelId = rawNovelId,
+                    chapterNumber = number,
+                    rawJson = response,
+                    language = language(url),
+                    readerUrl = url,
+                )
                 val parsed = WtrLabDomScraper.parseReaderChapterResponse(
                     novelId = rawNovelId,
                     chapterNumber = number,
                     rawJson = response,
                     language = language(url),
+                    contentJson = contentUrl?.let { fetchHtml(it) },
                 )
                 if (parsed.novelId != rawNovelId || parsed.chapterNumber != number) {
                     throw IOException("WTR-LAB reader response did not match the requested novel and chapter.")

@@ -1,6 +1,7 @@
 package com.dongholab.pagetuner.source
 
 import com.dongholab.pagetuner.source.SourceDiagnostics as DiagnosticLogger
+import com.dongholab.pagetuner.source.wtr.WtrLabReaderContent
 import java.io.ByteArrayOutputStream
 import java.io.IOException
 import java.net.HttpURLConnection
@@ -11,10 +12,13 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
 object WebNovelHttpClient {
-    suspend fun fetchText(url: String): String = requestText(
-        initialUrl = url,
-        initialMethod = "GET",
-    )
+    suspend fun fetchText(url: String): String = try {
+        requestText(initialUrl = url, initialMethod = "GET")
+    } catch (error: Exception) {
+        if (error is kotlinx.coroutines.CancellationException || !WtrLabReaderContent.isContentUrl(url)) throw error
+        // Network and URL parser exceptions may contain the signed request path, including in causes.
+        throw IOException("WTR-LAB reader content request failed (${error.javaClass.simpleName}).")
+    }
 
     suspend fun postJson(
         url: String,
@@ -72,6 +76,9 @@ object WebNovelHttpClient {
 
                 val status = connection.responseCode
                 if (status in 300..399) {
+                    if (WtrLabReaderContent.isContentUrl(initialUrl)) {
+                        throw IOException("WTR-LAB reader content redirects are not supported.")
+                    }
                     val location = connection.getHeaderField("Location")
                         ?: throw IOException("Redirect response did not include a Location header.")
                     if (redirectCount >= MAX_REDIRECTS) {
@@ -144,7 +151,7 @@ object WebNovelHttpClient {
                 if (error is kotlinx.coroutines.CancellationException) throw error
                 DiagnosticLogger.log(
                     "[WEB HTTP ATTEMPT FAILURE]",
-                    "${error.javaClass.simpleName}: ${error.message} target=${diagnosticTarget(currentUrl)}",
+                    "${error.javaClass.simpleName}: ${if (WtrLabReaderContent.isContentUrl(initialUrl)) "Reader content request failed" else error.message} target=${diagnosticTarget(currentUrl)}",
                 )
                 throw error
             } finally {
@@ -162,6 +169,7 @@ object WebNovelHttpClient {
     }.getOrDefault(url)
 
     private fun diagnosticTarget(url: String): String = runCatching {
+        WtrLabReaderContent.diagnosticTarget(url)?.let { return it }
         val uri = URI(url)
         buildString {
             append(uri.host.orEmpty())
