@@ -939,8 +939,13 @@ export const englishMessages: Record<string, string> = {
     "This browser could not remember your reading position.",
   "읽은 위치를 보관함에 저장하지 못했습니다.":
     "Could not save your reading position.",
-  "오프라인 읽기 가능 · 새 화면 업데이트 대기":
-    "Offline reading ready · Update pending",
+  "오프라인 읽기 가능 · 새 버전 적용 대기":
+    "Offline reading ready · New version ready to apply",
+  "오프라인 읽기 가능 · 새 화면 업데이트 실패":
+    "Offline reading ready · Update failed",
+  "새 버전이 준비되었습니다. 진행 중인 작업을 마치고 저장한 뒤, 이 사이트의 모든 탭과 앱 창을 닫고 다시 열어 주세요.":
+    "A new version is ready. Finish and save your work, then close all tabs and app windows for this site and reopen it.",
+  "업데이트 안내 닫기": "Dismiss update notice",
   "오프라인 읽기 준비 완료": "Offline reading ready",
   "오프라인 화면 준비 중": "Preparing offline reading",
   "오프라인 화면 준비 실패 · 온라인에서 다시 열어 주세요":

@@ -302,6 +302,7 @@ export default function App() {
     recoveryId?: string;
   } | null>(null);
   const [notice, setNotice] = useState("");
+  const [updateNoticeDismissed, setUpdateNoticeDismissed] = useState(false);
   const library = useRef<Library | null>(null);
   const session = useRef(0);
   const request = useRef<AbortController | null>(null);
@@ -314,6 +315,9 @@ export default function App() {
     subscribeOfflineShell,
     getOfflineShellStatus,
   );
+  useEffect(() => {
+    if (!shell.updateReady) setUpdateNoticeDismissed(false);
+  }, [shell.updateReady]);
   const title =
     tab === "novels"
       ? t("웹소설")
@@ -836,9 +840,11 @@ export default function App() {
   ];
   const shellLabel =
     shell.state === "ready"
-      ? shell.updateFailed
-        ? t("오프라인 읽기 가능 \u00B7 새 화면 업데이트 대기")
-        : t("오프라인 읽기 준비 완료")
+      ? shell.updateReady
+        ? t("오프라인 읽기 가능 \u00B7 새 버전 적용 대기")
+        : shell.updateFailed
+          ? t("오프라인 읽기 가능 \u00B7 새 화면 업데이트 실패")
+          : t("오프라인 읽기 준비 완료")
       : shell.state === "pending"
         ? t("오프라인 화면 준비 중")
         : shell.state === "error"
@@ -883,6 +889,18 @@ export default function App() {
             <Icon name="link" size={17} />
           </button>
         </header>
+        {shell.updateReady && !updateNoticeDismissed && (
+          <div className="notice" role="status">
+            <span>{t("새 버전이 준비되었습니다. 진행 중인 작업을 마치고 저장한 뒤, 이 사이트의 모든 탭과 앱 창을 닫고 다시 열어 주세요.")}</span>
+            <button
+              className="icon-button"
+              aria-label={t("업데이트 안내 닫기")}
+              onClick={() => setUpdateNoticeDismissed(true)}
+            >
+              <Icon name="close" size={16} />
+            </button>
+          </div>
+        )}
         {notice && (
           <div className="notice" role="status">
             <span>{notice}</span>
