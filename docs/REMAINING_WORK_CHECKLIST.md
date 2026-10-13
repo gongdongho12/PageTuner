@@ -1,9 +1,12 @@
 # PageTuner 남은 작업 체크리스트
 
-갱신: 2026-10-05 (한국 시간). 실행 순서와 상세 근거는 [작업 큐](AGENT_WORK_QUEUE.md), 플랫폼별 범위는 [기능 대응표](APP_WEB_FEATURE_MATRIX.md)를 따른다. **전체 프로젝트와 S4는 아직 미완료다.** 구현 완료와 실기기·실서비스 검증 완료는 별개로 기록한다.
+갱신: 2026-10-13 (한국 시간). 실행 순서와 상세 근거는 [작업 큐](AGENT_WORK_QUEUE.md), 플랫폼별 범위는 [기능 대응표](APP_WEB_FEATURE_MATRIX.md)를 따른다. **전체 프로젝트와 S4는 아직 미완료다.** 구현 완료와 실기기·실서비스 검증 완료는 별개로 기록한다.
 
 ## 현재 진행 단위
 
+- [x] **PR #51 실제 서버·Android HTTP 검증 및 CSRF 수정**: 사용자 승인으로 분리한 QA DB에서 회원가입·계정/서재97요청·실제 NovelBuddy/Google 91문단 및 Android HTTP adapter 왕복을 확인했다. 실제 서버의 CSRF 거절이401로 잘못 바뀌던 결함을403으로 수정했고 최신 HTTP3경로를 재확인했다. [상세와 한계](SERVER_LIVE_VERIFICATION.md)
+- [x] **PR #51 오프라인 웹 업데이트 대기 안내**: 새 worker가 대기하면 작업을 보관한 뒤 같은 주소의 모든 탭을 닫고 다시 열도록 안내한다. 강제 교체·사이트 데이터 삭제 없이 기기 자료를 보존한다. 웹665개/76파일 및 중간 head `703629e` CI 성공.
+- [x] **PR #51 WTR 실제 회차 가져오기**: `6f79dec`·`f7ca005`의 응답/상대 경로 수정 후 production Java reader와 실제 서버 import가129문단/HTTP200으로 통과했다. 소스52·서버237·앱586 통과/16제외 및 APK/lint/경계 성공. 카탈로그의 간헐적 외부 timeout과 전체 사이트 가용성은 구분한다. [실행 기록](SERVER_LIVE_VERIFICATION.md)
 - [x] **S4c3a 분류 passive ZIP snapshot**: [draft PR #50](https://github.com/gongdongho12/PageTuner/pull/50), base PR #49. 전체 text identity·내용 proof, absent/present-empty, 태그 순서·Unicode·기존 분류·형제 확장을 보존한다. core45/runtime50/web660, 실제 웹→JVM→웹 ZIP 7사례 전체 동등성 검증. [범위·후속 경계](PORTABLE_ORGANIZATION_SNAPSHOT.md)
 - [x] **S4c3a 앱 통합 회귀**: Android585 통과/16 opt-in 제외·APK/lint/계측 소스/경계 성공. JVM ZIP 왕복과 물리 기기 SAF·브라우저 다운로드는 구분한다. 최종 head CI는 PR에서 확인한다.
 - [ ] **S4c3b 최신 계정 분류 export·명시적 채택**: passive codec은 계정 값을 조회하거나 바꾸지 않는다. 직접 GET·현재 문서/binding nonce·세대 검증과 화면 연결이 다음 작업이다.
@@ -17,11 +20,12 @@
 - [x] 앱567 통과/16 제외·웹564·core37/runtime36, APK/lint/계측 소스/경계·실제 브라우저 결과 기록. [상세](PDF_DECODER_CONTEXT.md)
 - [x] PR #46의 문서까지 포함한 **마지막 head `bdb2e0b`** [CI 성공](https://github.com/gongdongho12/PageTuner/actions/runs/37281711919) 확인(3분35초).
 - [x] **B1 기본 로컬 사용 흐름**: 첫 화면의 계정 없는 파일·ZIP 진입, 독립 보관함·로컬 설정, 페이지 방식 시작 화면, 실제 PDF 보관·재열기 검증. 웹566·저장소/ZIP 격리 및 왕복 검사2개. [draft PR #47](https://github.com/gongdongho12/PageTuner/pull/47), [기본 사용 안내](QUICK_START.md).
-- [ ] **기본 서버 사용 흐름의 재검증**: 현재 8080 서버가 내려가 있다. 서버를 사용할 수 있는 환경에서 회원가입→웹소설→Google 웹 번역→보관·읽기를 다시 확인한다. 이전 정책 거절을 우회하지 않는다.
+- [x] **기본 서버 사용 흐름의 실제 검증**: 별도 승인된 격리 DB/서버에서 회원가입→NovelBuddy 회차→Google 웹 번역91문단을 실제 API로 확인했다. 2026-10-12 실제 웹 QA 로그인→완료 번역→한국어 리더29쪽→기기 보관 성공을 확인했다. API와 화면 근거를 구분하며 모든 소스·실기기·오프라인 검증 완료라는 뜻은 아니다. [근거](SERVER_LIVE_VERIFICATION.md)
+- [ ] **이번 실제 번역의 네트워크 단절 읽기**: 새 탭의 재로그인과 기기 보관본 재열기는 성공했다. 네트워크 단절 상태는 별도로 확인한다.
 
 ## S4 — 앱 ↔ 웹 ZIP 및 원본 연결
 
-- [ ] **S4b2b2b 실제 서버 UI 종단 검증**: ZIP PDF 업로드 → 별도 연결 → 재검증 → 읽기 → 해제. PR #45 구현·mock API 브라우저 검사는 완료했지만 실제 PostgreSQL UI 검사는 남았다. 이전 서버 시작 정책 거절은 우회하지 않는다.
+- [ ] **S4b2b2b 실제 서버 UI 종단 검증**: ZIP PDF 업로드 → 별도 연결 → 재검증 → 읽기 → 해제. PR #45 구현·mock API 브라우저 검사와 이후 승인된 QA의 Android 실제 PDF HTTP는 완료했지만 실제 PostgreSQL **UI** 검사는 남았다. 기존 자료와 QA DB를 보존하고 파괴적 검사는 별도 테스트 DB에서만 실행한다.
 - [ ] **네이티브 PDF 계정 연결**: 원본 bytes와 표시 본문을 검증한 뒤 별도 업로드·연결 UX 제공. PDF snapshot UUID로 기존 텍스트 S1/S2 API를 열지 않는다.
 - [ ] **PDF 계정 물리 위치·메모 계약과 연동**: 실제 bytes hash와 디코더 문맥에 묶인 위치를 사용하고 화면 쪽 번호·wire pageCount로 추정하지 않는다.
 - [ ] **EPUB 원본 보관·전달 형식·연결**: 원본 bytes 보존, 전체 proof, 앱·웹 교환 형식과 위치 대응. 파싱 뒤 원본을 버리는 경로와 ZIP v1 MIME 제약 해결. 새 읽기용 EPUB 생성은 이 원본 보존·계정 연결 작업의 완료를 뜻하지 않는다.
