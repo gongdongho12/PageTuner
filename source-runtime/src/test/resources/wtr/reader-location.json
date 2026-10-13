@@ -2,5 +2,5 @@
   "success": true,
   "chapter": { "id": 28316965, "raw_id": 43378, "order": 1, "title": "Original chapter title" },
   "tasks": [],
-  "content_url": "https://wtr-lab.com/api/v2/reader/content/v1/ai/43378/28316965/en/synthetic-test-signature"
+  "content_url": "https://wtr-lab.com/api/v2/reader/content/v1/ai/43378/28316965/en/0123456789abcdef0123456789abcdef/108/1792627200/synthetic-test-signature"
 }

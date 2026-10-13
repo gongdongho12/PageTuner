@@ -53,7 +53,9 @@ class WtrLabReaderContentTest {
             CONTENT_URL.replace("/en/", "/en%2f/"),
             CONTENT_URL.replace("/en/", "/en/../en/"),
             CONTENT_URL.replace("/en/", "/en\\/"),
-            CONTENT_URL.substringAfter("wtr-lab.com"),
+            CONTENT_URL.removePrefix("https:"),
+            CONTENT_URL.substringAfter("wtr-lab.com/"),
+            CONTENT_URL.substringAfter("wtr-lab.com").replace("/en/", "/en/../en/"),
             "$CONTENT_URL?token=unexpected", "$CONTENT_URL#fragment", "$CONTENT_URL/extra",
             CONTENT_URL.substringBeforeLast('/') + "/..",
             CONTENT_URL.substringBeforeLast('/') + "/" + "a".repeat(1025),
@@ -62,6 +64,17 @@ class WtrLabReaderContentTest {
             assertRejectedBeforeGet(JSONObject(location()).put("content_url", url).toString())
         }
         assertRejectedBeforeGet(JSONObject(location()).put("content_url", JSONObject.NULL).toString())
+    }
+
+    @Test fun resolvesRootRelativeLocationAgainstVerifiedReaderOrigin() = runBlocking {
+        val response = JSONObject(location()).put("content_url", CONTENT_URL.substringAfter("wtr-lab.com"))
+        val fetched = mutableListOf<String>()
+        val result = adapter(response.toString()).loadChapter(CHAPTER_URL, "Fallback", {
+            fetched += it
+            content()
+        }, null)
+        assertEquals(listOf(CONTENT_URL), fetched)
+        assertEquals(2, result.paragraphs.size)
     }
 
     @Test fun supportsBothInlineBodyShapesWithoutRequiringADatabaseIdOrFollowingALocation() = runBlocking {
@@ -156,6 +169,6 @@ class WtrLabReaderContentTest {
 
     companion object {
         private const val CHAPTER_URL = "https://wtr-lab.com/en/novel/43378/sample/chapter-1"
-        private const val CONTENT_URL = "https://wtr-lab.com/api/v2/reader/content/v1/ai/43378/28316965/en/synthetic-test-signature"
+        private const val CONTENT_URL = "https://wtr-lab.com/api/v2/reader/content/v1/ai/43378/28316965/en/0123456789abcdef0123456789abcdef/108/1792627200/synthetic-test-signature"
     }
 }

@@ -11,6 +11,20 @@ import org.junit.jupiter.api.Test
 @Tag("live-source")
 class NovelSourceLiveTest {
     @Test
+    fun `WTR observed reader content uses production transport`() = runBlocking {
+        check(System.getenv("RUN_LIVE_WEB_NOVEL_TESTS") == "1")
+        val reader = System.getenv("PAGETUNER_WTR_LIVE_CHAPTER").orEmpty()
+        org.junit.jupiter.api.Assumptions.assumeTrue(reader.isNotBlank())
+        val adapter = com.dongholab.pagetuner.source.webnovel.WtrLabSiteAdapter(
+            chapterLoadStrategy = com.dongholab.pagetuner.source.webnovel.WebNovelChapterLoadStrategy.HttpOnly,
+            postReaderJson = PublicHttpsNovelHttpClient()::postJson,
+        )
+        val chapter = adapter.loadChapter(reader, "Chapter", PublicHttpsNovelHttpClient()::fetchText, null)
+        assertTrue(chapter.paragraphs.isNotEmpty())
+        println("LIVE_WTR_READER paragraphs=${chapter.paragraphs.size} characters=${chapter.paragraphs.sumOf { it.length }}")
+    }
+
+    @Test
     fun `WTR live catalog detail index and reader POST complete`() = verify("wtr-lab", "Sea Survival")
 
     @Test
