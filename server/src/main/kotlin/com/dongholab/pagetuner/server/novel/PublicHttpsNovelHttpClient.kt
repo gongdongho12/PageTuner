@@ -2,6 +2,7 @@ package com.dongholab.pagetuner.server.novel
 
 import com.dongholab.pagetuner.source.WebNovelRequestGate
 import com.dongholab.pagetuner.source.service.NovelHttpTransport
+import com.dongholab.pagetuner.source.wtr.WtrLabReaderContent
 import java.io.ByteArrayOutputStream
 import java.io.IOException
 import java.net.InetAddress
@@ -41,7 +42,14 @@ class PublicHttpsNovelHttpClient internal constructor(private val client: OkHttp
         .writeTimeout(10, TimeUnit.SECONDS).callTimeout(25, TimeUnit.SECONDS).build())
     private val permits = Semaphore(8)
 
-    override suspend fun fetchText(url: String): String = text(request(url, null, null, MAX_RESPONSE_BYTES))
+    override suspend fun fetchText(url: String): String = try {
+        text(request(url, null, null, MAX_RESPONSE_BYTES))
+    } catch (error: Exception) {
+        if (error is kotlinx.coroutines.CancellationException || error is NovelProviderFailure ||
+            !WtrLabReaderContent.isContentUrl(url)) throw error
+        // Do not expose expiring signatures through transport errors or their cause chains.
+        throw IOException("WTR-LAB reader content request failed (${error.javaClass.simpleName}).")
+    }
 
     /** Reuses the same DNS, redirect, cancellation, rate and concurrency policy for catalog files. */
     suspend fun fetchContent(url: String, maxBytes: Int = MAX_RESPONSE_BYTES): PublicHttpsContent {
@@ -78,6 +86,9 @@ class PublicHttpsNovelHttpClient internal constructor(private val client: OkHttp
                 }
                 val response = execute(builder.build(), maxBytes)
                 if (response.status in setOf(301, 302, 303, 307, 308)) {
+                    if (WtrLabReaderContent.isContentUrl(url)) {
+                        throw IOException("WTR-LAB reader content redirects are not supported.")
+                    }
                     if (++redirects > 5) throw IOException("The novel provider redirected too many times.")
                     val location = response.location ?: throw IOException("Provider redirect has no location.")
                     val next = PublicNovelTargets.url(URI(target.toString()).resolve(location).toString())

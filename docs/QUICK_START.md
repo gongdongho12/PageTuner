@@ -1,10 +1,10 @@
 # PageTurner 기본 사용 안내
 
-2026-10-05 기준. **파일을 가져와 읽고, 기기에 보관하고, ZIP으로 옮기는 기본 흐름을 사용할 수 있다.** 전체 앱·웹 기능 공통화는 아직 진행 중이다. 남은 범위는 [체크리스트](REMAINING_WORK_CHECKLIST.md), 플랫폼별 상세는 [기능 대응표](APP_WEB_FEATURE_MATRIX.md)를 참고한다.
+2026-10-12 기준. **파일을 가져와 읽고, 기기에 보관하고, ZIP으로 옮기는 기본 흐름을 사용할 수 있다.** 실제 QA 서버에서도 회원가입·NovelBuddy 회차 가져오기·Google 웹 번역과 완료 번역 읽기·기기 보관을 확인했다. 전체 앱·웹 기능 공통화는 아직 진행 중이다. 남은 범위는 [체크리스트](REMAINING_WORK_CHECKLIST.md), 플랫폼별 상세는 [기능 대응표](APP_WEB_FEATURE_MATRIX.md)를 참고한다.
 
 ## 지금 열기
 
-이 작업에서 실행한 웹: <http://127.0.0.1:5174/>. 개발 서버를 종료하거나 PC를 다시 시작하면 아래 명령으로 다시 실행한다. 현재 작업 경로는 `C:/Users/gongd/.codex/worktrees/glossary-portable-snapshot/PageTuner`다. 원본 `F:/workspace/PageTuner`의 별도 미커밋 변경은 보존했고 이 작업을 덮어쓰지 않았다.
+실제 QA 검증은 <http://127.0.0.1:8080/>의 서버와 production 웹을 사용한다. 프로세스가 종료되면 접속할 수 없으므로 실행 상태를 확인한다. 개발 웹 <http://127.0.0.1:5174/>는 별도이며 아래 명령으로 실행한다. 현재 작업 경로는 `C:/Users/gongd/.codex/worktrees/glossary-portable-snapshot/PageTuner`다. 원본 `F:/workspace/PageTuner`의 별도 미커밋 변경은 보존했고 이 작업을 덮어쓰지 않았다.
 
 ```powershell
 Set-Location C:/Users/gongd/.codex/worktrees/glossary-portable-snapshot/PageTuner
@@ -24,6 +24,8 @@ Node.js 20.19 이상(20.x) 또는 22.12 이상을 사용한다. 최초 의존성
 계정 없는 보관함과 로그인 계정의 보관함은 분리된다. 로그인만으로 파일·메모를 자동 업로드하거나 합치지 않는다. 브라우저, 프로필, 주소의 포트가 바뀌면 다른 보관함이므로 옮길 때 ZIP을 사용한다. 사이트 데이터를 삭제하면 기기 자료도 사라질 수 있으므로 필요한 책은 ZIP으로 보관한다.
 
 개발 서버는 service worker를 사용하지 않는다. 개발 서버를 끈 뒤 새로고침하는 오프라인 실행까지 이 안내의 검증 범위에 포함하지 않는다. 설치형 오프라인 화면은 [프로덕션 웹 빌드 안내](../web/README.md)를 따른다.
+
+프로덕션 웹에서 **새 버전 대기** 안내가 나오면 진행 중인 작업을 보관하고 **같은 주소의 모든 탭·앱 창을 닫은 뒤 다시 연다**. 단순 새로고침은 이전 오프라인 화면을 계속 열 수 있다. 사이트 데이터 삭제는 기기 보관 자료를 지울 수 있으므로 업데이트 방법으로 사용하지 않는다. 이번에 추가한 대기 안내는 이미 캐시된 옛 코드에 소급 표시되지 않는다.
 
 ## 책을 일반 파일로 내보내기
 
@@ -53,7 +55,9 @@ Node.js 20.19 이상(20.x) 또는 22.12 이상을 사용한다. 최초 의존성
 | 계정 독서 기록·설정·분류·소스 즐겨찾기·용어집 | 정확한 원본 식별자에 묶인 동기화가 구현되어 있다. 로컬 독립 문서/PDF를 제목이나 화면 페이지로 임의 연결하지 않는다. |
 | ZIP PDF 서버 보관·명시적 연결 | 구현·자동검사·모의 API 브라우저 검증 완료. decoded PDF 합계 4 MiB 등 별도 한도와 실서버 UI/실기기 검증 대기가 있다. |
 
-이 실행에서는 `127.0.0.1:8080` 백엔드가 내려가 있었다. 따라서 **현재 열린 미리보기에서 바로 쓸 수 있는 범위는 로컬 파일·ZIP·미리보기 읽기**다. 웹소설·번역·회원가입을 이번 실행에서 실서버로 재검증했다고 주장하지 않는다. 이전에 격리 PostgreSQL/QA 서버 시작이 자동 승인 검토에서 거절된 작업은 우회 실행하지 않았다.
+사용자가 **격리 DB·검증 서버 시작을 별도로 승인**한 뒤 기존 자료와 분리한 PostgreSQL과 QA 서버에서 회원가입·계정/서재97요청 및 실제 NovelBuddy→Google 웹 번역91문단을 확인했다. 2026-10-12 실제 웹에서 로그인→완료 번역→한국어 리더29쪽→기기 보관도 성공했다. WTR의 최신 사이트 응답 대응과 실서버 결과, 오프라인 읽기·실기기·PDF 연결 UI의 남은 검증은 [실제 검증 기록](SERVER_LIVE_VERIFICATION.md)을 따른다. 현재 기능 전체나 모든 외부 소스의 가용성을 보장하는 결과는 아니다.
+
+QA PostgreSQL은 `127.0.0.1:55433`을 사용한다. 실제 HTTP/브라우저 DB `pagetuner_qa_live_20261005`와 파괴적 검사 전용 `pagetuner_test_live_20261005`를 분리한다. 테스트 DB 설정을 QA/미리보기 DB로 바꾸지 않는다. 실행·자격 증명 파일은 ignored `.gradle-home/live-verification-20261005`에만 보관하고 저장소나 PR에 공유하지 않는다. 이전 승인 전의 시작 거절과 별개로, workflow 권한 및 PDF Blob 미리보기 정책 제한은 그대로 유지한다.
 
 개발 웹의 `/api`는 기본 `http://127.0.0.1:8080`으로 전달한다. 서버 준비는 [서버 실행 안내](../server/README.md)를 따른다. 실제 데이터베이스의 연결 정보를 확인하고 기존 데이터는 보존한다. 서버를 다른 주소로 실행했다면 웹 실행 전에 `PAGETUNER_WEB_API_TARGET`을 설정한다.
 
@@ -65,10 +69,11 @@ Node.js 20.19 이상(20.x) 또는 22.12 이상을 사용한다. 최초 의존성
 .\gradlew.bat -PbuildTarget=all :app:assembleDebug
 ```
 
-이번 EPUB/생성 PDF 후속의 최종 로컬 검사는 601개 중 585개 통과·16개 opt-in 제외이고 APK·lint·계측 소스 컴파일·모듈 경계 검사도 통과했다. 연결된 실기기가 없어 생성 PDF의 글꼴·여백·전체 텍스트와 SAF/회전/프로세스 재생성/핫스팟/절전 검증은 남았다. 폰 서재 공유 기능의 구현과 물리 비행기·핫스팟 환경 검증도 구분한다.
+2026-10-12 최신 로컬 Android 검사는 **602개 중 586개 통과·16개 opt-in 제외**이고 APK·lint·계측 소스 컴파일·모듈 경계 검사도 통과했다. 실제 서버를 호출한 Android HTTP adapter 검사와 물리 기기의 앱 화면 실행은 다르다. 연결된 실기기가 없어 생성 PDF의 글꼴·여백·전체 텍스트와 SAF/회전/프로세스 재생성/핫스팟/절전 검증은 남았다. 폰 서재 공유 기능의 구현과 물리 비행기·핫스팟 환경 검증도 구분한다.
 
 ## 이번 검증 근거
 
+- 실제 서버 후속: [draft PR #51](https://github.com/gongdongho12/PageTuner/pull/51), base PR #50. WTR 최종 경로 보완 후 전체 회귀는 웹665개/76파일·source-runtime52개·서버237개, 실제 HTTP CSRF3경로403 및 실제 완료 번역 읽기·보관을 확인했다. 2026-10-05 외부 NovelBuddy/Google·Android HTTP 근거와 2026-10-12 재검증을 날짜별로 구분한다. [전체 근거·남은 범위](SERVER_LIVE_VERIFICATION.md)
 - EPUB·본문 기반 PDF 후속: [PR #49](https://github.com/gongdongho12/PageTuner/pull/49), `codex/pdf-epub-document-export`, base [PR #48](https://github.com/gongdongho12/PageTuner/pull/48). 웹 643개/75파일·생성 계약 15개·TypeScript·production/sharing build, core-content 18개 통과. 이후 작은 UI·문구 수정은 TypeScript·build를 다시 확인했다. CJK 120문단의 실제 생성 EPUB는 EPUBCheck 5.4.0 오류 0·경고 0이었고, 실제 웹 가져오기에서 제목 포함 122문단·33쪽과 마지막 본문·100% 진행률을 확인했다. 파일은 동일 exporter를 Node SSR로 호출해 생성했으며 OS 다운로드를 거친 왕복은 아니다. [상세](DOCUMENT_FILE_EXPORT.md)
 - ko/en·390×844/844×390에서 EPUB/PDF 형식·PDF 준비 패널의 넘침과 문단 잘림 없음, 보이는 버튼 44px 이상, 형식 다시 선택 시 첫 페이지 복귀를 확인했다. Blob 미리보기 URL 이동이 브라우저 보안 정책으로 차단되어 인쇄 문서 렌더링·실제 생성 PDF 시각 검사·OS 저장은 확인하지 못했고 우회하지 않았다.
 - PDF decoder 변경: [draft PR #46](https://github.com/gongdongho12/PageTuner/pull/46), 최종 `bdb2e0b`의 [CI 성공](https://github.com/gongdongho12/PageTuner/actions/runs/37281711919). 앱 567 통과/16 opt-in 제외, core 37/runtime 36, APK/lint/계측 소스/경계. [상세](PDF_DECODER_CONTEXT.md)

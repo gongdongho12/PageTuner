@@ -38,7 +38,15 @@ class ServerSecurity {
         .securityContext { it.securityContextRepository(RequestAttributeSecurityContextRepository()) }
         .sessionManagement { it.sessionCreationPolicy(SessionCreationPolicy.STATELESS) }
         .requestCache { it.requestCache(NullRequestCache()) }
-        .exceptionHandling { it.authenticationEntryPoint(HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED)) }
+        .exceptionHandling {
+            it.authenticationEntryPoint(HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED))
+                .accessDeniedHandler { _, response, _ ->
+                    // CSRF runs before Basic authentication. sendError would dispatch to the protected
+                    // /error endpoint without authentication and replace this denial with a 401.
+                    response.status = HttpStatus.FORBIDDEN.value()
+                    response.setHeader("Cache-Control", "no-store")
+                }
+        }
         .httpBasic(withDefaults())
         .addFilterAfter(ApiRequestBodyLimit(), BasicAuthenticationFilter::class.java)
         .also { security -> attempts.ifAvailable { security.addFilterBefore(AccountLoginGuard(it), BasicAuthenticationFilter::class.java) } }

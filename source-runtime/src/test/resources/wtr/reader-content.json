@@ -1,0 +1,14 @@
+{
+  "success": true,
+  "data": {
+    "title": "Translated chapter title",
+    "body": [
+      "※0⛬ examined the harbor and prepared for a long voyage. This synthetic paragraph verifies the public reader content response without retaining any novel text.",
+      "嗯, the second paragraph verifies glossary markers and language patches in the separate content response."
+    ],
+    "hash": "synthetic-hash",
+    "model": "synthetic-model",
+    "glossary_data": { "terms": [["The navigator", "航海家"]] },
+    "patch": [{ "en": "Well", "zh": "嗯" }]
+  }
+}

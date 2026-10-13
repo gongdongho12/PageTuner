@@ -15,9 +15,20 @@
 
 ## 우선순위 큐
 
-2026-10-05 사용자 우선 변경: 기본 사용 가능한 형태로 마무리하고 커밋·푸시·현재 범위 정리를 요청했다. B1 계정 없는 로컬 읽기 진입은 PR #47에서 완료했다. [기본 사용 안내](QUICK_START.md)를 먼저 읽고, 가능한 서버 기본 흐름 재검증을 우선하되 서버 시작 정책 거절을 우회하지 않는다. 서버 의존성이 준비되지 않았으면 S4c3b 최신 분류 export·명시적 채택 등 진행 가능한 큐를 계속한다. 전체 프로젝트는 미완료다.
+2026-10-12 최신 우선순위: 사용자 요청에 따른 실제 서버 검증과 발견 결함의 수정은 **PR #51**에서 진행한다. 사용자는 이전 거절 이후 **격리 DB·검증 서버 시작을 명시적으로 승인**했다. 이 승인 전의 시작 거절을 현재 차단 조건으로 반복하지 않으며, 기존 미리보기 DB와 원본 작업 폴더는 보존한다. [실제 검증 기록](SERVER_LIVE_VERIFICATION.md)과 [기본 사용 안내](QUICK_START.md)를 먼저 읽는다. PR #51 최종 head CI·작업 트리를 확인해 진행 변경을 마무리한 뒤 **S4c3b 최신 분류 export·명시적 채택**을 계속한다. 전체 프로젝트와 S4는 미완료다.
 
 추가 사용자 요청 **B2 별도 export**는 PR #48에서 TXT/Markdown 및 원본 PDF 파일 내보내기로 구현했다. [지원 범위](DOCUMENT_FILE_EXPORT.md)를 따른다. ZIP 교환·본문 파일·읽기 기록 export는 서로 별도이며 전체 책의 미보관 회차를 자동 수집하지 않는다. 후속 EPUB·PDF 생성은 B3/PR #49이며 다음 실행은 가장 최신 PR의 최종 head CI와 아래 최신 기록부터 확인한다.
+
+### 2026-10-13 실제 서버·Android HTTP 검증과 발견 결함 — PR #51
+
+- [draft PR #51](https://github.com/gongdongho12/PageTuner/pull/51), base `codex/portable-organization-snapshot`(#50), head `codex/server-live-verification`. CSRF `9c34628`, 오프라인 웹 업데이트 대기 안내 `703629e`, WTR 응답 처리 `6f79dec`를 커밋·푸시했다. `703629e`의 [CI run38226910728](https://github.com/gongdongho12/PageTuner/actions/runs/38226910728) 성공을 확인했다. 후속 WTR/문서 변경까지 포함한 정확한 최종 head CI는 PR에서 재확인한다. 자동 병합하지 않는다.
+- 사용자 별도 승인 후 새 PostgreSQL 16.15/localhost QA 서버를 사용한다. 파괴적 통합 검사는 `pagetuner_test_live_20261005`, 실제 HTTP/브라우저는 별도 `pagetuner_qa_live_20261005`이며 미리보기 DB를 사용하지 않는다. 계정 암호·Basic 헤더는 커밋/PR에 넣지 않는다.
+- 2026-10-05 실제 HTTP **97요청/8그룹**으로 회원가입·언어·개인 서재·위치/메모/분류/용어집 CAS·계정 격리·비밀번호 변경을 확인했다. 실제 **NovelBuddy → Google 웹 번역 91문단** 전체 ID/revision/hash와 완료 작업 중복 방지를 확인했다. Android production HTTP adapter도 Google 작업/캐시 왕복3개·같은 소설 번역 읽기1개·ZIP PDF 서버 bytes/proof 왕복1개를 통과했다. 물리 Android 화면 검사는 아니다.
+- 2026-10-12 WTR 최종 경로 보완 후 전체 회귀는 웹 **665개/76파일**, source-runtime **52개**, 격리 DB 서버 **237개**, Android **602개 중 586개 통과/16 opt-in 제외**, APK/lint/계측 소스/모듈 경계 성공. 실제 HTTP에서 CSRF 없는 계정 쓰기 3경로가 모두403으로 바로잡혔다. 실제 웹 QA 로그인→91/91 완료 번역→한국어 리더29쪽→기기 보관 성공을 확인했다. 새 브라우저 탭에서 재로그인 후 기기 보관본 재열기도 확인했다. 네트워크 단절 검사는 별도 대기다.
+- WTR의 정상 성공 응답이 `content_url`로 분리된 것을 지원하고 정확한 origin/path/원래 chapter 식별자·응답 한도·redirect 거절·서명 URL 진단정보 제거를 검증했다. 최신 실서버 WTR 결과는 [상세 기록](SERVER_LIVE_VERIFICATION.md)을 따른다. parser/모의 transport 통과만으로 실제 사이트 가져오기를 완료 처리하지 않는다.
+- 최종 경로 보완 `f7ca005` 후 실제 Java reader는129문단/7,307자, 2026-10-13 서버 회차 import는HTTP200/129문단 저장으로 통과했다. 중간 카탈로그 timeout을 모든 사이트 가용성 성공으로 바꾸지 않는다. 최신 JAR의 CSRF3경로403을 재확인했다. 마지막 문서 head CI는 PR #51과 대조한다.
+- 다음 S4c3b는 controller를 열지 않는 직접 GET export부터 나눈다. 최신 canonical 문서/full proof·삭제 여부·text binding **nonce**를 GET 전후와 저장 직전에 확인하고 Android SAF 선택 티켓을 유지한다. 현재 Android text binding에는 같은 UUID 해제→재연결을 구분할 nonce/tombstone 보완과 기존 binding 보존 마이그레이션이 선행한다. 기존 용어집 adapter도 같은 경계를 점검한다. pending/queued/conflict·version 역행/같은 version의 다른 내용을 거절하며 채택은 별도 선택 후 새 CAS mutation이다.
+- V1/V2/V3/V4/V5, PDF 연결의 실제 서버 **UI** 종단·최신 S1/S2 ZIP·EPUB 원본 보관은 남았다. 실제 서버 시작 승인은 workflow 권한 부족이나 PDF Blob 미리보기 브라우저 정책 차단을 해제한 것이 아니다. [남은 체크리스트](REMAINING_WORK_CHECKLIST.md)를 따른다.
 
 ### 2026-10-05 문서 분류 passive ZIP snapshot — S4c3a
 
@@ -69,7 +80,7 @@
 | S4b2b1 | S4b2 하위 | 완료 | PDF 원본의 계정별 불변 보관·전체 내용 재검증 API | 실제 보관 bytes에서 전체 proof 재계산, 계정 격리·변조/소실·크기 한도·동시 저장 검증. 서버 225·웹 522·core-backup 29·runtime 24, 실제 HTTP 왕복·프로세스 재시작·DB 변조 거절. 기존 텍스트 binding 및 S1~S3는 열지 않음. [근거](PDF_CONTENT_STORAGE.md) |
 | S4b2b2 | S4b2 하위 | 진행 | 보관 자산의 앱·웹 명시적 연결과 위치 대응 | S4b2b2a 손실 없는 준비·소비자와 S4b2b2b 명시적 PDF 연결 구현. 실제 서버 UI 종단·실기기 검증과 decoder 기반 물리 위치/네이티브 본문·원본 연결/EPUB bytes 전달 형식은 미완료 |
 | S4b2b2a | S4b2b2 하위 | 완료 | ZIP PDF 전체 내용 준비·Android 저장 API 소비자 | canonical 문서와 bytes를 동일 저장소 읽기에서 준비하고 원래 문단·언어·ordered 참조를 보존. strict codec·bounded HTTP·독립 proof 계산·늦은 응답 폐기. 웹 534·core 34·runtime 36·앱 537 및 실제 ZIP→격리 서버 왕복 검증. 업로드/연결 UI와 binding 권한은 후속. [근거](PDF_CONTENT_CLIENTS.md) |
-| S4b2b2b | S4b2b2 하위 | 구현 완료 / 실제 서버·기기 검증 대기 | 앱·웹 PDF 업로드와 별도 명시적 연결 화면 | 별도 account/origin/localKey/full-proof binding·최종 transaction/lock nonce 검사·같은 ID 명시 재시도·검증 후 기기 읽기. 웹 554·앱 558 통과/16 opt-in 제외, mock API 실제 브라우저 28개 화면 경계 검사. PostgreSQL/QA 서버 시작이 정책 거절되어 이번 UI의 실제 서버 통합 검증은 남김. [근거](PDF_CONTENT_BINDING.md) |
+| S4b2b2b | S4b2b2 하위 | 구현 완료 / 실제 서버 UI·기기 검증 대기 | 앱·웹 PDF 업로드와 별도 명시적 연결 화면 | 별도 account/origin/localKey/full-proof binding·최종 transaction/lock nonce 검사·같은 ID 명시 재시도·검증 후 기기 읽기. 웹 554·앱 558 통과/16 opt-in 제외, mock API 실제 브라우저 28개 화면 경계 검사. 이후 별도 승인된 QA에서 Android 실제 PDF HTTP는 통과했으나 업로드·연결 UI 종단은 남김. [구현](PDF_CONTENT_BINDING.md), [실제 HTTP](SERVER_LIVE_VERIFICATION.md) |
 | S4b2b2c | S4b2b2 하위 | 구현·자동검사·웹 검증 완료 / 실기기 대기 | 같은 불변 PDF bytes를 연 decoder 문맥 | 실제 bytes/raw pageCount/표시 본문을 묶고 ZIP canonical을 보존한다. 웹564·앱567 통과/16 제외·core37·runtime36·APK/lint/계측 소스/경계, 실제 Chrome 2쪽·0/3문단·WebCrypto 없음·공유 위치 및 기존 연결 회귀 확인. PDF 계정 위치 API/EPUB는 후속. [근거](PDF_DECODER_CONTEXT.md) |
 | Q1 | 우선 수정 | 완료 | 기존 계정 비밀번호/PATCH transport의 HTTP 자동 재전송 차단 | 수정 전 실제 503 소켓에서 각각 2회 전송을 재현하고 본문 one-shot으로 수정. 계정 대상 27개·앱 전체544 통과/16 opt-in 제외. 503/408/421/리다이렉션/응답 유실과 원래 bytes·응답 유지 검증. 가입/CSRF 조회 및 기존 비밀번호 결과 불명확 처리 정책 유지. [근거](ACCOUNT_MUTATION_TRANSPORT.md) |
 | S4c | S4 하위 | 진행 | 최신 동기화 기록의 ZIP 내보내기·가져오기 | 현재 위치·메모·분류·원래 ID와 언어 범위가 있는 용어집의 무손실 스냅샷, 충돌/대기 상태 구분, 자격 증명·CAS/outbox mutation 이전 금지 |

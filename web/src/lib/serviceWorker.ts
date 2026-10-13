@@ -2,9 +2,11 @@ export interface OfflineShellStatus {
   state: 'development' | 'pending' | 'ready' | 'error'
   /** An existing offline shell remains usable even if installing a newer version fails. */
   updateFailed: boolean
+  /** A fully installed replacement will activate after every tab/app using this site closes. */
+  updateReady: boolean
 }
 
-let snapshot: OfflineShellStatus = { state: 'development', updateFailed: false }
+let snapshot: OfflineShellStatus = { state: 'development', updateFailed: false, updateReady: false }
 const listeners = new Set<() => void>()
 let generation = 0
 
@@ -14,9 +16,9 @@ export function subscribeOfflineShell(listener: () => void): () => void {
   return () => { listeners.delete(listener) }
 }
 
-function publish(state: OfflineShellStatus['state'], updateFailed = false): void {
-  if (snapshot.state === state && snapshot.updateFailed === updateFailed) return
-  snapshot = { state, updateFailed }
+function publish(state: OfflineShellStatus['state'], updateFailed = false, updateReady = false): void {
+  if (snapshot.state === state && snapshot.updateFailed === updateFailed && snapshot.updateReady === updateReady) return
+  snapshot = { state, updateFailed, updateReady }
   listeners.forEach(listener => listener())
 }
 
@@ -45,15 +47,19 @@ export function startOfflineShell(options: {
     const active = registration?.active
     return isShellWorker(active) && active.state === 'activated'
   }
+  const updateReady = () => {
+    const waiting = registration?.waiting
+    return ready() && isShellWorker(waiting) && waiting.state === 'installed' && waiting !== registration?.active
+  }
 
   function show(): void {
-    if (current()) publish(ready() ? 'ready' : 'pending', ready() && updateFailed)
+    if (current()) publish(ready() ? 'ready' : 'pending', ready() && updateFailed, updateReady())
   }
 
   function failed(): void {
     if (!current()) return
     updateFailed = true
-    publish(ready() ? 'ready' : 'error', ready())
+    publish(ready() ? 'ready' : 'error', ready(), updateReady())
   }
 
   function watch(worker: ServiceWorker | null | undefined): void {
@@ -64,6 +70,9 @@ export function startOfflineShell(options: {
       if (!current()) return
       if (worker.state === 'activated') {
         wasActivated = true
+        updateFailed = false
+        show()
+      } else if (worker.state === 'installed' && registration?.waiting === worker && ready()) {
         updateFailed = false
         show()
       } else if (worker.state === 'redundant') {
