@@ -14,6 +14,8 @@
 
 ## 화면 진입점과 공통 실행 경계
 
+2026-10-20 분류 ZIP 준비: [draft PR #54](https://github.com/gongdongho12/PageTuner/pull/54), base PR #53. 현재 저장소 문서·실제 자산·읽기 기록 캡처와 raw binding nonce/실제 verify 응답을 검증하고 분류 passive ZIP bytes·저장 직전 guard를 준비한다. 번역본 export의 implicit 메모 sync/outbox 생성을 제거했다. 웹720개/78파일·계약15·typecheck/build 및 APK/공유 웹/모듈 경계 성공. 실제 다운로드 UI·화면 세대·Android GET/SAF·별도 채택은 남아 있다. 비교는 다중 DB 원자 transaction이 아니며 실제 서버/다운로드·물리 Android 검증으로 간주하지 않는다. [범위](PORTABLE_EXPORT_CAPTURES.md).
+
 2026-10-20 S4c3b 조회 준비: [draft PR #53](https://github.com/gongdongho12/PageTuner/pull/53), base PR #52. 웹 `OrganizationRegistry.freshReader`는 controller를 열지 않고 직접 GET·읽기 전용 journal 검사만 수행하며 pending/queued/conflict·응답 version 역행/동일 version 변경·늦은 응답을 거절한다. 대상21개·전체웹685개/76파일·계약15·typecheck/build 성공. 실제 ZIP builder/UI·canonical/raw nonce/화면 세대·Android GET/SAF·채택은 남아 있다. [범위](PORTABLE_ORGANIZATION_EXPORT.md). PR #52 최종 `b220093`의 CI run39422238326 성공(2분39초)을 확인했다.
 
 2026-10-20 연결 안전성 후속: [draft PR #52](https://github.com/gongdongho12/PageTuner/pull/52), base PR #51에서 Android 텍스트 ZIP의 영속 nonce·해제 tombstone·기존 연결 보존 이전과 최종 문서/연결 CAS를 추가했다. 같은 UUID 재연결 뒤 이전 읽기·실패 응답과 용어집 export/채택을 거절한다. 대상46개, Android602통과/16 opt-in 제외, runtime50 및 APK/lint/계측 소스/모듈 경계 성공. 분류 최신 GET/ZIP 화면·채택은 S4c3b 후속이며 물리 Android 실행과 구분한다. [근거](PORTABLE_BINDING_GENERATIONS.md).
