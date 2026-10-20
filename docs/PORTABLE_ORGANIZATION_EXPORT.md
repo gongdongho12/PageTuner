@@ -1,6 +1,6 @@
 # 최신 계정 분류 ZIP export 준비
 
-S4c3b의 첫 단위는 웹의 **직접 GET 세션**이다. [draft PR #53](https://github.com/gongdongho12/PageTuner/pull/53)은 PR #52를 base로 하며 구현은 `73978d8`이다. 실제 ZIP export builder·화면·명시적 채택은 아직 연결하지 않았다.
+S4c3b의 첫 단위는 웹의 **직접 GET 세션**이다. [draft PR #53](https://github.com/gongdongho12/PageTuner/pull/53)은 PR #52를 base로 하며 구현은 `73978d8`이다. 후속 [PR #54의 canonical 캡처·ZIP bytes/저장 guard](PORTABLE_EXPORT_CAPTURES.md)까지 추가했으며 실제 다운로드 화면·명시적 채택은 아직 연결하지 않았다.
 
 ## 현재 구현
 

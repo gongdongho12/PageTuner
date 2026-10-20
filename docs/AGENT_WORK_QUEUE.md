@@ -15,11 +15,21 @@
 
 ## 우선순위 큐
 
-2026-10-20 최신 단위는 **draft PR #53**, base PR #52이다. Android 연결 세대 선행 수정(PR #52)의 최종 `b220093` CI 성공을 확인했고 S4c3b의 웹 직접 GET 세션을 추가했다. 실제 ZIP builder·화면·Android export·채택은 아직 미완료다. 다음은 canonical 문서 재조회와 웹 raw binding nonce/늦은 오류 처리 보완이다. [최신 export 준비와 후속 경계](PORTABLE_ORGANIZATION_EXPORT.md)를 먼저 읽는다. 자동 병합하지 않는다.
+2026-10-20 최신 단위는 **draft PR #54**, base PR #53이다. 웹 raw binding nonce·canonical 문서 재조회와 분류 passive ZIP bytes 준비/저장 직전 guard를 구현했다. 실제 ZIP 다운로드 UI·선택 수명·Android 계정 분류 export/SAF·별도 채택은 아직 미완료다. 다음은 이 검증된 준비 경로를 실제 화면에 연결하고 기존 일반 ZIP/용어집 export의 최종 guard도 보완하는 단위다. [캡처·검증·남은 경계](PORTABLE_EXPORT_CAPTURES.md)를 먼저 읽는다. PR #53 최종 `6712522`/run39423233127 성공을 재확인했으며 자동 병합하지 않는다.
 
 2026-10-12 최신 우선순위: 사용자 요청에 따른 실제 서버 검증과 발견 결함의 수정은 **PR #51**에서 진행한다. 사용자는 이전 거절 이후 **격리 DB·검증 서버 시작을 명시적으로 승인**했다. 이 승인 전의 시작 거절을 현재 차단 조건으로 반복하지 않으며, 기존 미리보기 DB와 원본 작업 폴더는 보존한다. [실제 검증 기록](SERVER_LIVE_VERIFICATION.md)과 [기본 사용 안내](QUICK_START.md)를 먼저 읽는다. PR #51 최종 head CI·작업 트리를 확인해 진행 변경을 마무리한 뒤 **S4c3b 최신 분류 export·명시적 채택**을 계속한다. 전체 프로젝트와 S4는 미완료다.
 
 추가 사용자 요청 **B2 별도 export**는 PR #48에서 TXT/Markdown 및 원본 PDF 파일 내보내기로 구현했다. [지원 범위](DOCUMENT_FILE_EXPORT.md)를 따른다. ZIP 교환·본문 파일·읽기 기록 export는 서로 별도이며 전체 책의 미보관 회차를 자동 수집하지 않는다. 후속 EPUB·PDF 생성은 B3/PR #49이며 다음 실행은 가장 최신 PR의 최종 head CI와 아래 최신 기록부터 확인한다.
+
+### 2026-10-20 canonical 문서·연결 캡처와 분류 ZIP 준비 — PR #54
+
+- [draft PR #54](https://github.com/gongdongho12/PageTuner/pull/54), base `codex/fresh-organization-reader`(#53), head `codex/canonical-portable-export`. 연결 `b057743`, canonical 저장소 `1fdd4b6`, ZIP 준비 `3a3249f`, 실패한 readonly capture의 연결 보존 `4ac235a`를 나눠 커밋·푸시했다. 문서 포함 최종 head CI는 별도 확인한다.
+- `bindings.capture`는 실제 verify 응답과 full identity를 검증해 immutable scope/raw nonce guard를 반환하며 실패해도 연결을 쓰거나 지우지 않는다. 기존 open의 늦은 오류는 관찰한 raw 값만 조건부 해제한다. 같은 UUID 재연결·취소·caller/client 사본 변경을 거절한다.
+- `createExchangeLibrary.get/exportDocument`와 원문·번역본·로컬·ZIP 선택 항목은 현재 저장소를 다시 읽는다. `choice.capture`는 전체 문서·ordered 자산/실제 bytes·메모/위치·private 저장 시각을 비교한다. 번역본 passive notes 조회가 implicit sync binding/outbox를 만들던 경로를 제거하고 실제 adapter 검사에서 noteSync/noteSyncDocuments0건을 확인했다.
+- `prepareFreshOrganizationExport`는 직접 GET 분류를 기존 문서에 passive snapshot으로 넣어 ZIP bytes와 `checkBeforeSave`를 반환한다. absent/present-empty·Unicode·태그 순서·기존 organization/형제 확장 보존, 미지원·한도 초과·문서 변경/삭제·pending/conflict·raw nonce 변경 거절을 검사했다. 독립 검토의 최종 journal await 중 삭제 경합은 journal 이후 canonical 재조회로 수정했다.
+- 웹720개/78파일·계약15·typecheck/production build, APK·공유 웹 build·모듈 경계 성공. source comparator는 다중 DB 원자 transaction이 아니며 동일 bytes/동일 private 시각 재삽입은 검출하지 못한다. 기존 계정 읽기 UI는 cached book을 넘기므로 canonical 재조회 연결도 후속이다. 실제 서버/브라우저 다운로드/물리 Android 근거로 표시하지 않는다. [범위](PORTABLE_EXPORT_CAPTURES.md).
+- 다음은 ZIP 옵션/다운로드 UI·reader 발급의 계정/origin/client/선택 세대·unmount/이전 callback 검증과 final guard 연결이다. 용어집과 분류를 함께 포함할 때 기존 한쪽 metadata가 지워지지 않게 구성하고 최종 캡처/journal/raw nonce를 검사한다. 이후 Android GET/SAF와 별도 분류 채택을 진행한다. 전체 S4c3b/S4는 미완료다.
+- PR #53의 정확한 최종 `6712522d4169cbdc8edc154552b3134c6e217144` [CI run39423233127](https://github.com/gongdongho12/PageTuner/actions/runs/39423233127) 성공(2분59초)을 확인했다. 이번 로그는 ignored `canonical-portable-focused.log`, `canonical-portable-web.log`, `canonical-portable-apk.log`다.
 
 ### 2026-10-20 웹 분류 직접 GET 세션 — PR #53
 
@@ -108,7 +118,7 @@
 | S4c2a | S4c2 하위 | 완료 / 실기기 검증 대기 | 최신 계정 용어집의 명시적 ZIP 내보내기 | 직접 읽기 전용 조회·원본 identity/언어/binding 확인·계정/client 세대 및 SAF 요청 티켓. pending/conflict/더 최신 journal·미지원 확장/256 KiB 초과를 거절한다. 웹 484·앱 511 통과/15 opt-in 제외, 실제 서버 변경 후 다운로드 ZIP의 무손실 반영 확인. [근거](PORTABLE_GLOSSARY_EXPORT.md) |
 | S4c2b | S4c2 하위 | 완료 / 실기기 검증 대기 | ZIP 계정 용어집의 명시적 채택 | readonly 비교·최종 서버/기기/base 재검증·정확한 새 CAS/outbox. absent 정보만 표시, deleted/빈목록 구분. 웹 506·앱 523 통과/15 opt-in 제외, 실제 500항목 무손실 채택과 오래된 비교 거절 확인. [근거](PORTABLE_GLOSSARY_ADOPTION.md) |
 | S4c3a | S4c 하위 | 완료 | 문서 분류의 passive ZIP snapshot 계약·codec | 정확한 text DocumentIdentity와 전체 proof, absent/present-empty·폴더·ordered tags·favorite, 기존 organization/extension 보존. core45/runtime50/web660 및 실제 웹→JVM→웹 ZIP 7사례 동등성 검사. 계정 조회/화면/채택은 S4c3b. [근거](PORTABLE_ORGANIZATION_SNAPSHOT.md) |
-| S4c3b | S4c 하위 | 진행 | 최신 계정 분류 ZIP export·명시적 채택 | PR #52 Android nonce/tombstone·최종 CAS, PR #53 웹 GET-only 세션·pending/queued/conflict/응답 역행 거절 완료. canonical 재조회·웹 raw nonce/화면 세대·ZIP builder/UI·Android export/SAF·별도 채택은 남음. [범위](PORTABLE_ORGANIZATION_EXPORT.md) |
+| S4c3b | S4c 하위 | 진행 | 최신 계정 분류 ZIP export·명시적 채택 | PR #52 Android nonce/CAS, #53 웹 GET-only, #54 canonical/raw nonce·분류 ZIP bytes/저장 guard 완료. 화면 세대·다운로드 UI·기존 export 최종 guard·Android GET/SAF·별도 채택은 남음. [범위](PORTABLE_EXPORT_CAPTURES.md) |
 | W1 | 5 | 대기 | 웹 로컬 번역 캐시의 서버 업로드·복원 | 전체 문단 검증, 원문 revision 대응, 미완성/다른 제공자 충돌 처리, 앱에서 재조회 |
 | W2 | 6 | 대기 | 웹 진단 화면 | 민감정보 제거된 제한 크기 로그, 번역/수집/동기화 오류 구분, 복사/내보내기·삭제, 작은 화면 페이지 탐색 |
 | W3 | 7 | 대기 | 번역 작업 제어와 묶음 범위 개선 | 앱·웹 일시정지/재개 동작 통일 가능 범위, 현재 20회차 제한의 서버 큐 확장, 재시작·중복 제출·취소 검증 |

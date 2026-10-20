@@ -24,6 +24,20 @@ async function identityExtension(recordId: string, create: () => Promise<Library
 async function contentId(doc: ExchangeDocument) { return `exchange:${await localFileHash(bytes(doc))}` }
 async function checksum(doc: ExchangeDocument, assets: ExchangeAsset[]) { return localFileHash(bytes([doc, await Promise.all(assets.map(async a => [a.path, a.mimeType, await localFileHash(a.bytes)]))])) }
 
+const sourceChanged = () => new Error('선택한 문서가 변경되었거나 삭제되었습니다. 목록을 새로 불러온 뒤 다시 선택해 주세요.')
+async function validatedExchangeRow(row: Row, namespace: string, id: string): Promise<SavedExchange> {
+  if (!row || row.username !== namespace || row.id !== id || !/^exchange:[a-f0-9]{64}$/.test(id)) throw sourceChanged()
+  const document = validateExchangeDocument(row.document)
+  // Validate ordered references, exact payload bytes, MIME and all package limits as on import.
+  await writeExchange({ createdAt: row.importedAt, documents: [document], assets: row.assets })
+  if (row.id !== await contentId(document) || row.checksum !== await checksum(document, row.assets)) throw sourceChanged()
+  const reading = exchangeReadingDocument({ ...row, document })
+  const integrated = document.notes.filter(note => supportedNote(note, reading)).map(note => note.id)
+  if (!Array.isArray(row.integratedNoteIds) || JSON.stringify(row.integratedNoteIds) !== JSON.stringify(integrated)) throw sourceChanged()
+  const { username: _, ...saved } = row
+  return { ...saved, document }
+}
+
 /** Validates a single captured database row without consulting cached reader objects. */
 export async function validateSavedExchangePdfContent(row: Row, namespace: string, id: string, signal?: AbortSignal) {
   const current = () => { if (signal?.aborted) throw new PdfContentError('aborted') }
@@ -64,7 +78,20 @@ export function exchangeReadingDocument(saved: SavedExchange): ReadingDocument {
 
 export function createExchangeLibrary(username: string, options: DeviceDatabaseOptions = {}) {
   const namespace = readingNamespace(username)
+  const get = async (id: string, signal?: AbortSignal): Promise<SavedExchange | undefined> => {
+    signal?.throwIfAborted()
+    if (typeof id !== 'string' || !/^exchange:[a-f0-9]{64}$/.test(id)) throw sourceChanged()
+    const row = await readingTransaction<Row | undefined>(['exchanges'], 'readonly', (tx, done) => {
+      const request = tx.objectStore('exchanges').get([namespace, id]); request.onsuccess = () => done(request.result)
+    }, options)
+    signal?.throwIfAborted()
+    const result = row ? await validatedExchangeRow(row, namespace, id) : undefined
+    signal?.throwIfAborted()
+    return result
+  }
   return {
+    /** A fresh canonical row, including its exact payloads; caller inventory objects are never trusted. */
+    get,
     /** Read canonical metadata and actual payloads together; a cached list/reader object is never an upload source. */
     async preparePdfContent(id: string, signal?: AbortSignal) {
       const current = () => { if (signal?.aborted) throw new PdfContentError('aborted') }
@@ -81,9 +108,7 @@ export function createExchangeLibrary(username: string, options: DeviceDatabaseO
       const rows = await readingTransaction<Row[]>(['exchanges'], 'readonly', (tx, done) => { const r = tx.objectStore('exchanges').index('username').getAll(namespace); r.onsuccess = () => done(r.result) }, options)
       const result: SavedExchange[] = []
       for (const row of rows) {
-        const doc = validateExchangeDocument(row.document)
-        if (row.id !== await contentId(doc) || row.checksum !== await checksum(doc, row.assets)) throw new Error('가져온 ZIP 문서가 손상되었습니다. 원본 ZIP을 확인해 주세요.')
-        result.push({ ...row, document: doc })
+        result.push(await validatedExchangeRow(row, namespace, row.id))
       }
       return result.sort((a, b) => b.importedAt.localeCompare(a.importedAt))
     },
@@ -118,17 +143,24 @@ export function createExchangeLibrary(username: string, options: DeviceDatabaseO
       }, options)
     },
     async exportDocument(saved: SavedExchange): Promise<ExchangePackage> {
-      const reading = exchangeReadingDocument(saved), notes = createReadingNotes(namespace, options), snapshot = await notes.list(reading)
+      const current = await get(saved.id)
+      if (!current) throw sourceChanged()
+      const reading = exchangeReadingDocument(current), notes = createReadingNotes(namespace, options), snapshot = await notes.list(reading)
       if (snapshot.damagedIds.length) throw new Error('손상된 읽기 기록을 확인한 뒤 내보내 주세요.')
-      const { position: _, ...base } = saved.document
-      const position = await notes.getPosition(reading) ?? saved.document.position
-      const document: ExchangeDocument = { ...base, ...(position ? { position } : {}), notes: [...base.notes.filter(n => !saved.integratedNoteIds.includes(n.id)), ...snapshot.items.map(({ documentId: _, ...note }) => note)] }
-      return { createdAt: new Date().toISOString(), documents: [document], assets: saved.assets }
+      const { position: _, ...base } = current.document
+      const position = await notes.getPosition(reading) ?? current.document.position
+      const document: ExchangeDocument = { ...base, ...(position ? { position } : {}), notes: [...base.notes.filter(n => !current.integratedNoteIds.includes(n.id)), ...snapshot.items.map(({ documentId: _, ...note }) => note)] }
+      const latest = await get(current.id)
+      if (!latest || latest.checksum !== current.checksum || latest.importedAt !== current.importedAt) throw sourceChanged()
+      return { createdAt: new Date().toISOString(), documents: [document], assets: current.assets }
     },
   }
 }
 
+export type ExchangeExportCapture = { value: ExchangePackage; assertCurrent(): Promise<void>; portableBook?: SavedExchange }
 export type ExchangeExportChoice = { key: string; title: string; kind: string; load: () => Promise<ExchangePackage>
+  /** Production choices capture current canonical content and can recheck it after asynchronous account reads. */
+  capture?: () => Promise<ExchangeExportCapture>
   /** Provenance stays in memory; a ZIP record hint alone never grants account access. */
   glossarySource?: { kind: 'server'; recordId: string } | { kind: 'portable'; book: SavedExchange }
 }
@@ -138,7 +170,9 @@ export async function exchangeExportChoices(username: string): Promise<ExchangeE
   try {
     const [local, translations, originals, exchanged] = await Promise.all([createLocalDocuments(username).list(), offline.list(), personal.originals(), portable.list()])
     const prepare = async (reading: ReadingDocument, options: { organization?: ExchangeDocument['organization']; extensions?: Record<string, unknown>; anchor?: import('./offline').ReadingAnchor; glossaryIdentity?: { providerId: string; bookId: string } } = {}): Promise<ExchangePackage> => {
-      const savedNotes = await notes.list(reading); if (savedNotes.damagedIds.length) throw new Error('손상된 읽기 기록을 확인한 뒤 내보내 주세요.')
+      // A translation reading model carries serverProgress; listing it normally binds/enqueues notes.
+      // Export is a passive local read and must not create synchronization authority or an outbox.
+      const savedNotes = await notes.list({ ...reading, serverProgress: undefined }); if (savedNotes.damagedIds.length) throw new Error('손상된 읽기 기록을 확인한 뒤 내보내 주세요.')
       const position = await notes.getPosition(reading) ?? options.anchor
       const assets: ExchangeAsset[] = [], refs: ExchangeDocument['assets'] = []
       async function add(blob: Blob, role: 'pdf' | 'image', paragraphId?: string, alt?: string) {
@@ -148,18 +182,77 @@ export async function exchangeExportChoices(username: string): Promise<ExchangeE
       }
       if (reading.assets?.pdf) await add(reading.assets.pdf, 'pdf')
       for (const image of reading.assets?.images ?? []) await add(image.blob, 'image', image.paragraphId, image.alt)
-      const glossary = options.glossaryIdentity ? await createPersonalLibrary(username).getGlossary(options.glossaryIdentity.providerId, options.glossaryIdentity.bookId) : undefined
+      const glossaryLibrary = options.glossaryIdentity ? createPersonalLibrary(username) : undefined
+      const glossary = await (async () => {
+        try { return options.glossaryIdentity ? await glossaryLibrary!.getGlossary(options.glossaryIdentity.providerId, options.glossaryIdentity.bookId) : undefined }
+        finally { glossaryLibrary?.close() }
+      })()
       const extensions = { ...options.extensions, ...(reading.local?.pdfTextPages ? { pdfTextPages: reading.local.pdfTextPages } : {}), ...(reading.local?.pdfTextErrorPages ? { pdfTextErrorPages: reading.local.pdfTextErrorPages } : {}) }
       const document = validateExchangeDocument({ id: reading.id, bookTitle: reading.bookTitle, chapterTitle: reading.chapterTitle, language: reading.language, kind: reading.kind === 'introduction' ? 'original' : reading.kind,
         paragraphs: reading.paragraphs.map(({ paragraphId, text }) => ({ paragraphId, text })), outline: reading.outline ?? [], ...(position ? { position } : {}), notes: savedNotes.items.map(({ documentId: _, ...note }) => note), organization: options.organization ?? { folder: '', tags: [], favorite: false },
         glossary: glossary?.entries.map(g => ({ ...g, caseSensitive: g.caseSensitive ?? false, enabled: g.enabled ?? true })) ?? [], assets: refs, ...(Object.keys(extensions).length ? { extensions } : {}) })
       return { createdAt: new Date().toISOString(), documents: [document], assets }
     }
+    type Source = { value: ExchangePackage; token: unknown; portableBook?: SavedExchange }
+    const fingerprint = async (source: Source) => localFileHash(bytes([source.token, source.value.documents,
+      await Promise.all(source.value.assets.map(async asset => [asset.path, asset.mimeType, await localFileHash(asset.bytes)]))]))
+    const choice = (summary: Omit<ExchangeExportChoice, 'load' | 'capture'>, loadSource: () => Promise<Source>): ExchangeExportChoice => ({
+      ...summary,
+      load: async () => (await loadSource()).value,
+      capture: async () => {
+        const captured = await loadSource(), expected = await fingerprint(captured)
+        return { value: structuredClone(captured.value), ...(captured.portableBook ? { portableBook: structuredClone(captured.portableBook) } : {}),
+          assertCurrent: async () => { if (await fingerprint(await loadSource()) !== expected) throw sourceChanged() } }
+      },
+    })
     return [
-      ...local.books.map(book => ({ key: `local:${book.document.id}`, title: book.document.bookTitle, kind: book.document.local.format.toUpperCase(), load: () => prepare(book.document, { organization: book.organization }) })),
-      ...translations.books.map(book => ({ key: `translation:${book.translation.recordId}`, title: book.translation.bookTitle || book.translation.bookId, kind: 'translation', glossarySource: { kind: 'server' as const, recordId: book.translation.recordId }, load: async () => prepare(translationReadingDocument(book.translation), { anchor: getTranslationPosition(username, book.translation) ?? book.anchor, extensions: { translation: metadata(book.translation), ...await identityExtension(book.translation.recordId, () => translationLibraryIdentity(book.translation)) }, glossaryIdentity: { providerId: book.translation.contentProviderId, bookId: book.translation.bookId } }) })),
-      ...originals.books.map(book => { const c = book.chapter; const reading: ReadingDocument = { id: `original:${c.recordId}:${c.sourceRevision}`, kind: 'original', bookTitle: c.bookTitle, chapterTitle: c.chapterTitle, language: c.sourceLanguage, paragraphs: c.paragraphs }; return { key: `original:${c.recordId}`, title: c.bookTitle, kind: 'original', glossarySource: { kind: 'server' as const, recordId: c.recordId }, load: async () => prepare(reading, { anchor: getWorkflowPosition(username, reading), extensions: { source: metadata(c), ...await identityExtension(c.recordId, () => originalLibraryIdentity(c)) }, glossaryIdentity: { providerId: c.providerId, bookId: c.bookId } }) } }),
-      ...exchanged.map(book => ({ key: book.id, title: book.document.bookTitle, kind: 'ZIP', glossarySource: { kind: 'portable' as const, book }, load: () => portable.exportDocument(book) })),
+      ...local.books.map(book => {
+        const id = book.document.id
+        return choice({ key: `local:${id}`, title: book.document.bookTitle, kind: book.document.local.format.toUpperCase() }, async () => {
+          const latest = (await createLocalDocuments(username).list()).books.find(value => value.document.id === id)
+          if (!latest) throw sourceChanged()
+          return { value: await prepare(latest.document, { organization: latest.organization }), token: [latest.savedAt, latest.document.local] }
+        })
+      }),
+      ...translations.books.map(book => {
+        const recordId = book.translation.recordId
+        return choice({ key: `translation:${recordId}`, title: book.translation.bookTitle || book.translation.bookId, kind: 'translation', glossarySource: { kind: 'server', recordId } }, async () => {
+          const library = createOfflineLibrary(username)
+          try {
+            const latest = await library.get(recordId)
+            if (!latest) throw sourceChanged()
+            const translation = latest.translation
+            return { value: await prepare(translationReadingDocument(translation), { anchor: getTranslationPosition(username, translation) ?? latest.anchor,
+              extensions: { translation: metadata(translation), ...await identityExtension(recordId, () => translationLibraryIdentity(translation)) },
+              glossaryIdentity: { providerId: translation.contentProviderId, bookId: translation.bookId } }), token: [latest.savedAt, translation.revision] }
+          } finally { library.close() }
+        })
+      }),
+      ...originals.books.map(book => {
+        const recordId = book.chapter.recordId
+        return choice({ key: `original:${recordId}`, title: book.chapter.bookTitle, kind: 'original', glossarySource: { kind: 'server', recordId } }, async () => {
+          const library = createPersonalLibrary(username)
+          try {
+            const latest = (await library.originals()).books.find(value => value.chapter.recordId === recordId)
+            if (!latest) throw sourceChanged()
+            const c = latest.chapter
+            const reading: ReadingDocument = { id: `original:${c.recordId}:${c.sourceRevision}`, kind: 'original', bookTitle: c.bookTitle, chapterTitle: c.chapterTitle, language: c.sourceLanguage, paragraphs: c.paragraphs }
+            return { value: await prepare(reading, { anchor: getWorkflowPosition(username, reading),
+              extensions: { source: metadata(c), ...await identityExtension(c.recordId, () => originalLibraryIdentity(c)) },
+              glossaryIdentity: { providerId: c.providerId, bookId: c.bookId } }), token: [latest.savedAt, c.sourceRevision] }
+          } finally { library.close() }
+        })
+      }),
+      ...exchanged.map(book => {
+        const id = book.id
+        return choice({ key: id, title: book.document.bookTitle, kind: 'ZIP', glossarySource: { kind: 'portable', book } }, async () => {
+          const current = await portable.get(id)
+          if (!current) throw sourceChanged()
+          const value = await portable.exportDocument(current), latest = await portable.get(id)
+          if (!latest || latest.checksum !== current.checksum || latest.importedAt !== current.importedAt) throw sourceChanged()
+          return { value, token: [current.checksum, current.importedAt, current.integratedNoteIds], portableBook: current }
+        })
+      }),
     ]
   } finally { personal.close(); offline.close() }
 }
