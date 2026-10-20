@@ -1,19 +1,20 @@
 # PageTuner 남은 작업 체크리스트
 
-갱신: 2026-10-20 (한국 시간). 실행 순서와 상세 근거는 [작업 큐](AGENT_WORK_QUEUE.md), 플랫폼별 범위는 [기능 대응표](APP_WEB_FEATURE_MATRIX.md)를 따른다. **전체 프로젝트와 S4는 아직 미완료다.** 구현 완료와 실기기·실서비스 검증 완료는 별개로 기록한다.
+갱신: 2026-10-21 (한국 시간). 실행 순서와 상세 근거는 [작업 큐](AGENT_WORK_QUEUE.md), 플랫폼별 범위는 [기능 대응표](APP_WEB_FEATURE_MATRIX.md)를 따른다. **전체 프로젝트와 S4는 아직 미완료다.** 구현 완료와 실기기·실서비스 검증 완료는 별개로 기록한다.
 
 ## 현재 진행 단위
 
 - [x] **S4c3b 선행 Android 연결 세대 보완**: [draft PR #52](https://github.com/gongdongho12/PageTuner/pull/52), base PR #51. 기존 연결을 보존해 nonce/tombstone으로 이전하고 같은 UUID 재연결·늦은 읽기 오류·연결 저장 경합·용어집 export/채택을 검사했다. 관련46개·Android602통과/16제외·runtime50·APK/lint/계측 소스/경계 성공. [범위와 후속 경계](PORTABLE_BINDING_GENERATIONS.md). 최종 head CI는 큐에서 확인한다.
 - [x] **S4c3b 웹 분류 직접 GET 세션**: [draft PR #53](https://github.com/gongdongho12/PageTuner/pull/53), base PR #52. controller를 열지 않는 GET과 읽기 전용 journal 검사, pending/queued/conflict·version 역행/동일 version 변경·동시 GET 역전 거절. 대상21개·전체웹685개/76파일·계약15·typecheck/build 성공. [현재 범위](PORTABLE_ORGANIZATION_EXPORT.md).
 - [x] **S4c3b canonical 캡처·분류 ZIP 준비**: [draft PR #54](https://github.com/gongdongho12/PageTuner/pull/54), base PR #53. 현재 문서/실제 bytes·읽기 기록 재조회, raw nonce·실제 응답 검증, implicit 메모 sync/outbox 방지 및 분류 ZIP bytes/저장 guard 구현. 웹720개/78파일·계약15·typecheck/build·APK/공유 웹/경계 성공. [범위·비원자성 한계](PORTABLE_EXPORT_CAPTURES.md).
-- [ ] **S4c3b 다음 작은 단위**: 실제 분류 ZIP 다운로드 UI·용어집 동시 포함·화면 선택 세대/이전 callback·최종 guard를 연결한다. 기존 일반 ZIP/용어집 export와 계정 읽기의 canonical guard도 확인한 뒤 Android GET/SAF·명시적 채택을 진행한다.
+- [x] **S4c3b 웹 분류 ZIP 다운로드 UI**: [draft PR #55](https://github.com/gongdongho12/PageTuner/pull/55), base PR #54. 용어집 동시 포함·terminal 화면 세대·일반 ZIP 최종 guard·계정 읽기 canonical 확인. 웹740개/80파일·계약15·build/APK/경계, 실제 브라우저 OS ZIP500항목 전체 동등성과 지연 응답 ABA 거절을 확인했다. 계정 API는 mock, 화면은 DOM 측정이며 스크린샷 timeout·신규DB 종단·물리 Android 미검증을 구분한다. [범위](PORTABLE_ACCOUNT_EXPORT_UI.md).
+- [ ] **S4c3b 다음 작은 단위**: Android 저장 완료 후 현재 ZIP/분류 직접 GET과 SAF ticket 최종 검사를 연결하고 웹/앱 별도 명시적 채택을 진행한다.
 - [x] **PR #51 실제 서버·Android HTTP 검증 및 CSRF 수정**: 사용자 승인으로 분리한 QA DB에서 회원가입·계정/서재97요청·실제 NovelBuddy/Google 91문단 및 Android HTTP adapter 왕복을 확인했다. 실제 서버의 CSRF 거절이401로 잘못 바뀌던 결함을403으로 수정했고 최신 HTTP3경로를 재확인했다. [상세와 한계](SERVER_LIVE_VERIFICATION.md)
 - [x] **PR #51 오프라인 웹 업데이트 대기 안내**: 새 worker가 대기하면 작업을 보관한 뒤 같은 주소의 모든 탭을 닫고 다시 열도록 안내한다. 강제 교체·사이트 데이터 삭제 없이 기기 자료를 보존한다. 웹665개/76파일 및 중간 head `703629e` CI 성공.
 - [x] **PR #51 WTR 실제 회차 가져오기**: `6f79dec`·`f7ca005`의 응답/상대 경로 수정 후 production Java reader와 실제 서버 import가129문단/HTTP200으로 통과했다. 소스52·서버237·앱586 통과/16제외 및 APK/lint/경계 성공. 카탈로그의 간헐적 외부 timeout과 전체 사이트 가용성은 구분한다. [실행 기록](SERVER_LIVE_VERIFICATION.md)
 - [x] **S4c3a 분류 passive ZIP snapshot**: [draft PR #50](https://github.com/gongdongho12/PageTuner/pull/50), base PR #49. 전체 text identity·내용 proof, absent/present-empty, 태그 순서·Unicode·기존 분류·형제 확장을 보존한다. core45/runtime50/web660, 실제 웹→JVM→웹 ZIP 7사례 전체 동등성 검증. [범위·후속 경계](PORTABLE_ORGANIZATION_SNAPSHOT.md)
 - [x] **S4c3a 앱 통합 회귀**: Android585 통과/16 opt-in 제외·APK/lint/계측 소스/경계 성공. JVM ZIP 왕복과 물리 기기 SAF·브라우저 다운로드는 구분한다. 최종 head CI는 PR에서 확인한다.
-- [ ] **S4c3b 최신 계정 분류 export·명시적 채택**: passive codec은 계정 값을 조회하거나 바꾸지 않는다. 직접 GET·현재 문서/binding nonce·세대 검증과 화면 연결이 다음 작업이다.
+- [ ] **S4c3b 최신 계정 분류 export·명시적 채택**: 웹 직접 GET·현재 문서/binding nonce·세대 검증·ZIP 다운로드 화면까지 완료. Android GET/SAF와 웹/앱의 별도 채택은 남는다.
 - [x] **B2 후속 EPUB·본문 기반 PDF 구현**: [PR #49](https://github.com/gongdongho12/PageTuner/pull/49), `codex/pdf-epub-document-export`, base PR #48. 새 EPUB는 텍스트·언어·목차를 담고 원본 EPUB 복원을 주장하지 않는다. Android는 A4 PDF를 생성하고 웹은 브라우저 **PDF로 저장**·인쇄용 문서 보기로 연결한다. PDF 원본 저장과 구분하며 삽화·메모·원본 식별자는 새 문서에 포함하지 않는다.
 - [x] **B2 후속 로컬 검사·EPUB 검증**: 웹 643개/75파일·계약 15개·core-content 18개, Android 최종 601개 중 585개 통과/16개 제외·APK/lint/계측 소스/모듈 경계 통과. 웹 전체 검사 후 UI·문구 수정은 typecheck/build 재확인. 실제 CJK 120문단 EPUB는 EPUBCheck 5.4.0 오류 0·경고 0이고 웹 가져오기에서 제목 포함 122문단·33쪽·마지막 본문·100% 진행률 확인. ko/en·390×844/844×390 형식/PDF 준비 패널의 넘침·문단 잘림 없음, 보이는 버튼 44px 이상 확인. [범위·검증](DOCUMENT_FILE_EXPORT.md)
 - [ ] **B2 후속 실제 PDF 렌더·저장 검증**: PDF 시각 검사·브라우저 OS 저장·Android 실기기 렌더/SAF는 남았다. Blob 미리보기 이동 정책 차단은 우회하지 않는다. EPUB UI 가져오기는 같은 exporter의 Node SSR 생성 파일을 사용했으며 OS 다운로드를 거친 왕복으로 기록하지 않는다. 최종 head CI 결과는 작업 큐에서 별도로 확인한다.

@@ -15,11 +15,18 @@
 
 ## 우선순위 큐
 
-2026-10-20 최신 단위는 **draft PR #54**, base PR #53이다. 웹 raw binding nonce·canonical 문서 재조회와 분류 passive ZIP bytes 준비/저장 직전 guard를 구현했다. 실제 ZIP 다운로드 UI·선택 수명·Android 계정 분류 export/SAF·별도 채택은 아직 미완료다. 다음은 이 검증된 준비 경로를 실제 화면에 연결하고 기존 일반 ZIP/용어집 export의 최종 guard도 보완하는 단위다. [캡처·검증·남은 경계](PORTABLE_EXPORT_CAPTURES.md)를 먼저 읽는다. PR #53 최종 `6712522`/run39423233127 성공을 재확인했으며 자동 병합하지 않는다.
+2026-10-21 최신 단위는 **draft PR #55**, base PR #54다. 웹 ZIP 설정에 최신 계정 분류와 용어집 동시 포함, 일반 ZIP까지 canonical/journal/raw nonce 최종 guard와 terminal 화면 세대를 연결했다. 실제 브라우저 OS 다운로드 ZIP의500항목 전체 필드·분류·문단/identity를 Python으로 재검증했다. 웹740개/80파일·계약15·build, 공유 웹/APK/경계 성공. 모의 계정 API와 실제 저장 파일을 구분하며 신규 PostgreSQL UI 종단·물리 Android 증거는 아니다. [화면·검증·후속](PORTABLE_ACCOUNT_EXPORT_UI.md)을 먼저 읽고 최종 head CI를 확인한다. 다음은 Android 직접 GET/SAF, 이후 별도 분류 채택이며 자동 병합하지 않는다.
 
 2026-10-12 최신 우선순위: 사용자 요청에 따른 실제 서버 검증과 발견 결함의 수정은 **PR #51**에서 진행한다. 사용자는 이전 거절 이후 **격리 DB·검증 서버 시작을 명시적으로 승인**했다. 이 승인 전의 시작 거절을 현재 차단 조건으로 반복하지 않으며, 기존 미리보기 DB와 원본 작업 폴더는 보존한다. [실제 검증 기록](SERVER_LIVE_VERIFICATION.md)과 [기본 사용 안내](QUICK_START.md)를 먼저 읽는다. PR #51 최종 head CI·작업 트리를 확인해 진행 변경을 마무리한 뒤 **S4c3b 최신 분류 export·명시적 채택**을 계속한다. 전체 프로젝트와 S4는 미완료다.
 
 추가 사용자 요청 **B2 별도 export**는 PR #48에서 TXT/Markdown 및 원본 PDF 파일 내보내기로 구현했다. [지원 범위](DOCUMENT_FILE_EXPORT.md)를 따른다. ZIP 교환·본문 파일·읽기 기록 export는 서로 별도이며 전체 책의 미보관 회차를 자동 수집하지 않는다. 후속 EPUB·PDF 생성은 B3/PR #49이며 다음 실행은 가장 최신 PR의 최종 head CI와 아래 최신 기록부터 확인한다.
+
+### 2026-10-21 웹 계정 분류·용어집 ZIP 다운로드 — PR #55
+
+- [draft PR #55](https://github.com/gongdongho12/PageTuner/pull/55), base `codex/canonical-portable-export`(#54), head `codex/organization-export-screen`. 세션 `ab33a20`, 공통 준비 `3d684b0`, 화면 `746f42e`를 커밋·푸시했다. 문서 포함 정확한 최종 head CI는 PR과 ignored 최종 결과에서 대조한다.
+- 두 snapshot/다른 언어 scope/legacy/sibling 보존, 일반 ZIP까지 canonical→최종 journal/source/raw nonce/session guard. GET-only hook 발급과 retained callback/StrictMode/unmount·A→B→A·client·origin lease 거절. 계정 읽기도 현재 문서와 raw nonce를 재확인한다.
+- 독립 검토의 공통 오류 mapper 회귀와 오프라인 옵션 해제 불가를 수정했다. 웹740개/80파일·계약15·typecheck/build, 공유 웹/APK/경계 성공. 실제 브라우저10개 수명 검사/API0회, held GET의 ABA 후 다운로드0·PUT0, OS ZIP5,899bytes의 Python 전체500항목/분류/identity 동등성 통과. API 응답은 mock이며 신규 실제DB 종단은 아니다. ko/en390×844·844×390 DOM 경계/44px 통과, 스크린샷 API timeout은 시각 검증 완료로 꾸미지 않는다.
+- 선행 PR #54 최종 `e46889dfd995e6b88670a61ae87214ae96c443c7`/run39431310759 SUCCESS4분45초를 재확인했다. 다음 Android currentDocument/직접GET/SAF ticket과 별도 분류 채택, 최신S1/S2 ZIP/PDF/EPUB 원본 범위는 미완료다. [상세](PORTABLE_ACCOUNT_EXPORT_UI.md).
 
 ### 2026-10-20 canonical 문서·연결 캡처와 분류 ZIP 준비 — PR #54
 
@@ -118,7 +125,7 @@
 | S4c2a | S4c2 하위 | 완료 / 실기기 검증 대기 | 최신 계정 용어집의 명시적 ZIP 내보내기 | 직접 읽기 전용 조회·원본 identity/언어/binding 확인·계정/client 세대 및 SAF 요청 티켓. pending/conflict/더 최신 journal·미지원 확장/256 KiB 초과를 거절한다. 웹 484·앱 511 통과/15 opt-in 제외, 실제 서버 변경 후 다운로드 ZIP의 무손실 반영 확인. [근거](PORTABLE_GLOSSARY_EXPORT.md) |
 | S4c2b | S4c2 하위 | 완료 / 실기기 검증 대기 | ZIP 계정 용어집의 명시적 채택 | readonly 비교·최종 서버/기기/base 재검증·정확한 새 CAS/outbox. absent 정보만 표시, deleted/빈목록 구분. 웹 506·앱 523 통과/15 opt-in 제외, 실제 500항목 무손실 채택과 오래된 비교 거절 확인. [근거](PORTABLE_GLOSSARY_ADOPTION.md) |
 | S4c3a | S4c 하위 | 완료 | 문서 분류의 passive ZIP snapshot 계약·codec | 정확한 text DocumentIdentity와 전체 proof, absent/present-empty·폴더·ordered tags·favorite, 기존 organization/extension 보존. core45/runtime50/web660 및 실제 웹→JVM→웹 ZIP 7사례 동등성 검사. 계정 조회/화면/채택은 S4c3b. [근거](PORTABLE_ORGANIZATION_SNAPSHOT.md) |
-| S4c3b | S4c 하위 | 진행 | 최신 계정 분류 ZIP export·명시적 채택 | PR #52 Android nonce/CAS, #53 웹 GET-only, #54 canonical/raw nonce·분류 ZIP bytes/저장 guard 완료. 화면 세대·다운로드 UI·기존 export 최종 guard·Android GET/SAF·별도 채택은 남음. [범위](PORTABLE_EXPORT_CAPTURES.md) |
+| S4c3b | S4c 하위 | 진행 | 최신 계정 분류 ZIP export·명시적 채택 | PR #52 nonce/CAS, #53 GET-only, #54 canonical 캡처, #55 웹 동시 포함/최종 guard/화면 다운로드 완료. Android GET/SAF·별도 채택은 남음. [범위](PORTABLE_EXPORT_CAPTURES.md) |
 | W1 | 5 | 대기 | 웹 로컬 번역 캐시의 서버 업로드·복원 | 전체 문단 검증, 원문 revision 대응, 미완성/다른 제공자 충돌 처리, 앱에서 재조회 |
 | W2 | 6 | 대기 | 웹 진단 화면 | 민감정보 제거된 제한 크기 로그, 번역/수집/동기화 오류 구분, 복사/내보내기·삭제, 작은 화면 페이지 탐색 |
 | W3 | 7 | 대기 | 번역 작업 제어와 묶음 범위 개선 | 앱·웹 일시정지/재개 동작 통일 가능 범위, 현재 20회차 제한의 서버 큐 확장, 재시작·중복 제출·취소 검증 |
