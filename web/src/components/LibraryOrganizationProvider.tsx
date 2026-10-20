@@ -3,6 +3,8 @@ import { createLibraryOrganizationStore, listLibraryOrganizationRecords } from '
 import { createLibraryOrganizationController, type LibraryOrganizationState } from '../lib/libraryOrganizationSync'
 import { LibraryOrganizationError, type LibraryOrganizationClient, type LibraryOrganizationScope } from '../lib/libraryOrganizationApi'
 import { validReadingProgressIdentity } from '../lib/readingProgressApi'
+import { sameLibraryOrganizationScope, sameLibraryOrganizationView, validateLibraryOrganizationScope, validateLibraryOrganizationView, type LibraryOrganizationView } from '../lib/libraryOrganizationApi'
+import { organizationExportErrors, type FreshLibraryOrganizationReader } from '../lib/portableOrganizationExport'
 
 type Controller = ReturnType<typeof createLibraryOrganizationController>
 const keyFor = (scope: LibraryOrganizationScope) => `${scope.kind}:${scope.recordId.toLowerCase()}`
@@ -54,6 +56,69 @@ export class OrganizationRegistry {
     const entry = this.entries.get(keyFor(scope))
     if (entry) entry.readers = Math.max(0, entry.readers - 1)
   }
+  /** Fresh exports observe the account without starting an outbox controller. */
+  freshReader(current: () => boolean): FreshLibraryOrganizationReader {
+    const observed = new Map<string, LibraryOrganizationView>()
+    let expired = false
+    const assertCurrent = () => {
+      if (expired || this.closed || !current()) {
+        expired = true
+        throw new Error(organizationExportErrors.stale)
+      }
+      if (!this.api) throw new Error(organizationExportErrors.offline)
+    }
+    const assert = (signal?: AbortSignal) => {
+      if (signal?.aborted) expired = true
+      assertCurrent()
+    }
+    const assertNoRegression = (known: LibraryOrganizationView | null | undefined, incoming: LibraryOrganizationView) => {
+      if (known && (known.version > incoming.version || known.version === incoming.version && !sameLibraryOrganizationView(known, incoming))) {
+        throw new Error(organizationExportErrors.response)
+      }
+    }
+    const inspectJournal = async (scope: LibraryOrganizationScope, signal?: AbortSignal, incoming?: LibraryOrganizationView) => {
+      assert(signal)
+      const store = createLibraryOrganizationStore(this.username, scope)
+      try {
+        const record = await store.snapshot()
+        assert(signal)
+        if (record?.pending || record?.queued || record?.conflict) throw new Error(organizationExportErrors.pending)
+        const previous = observed.get(keyFor(scope))
+        if (incoming) {
+          assertNoRegression(previous, incoming)
+          assertNoRegression(record?.remote, incoming)
+        } else if (previous) assertNoRegression(record?.remote, previous)
+        return record?.remote ? structuredClone(record.remote) : null
+      } finally { store.close() }
+    }
+    return {
+      assertCurrent,
+      checkReady: async (input, signal) => {
+        assert(signal)
+        await inspectJournal(validateLibraryOrganizationScope(input), signal)
+      },
+      read: async (input, signal) => {
+        assert(signal)
+        const scope = validateLibraryOrganizationScope(input)
+        const before = await inspectJournal(scope, signal)
+        assert(signal)
+        let response: LibraryOrganizationView
+        try { response = await this.api!.get(scope, signal) }
+        catch (error) { assert(signal); throw error }
+        assert(signal)
+        const view = validateLibraryOrganizationView(response)
+        if (!sameLibraryOrganizationScope(scope, view)) throw new Error(organizationExportErrors.response)
+        assertNoRegression(before, view)
+        // Compare the previous observation before replacing it, including overlapping GETs.
+        assertNoRegression(observed.get(keyFor(scope)), view)
+        await inspectJournal(scope, signal, view)
+        assert(signal)
+        assertNoRegression(observed.get(keyFor(scope)), view)
+        observed.set(keyFor(scope), structuredClone(view))
+        return structuredClone(view)
+      },
+    }
+  }
   async drain() {
     if (!this.api || this.closed || this.draining) return
     this.draining = true
@@ -86,6 +151,7 @@ export class OrganizationRegistry {
 }
 
 const OrganizationContext = createContext<OrganizationRegistry | null>(null)
+
 export function LibraryOrganizationProvider({ username, client, children }: { username: string; client: LibraryOrganizationClient | null; children: ReactNode }) {
   const [registry, setRegistry] = useState<OrganizationRegistry | null>(null)
   useEffect(() => {

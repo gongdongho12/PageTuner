@@ -14,6 +14,8 @@
 
 ## 화면 진입점과 공통 실행 경계
 
+2026-10-20 S4c3b 조회 준비: [draft PR #53](https://github.com/gongdongho12/PageTuner/pull/53), base PR #52. 웹 `OrganizationRegistry.freshReader`는 controller를 열지 않고 직접 GET·읽기 전용 journal 검사만 수행하며 pending/queued/conflict·응답 version 역행/동일 version 변경·늦은 응답을 거절한다. 대상21개·전체웹685개/76파일·계약15·typecheck/build 성공. 실제 ZIP builder/UI·canonical/raw nonce/화면 세대·Android GET/SAF·채택은 남아 있다. [범위](PORTABLE_ORGANIZATION_EXPORT.md). PR #52 최종 `b220093`의 CI run39422238326 성공(2분39초)을 확인했다.
+
 2026-10-20 연결 안전성 후속: [draft PR #52](https://github.com/gongdongho12/PageTuner/pull/52), base PR #51에서 Android 텍스트 ZIP의 영속 nonce·해제 tombstone·기존 연결 보존 이전과 최종 문서/연결 CAS를 추가했다. 같은 UUID 재연결 뒤 이전 읽기·실패 응답과 용어집 export/채택을 거절한다. 대상46개, Android602통과/16 opt-in 제외, runtime50 및 APK/lint/계측 소스/모듈 경계 성공. 분류 최신 GET/ZIP 화면·채택은 S4c3b 후속이며 물리 Android 실행과 구분한다. [근거](PORTABLE_BINDING_GENERATIONS.md).
 
 2026-10-12 실제 서버 후속: [draft PR #51](https://github.com/gongdongho12/PageTuner/pull/51), base PR #50. 사용자 승인으로 기존 자료와 분리한 QA DB/서버에서 회원가입·계정/개인 서재97요청, 실제 NovelBuddy→Google 웹 번역91문단, Android production HTTP adapter의 계정/번역/캐시·같은 소설 읽기·ZIP PDF bytes/proof 왕복을 확인했다. 최신 웹에서는 QA 로그인→91/91 완료 번역→한국어 리더29쪽→기기 보관 성공을 확인했다. CSRF 거절의401 오분류를403으로 수정하고 웹 오프라인 셸 업데이트 대기 안내를 추가했다. WTR 최종 경로 보완 후 전체 회귀에서 웹665개/76파일·source-runtime52개·서버237개, Android586통과/16 opt-in 제외·APK/lint/계측 소스/경계 성공. WTR 최신 실서버 결과, 기기 재열기/오프라인 및 최종 head CI는 [별도 실제 검증 기록](SERVER_LIVE_VERIFICATION.md)을 따른다. 물리 Android 실행과 PDF 연결 UI 종단·V1~V5 완료를 뜻하지 않는다.
