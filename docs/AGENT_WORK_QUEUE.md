@@ -15,9 +15,20 @@
 
 ## 우선순위 큐
 
+2026-10-20 최신 단위는 **draft PR #52**, base PR #51이다. S4c3b에 앞서 Android 텍스트 binding의 영속 nonce·해제 tombstone·기존 연결 이전 및 늦은 응답의 조건부 처리를 구현했다. 분류 GET export·화면·채택은 아직 미완료이며 다음 작은 단위는 웹 controller를 열지 않는 직접 GET 세션이다. [연결 세대와 후속 경계](PORTABLE_BINDING_GENERATIONS.md)를 먼저 읽는다. PR #51의 정확한 head `860c90b`/run38392118360 성공을 재확인했으며 자동 병합하지 않는다.
+
 2026-10-12 최신 우선순위: 사용자 요청에 따른 실제 서버 검증과 발견 결함의 수정은 **PR #51**에서 진행한다. 사용자는 이전 거절 이후 **격리 DB·검증 서버 시작을 명시적으로 승인**했다. 이 승인 전의 시작 거절을 현재 차단 조건으로 반복하지 않으며, 기존 미리보기 DB와 원본 작업 폴더는 보존한다. [실제 검증 기록](SERVER_LIVE_VERIFICATION.md)과 [기본 사용 안내](QUICK_START.md)를 먼저 읽는다. PR #51 최종 head CI·작업 트리를 확인해 진행 변경을 마무리한 뒤 **S4c3b 최신 분류 export·명시적 채택**을 계속한다. 전체 프로젝트와 S4는 미완료다.
 
 추가 사용자 요청 **B2 별도 export**는 PR #48에서 TXT/Markdown 및 원본 PDF 파일 내보내기로 구현했다. [지원 범위](DOCUMENT_FILE_EXPORT.md)를 따른다. ZIP 교환·본문 파일·읽기 기록 export는 서로 별도이며 전체 책의 미보관 회차를 자동 수집하지 않는다. 후속 EPUB·PDF 생성은 B3/PR #49이며 다음 실행은 가장 최신 PR의 최종 head CI와 아래 최신 기록부터 확인한다.
+
+### 2026-10-20 텍스트 연결 변경 세대 선행 수정 — PR #52
+
+- [draft PR #52](https://github.com/gongdongho12/PageTuner/pull/52), base `codex/server-live-verification`(#51), head `codex/portable-binding-generations`. 저장소 `3f9ef99`, 소비자 `684e788`를 나눠 커밋·푸시했다. 최종 문서 포함 head CI는 별도 확인한다.
+- v1 연결의 정확한 계정/사본/UUID/전체 identity를 보존해 v2로 이전하고 재시작·동시 인스턴스에도 같은 nonce를 읽는다. 해제는 새 nonce tombstone을 남긴다. 손상/미지원/잘못된 UTF-8/중복 JSON/64KiB 초과를 거절하고 기존 파일을 보존한다.
+- library→binding 잠금 안에서 최신 canonical 문서와 관찰한 snapshot을 비교한 뒤 저장한다. fsync 이후 원자 교체 직전에도 계정/선택 guard를 검사한다. 늦은 읽기 성공을 거절하고 실패는 관찰한 연결만 조건부 해제한다. 기존 용어집 export·채택의 같은 UUID 재연결 회귀를 추가했다.
+- 독립 코드 검토 완료. 대상 5개 클래스 46개 통과. 전체 Android 618개 중 **602개 통과/16개 opt-in 제외**, backup-runtime **50개 통과**, APK/lint/계측 소스 컴파일/모듈 경계 성공(전체 명령 2분10초). 최종 문서 포함 head CI는 별도 확인한다. 물리 Android 실행이나 분류 export UI가 완료됐다는 뜻은 아니다.
+- 다음 웹 단위는 `OrganizationRegistry.freshReader` 직접 GET과 pending/queued/conflict·version 역행/같은 version의 다른 내용 거절이다. `portableBinding.open`의 UUID만 비교하지 말고 raw nonce ticket을 유지하며 늦은 오류로 새 binding을 삭제하지 않도록 보완한다. `exchangeExportChoices` 목록 사본과 `exportDocument(saved)`도 최종 canonical 문서로 간주하지 않는다. 전체 S4c3b/S1/S2/PDF 계정 UX/EPUB 원본 교환은 미완료다.
+- 이번 검증은 JVM과 빌드 검사다. QA 서버/DB를 시작하거나 기존 자료·원본 미커밋 변경을 수정하지 않았다. 로그: ignored `.gradle-home/binding-generations-focused.log`, `binding-generations-full.log`.
 
 ### 2026-10-13 실제 서버·Android HTTP 검증과 발견 결함 — PR #51
 

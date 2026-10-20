@@ -14,6 +14,8 @@
 
 ## 화면 진입점과 공통 실행 경계
 
+2026-10-20 연결 안전성 후속: [draft PR #52](https://github.com/gongdongho12/PageTuner/pull/52), base PR #51에서 Android 텍스트 ZIP의 영속 nonce·해제 tombstone·기존 연결 보존 이전과 최종 문서/연결 CAS를 추가했다. 같은 UUID 재연결 뒤 이전 읽기·실패 응답과 용어집 export/채택을 거절한다. 대상46개, Android602통과/16 opt-in 제외, runtime50 및 APK/lint/계측 소스/모듈 경계 성공. 분류 최신 GET/ZIP 화면·채택은 S4c3b 후속이며 물리 Android 실행과 구분한다. [근거](PORTABLE_BINDING_GENERATIONS.md).
+
 2026-10-12 실제 서버 후속: [draft PR #51](https://github.com/gongdongho12/PageTuner/pull/51), base PR #50. 사용자 승인으로 기존 자료와 분리한 QA DB/서버에서 회원가입·계정/개인 서재97요청, 실제 NovelBuddy→Google 웹 번역91문단, Android production HTTP adapter의 계정/번역/캐시·같은 소설 읽기·ZIP PDF bytes/proof 왕복을 확인했다. 최신 웹에서는 QA 로그인→91/91 완료 번역→한국어 리더29쪽→기기 보관 성공을 확인했다. CSRF 거절의401 오분류를403으로 수정하고 웹 오프라인 셸 업데이트 대기 안내를 추가했다. WTR 최종 경로 보완 후 전체 회귀에서 웹665개/76파일·source-runtime52개·서버237개, Android586통과/16 opt-in 제외·APK/lint/계측 소스/경계 성공. WTR 최신 실서버 결과, 기기 재열기/오프라인 및 최종 head CI는 [별도 실제 검증 기록](SERVER_LIVE_VERIFICATION.md)을 따른다. 물리 Android 실행과 PDF 연결 UI 종단·V1~V5 완료를 뜻하지 않는다.
 
 2026-10-05 문서 내보내기 후속: [PR #49](https://github.com/gongdongho12/PageTuner/pull/49), `codex/pdf-epub-document-export`(base PR #48)에 새 EPUB와 본문 기반 PDF를 추가했다. 웹 643개/75파일·계약 15개·build/typecheck·core-content 18개 통과, Android 최종 601개 중 585개 통과·16개 제외와 APK/lint/계측 소스/모듈 경계 통과. 웹 전체 검사 후 UI·문구 수정은 typecheck/build를 재확인했다. 실제 CJK 120문단 EPUB는 EPUBCheck 5.4.0 오류 0·경고 0이고 웹 가져오기에서 제목 포함 122문단·33쪽·마지막 본문·100% 진행률을 확인했다. 동일 exporter의 Node SSR 생성 파일을 사용했으며 OS 다운로드는 미검증이다. ko/en·390×844/844×390 형식/PDF 준비 패널의 넘침·문단 잘림 없음과 보이는 버튼 44px 이상을 확인했다. Blob 미리보기 이동이 보안 정책으로 차단되어 인쇄 렌더·PDF 시각 검사·OS 저장은 확인하지 못했다. Android 실제 기기도 미연결이다. [상세 범위·검증](DOCUMENT_FILE_EXPORT.md).
