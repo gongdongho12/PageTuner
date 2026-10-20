@@ -1,7 +1,10 @@
 package com.dongholab.pagetuner.core.backup.exchange
 
-/** org.json differs across Android/JVM; accept the same strict JSON grammar on both. */
-internal object StrictExchangeJson {
+/**
+ * org.json differs across Android/JVM; accept the same strict JSON grammar on both.
+ * Callers must bound input bytes before decoding. This parser grants no document or binding authority.
+ */
+object StrictExchangeJson {
     fun validate(text: String, integerNumbersOnly: Boolean = false, maxArrayEntries: Int = Int.MAX_VALUE,
         maxValues: Int = Int.MAX_VALUE) = Parser(text, integerNumbersOnly, maxArrayEntries, maxValues).validate()
     fun normalize(text: String): String = Parser(text, collectNumbers = true).normalize()
