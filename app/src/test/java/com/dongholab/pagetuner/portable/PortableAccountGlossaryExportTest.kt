@@ -13,9 +13,12 @@ import kotlinx.coroutines.test.runTest
 import org.json.JSONObject
 import org.junit.Assert.*
 import org.junit.Test
+import org.junit.Rule
+import org.junit.rules.TemporaryFolder
 
 @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
 class PortableAccountGlossaryExportTest {
+    @get:Rule val temporary = TemporaryFolder()
     private val entries: List<BookGlossaryEntry> = listOf(
         BookGlossaryEntry("original:二", " Alice ", " 앨리스 ", " 아리 ", GlossaryTermKind.Character, true, false),
         BookGlossaryEntry("place/一", "River", " 강 ", " ", GlossaryTermKind.Place, false, true),
@@ -29,6 +32,7 @@ class PortableAccountGlossaryExportTest {
         var current: ServerReadingConnection? = connection
         var linked: PortableServerBinding? = PortableServerBinding(connection.accountKey, entry.key,
             NotesFixture.recordId, requireNotNull(DocumentIdentityJson.fromDocument(document)))
+        var readBinding: (String, PortableLibraryEntry) -> PortableServerBinding? = { _, _ -> linked }
         val identity: BookGlossarySyncIdentity = BookGlossarySyncIdentity("source", "book", "ko")
         var local: DeviceBookGlossary = DeviceBookGlossary()
         var remote: ServerBookGlossary = ServerBookGlossary(identity, 5, BookGlossaryValue(entries), NotesFixture.time)
@@ -39,7 +43,7 @@ class PortableAccountGlossaryExportTest {
         val tickets: PortableExportTickets = PortableExportTickets()
         val request: PortableExportRequest = tickets.begin("book.zip", connection)
         fun check(): Unit = tickets.check(request, current)
-        fun adapter(): PortableAccountGlossaryExport = PortableAccountGlossaryExport({ document }, { document }, { _, _ -> linked }, { local },
+        fun adapter(): PortableAccountGlossaryExport = PortableAccountGlossaryExport({ document }, { document }, { account, entry -> readBinding(account, entry) }, { local },
             verify = { account, record, proof ->
                 assertSame(connection.client, account.client); assertEquals(NotesFixture.recordId, record)
                 assertEquals(linked?.identity, proof); verifications++; onVerify()
@@ -176,6 +180,44 @@ class PortableAccountGlossaryExportTest {
         val duringOpen = Fixture(); duringOpen.stage(duringOpen.prepare()); val output = ByteArrayOutputStream()
         rejects { duringOpen.tickets.write(duringOpen.request.id, { duringOpen.current }) { duringOpen.linked = null; output } }
         assertEquals(0, output.size())
+    }
+
+    @Test fun sameRecordReconnectionInvalidatesVerificationQueryAndSafTickets() = runTest {
+        repeat(4) { phase ->
+            val f = Fixture()
+            val store = PortableServerBindingStore(temporary.newFolder())
+            val original = requireNotNull(f.linked)
+            store.save(original)
+            val before = requireNotNull(store.read(original.accountKey, f.entry))
+            f.readBinding = store::read
+            fun reconnect() {
+                store.remove(original.accountKey, f.entry)
+                store.save(original)
+                val after = requireNotNull(store.read(original.accountKey, f.entry))
+                assertEquals(before.recordId, after.recordId)
+                assertEquals(before.identity, after.identity)
+                assertNotEquals(before, after)
+            }
+            when (phase) {
+                0 -> { f.onVerify = ::reconnect; rejects { f.prepare() }; assertEquals(0, f.queries) }
+                1 -> { f.onQuery = { reconnect() }; rejects { f.prepare() } }
+                else -> {
+                    f.stage(f.prepare())
+                    val output = ByteArrayOutputStream()
+                    var opened = false
+                    if (phase == 2) reconnect()
+                    rejects { f.tickets.write(f.request.id, { f.current }) {
+                        opened = true
+                        if (phase == 3) reconnect()
+                        output
+                    } }
+                    assertEquals(phase == 3, opened)
+                    assertEquals(0, output.size())
+                }
+            }
+            assertEquals(f.original, f.document)
+            assertEquals(DeviceBookGlossary(), f.local)
+        }
     }
 
     @Test fun unsupportedExtensionAndOversizeCannotDiscardOriginalSnapshots() = runTest {

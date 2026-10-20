@@ -8,10 +8,13 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.*
 import org.junit.Assert.*
 import org.junit.Test
+import org.junit.Rule
+import org.junit.rules.TemporaryFolder
 import kotlin.time.Duration.Companion.seconds
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class PortableGlossaryAdoptionTest {
+    @get:Rule val temporary = TemporaryFolder()
     private class Fixture(val scope: CoroutineScope, io: CoroutineDispatcher,
         val presence: BookGlossarySnapshotPresence = BookGlossarySnapshotPresence.PRESENT) {
         val account: ServerReadingConnection = NotesFixture.connection { error("No automatic HTTP") }
@@ -24,6 +27,7 @@ class PortableGlossaryAdoptionTest {
         val entry: PortableLibraryEntry get() = PortableLibraryEntry("a".repeat(64), 0, document)
         var linked: PortableServerBinding? = PortableServerBinding(account.accountKey, entry.key, NotesFixture.recordId,
             requireNotNull(DocumentIdentityJson.fromDocument(document)))
+        var readBinding: (String, PortableLibraryEntry) -> PortableServerBinding? = { _, _ -> linked }
         var local = DeviceBookGlossary()
         var remote = ServerBookGlossary(identity, 0, BookGlossaryValue(null), null)
         var queries = 0
@@ -31,7 +35,7 @@ class PortableGlossaryAdoptionTest {
         var commits = 0
         var onQuery: suspend () -> Unit = {}
         var onCommit: () -> Unit = {}
-        val adoption = PortableGlossaryAdoption(scope, { document }, { document }, { _, _ -> linked }, { local },
+        val adoption = PortableGlossaryAdoption(scope, { document }, { document }, { account, entry -> readBinding(account, entry) }, { local },
             verify = { _, _, _ -> verifies++ }, query = { _, requested -> assertEquals(identity, requested); queries++; onQuery(); remote }, io = io)
         suspend fun prepare(): PortableGlossaryComparison {
             adoption.select(entry, account, { current })
@@ -82,6 +86,35 @@ class PortableGlossaryAdoptionTest {
             f.confirm(shown.id)
             val rejected = f.adoption.state.first { !it.busy }
             assertNotNull(rejected.error); assertNull(rejected.comparison); assertEquals(0, f.commits)
+        }
+    }
+
+    @Test fun sameRecordReconnectionRejectsLateComparisonAndExplicitAdoption() = runTest(timeout = 10.seconds) {
+        repeat(3) { phase ->
+            val f = Fixture(backgroundScope, StandardTestDispatcher(testScheduler))
+            val store = PortableServerBindingStore(temporary.newFolder())
+            val original = requireNotNull(f.linked)
+            store.save(original)
+            f.readBinding = store::read
+            fun reconnect() {
+                store.remove(original.accountKey, f.entry)
+                store.save(original)
+            }
+            if (phase == 0) {
+                f.onQuery = { reconnect() }
+                f.adoption.select(f.entry, f.account, { f.current })
+                f.adoption.state.first { !it.busy }
+                f.adoption.compare(0) { f.current }
+            } else {
+                val shown = f.prepare()
+                if (phase == 1) reconnect() else f.onQuery = { reconnect() }
+                f.confirm(shown.id)
+            }
+            val rejected = f.adoption.state.first { !it.busy }
+            assertNotNull(rejected.error)
+            assertNull(rejected.comparison)
+            assertEquals(0, f.commits)
+            assertEquals(DeviceBookGlossary(), f.local)
         }
     }
 

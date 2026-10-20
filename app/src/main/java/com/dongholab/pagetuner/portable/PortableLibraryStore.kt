@@ -64,6 +64,11 @@ class PortableLibraryStore(private val directory: File) {
         LibraryExchangeCodec.read(readBounded(file(entry.packageId)))
     }
 
+    /** Keep the canonical text proof and a device-private binding operation in one reader-write lock. */
+    internal fun <T> withDocument(entry: PortableLibraryEntry, block: (ExchangeDocument) -> T): T = synchronized(lock) {
+        block(read(entry).documents[entry.documentIndex])
+    }
+
     /** Prepare only: reread the chosen document and its exact asset bytes from the same committed ZIP. */
     fun preparePdfContent(entry: PortableLibraryEntry): ValidatedPdfContent = synchronized(lock) {
         val source = LibraryExchangeCodec.read(readBounded(file(entry.packageId)))
