@@ -5,6 +5,7 @@ import { LibraryOrganizationError, type LibraryOrganizationClient, type LibraryO
 import { validReadingProgressIdentity } from '../lib/readingProgressApi'
 import { sameLibraryOrganizationScope, sameLibraryOrganizationView, validateLibraryOrganizationScope, validateLibraryOrganizationView, type LibraryOrganizationView } from '../lib/libraryOrganizationApi'
 import { organizationExportErrors, type FreshLibraryOrganizationReader } from '../lib/portableOrganizationExport'
+import { useExportSession } from './useExportSession'
 
 type Controller = ReturnType<typeof createLibraryOrganizationController>
 const keyFor = (scope: LibraryOrganizationScope) => `${scope.kind}:${scope.recordId.toLowerCase()}`
@@ -151,6 +152,21 @@ export class OrganizationRegistry {
 }
 
 const OrganizationContext = createContext<OrganizationRegistry | null>(null)
+
+/** A fresh GET may only be issued by the committed screen/account lease that exposed this callback. */
+export function useFreshLibraryOrganization(namespace: string) {
+  const registry = useContext(OrganizationContext)
+  const active = registry?.username === namespace ? registry : null
+  const lease = useExportSession(active, window.location.origin)
+  return { available: !!active?.api && !!lease, session: active,
+    begin: () => {
+      if (!lease) throw new Error(organizationExportErrors.stale)
+      const current = lease.issue(organizationExportErrors.stale)
+      if (!active?.api) throw new Error(organizationExportErrors.offline)
+      return active.freshReader(current)
+    },
+  }
+}
 
 export function LibraryOrganizationProvider({ username, client, children }: { username: string; client: LibraryOrganizationClient | null; children: ReactNode }) {
   const [registry, setRegistry] = useState<OrganizationRegistry | null>(null)
