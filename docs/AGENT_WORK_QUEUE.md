@@ -15,11 +15,19 @@
 
 ## 우선순위 큐
 
-2026-10-20 최신 단위는 **draft PR #52**, base PR #51이다. S4c3b에 앞서 Android 텍스트 binding의 영속 nonce·해제 tombstone·기존 연결 이전 및 늦은 응답의 조건부 처리를 구현했다. 분류 GET export·화면·채택은 아직 미완료이며 다음 작은 단위는 웹 controller를 열지 않는 직접 GET 세션이다. [연결 세대와 후속 경계](PORTABLE_BINDING_GENERATIONS.md)를 먼저 읽는다. PR #51의 정확한 head `860c90b`/run38392118360 성공을 재확인했으며 자동 병합하지 않는다.
+2026-10-20 최신 단위는 **draft PR #53**, base PR #52이다. Android 연결 세대 선행 수정(PR #52)의 최종 `b220093` CI 성공을 확인했고 S4c3b의 웹 직접 GET 세션을 추가했다. 실제 ZIP builder·화면·Android export·채택은 아직 미완료다. 다음은 canonical 문서 재조회와 웹 raw binding nonce/늦은 오류 처리 보완이다. [최신 export 준비와 후속 경계](PORTABLE_ORGANIZATION_EXPORT.md)를 먼저 읽는다. 자동 병합하지 않는다.
 
 2026-10-12 최신 우선순위: 사용자 요청에 따른 실제 서버 검증과 발견 결함의 수정은 **PR #51**에서 진행한다. 사용자는 이전 거절 이후 **격리 DB·검증 서버 시작을 명시적으로 승인**했다. 이 승인 전의 시작 거절을 현재 차단 조건으로 반복하지 않으며, 기존 미리보기 DB와 원본 작업 폴더는 보존한다. [실제 검증 기록](SERVER_LIVE_VERIFICATION.md)과 [기본 사용 안내](QUICK_START.md)를 먼저 읽는다. PR #51 최종 head CI·작업 트리를 확인해 진행 변경을 마무리한 뒤 **S4c3b 최신 분류 export·명시적 채택**을 계속한다. 전체 프로젝트와 S4는 미완료다.
 
 추가 사용자 요청 **B2 별도 export**는 PR #48에서 TXT/Markdown 및 원본 PDF 파일 내보내기로 구현했다. [지원 범위](DOCUMENT_FILE_EXPORT.md)를 따른다. ZIP 교환·본문 파일·읽기 기록 export는 서로 별도이며 전체 책의 미보관 회차를 자동 수집하지 않는다. 후속 EPUB·PDF 생성은 B3/PR #49이며 다음 실행은 가장 최신 PR의 최종 head CI와 아래 최신 기록부터 확인한다.
+
+### 2026-10-20 웹 분류 직접 GET 세션 — PR #53
+
+- [draft PR #53](https://github.com/gongdongho12/PageTuner/pull/53), base `codex/portable-binding-generations`(#52), head `codex/fresh-organization-reader`. 구현 `73978d8`을 커밋·푸시했다. 문서 포함 최종 head CI를 별도로 확인한다.
+- `OrganizationRegistry.freshReader`는 controller/open/초기화/PUT 없이 원래 client 직접 GET과 읽기 전용 journal snapshot만 사용한다. pending/queued/conflict, scope 불일치, journal/이전 응답/동시 GET의 version 역행·동일 version 내용 변경을 거절하고 반환값과 관찰 사본을 복제한다. 종료된 registry나 실효 guard/abort의 reader는 복구하지 않는다.
+- 대상21개(기존1+신규20), 전체웹685개/76파일·계약15·typecheck·production build 성공. fake-indexeddb/모의 API 검사이며 실제 계정 ZIP 다운로드나 신규 서버 종단 증거가 아니다. 독립 검토에서 이전 hook callback이 unmount 후 reader를 발급할 수 있는 문제를 찾아 미사용 hook을 이번 단위에서 제거했다. 실제 화면 통합 시 세대 발급·unmount·재선택의 브라우저 회귀가 필요하다.
+- 다음은 `portableBinding`의 raw nonce captured reader/늦은 오류 조건부 해제와 `exchangeLibrary`의 canonical 문서 재조회다. 이후 이 GET 세션을 실제 ZIP builder/UI에 연결하고 Android 직접 GET/SAF, 별도 채택을 이어간다. 전체 S4c3b/S4는 미완료다. [범위·검증](PORTABLE_ORGANIZATION_EXPORT.md), ignored `fresh-organization-focused.log`·`fresh-organization-web.log`.
+- 선행 PR #52 최종 `b220093b99c3af3cfed5fadd8cc0cfaf98fbaa8a` [CI run39422238326](https://github.com/gongdongho12/PageTuner/actions/runs/39422238326) 성공(2분39초)을 확인했다. Android/core·서버 security·웹/shared proof 범위이며 로컬 runtime50/APK/lint/계측 소스 검사와 구분한다.
 
 ### 2026-10-20 텍스트 연결 변경 세대 선행 수정 — PR #52
 
@@ -100,7 +108,7 @@
 | S4c2a | S4c2 하위 | 완료 / 실기기 검증 대기 | 최신 계정 용어집의 명시적 ZIP 내보내기 | 직접 읽기 전용 조회·원본 identity/언어/binding 확인·계정/client 세대 및 SAF 요청 티켓. pending/conflict/더 최신 journal·미지원 확장/256 KiB 초과를 거절한다. 웹 484·앱 511 통과/15 opt-in 제외, 실제 서버 변경 후 다운로드 ZIP의 무손실 반영 확인. [근거](PORTABLE_GLOSSARY_EXPORT.md) |
 | S4c2b | S4c2 하위 | 완료 / 실기기 검증 대기 | ZIP 계정 용어집의 명시적 채택 | readonly 비교·최종 서버/기기/base 재검증·정확한 새 CAS/outbox. absent 정보만 표시, deleted/빈목록 구분. 웹 506·앱 523 통과/15 opt-in 제외, 실제 500항목 무손실 채택과 오래된 비교 거절 확인. [근거](PORTABLE_GLOSSARY_ADOPTION.md) |
 | S4c3a | S4c 하위 | 완료 | 문서 분류의 passive ZIP snapshot 계약·codec | 정확한 text DocumentIdentity와 전체 proof, absent/present-empty·폴더·ordered tags·favorite, 기존 organization/extension 보존. core45/runtime50/web660 및 실제 웹→JVM→웹 ZIP 7사례 동등성 검사. 계정 조회/화면/채택은 S4c3b. [근거](PORTABLE_ORGANIZATION_SNAPSHOT.md) |
-| S4c3b | S4c 하위 | 대기 | 최신 계정 분류 ZIP export·명시적 채택 | 직접 GET·계정/origin/client/선택 세대·현재 저장소 문서와 text binding nonce 재검증. pending/queued/conflict와 기기 base 보존, 명시적 선택 후 새 CAS mutation. absent는 정보만 표시하며 present-empty와 구분 |
+| S4c3b | S4c 하위 | 진행 | 최신 계정 분류 ZIP export·명시적 채택 | PR #52 Android nonce/tombstone·최종 CAS, PR #53 웹 GET-only 세션·pending/queued/conflict/응답 역행 거절 완료. canonical 재조회·웹 raw nonce/화면 세대·ZIP builder/UI·Android export/SAF·별도 채택은 남음. [범위](PORTABLE_ORGANIZATION_EXPORT.md) |
 | W1 | 5 | 대기 | 웹 로컬 번역 캐시의 서버 업로드·복원 | 전체 문단 검증, 원문 revision 대응, 미완성/다른 제공자 충돌 처리, 앱에서 재조회 |
 | W2 | 6 | 대기 | 웹 진단 화면 | 민감정보 제거된 제한 크기 로그, 번역/수집/동기화 오류 구분, 복사/내보내기·삭제, 작은 화면 페이지 탐색 |
 | W3 | 7 | 대기 | 번역 작업 제어와 묶음 범위 개선 | 앱·웹 일시정지/재개 동작 통일 가능 범위, 현재 20회차 제한의 서버 큐 확장, 재시작·중복 제출·취소 검증 |
