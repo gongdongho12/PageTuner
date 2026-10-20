@@ -37,10 +37,13 @@ data class PortableOpened(val entry: PortableLibraryEntry, val loaded: LoadedRea
 
 class PortableLibraryViewModel(private val context: Context, private val local: LocalLibraryStore) : ViewModel() {
     private val bindings = PortableServerBindingStore(File(context.filesDir, "portable_server_bindings"))
-    fun saveBinding(value: PortableServerBinding) { glossaryAdoption.close(); bindings.save(value) }
+    fun bindingSnapshot(accountKey: String, entry: PortableLibraryEntry) = textBindings.snapshot(accountKey, entry)
+    fun saveBinding(entry: PortableLibraryEntry, value: PortableServerBinding, expected: PortableServerBindingSnapshot,
+        current: () -> Unit) { glossaryAdoption.close(); textBindings.save(entry, value, expected, current) }
     fun removeBinding(accountKey: String, entry: PortableLibraryEntry) { glossaryAdoption.close(); bindings.remove(accountKey, entry) }
 
     private val store = PortableLibraryStore(File(context.filesDir, "portable_library"))
+    private val textBindings = PortableTextBindingAccess(store, bindings)
     private val pdfBindings = PortablePdfBindingStore(store, File(context.filesDir, "portable_pdf_bindings"))
     val pdfStorage = PortablePdfStorage(viewModelScope, ::currentPdfContent, pdfBindings, ::openVerifiedPdf)
     private val mutableState = MutableStateFlow(PortableLibraryState())
@@ -254,8 +257,13 @@ class PortableLibraryViewModel(private val context: Context, private val local: 
             if (connection != null && binding == null) error(context.getString(R.string.portable_identity_binding_required))
             if (!originalPdf && binding != null) {
                 val currentConnection = requireNotNull(connection)
+                val guard = { textBindings.validate(currentEntry, binding) {
+                    require(isCurrent()) { "The reading selection changed." }
+                } }
                 try {
+                    guard()
                     currentConnection.client.verifyPortableIdentity(binding.recordId, binding.identity)
+                    guard()
                     val source = if (binding.identity.kind == DocumentIdentityKind.ORIGINAL) currentConnection.client.original(binding.recordId)
                     else {
                         val stored = currentConnection.client.get(binding.recordId)
@@ -266,16 +274,20 @@ class PortableLibraryViewModel(private val context: Context, private val local: 
                     }
                     require(DocumentIdentityJson.fromDocument(PortableDocumentMapper.server(source).documents.single()) == binding.identity)
                     if (!isCurrent()) return@operation
+                    guard()
                     // A canonical projection has its own reader ID and server journals. ZIP notes and location stay untouched.
                     val reading = ServerReadingDocument.create(currentConnection.accountKey, source)
                     mutableOpened.emit(PortableOpened(currentEntry, LoadedReaderDocument(reading.mapping.document), reading.mapping,
-                        0, emptyList(), emptyList(), serverReading = reading))
+                        0, emptyList(), emptyList(), serverReading = reading, validateOpen = guard))
                     return@operation
                 } catch (cancelled: CancellationException) { throw cancelled }
                 catch (error: Exception) {
                     if (!isCurrent()) return@operation
                     if (error is PortableIdentityVerificationException && error.reason != PortableIdentityFailure.Unavailable ||
-                        error is TranslationStoreException && error.failure == TranslationStoreFailure.NOT_FOUND) bindings.remove(currentConnection.accountKey, currentEntry)
+                        error is TranslationStoreException && error.failure == TranslationStoreFailure.NOT_FOUND) {
+                        // A replaced/deleted archive or a newer binding must survive this old response.
+                        runCatching { textBindings.removeIfCurrent(currentEntry, binding) }
+                    }
                     throw error // Opening a saved binding cannot silently become an unrelated local reading session.
                 }
             }

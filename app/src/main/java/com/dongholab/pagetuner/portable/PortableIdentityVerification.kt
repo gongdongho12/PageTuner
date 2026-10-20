@@ -120,7 +120,8 @@ class PortableIdentityVerification(
     }
 
     fun bind(session: Long, value: ServerReadingConnection?, currentDocument: suspend (PortableLibraryEntry) -> ExchangeDocument,
-        save: suspend (PortableServerBinding) -> Unit) {
+        readBinding: (String, PortableLibraryEntry) -> PortableServerBindingSnapshot,
+        save: (PortableLibraryEntry, PortableServerBinding, PortableServerBindingSnapshot, () -> Unit) -> Unit) {
         if (!matches(value)) { connect(value); return }
         val snapshot = state.value
         val currentConnection = connection ?: return
@@ -133,9 +134,16 @@ class PortableIdentityVerification(
             val message = try {
                 val document = currentDocument(entry)
                 require(document.assets.isEmpty() && DocumentIdentityJson.fromDocument(document) == identity)
+                val expected = readBinding(currentConnection.accountKey, entry.copy(document = document))
                 verify(currentConnection, snapshot.recordId, identity)
                 if (generation != ticket || !matches(currentConnection)) return@launch
-                save(PortableServerBinding(currentConnection.accountKey, entry.key, snapshot.recordId, identity))
+                val latest = currentDocument(entry)
+                require(latest.assets.isEmpty() && DocumentIdentityJson.fromDocument(latest) == identity)
+                val guard = {
+                    check(generation == ticket && matches(currentConnection)) { "The account or selection changed." }
+                }
+                guard()
+                save(entry, PortableServerBinding(currentConnection.accountKey, entry.key, snapshot.recordId, identity), expected, guard)
                 R.string.portable_identity_bound
             } catch (cancelled: CancellationException) { throw cancelled }
             catch (_: Exception) { R.string.portable_identity_binding_failed }

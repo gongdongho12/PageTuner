@@ -1,9 +1,11 @@
 # PageTuner 남은 작업 체크리스트
 
-갱신: 2026-10-13 (한국 시간). 실행 순서와 상세 근거는 [작업 큐](AGENT_WORK_QUEUE.md), 플랫폼별 범위는 [기능 대응표](APP_WEB_FEATURE_MATRIX.md)를 따른다. **전체 프로젝트와 S4는 아직 미완료다.** 구현 완료와 실기기·실서비스 검증 완료는 별개로 기록한다.
+갱신: 2026-10-20 (한국 시간). 실행 순서와 상세 근거는 [작업 큐](AGENT_WORK_QUEUE.md), 플랫폼별 범위는 [기능 대응표](APP_WEB_FEATURE_MATRIX.md)를 따른다. **전체 프로젝트와 S4는 아직 미완료다.** 구현 완료와 실기기·실서비스 검증 완료는 별개로 기록한다.
 
 ## 현재 진행 단위
 
+- [x] **S4c3b 선행 Android 연결 세대 보완**: [draft PR #52](https://github.com/gongdongho12/PageTuner/pull/52), base PR #51. 기존 연결을 보존해 nonce/tombstone으로 이전하고 같은 UUID 재연결·늦은 읽기 오류·연결 저장 경합·용어집 export/채택을 검사했다. 관련46개·Android602통과/16제외·runtime50·APK/lint/계측 소스/경계 성공. [범위와 후속 경계](PORTABLE_BINDING_GENERATIONS.md). 최종 head CI는 큐에서 확인한다.
+- [ ] **S4c3b 다음 작은 단위**: 웹 controller를 열지 않는 분류 직접 GET 세션, pending/queued/conflict·version 역행/동일 version 변경 거절. canonical 문서 재조회와 raw binding nonce/늦은 오류 보완 후 실제 export 화면을 연결한다.
 - [x] **PR #51 실제 서버·Android HTTP 검증 및 CSRF 수정**: 사용자 승인으로 분리한 QA DB에서 회원가입·계정/서재97요청·실제 NovelBuddy/Google 91문단 및 Android HTTP adapter 왕복을 확인했다. 실제 서버의 CSRF 거절이401로 잘못 바뀌던 결함을403으로 수정했고 최신 HTTP3경로를 재확인했다. [상세와 한계](SERVER_LIVE_VERIFICATION.md)
 - [x] **PR #51 오프라인 웹 업데이트 대기 안내**: 새 worker가 대기하면 작업을 보관한 뒤 같은 주소의 모든 탭을 닫고 다시 열도록 안내한다. 강제 교체·사이트 데이터 삭제 없이 기기 자료를 보존한다. 웹665개/76파일 및 중간 head `703629e` CI 성공.
 - [x] **PR #51 WTR 실제 회차 가져오기**: `6f79dec`·`f7ca005`의 응답/상대 경로 수정 후 production Java reader와 실제 서버 import가129문단/HTTP200으로 통과했다. 소스52·서버237·앱586 통과/16제외 및 APK/lint/경계 성공. 카탈로그의 간헐적 외부 timeout과 전체 사이트 가용성은 구분한다. [실행 기록](SERVER_LIVE_VERIFICATION.md)

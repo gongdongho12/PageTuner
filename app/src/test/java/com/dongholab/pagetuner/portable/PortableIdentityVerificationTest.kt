@@ -158,7 +158,7 @@ class PortableIdentityVerificationTest {
         val controller = PortableIdentityVerification(this, kotlinx.coroutines.test.StandardTestDispatcher(testScheduler)) { _, _, _ -> checks++ }
         controller.select(entry, connection)
         runCurrent()
-        controller.bind(controller.state.value.session, connection, { it.document }, { saved += it })
+        controller.bind(controller.state.value.session, connection, { it.document }, { _, _ -> PortableServerBindingSnapshot(null, null) }, { _, binding, _, guard -> guard(); saved += binding })
         runCurrent()
         assertTrue(saved.isEmpty())
         controller.check(controller.state.value.session, connection) { it.document }
@@ -166,7 +166,7 @@ class PortableIdentityVerificationTest {
         assertTrue(controller.state.value.verified)
         assertEquals(1, checks)
         assertTrue(saved.isEmpty())
-        controller.bind(controller.state.value.session, connection, { it.document }, { saved += it })
+        controller.bind(controller.state.value.session, connection, { it.document }, { _, _ -> PortableServerBindingSnapshot(null, null) }, { _, binding, _, guard -> guard(); saved += binding })
         runCurrent()
         assertEquals(2, checks)
         assertEquals(1, saved.size)
@@ -184,13 +184,67 @@ class PortableIdentityVerificationTest {
         controller.check(controller.state.value.session, connection) { it.document }; runCurrent()
         controller.updateRecord(controller.state.value.session, NotesFixture.otherId)
         assertFalse(controller.state.value.verified)
-        controller.bind(controller.state.value.session, connection, { it.document }, { saves++ }); runCurrent()
+        controller.bind(controller.state.value.session, connection, { it.document }, { _, _ -> PortableServerBindingSnapshot(null, null) }, { _, _, _, guard -> guard(); saves++ }); runCurrent()
         assertEquals(0, saves)
         controller.check(controller.state.value.session, connection) { it.document }; runCurrent()
         controller.connect(null); runCurrent()
         assertFalse(controller.state.value.verified)
-        controller.bind(controller.state.value.session, null, { it.document }, { saves++ }); runCurrent()
+        controller.bind(controller.state.value.session, null, { it.document }, { _, _ -> PortableServerBindingSnapshot(null, null) }, { _, _, _, guard -> guard(); saves++ }); runCurrent()
         assertEquals(0, saves)
+    }
+
+    @Test fun changesDuringBindingVerificationNeverOverwriteNewerConnectionOrChangedArchive() = runTest {
+        for (change in listOf("reconnect", "document", "account")) {
+            val library = PortableLibraryStore(temporary.newFolder())
+            val entry = library.importArchive(LibraryExchangeCodec.write(PortableDocumentMapper.server(server()))).entries.single()
+            val bindings = PortableServerBindingStore(temporary.newFolder())
+            val access = PortableTextBindingAccess(library, bindings)
+            val connection = connection()
+            val original = bindings.save(PortableServerBinding(connection.accountKey, entry.key, NotesFixture.recordId,
+                requireNotNull(DocumentIdentityJson.fromDocument(entry.document))))
+            var checks = 0
+            val released = CompletableDeferred<Unit>()
+            val controller = PortableIdentityVerification(this, kotlinx.coroutines.test.StandardTestDispatcher(testScheduler)) { _, _, _ ->
+                if (++checks == 2) withContext(NonCancellable) { released.await() }
+            }
+            controller.select(entry, connection); runCurrent()
+            controller.check(controller.state.value.session, connection) { library.read(it).documents[it.documentIndex] }; runCurrent()
+            controller.bind(controller.state.value.session, connection,
+                { library.read(it).documents[it.documentIndex] }, access::snapshot,
+                { selected, binding, expected, guard -> access.save(selected, binding, expected, guard) })
+            runCurrent()
+            assertTrue(controller.state.value.busy)
+            when (change) {
+                "reconnect" -> { bindings.remove(connection.accountKey, entry); bindings.save(original) }
+                "document" -> library.update(entry) { it.copy(paragraphs = it.paragraphs.reversed()) }
+                "account" -> controller.connect(null)
+            }
+            val expected = bindings.readSnapshot(connection.accountKey, entry)
+            released.complete(Unit); runCurrent()
+            assertEquals(change, expected, bindings.readSnapshot(connection.accountKey, entry))
+            assertNotEquals(change, R.string.portable_identity_bound, controller.state.value.message)
+        }
+    }
+
+    @Test fun selectionChangeDuringFinalDocumentReadCannotCommitBinding() = runTest {
+        val entry = entry()
+        val connection = connection()
+        val released = CompletableDeferred<Unit>()
+        var reads = 0
+        var saves = 0
+        val controller = PortableIdentityVerification(this, kotlinx.coroutines.test.StandardTestDispatcher(testScheduler)) { _, _, _ -> }
+        controller.select(entry, connection); runCurrent()
+        controller.check(controller.state.value.session, connection) { it.document }; runCurrent()
+        controller.bind(controller.state.value.session, connection, {
+            if (++reads == 2) withContext(NonCancellable) { released.await() }
+            it.document
+        }, { _, _ -> PortableServerBindingSnapshot(null, null) }, { _, _, _, guard -> guard(); saves++ })
+        runCurrent()
+        assertEquals(2, reads)
+        controller.close()
+        released.complete(Unit); runCurrent()
+        assertEquals(0, saves)
+        assertNotEquals(R.string.portable_identity_bound, controller.state.value.message)
     }
 
     @Test fun unbindRemovesOnlySelectedAccountAssociationAndInvalidatesCheckedSession() = runTest {
