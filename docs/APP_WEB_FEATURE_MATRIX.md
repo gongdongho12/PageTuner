@@ -14,6 +14,8 @@
 
 ## 화면 진입점과 공통 실행 경계
 
+2026-10-21 웹 최신 분류 ZIP: [draft PR #55](https://github.com/gongdongho12/PageTuner/pull/55), base PR #54. 용어집·분류 동시 포함과 일반 ZIP의 최종 canonical/journal/raw nonce/session guard, terminal 화면 lease, 계정 읽기 현재 문서 확인을 연결했다. 웹740개/80파일·계약15·build, 공유 웹/APK/경계 성공. 실제 브라우저 OS 다운로드5,899bytes를 Python으로 읽어500항목 전체 필드·분류/문단/identity 동등성을 확인했다. API는 mock, DOM 화면 경계/44px 검사와 스크린샷 timeout을 구분한다. Android GET/SAF·별도 분류 채택과 전체S4는 남아 있다. [근거·한계](PORTABLE_ACCOUNT_EXPORT_UI.md).
+
 2026-10-20 분류 ZIP 준비: [draft PR #54](https://github.com/gongdongho12/PageTuner/pull/54), base PR #53. 현재 저장소 문서·실제 자산·읽기 기록 캡처와 raw binding nonce/실제 verify 응답을 검증하고 분류 passive ZIP bytes·저장 직전 guard를 준비한다. 번역본 export의 implicit 메모 sync/outbox 생성을 제거했다. 웹720개/78파일·계약15·typecheck/build 및 APK/공유 웹/모듈 경계 성공. 실제 다운로드 UI·화면 세대·Android GET/SAF·별도 채택은 남아 있다. 비교는 다중 DB 원자 transaction이 아니며 실제 서버/다운로드·물리 Android 검증으로 간주하지 않는다. [범위](PORTABLE_EXPORT_CAPTURES.md).
 
 2026-10-20 S4c3b 조회 준비: [draft PR #53](https://github.com/gongdongho12/PageTuner/pull/53), base PR #52. 웹 `OrganizationRegistry.freshReader`는 controller를 열지 않고 직접 GET·읽기 전용 journal 검사만 수행하며 pending/queued/conflict·응답 version 역행/동일 version 변경·늦은 응답을 거절한다. 대상21개·전체웹685개/76파일·계약15·typecheck/build 성공. 실제 ZIP builder/UI·canonical/raw nonce/화면 세대·Android GET/SAF·채택은 남아 있다. [범위](PORTABLE_ORGANIZATION_EXPORT.md). PR #52 최종 `b220093`의 CI run39422238326 성공(2분39초)을 확인했다.
@@ -157,7 +159,7 @@ Android **Local → ZIP**, 웹 **On this device → App · Web ZIP transfer**에
 | 원문·번역·PDF·삽화 교환 | 완료 | 문단 ID와 실제 파일 bytes 보존, 전체 ZIP 검증 후 원자적 저장 |
 | 기존 기기/ZIP의 북마크·메모·강조·읽던 위치·분류·용어집 | 완료 / 표현 범위 차이 보존 | 플랫폼이 직접 편집하지 못하는 속성은 ZIP 재출력에 보존. PDF 물리 페이지 기록과 텍스트 위치를 임의 변환하지 않는다. 새 계정 동기화 저장소의 최신 기록까지 내보낸다는 뜻은 아니다. |
 | 최신 계정 동기화 기록의 ZIP 통합 | 진행 / S4c | 용어집 passive snapshot 계약·codec(S4c1), 최신 계정 조회와 명시적 앱/웹 export(S4c2a)는 완료했다. 실제 다운로드의 정확한 항목·별칭·서버 최신 변경을 확인했다. 채택(S4c2b)도 연결했고 실제 500항목·삭제·빈목록·오래된 비교 거절을 확인했다. 분류 passive 계약·codec(S4c3a)도 완료했지만 최신 계정 조회/화면/채택(S4c3b)과 S1/S2 통합은 남아 있다. Android SAF 실기기 검증은 V3다. [용어집](PORTABLE_GLOSSARY_EXPORT.md) · [분류](PORTABLE_ORGANIZATION_SNAPSHOT.md) |
-| 계정 문서 분류의 passive ZIP snapshot | 공통/JVM·웹 codec 완료 / 최신 export·채택 미완료 | 전체 text identity와 내용 proof, absent/present-empty·폴더·ordered tags·favorite, legacy 분류·용어집/미지원 확장 보존. core45/runtime50/web660, 실제 웹→JVM→웹 ZIP 7사례 동등성 통과. 전체 extensions256 KiB·문서8MiB 초과와 typed 미지원/변조 값은 절단/덮어쓰기 없이 거절. 계정 GET/PUT·binding 권한은 만들지 않는다. [근거](PORTABLE_ORGANIZATION_SNAPSHOT.md) |
+| 계정 문서 분류의 passive ZIP snapshot | 공통/JVM·웹 codec 및 웹 최신 export 완료 / Android 최신 export·채택 미완료 | 전체 text identity와 내용 proof, absent/present-empty·폴더·ordered tags·favorite, legacy 분류·용어집/미지원 확장 보존. core45/runtime50/web660, 실제 웹→JVM→웹 ZIP 7사례 동등성 통과. 전체 extensions256 KiB·문서8MiB 초과와 typed 미지원/변조 값은 절단/덮어쓰기 없이 거절. 계정 GET/PUT·binding 권한은 만들지 않는다. [근거](PORTABLE_ORGANIZATION_SNAPSHOT.md) |
 | ZIP 텍스트 원본 식별자·서버 동일성 확인 | 완료 / S4a·실기기 검증 대기 | 원래 provider/book/chapter/언어/revision/전체 문단을 보존하고 현재 계정의 서버 문서와 명시적으로 비교한다. 실제 웹→Android 공통 runtime→웹 왕복 검증. 영속 텍스트 연결은 S4b1, PDF/이미지·독립 로컬 대응은 S4b2이며 확인만으로 기록을 병합하지 않는다. [근거](PORTABLE_DOCUMENT_IDENTITY.md) |
 | 중복·변경본 처리 | 완료 | 같은 snapshot은 기존 기록 유지, 변경본은 별도 사본. 기존 책을 덮어쓰지 않음 |
 | 실제 양방향 확인 | 완료 / 브라우저 UI·Android 어댑터 | Android 출력 ZIP을 웹 UI에서 가져와 본문·북마크 확인. 웹 UI 다운로드 ZIP을 Android 저장소·리더 mapper에서 읽고 재출력 확인. Android 실기기 화면 검증은 별도 |

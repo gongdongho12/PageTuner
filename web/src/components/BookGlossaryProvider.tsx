@@ -5,6 +5,7 @@ import { BookGlossaryError, type BookGlossaryClient, type BookGlossaryScope } fr
 import { validateBookGlossaryScope, validateBookGlossaryView, sameBookGlossaryScope, sameBookGlossaryView, bookGlossaryKey, type BookGlossaryView } from '../lib/bookGlossaryApi'
 import { glossaryExportErrors, type FreshBookGlossaryReader } from '../lib/portableGlossaryExport'
 import { createPortableGlossaryAdoption, glossaryAdoptionErrors } from '../lib/portableGlossaryAdoption'
+import { useExportSession } from './useExportSession'
 
 type Controller = ReturnType<typeof createBookGlossaryController>
 const keyFor = (scope: BookGlossaryScope) => bookGlossaryKey(scope)
@@ -67,31 +68,60 @@ export class GlossaryRegistry {
   /** Export never starts a controller or modifies a journal, including for unopened scopes. */
   freshReader(current: () => boolean): FreshBookGlossaryReader {
     const observed = new Map<string, BookGlossaryView>()
+    let expired = false
     const assertCurrent = () => {
-      if (this.closed || !current()) throw new Error(glossaryExportErrors.stale)
+      if (expired || this.closed || !current()) {
+        expired = true
+        throw new Error(glossaryExportErrors.stale)
+      }
       if (!this.api) throw new Error(glossaryExportErrors.offline)
     }
-    const checkReady = async (input: BookGlossaryScope, signal?: AbortSignal) => {
-      assertCurrent(); if (signal?.aborted) throw new Error(glossaryExportErrors.stale)
-      const scope = validateBookGlossaryScope(input), store = createBookGlossaryStore(this.username, scope)
+    const assert = (signal?: AbortSignal) => {
+      if (signal?.aborted) expired = true
+      assertCurrent()
+    }
+    const assertNoRegression = (known: BookGlossaryView | null | undefined, incoming: BookGlossaryView) => {
+      if (known && (known.version > incoming.version || known.version === incoming.version && !sameBookGlossaryView(known, incoming))) {
+        throw new Error(glossaryExportErrors.response)
+      }
+    }
+    const inspectJournal = async (scope: BookGlossaryScope, signal?: AbortSignal, incoming?: BookGlossaryView) => {
+      assert(signal)
+      const store = createBookGlossaryStore(this.username, scope)
       try {
         const record = await store.snapshot()
-        assertCurrent(); if (signal?.aborted) throw new Error(glossaryExportErrors.stale)
+        assert(signal)
         if (record?.pending || record?.conflict) throw new Error(glossaryExportErrors.pending)
-        const read = observed.get(keyFor(scope)), known = record?.remote
-        if (read && known && (known.version > read.version || known.version === read.version && !sameBookGlossaryView(known, read))) throw new Error(glossaryExportErrors.response)
+        const previous = observed.get(keyFor(scope))
+        if (incoming) {
+          assertNoRegression(previous, incoming)
+          assertNoRegression(record?.remote, incoming)
+        } else if (previous) assertNoRegression(record?.remote, previous)
+        return record?.remote ? structuredClone(record.remote) : null
       } finally { store.close() }
     }
-    return { assertCurrent, checkReady,
+    return { assertCurrent,
+      checkReady: async (input, signal) => {
+        assert(signal)
+        await inspectJournal(validateBookGlossaryScope(input), signal)
+      },
       read: async (input, signal) => {
+        assert(signal)
         const scope = validateBookGlossaryScope(input)
-        await checkReady(scope, signal); assertCurrent()
-        const value = await this.api!.get(scope, signal); assertCurrent()
-        if (signal?.aborted) throw new Error(glossaryExportErrors.stale)
+        const before = await inspectJournal(scope, signal)
+        assert(signal)
+        let value: BookGlossaryView
+        try { value = await this.api!.get(scope, signal) }
+        catch (error) { assert(signal); throw error }
+        assert(signal)
         const view = validateBookGlossaryView(value)
         if (!sameBookGlossaryScope(scope, view)) throw new Error(glossaryExportErrors.response)
-        observed.set(keyFor(scope), view)
-        await checkReady(scope, signal); assertCurrent()
+        assertNoRegression(before, view)
+        assertNoRegression(observed.get(keyFor(scope)), view)
+        await inspectJournal(scope, signal, view)
+        assert(signal)
+        assertNoRegression(observed.get(keyFor(scope)), view)
+        observed.set(keyFor(scope), structuredClone(view))
         return structuredClone(view)
       },
     }
@@ -157,12 +187,13 @@ export function usePortableGlossaryAdoption(namespace: string) {
 export function useFreshBookGlossary(namespace: string) {
   const registry = useContext(GlossaryContext)
   const active = registry?.username === namespace ? registry : null
-  const latest = useRef(active); latest.current = active
-  return { available: !!active?.api, session: active,
+  const lease = useExportSession(active, window.location.origin)
+  return { available: !!active?.api && !!lease, session: active,
     begin: () => {
+      if (!lease) throw new Error(glossaryExportErrors.stale)
+      const current = lease.issue(glossaryExportErrors.stale)
       if (!active?.api) throw new Error(glossaryExportErrors.offline)
-      const origin = window.location.origin
-      return active.freshReader(() => latest.current === active && window.location.origin === origin)
+      return active.freshReader(current)
     },
   }
 }
