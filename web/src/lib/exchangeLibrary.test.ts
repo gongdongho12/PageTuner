@@ -4,6 +4,7 @@ import { readFile } from 'node:fs/promises'
 import { createExchangeLibrary, exchangeReadingDocument } from './exchangeLibrary'
 import { readExchange, writeExchange } from './libraryExchange'
 import { createReadingNotes } from './readingNotes'
+import { readingTransaction } from './deviceReadingDatabase'
 
 const fixture = () => readFile(new URL('../../../contracts/fixtures/library-exchange-v1/portable-v1.zip', import.meta.url)).then(bytes => readExchange(new Uint8Array(bytes)))
 
@@ -62,5 +63,44 @@ describe('ZIP library integration', () => {
     for (const note of editable.items) await notes.remove(reading.id, note.id)
     const exported = await library.exportDocument(saved)
     expect(exported.documents[0].notes).toEqual([value.documents[0].notes.at(-1)])
+  })
+
+  it('rereads the canonical row instead of accepting modified caller metadata, text or assets', async () => {
+    const options = { indexedDB: new IDBFactory(), dbName: 'exchange-canonical' }, library = createExchangeLibrary('reader', options)
+    await library.importPackage(await fixture())
+    const saved = (await library.list()).find(value => value.document.id === 'fixture:original')!
+    const canonical = structuredClone(saved)
+    saved.document.bookTitle = 'Caller title'
+    saved.document.paragraphs[0].text = 'Forged caller body'
+    saved.document.organization.folder = 'Caller folder'
+    saved.integratedNoteIds = []
+    saved.assets.forEach(asset => { asset.bytes.fill(0) })
+    const exported = await library.exportDocument(saved)
+    expect(exported.documents[0].bookTitle).toBe(canonical.document.bookTitle)
+    expect(exported.documents[0].paragraphs).toEqual(canonical.document.paragraphs)
+    expect(exported.documents[0].organization).toEqual(canonical.document.organization)
+    expect(exported.assets).toEqual(canonical.assets)
+    expect(await library.get(saved.id)).toEqual(canonical)
+    expect(await createExchangeLibrary('another-reader', options).get(saved.id)).toBeUndefined()
+  })
+
+  it('rejects a deleted, corrupt or wrong-scope row instead of exporting the last inventory copy', async () => {
+    for (const change of ['delete', 'body', 'namespace', 'integrated-notes']) {
+      const options = { indexedDB: new IDBFactory(), dbName: `exchange-stale-${change}` }, library = createExchangeLibrary('reader', options)
+      await library.importPackage(await fixture())
+      const saved = (await library.list())[0]
+      await readingTransaction<void>(['exchanges'], 'readwrite', tx => {
+        const store = tx.objectStore('exchanges'), request = store.get(['reader', saved.id])
+        request.onsuccess = () => {
+          if (change === 'delete') { store.delete(['reader', saved.id]); return }
+          const value = request.result
+          if (change === 'body') value.document.paragraphs[0].text += ' corrupt'
+          if (change === 'namespace') value.username = 'another-reader'
+          if (change === 'integrated-notes') value.integratedNoteIds = ['invented-note']
+          store.delete(['reader', saved.id]); store.put(value)
+        }
+      }, options)
+      await expect(library.exportDocument(saved)).rejects.toThrow()
+    }
   })
 })
