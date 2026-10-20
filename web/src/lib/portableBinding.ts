@@ -19,6 +19,7 @@ export type PortableBindingCapture = Readonly<{
 const cancelledMessage = '서버 연결 확인이 취소되었습니다.'
 const staleMessage = '서버 연결이 변경되어 이전 확인 결과를 취소했습니다. 다시 확인해 주세요.'
 const invalidBindingMessage = '본문 또는 원본 정보가 변경되어 서버 연결을 해제했습니다. 기기 기록은 보존됩니다.'
+const invalidCaptureMessage = '서버 연결 정보를 확인하지 못했습니다. 원래 연결과 기기 기록은 보존됩니다.'
 const verificationMessages: Partial<Record<LibraryIdentityError['code'], string>> = {
   authentication: '서버 원본을 확인하려면 다시 로그인해 주세요.', forbidden: '서버 확인 권한을 확인해 주세요. 다시 로그인한 뒤 시도해 주세요.',
   'not-found': '현재 계정에서 해당 서버 문서를 찾을 수 없습니다.', mismatch: '서버 문서의 식별자·언어·revision·전체 문단이 가져온 책과 일치하지 않습니다.',
@@ -43,7 +44,7 @@ function verifiedResult(value: unknown, identity: LibraryDocumentIdentity, recor
 /** Imported records remain intact; account records use their existing canonical view. */
 export function createPortableBindings(username: string, origin: string, storage: Pick<Storage, 'getItem' | 'setItem' | 'removeItem'> = localStorage) {
   const key = (book: SavedExchange) => portableBindingKey(username, origin, book.id)
-  async function captured(book: SavedExchange, client: LibraryIdentityClient | null, signal?: AbortSignal): Promise<PortableBindingCapture | undefined> {
+  async function captured(book: SavedExchange, client: LibraryIdentityClient | null, signal?: AbortSignal, retireInvalid = false): Promise<PortableBindingCapture | undefined> {
     const storageKey = key(book), raw = storage.getItem(storageKey)
     if (!raw) return undefined
     let expired = false
@@ -58,7 +59,7 @@ export function createPortableBindings(username: string, origin: string, storage
     const removeObserved = () => {
       assertCurrent()
       // A delayed failure may only retire the generation captured before any await.
-      if (storage.getItem(storageKey) === raw) storage.removeItem(storageKey)
+      if (retireInvalid && storage.getItem(storageKey) === raw) storage.removeItem(storageKey)
     }
     assertCurrent()
     const check = await inspectPortableIdentity(book.document)
@@ -67,7 +68,7 @@ export function createPortableBindings(username: string, origin: string, storage
     try {
       if (check.status !== 'ready' || new TextEncoder().encode(raw).byteLength > 64 * 1024) throw new Error()
       saved = verifiedResult(JSON.parse(raw), check.identity, undefined, true)
-    } catch { removeObserved(); throw new Error(invalidBindingMessage) }
+    } catch { removeObserved(); throw new Error(retireInvalid ? invalidBindingMessage : invalidCaptureMessage) }
     if (!client) throw new Error('서버 연결을 확인하려면 다시 로그인해 주세요. 기기에서 읽기는 계속 사용할 수 있습니다.')
     try {
       const response = await client.verify(saved.recordId, structuredClone(saved.identity), signal)
@@ -103,7 +104,7 @@ export function createPortableBindings(username: string, origin: string, storage
       return captured(structuredClone(book), client, signal)
     },
     async open(book: SavedExchange, client: LibraryIdentityClient | null, signal?: AbortSignal): Promise<ReadingDocument | undefined> {
-      const snapshot = structuredClone(book), saved = await captured(snapshot, client, signal)
+      const snapshot = structuredClone(book), saved = await captured(snapshot, client, signal, true)
       if (!saved) return undefined
       saved.assertCurrent()
       const identity = saved.identity

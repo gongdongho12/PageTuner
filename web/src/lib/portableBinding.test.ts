@@ -170,8 +170,21 @@ describe('explicit portable account bindings', () => {
     expect((await binding.capture(book, api))!.recordId).toBe(result.recordId)
     for (const raw of [JSON.stringify({ ...result, verified: 1 }), JSON.stringify({ ...result, bindingNonce: 'broken' }), ' '.repeat(65_537)]) {
       s.setItem(key, raw)
-      await expect(binding.capture(book, api)).rejects.toThrow('서버 연결을 해제')
+      await expect(binding.capture(book, api)).rejects.toThrow('원래 연결과 기기 기록은 보존')
+      expect(s.getItem(key)).toBe(raw)
+      await expect(binding.open(book, api)).rejects.toThrow('서버 연결을 해제')
       expect(s.getItem(key)).toBeNull()
     }
+  })
+
+  it('keeps read-only export captures from retiring a missing server binding', async () => {
+    const s = storage(), binding = createPortableBindings('alice', 'https://one.example', s), { book, result } = fixture()
+    await binding.confirm(book, result)
+    const key = portableBindingKey('alice', 'https://one.example', book.id), before = s.getItem(key)
+    const api = { verify: vi.fn().mockRejectedValue(new LibraryIdentityError('not-found')), close() {} }
+    await expect(binding.capture(book, api)).rejects.toThrow()
+    expect(s.getItem(key)).toBe(before)
+    await expect(binding.open(book, api)).rejects.toThrow()
+    expect(s.getItem(key)).toBeNull()
   })
 })
