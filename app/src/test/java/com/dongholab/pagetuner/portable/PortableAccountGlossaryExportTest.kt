@@ -40,10 +40,11 @@ class PortableAccountGlossaryExportTest {
         var verifications = 0
         var onVerify: () -> Unit = {}
         var onQuery: suspend () -> Unit = {}
+        var onJournal: () -> Unit = {}
         val tickets: PortableExportTickets = PortableExportTickets()
         val request: PortableExportRequest = tickets.begin("book.zip", connection)
         fun check(): Unit = tickets.check(request, current)
-        fun adapter(): PortableAccountGlossaryExport = PortableAccountGlossaryExport({ document }, { document }, { account, entry -> readBinding(account, entry) }, { local },
+        fun adapter(): PortableAccountGlossaryExport = PortableAccountGlossaryExport({ document }, { document }, { account, entry -> readBinding(account, entry) }, { onJournal(); local },
             verify = { account, record, proof ->
                 assertSame(connection.client, account.client); assertEquals(NotesFixture.recordId, record)
                 assertEquals(linked?.identity, proof); verifications++; onVerify()
@@ -154,6 +155,28 @@ class PortableAccountGlossaryExportTest {
             rejects { later.tickets.write(later.request.id, { later.current }) { opened = true; ByteArrayOutputStream() } }
             assertFalse(opened)
         }
+    }
+
+    @Test fun preQueryHighWaterSurvivesJournalRemovalAndSameVersionDivergence() = runTest {
+        listOf(true, false).forEach { newer ->
+            val f = Fixture()
+            f.local = DeviceBookGlossary(remote = if (newer) f.remote.copy(version = 6)
+                else f.remote.copy(value = BookGlossaryValue(emptyList())))
+            f.onQuery = { f.local = DeviceBookGlossary() }
+            rejects { f.prepare() }
+        }
+    }
+
+    @Test fun metadataOnlyCanonicalChangesAfterGetAndWhileSafWaitsCannotExportOldRecords() = runTest {
+        val duringGet = Fixture()
+        duringGet.onQuery = { duringGet.document = duringGet.document.copy(bookTitle = "Renamed") }
+        rejects { duringGet.prepare() }
+        val atWrite = Fixture(); atWrite.stage(atWrite.prepare())
+        atWrite.document = atWrite.document.copy(organization = ExchangeOrganization("Changed", emptyList(), false))
+        rejects { atWrite.tickets.write(atWrite.request.id, { atWrite.current }) { fail("Changed file"); null } }
+        val duringJournal = Fixture(); duringJournal.stage(duringJournal.prepare())
+        duringJournal.onJournal = { duringJournal.document = duringJournal.document.copy(bookTitle = "Changed during journal read") }
+        rejects { duringJournal.tickets.write(duringJournal.request.id, { duringJournal.current }) { fail("Changed during journal read"); null } }
     }
 
     @Test fun lateResponseCannotSurviveAccountClientOrGenerationSwitch() = runTest {
