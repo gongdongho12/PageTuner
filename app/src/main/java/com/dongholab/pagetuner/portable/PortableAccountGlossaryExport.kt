@@ -24,7 +24,9 @@ internal class PortableAccountGlossaryExport(
     suspend fun prepare(entry: PortableLibraryEntry, targetLanguage: String, connection: ServerReadingConnection,
         checkCurrent: () -> Unit): PreparedAccountGlossary {
         checkCurrent()
-        val document = currentDocument(entry)
+        // Detach every list before retaining a save guard; callers may own mutable collections.
+        val document = LibraryExchangeCodec.read(LibraryExchangeCodec.write(
+            LibraryExchangePackage(portableTimestamp(), listOf(currentDocument(entry))))).documents.single()
         checkCurrent()
         val selected = entry.copy(document = document)
         val linked = requireNotNull(binding(connection.accountKey, selected)) { "Connect this document to server records first." }
@@ -42,27 +44,40 @@ internal class PortableAccountGlossaryExport(
         // Unsupported existing data must not be overwritten even when the selected scope is replaced.
         val existing = BookGlossarySnapshotsJson.fromDocument(document)?.snapshots.orEmpty()
         var observed: ServerBookGlossary? = null
-        fun guard() {
+        var highWater: ServerBookGlossary? = null
+        fun detached(value: ServerBookGlossary) = ServerBookGlossaryJson.view(ServerBookGlossaryJson.encode(value), target.identity)
+        fun requireFresh(known: ServerBookGlossary, fresh: ServerBookGlossary) {
+            require(known.identity == fresh.identity && known.version <= fresh.version &&
+                (known.version != fresh.version || known == fresh)) {
+                "The account glossary changed while exporting. Read it again."
+            }
+        }
+        fun canonical() {
             checkCurrent()
             val latest = selected.copy(document = readDocument(selected))
-            require(binding(connection.accountKey, latest) == linked &&
+            require(latest.document == document && binding(connection.accountKey, latest) == linked &&
                 DocumentIdentityJson.fromDocument(latest.document) == identity) { "The document server connection changed. Export again." }
+            checkCurrent()
+        }
+        fun guard() {
+            canonical()
             val local = journal(target)
             require(local.pending == null && local.queued == null && local.conflict == null) {
                 "Resolve pending glossary edits and conflicts before exporting the latest account glossary."
             }
-            observed?.let { fresh -> local.remote?.let { known ->
-                require(known.identity == fresh.identity && known.version <= fresh.version &&
-                    (known.version != fresh.version || known == fresh)) {
-                    "The account glossary changed while exporting. Read it again."
-                }
-            } }
-            checkCurrent()
+            local.remote?.let(::detached)?.let { known ->
+                val previous = highWater
+                if (previous == null || known.version > previous.version) highWater = known
+                else if (known.version == previous.version) requireFresh(previous, known)
+            }
+            observed?.let { fresh -> highWater?.let { requireFresh(it, fresh) } }
+            // A blocking journal read must not hide a concurrent reader write or archive deletion.
+            canonical()
         }
         guard()
         verify(connection, linked.recordId, identity)
         guard()
-        val fresh = query(connection, target.identity)
+        val fresh = detached(query(connection, target.identity))
         checkCurrent()
         require(fresh.identity == target.identity)
         // Validate the response as strictly as the HTTP adapter, including version-zero semantics.

@@ -9,6 +9,22 @@ import org.junit.Test
 class PortableExportTicketsTest {
     private fun connection() = NotesFixture.connection { error("No HTTP") }
 
+    @Test fun finalGuardMustRecheckLiveConnectionAndCannotOpenAfterSelectionExpires() {
+        val tickets = PortableExportTickets(); val connection = connection()
+        var current: ServerReadingConnection? = connection
+        var selected = true
+        val request = tickets.begin("account.zip", connection)
+        tickets.prepare(request, byteArrayOf(1), current) { if (!selected) throw PortableExportExpired() }
+        tickets.checkBeforeWrite(request.id) { current }
+        selected = false
+        assertThrows(PortableExportExpired::class.java) { tickets.write(request.id, { current }) { fail("Selection expired"); null } }
+        val next = tickets.begin("next.zip", connection)
+        var disconnectInGuard = false
+        tickets.prepare(next, byteArrayOf(2), connection) { if (disconnectInGuard) current = null }
+        disconnectInGuard = true
+        assertThrows(PortableExportExpired::class.java) { tickets.checkBeforeWrite(next.id) { current } }
+    }
+
     @Test fun oldPickerAndRepeatedCallbackCannotConsumeNewBytes() {
         val tickets = PortableExportTickets()
         val old = tickets.begin("old.zip"); tickets.prepare(old, byteArrayOf(1), null)

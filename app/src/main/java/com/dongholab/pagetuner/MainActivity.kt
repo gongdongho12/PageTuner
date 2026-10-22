@@ -985,6 +985,9 @@ fun PageTurnerApp() {
                             },
                             transferContent = {
                                 val pdfPanelSession = portablePdfState.session
+                                // Keep the rendered selection, never issue an old panel callback for a newer entry.
+                                val identityPanelSession = portableIdentityState.session
+                                val identityPanelEntry = portableIdentityState.entry
                                 if (portablePdfState.entry != null) com.dongholab.pagetuner.portable.PortablePdfStoragePanel(
                                     portablePdfState,
                                     "${pdfStorageConnection?.origin.orEmpty()} · ${serverLibraryState.profile?.username.orEmpty()}",
@@ -1013,31 +1016,49 @@ fun PageTurnerApp() {
                                 else if (portableIdentityState.entry != null) com.dongholab.pagetuner.portable.PortableIdentityPanel(
                                     portableIdentityState, serverReadingConnection != null,
                                     portableIdentityViewModel.verification.matches(serverReadingConnection),
-                                    onBack = portableIdentityViewModel.verification::close,
-                                    onRecord = { portableIdentityViewModel.verification.updateRecord(portableIdentityState.session, it) },
-                                    onCheck = { portableIdentityViewModel.verification.check(portableIdentityState.session,
+                                    onBack = {
+                                        if (portableIdentityViewModel.verification.state.value.session == identityPanelSession)
+                                            portableIdentityViewModel.verification.close()
+                                    },
+                                    onRecord = { portableIdentityViewModel.verification.updateRecord(identityPanelSession, it) },
+                                    onCheck = { portableIdentityViewModel.verification.check(identityPanelSession,
                                         serverLibraryViewModel.readingConnection(), portableViewModel::currentDocument) },
-                                    onBind = { portableIdentityViewModel.verification.bind(portableIdentityState.session,
+                                    onBind = { portableIdentityViewModel.verification.bind(identityPanelSession,
                                         serverLibraryViewModel.readingConnection(), portableViewModel::currentDocument,
                                         portableViewModel::bindingSnapshot, portableViewModel::saveBinding) },
-                                    onUnbind = { portableIdentityViewModel.verification.unbind(portableIdentityState.session,
+                                    onUnbind = { portableIdentityViewModel.verification.unbind(identityPanelSession,
                                         serverLibraryViewModel.readingConnection(), portableViewModel::removeBinding) },
                                     exportState = portableState,
-                                    onReviewGlossary = { portableIdentityState.entry?.let { entry ->
-                                        portableViewModel.glossaryAdoption.select(entry, serverLibraryViewModel.readingConnection(), serverLibraryViewModel::readingConnection)
-                                    } },
-                                    onExportGlossary = { language ->
+                                    onReviewGlossary = {
+                                        if (portableIdentityViewModel.verification.state.value.session == identityPanelSession)
+                                            identityPanelEntry?.let { entry ->
+                                                portableViewModel.glossaryAdoption.select(entry, serverLibraryViewModel.readingConnection(), serverLibraryViewModel::readingConnection)
+                                            }
+                                    },
+                                    onExportAccount = { language, includeOrganization, checkPanelSelection ->
                                         val connection = serverLibraryViewModel.readingConnection()
                                         val selected = portableIdentityViewModel.verification.state.value
-                                        if (connection != null && selected.session == portableIdentityState.session) selected.entry?.let { entry ->
-                                            portableViewModel.prepareAccountGlossaryExport(entry, language, connection, serverLibraryViewModel::readingConnection)
+                                        if (connection != null && selected.session == identityPanelSession && selected.entry == identityPanelEntry)
+                                            identityPanelEntry?.let { entry ->
+                                                val checkSelection = {
+                                                    checkPanelSelection()
+                                                    val latest = portableIdentityViewModel.verification.state.value
+                                                    check(latest.session == identityPanelSession && latest.entry == entry) {
+                                                        "The document selection changed. Select the document and export again."
+                                                    }
+                                                }
+                                                if (runCatching { checkSelection() }.isSuccess)
+                                                    portableViewModel.prepareAccountMetadataExport(entry, language, includeOrganization,
+                                                        connection, serverLibraryViewModel::readingConnection, checkSelection)
                                         }
                                     },
                                     onReadServer = {
                                         val connection = serverLibraryViewModel.readingConnection()
                                         val selected = portableIdentityViewModel.verification.state.value
-                                        if (connection != null) selected.entry?.let { entry -> portableViewModel.open(entry, false, connection) {
-                                            portableIdentityViewModel.verification.state.value.session == selected.session &&
+                                        if (connection != null && selected.session == identityPanelSession && selected.entry == identityPanelEntry)
+                                            identityPanelEntry?.let { entry -> portableViewModel.open(entry, false, connection) {
+                                            portableIdentityViewModel.verification.state.value.session == identityPanelSession &&
+                                                portableIdentityViewModel.verification.state.value.entry == entry &&
                                                 serverLibraryViewModel.readingConnection()?.let { it.accountKey == connection.accountKey && it.client === connection.client } == true
                                         } }
                                     })

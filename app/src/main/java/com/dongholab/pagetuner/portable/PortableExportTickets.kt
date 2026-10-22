@@ -39,6 +39,15 @@ internal class PortableExportTickets {
         requireNotNull(pending).also { it.bytes = bytes.copyOf(); it.guard = guard }
     }
 
+    /** Validate memory-only grants before showing SAF, before destination open, and after it. */
+    fun checkBeforeWrite(id: String, current: () -> ServerReadingConnection?) {
+        val value = synchronized(this) { pending?.takeIf { it.request.id == id && it.bytes != null } }
+            ?: throw PortableExportExpired()
+        check(value.request, current())
+        value.guard()
+        check(value.request, current())
+    }
+
     /** Check before opening/truncating a destination and again after a potentially blocking provider open. */
     fun write(id: String, current: () -> ServerReadingConnection?, open: () -> OutputStream?): PortableExportRequest {
         val value = synchronized(this) {
@@ -47,9 +56,7 @@ internal class PortableExportTickets {
             active.also { it.writing = true }
         }
         fun validate() {
-            check(value.request, current())
-            value.guard()
-            check(value.request, current())
+            checkBeforeWrite(value.request.id, current)
         }
         try {
             validate()

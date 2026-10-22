@@ -11,6 +11,7 @@ import androidx.compose.ui.unit.dp
 import com.dongholab.pagetuner.R
 import com.dongholab.pagetuner.core.backup.exchange.BookGlossarySnapshotPresence
 import com.dongholab.pagetuner.core.backup.exchange.DocumentIdentityKind
+import com.dongholab.pagetuner.core.backup.exchange.LibraryOrganizationSnapshotPresence
 import com.dongholab.pagetuner.core.model.glossary.BookGlossarySyncIdentity
 import com.dongholab.pagetuner.core.model.glossary.BookGlossarySyncValidation
 import com.dongholab.pagetuner.ui.common.AdaptiveCollection
@@ -22,12 +23,23 @@ private data class IdentityRow(val key: String, val content: @Composable (Modifi
 @Composable
 fun PortableIdentityPanel(state: PortableIdentityState, connected: Boolean, currentSession: Boolean,
     onBack: () -> Unit, onRecord: (String) -> Unit, onCheck: () -> Unit, onBind: () -> Unit = {}, onReadServer: () -> Unit = {}, onUnbind: () -> Unit = {},
-    exportState: PortableLibraryState = PortableLibraryState(), onExportGlossary: (String) -> Unit = {}, onReviewGlossary: () -> Unit = {}, modifier: Modifier = Modifier) {
+    exportState: PortableLibraryState = PortableLibraryState(), onExportAccount: (String?, Boolean, () -> Unit) -> Unit = { _, _, _ -> }, onReviewGlossary: () -> Unit = {}, modifier: Modifier = Modifier) {
     val rowHeight = 116.dp * LocalDensity.current.fontScale.coerceAtLeast(1f)
     var glossaryLanguage by remember(state.entry?.key, state.session, state.identity) { mutableStateOf(state.identity?.targetLanguage ?: "ko") }
-    val exportEnabled = connected && currentSession && !state.busy && !exportState.busy && state.identity?.let { identity ->
+    var includeGlossary by remember(state.entry?.key, state.session) { mutableStateOf(true) }
+    var includeOrganization by remember(state.entry?.key, state.session) { mutableStateOf(false) }
+    val exportLease = remember(state.entry, state.session, state.identity, connected, currentSession,
+        includeGlossary, includeOrganization, glossaryLanguage) { PortableAccountExportLease() }
+    DisposableEffect(exportLease) {
+        exportLease.activate()
+        onDispose { exportLease.close() }
+    }
+    val optionsEnabled = currentSession && !state.busy && !exportState.busy
+    val languageValid = !includeGlossary || state.identity?.let { identity ->
         runCatching { BookGlossarySyncValidation.validateIdentity(BookGlossarySyncIdentity(identity.contentProviderId, identity.bookId, glossaryLanguage)) }.isSuccess
     } == true
+    val exportEnabled = connected && optionsEnabled && state.identity != null &&
+        (includeGlossary || includeOrganization) && languageValid
     val rows = mutableListOf<IdentityRow>()
     fun field(key: String, label: Int, value: String) {
         rows += IdentityRow(key) { row -> OutlinedTextField(value, {}, readOnly = true, singleLine = true,
@@ -55,14 +67,24 @@ fun PortableIdentityPanel(state: PortableIdentityState, connected: Boolean, curr
         enabled = connected && currentSession && !state.busy, modifier = row.heightIn(min = 44.dp)) {
         Text(stringResource(R.string.portable_identity_unbind))
     } }
-    rows += IdentityRow("glossary_export_description") { row -> Text(stringResource(R.string.portable_glossary_export_description), modifier = row, color = EinkMuted) }
-    rows += IdentityRow("glossary_export_replace") { row -> Text(stringResource(R.string.portable_glossary_export_replace), modifier = row, color = EinkMuted) }
-    rows += IdentityRow("glossary_export_language") { row -> OutlinedTextField(glossaryLanguage, { glossaryLanguage = it },
+    rows += IdentityRow("account_export_description") { row -> Text(stringResource(R.string.portable_account_export_description), modifier = row, color = EinkMuted) }
+    rows += IdentityRow("account_export_replace") { row -> Text(stringResource(R.string.portable_account_export_replace), modifier = row, color = EinkMuted) }
+    rows += IdentityRow("account_export_glossary") { row -> Row(row, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        Checkbox(checked = includeGlossary, onCheckedChange = { exportLease.close(); includeGlossary = it }, enabled = optionsEnabled)
+        Text(stringResource(R.string.portable_account_export_glossary), color = EinkInk)
+    } }
+    rows += IdentityRow("account_export_organization") { row -> Row(row, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        Checkbox(checked = includeOrganization, onCheckedChange = { exportLease.close(); includeOrganization = it }, enabled = optionsEnabled)
+        Text(stringResource(R.string.portable_account_export_organization), color = EinkInk)
+    } }
+    if (includeGlossary) rows += IdentityRow("glossary_export_language") { row -> OutlinedTextField(glossaryLanguage, { exportLease.close(); glossaryLanguage = it },
         label = { Text(stringResource(R.string.portable_glossary_export_language)) }, singleLine = true,
         readOnly = state.identity?.kind == DocumentIdentityKind.TRANSLATION,
-        enabled = currentSession && !state.busy && !exportState.busy, modifier = row) }
-    rows += IdentityRow("glossary_export") { row -> OutlinedButton(onClick = { onExportGlossary(glossaryLanguage) },
-        enabled = exportEnabled, modifier = row.heightIn(min = 44.dp)) { Text(stringResource(R.string.portable_glossary_export)) } }
+        enabled = optionsEnabled, modifier = row) }
+    rows += IdentityRow("account_export") { row -> OutlinedButton(onClick = {
+        val checkSelection = if (exportEnabled) runCatching { exportLease.issue() }.getOrNull() else null
+        if (checkSelection != null) onExportAccount(glossaryLanguage.takeIf { includeGlossary }, includeOrganization, checkSelection)
+    }, enabled = exportEnabled, modifier = row.heightIn(min = 44.dp)) { Text(stringResource(R.string.portable_account_export)) } }
     rows += IdentityRow("glossary_adoption") { row -> OutlinedButton(onClick = onReviewGlossary,
         enabled = connected && currentSession && !state.busy && !exportState.busy && state.identity != null,
         modifier = row.heightIn(min = 44.dp)) { Text(stringResource(R.string.portable_glossary_review)) } }
@@ -78,6 +100,12 @@ fun PortableIdentityPanel(state: PortableIdentityState, connected: Boolean, curr
         else -> null
     }
     exportStatus?.let { text -> rows += IdentityRow("glossary_export_status") { row -> Text(text, modifier = row, color = EinkInk) } }
+    if (!exportState.busy && exportState.error == null) exportState.organizationPresence?.let { presence ->
+        rows += IdentityRow("organization_export_status") { row -> Text(stringResource(when (presence) {
+            LibraryOrganizationSnapshotPresence.ABSENT -> R.string.portable_organization_absent
+            LibraryOrganizationSnapshotPresence.PRESENT -> R.string.portable_organization_present
+        }), modifier = row, color = EinkInk) }
+    }
     state.identity?.let { identity ->
         field("kind", R.string.portable_identity_kind, identity.kind.name)
         field("provider", R.string.portable_identity_provider, identity.contentProviderId)
@@ -89,7 +117,7 @@ fun PortableIdentityPanel(state: PortableIdentityState, connected: Boolean, curr
         field("hash", R.string.portable_identity_hash, identity.paragraphHash)
     }
     Column(modifier.fillMaxSize().clipToBounds(), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        OutlinedButton(onClick = onBack, modifier = Modifier.heightIn(min = 44.dp)) { Text(stringResource(R.string.portable_identity_back)) }
+        OutlinedButton(onClick = { exportLease.close(); onBack() }, modifier = Modifier.heightIn(min = 44.dp)) { Text(stringResource(R.string.portable_identity_back)) }
         AdaptiveCollection(items = rows, modifier = Modifier.weight(1f).clipToBounds(),
             estimatedPagedItemHeight = rowHeight, itemKey = { it.key }) { row ->
             row.content(Modifier.fillMaxWidth().height(rowHeight).clipToBounds().padding(6.dp))

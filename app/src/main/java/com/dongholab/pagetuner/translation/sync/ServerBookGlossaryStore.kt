@@ -23,12 +23,12 @@ class FileServerBookGlossaryStore(private val directory: File) : ServerBookGloss
         return File(directory, accountKey)
     }
     private fun file(target: BookGlossaryTarget) = AtomicFile(File(accountDirectory(target.accountKey), StableContentHash.sha256(target.key) + ".json"))
-    override fun read(target: BookGlossaryTarget): DeviceBookGlossary {
+    override fun read(target: BookGlossaryTarget): DeviceBookGlossary = ServerJournalFileLocks.withDirectory(directory) {
         val file = file(target)
-        if (!file.baseFile.exists() && !File(file.baseFile.path + ".bak").exists()) return DeviceBookGlossary()
-        return decodeBookGlossaryJournal(readJson(file), target)
+        if (!file.baseFile.exists() && !File(file.baseFile.path + ".bak").exists()) return@withDirectory DeviceBookGlossary()
+        decodeBookGlossaryJournal(readJson(file), target)
     }
-    override fun write(target: BookGlossaryTarget, value: DeviceBookGlossary) {
+    override fun write(target: BookGlossaryTarget, value: DeviceBookGlossary) = ServerJournalFileLocks.withDirectory(directory) {
         val bytes = encodeBookGlossaryJournal(target, value).toString().toByteArray(Charsets.UTF_8)
         require(bytes.size <= 8_388_608)
         val folder = accountDirectory(target.accountKey); check(folder.isDirectory || folder.mkdirs())
@@ -36,13 +36,14 @@ class FileServerBookGlossaryStore(private val directory: File) : ServerBookGloss
         try { stream.write(bytes); file.finishWrite(stream) }
         catch (error: Exception) { file.failWrite(stream); throw error }
     }
-    override fun targets(accountKey: String): List<BookGlossaryTarget> = accountDirectory(accountKey).listFiles().orEmpty()
+    override fun targets(accountKey: String): List<BookGlossaryTarget> = ServerJournalFileLocks.withDirectory(directory) { accountDirectory(accountKey).listFiles().orEmpty()
         .map { it.name.removeSuffix(".bak") }.filter { it.matches(Regex("[a-f0-9]{64}\\.json")) }.distinct().map { name ->
             val json = readJson(AtomicFile(File(accountDirectory(accountKey), name)))
             val target = BookGlossaryTarget(accountKey, ServerBookGlossaryJson.identity(json.getJSONObject("identity")))
             require(name == StableContentHash.sha256(target.key) + ".json")
             decodeBookGlossaryJournal(json, target); target
         }
+    }
     private fun readJson(file: AtomicFile): JSONObject = file.openRead().use { input ->
         val out = java.io.ByteArrayOutputStream(); val buffer = ByteArray(8192)
         while (true) { val size = input.read(buffer); if (size < 0) break; require(out.size() + size <= 8_388_608); out.write(buffer, 0, size) }

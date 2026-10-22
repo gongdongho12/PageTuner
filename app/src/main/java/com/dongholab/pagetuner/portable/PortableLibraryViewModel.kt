@@ -30,7 +30,8 @@ import kotlinx.coroutines.withContext
 import org.json.JSONObject
 
 data class PortableLibraryState(val entries: List<PortableLibraryEntry> = emptyList(), val busy: Boolean = false, val status: Int? = null,
-    val error: String? = null, val glossaryPresence: BookGlossarySnapshotPresence? = null)
+    val error: String? = null, val glossaryPresence: BookGlossarySnapshotPresence? = null,
+    val organizationPresence: LibraryOrganizationSnapshotPresence? = null)
 data class PortableOpened(val entry: PortableLibraryEntry, val loaded: LoadedReaderDocument, val mapping: PortableReaderMapping,
     val pageIndex: Int, val bookmarks: List<ReaderBookmark>, val annotations: List<ReaderAnnotation>, val pdf: Boolean = false,
     val serverReading: ServerReadingDocument? = null, val characterOffset: Int = 0, val validateOpen: (() -> Unit)? = null)
@@ -53,6 +54,7 @@ class PortableLibraryViewModel(private val context: Context, private val local: 
     private val exportTickets = PortableExportTickets()
     private val fileExportSelection = PortableFileExportSelection()
     private val glossaryJournal = FileServerBookGlossaryStore(File(context.filesDir, "server-book-glossaries"))
+    private val organizationJournal = FileServerLibraryOrganizationStore(File(context.filesDir, "server-library-organization"))
     val glossaryAdoption = PortableGlossaryAdoption(viewModelScope, ::currentDocument,
         { entry -> store.read(entry).documents[entry.documentIndex] }, bindings::read, glossaryJournal::read)
     private var exportConnection: ServerReadingConnection? = null
@@ -94,7 +96,7 @@ class PortableLibraryViewModel(private val context: Context, private val local: 
         exportTickets.connect(value)
         if (exportConnection != value) {
             exportConnection = value
-            mutableState.update { it.copy(glossaryPresence = null, status = null) }
+            mutableState.update { it.copy(glossaryPresence = null, organizationPresence = null, status = null) }
         }
     }
     fun cancelExport(id: String) { exportTickets.cancel(id) }
@@ -221,18 +223,26 @@ class PortableLibraryViewModel(private val context: Context, private val local: 
         return withContext(Dispatchers.IO) { store.preparePdfContent(entry) }
     }
 
-    /** The account connection is read live after every suspension and again when SAF returns. */
-    fun prepareAccountGlossaryExport(entry: PortableLibraryEntry, targetLanguage: String, connection: ServerReadingConnection,
-        currentConnection: () -> ServerReadingConnection?) = operation {
-        val request = exportTickets.begin("PageTurner-${entry.document.bookTitle.portableFilename()}-account-glossary.ptlibrary.zip", connection)
-        val adapter = PortableAccountGlossaryExport(::currentDocument,
-            { selected -> store.read(selected).documents[selected.documentIndex] }, bindings::read, glossaryJournal::read)
+    /** An explicit passive copy, with the same selection/account grant retained throughout SAF. */
+    fun prepareAccountMetadataExport(entry: PortableLibraryEntry, targetLanguage: String?, includeOrganization: Boolean,
+        connection: ServerReadingConnection, currentConnection: () -> ServerReadingConnection?,
+        checkSelection: () -> Unit) = operation {
+        checkSelection()
+        require(targetLanguage != null || includeOrganization) { "Select account data to include." }
+        val request = exportTickets.begin("PageTurner-${entry.document.bookTitle.portableFilename()}-account.ptlibrary.zip", connection)
+        val current = { checkSelection(); exportTickets.check(request, currentConnection()) }
+        val readDocument = { selected: PortableLibraryEntry -> store.read(selected).documents[selected.documentIndex] }
         try {
-            val prepared = adapter.prepare(entry, targetLanguage, connection) { exportTickets.check(request, currentConnection()) }
+            current()
+            val glossary = targetLanguage?.let { language -> PortableAccountGlossaryExport(::currentDocument,
+                readDocument, bindings::read, glossaryJournal::read).prepare(entry, language, connection, current) }
+            val organization = if (includeOrganization) PortableAccountOrganizationExport(::currentDocument,
+                readDocument, bindings::read, organizationJournal::read).prepare(entry, connection, current) else null
+            val prepared = combineAccountMetadataExports(glossary, organization, current)
             val bytes = LibraryExchangeCodec.write(LibraryExchangePackage(portableTimestamp(), listOf(prepared.document)))
             exportTickets.prepare(request, bytes, currentConnection(), prepared.checkBeforeWrite)
-            exportTickets.check(request, currentConnection())
-            mutableState.update { it.copy(glossaryPresence = prepared.snapshot.presence) }
+            exportTickets.checkBeforeWrite(request.id, currentConnection)
+            mutableState.update { it.copy(glossaryPresence = glossary?.snapshot?.presence, organizationPresence = organization?.snapshot?.presence) }
             mutableExportReady.emit(request)
         } catch (error: Exception) { exportTickets.cancel(request.id); throw error }
     }
@@ -347,7 +357,7 @@ class PortableLibraryViewModel(private val context: Context, private val local: 
 
     private fun operation(work: suspend () -> Unit) {
         if (state.value.busy) return
-        mutableState.update { it.copy(busy = true, error = null, status = null, glossaryPresence = null) }
+        mutableState.update { it.copy(busy = true, error = null, status = null, glossaryPresence = null, organizationPresence = null) }
         viewModelScope.launch {
             try { withContext(Dispatchers.IO) { work() } }
             catch (cancelled: CancellationException) { throw cancelled }
