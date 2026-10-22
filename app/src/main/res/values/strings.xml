@@ -665,4 +665,11 @@
     <string name="pdf_storage_network">The server response could not be confirmed. If uploading, you can explicitly retry the same request.</string>
     <string name="pdf_storage_rejected">The server copy could not be verified. Check the account, copy ID and file limits.</string>
     <string name="pdf_storage_changed">The content or connection changed or is unavailable. Select the document again to review it.</string>
+    <string name="portable_account_export">Export ZIP with selected account data</string>
+    <string name="portable_account_export_glossary">Include latest account glossary</string>
+    <string name="portable_account_export_organization">Include latest account folder, tags and favorite</string>
+    <string name="portable_account_export_description">Connect this document first. Read selected data from the current account. Resolve pending edits and conflicts before exporting.</string>
+    <string name="portable_account_export_replace">Only selected snapshots change in this ZIP copy. Other languages and data stay. Importing the ZIP does not change account data.</string>
+    <string name="portable_organization_absent">No account folder, tags or favorite were recorded. The ZIP preserves this absence and does not clear account data.</string>
+    <string name="portable_organization_present">Latest folder, ordered tags and favorite included, preserving explicitly empty values.</string>
 </resources>

@@ -665,4 +665,11 @@
     <string name="pdf_storage_network">서버 응답을 확인하지 못했습니다. 업로드했다면 같은 요청으로 명시적으로 재시도할 수 있습니다.</string>
     <string name="pdf_storage_rejected">서버 사본을 확인할 수 없습니다. 계정·사본 ID·파일 한도를 확인해 주세요.</string>
     <string name="pdf_storage_changed">원본 또는 연결이 변경되었거나 읽을 수 없습니다. 문서를 다시 선택해 확인해 주세요.</string>
+    <string name="portable_account_export">선택한 계정 정보 포함 ZIP 내보내기</string>
+    <string name="portable_account_export_glossary">최신 계정 용어집 포함</string>
+    <string name="portable_account_export_organization">최신 계정 폴더·태그·즐겨찾기 포함</string>
+    <string name="portable_account_export_description">먼저 문서를 서버에 연결하세요. 현재 계정에서 선택한 최신 정보를 읽습니다. 대기 중인 수정과 충돌은 먼저 해결하세요.</string>
+    <string name="portable_account_export_replace">내보낼 사본의 선택 정보만 바꿉니다. 다른 언어와 기존 정보는 보존합니다. ZIP 가져오기는 계정 정보를 바꾸지 않습니다.</string>
+    <string name="portable_organization_absent">기록된 계정 분류가 없습니다. ZIP에 이 상태를 보존하며 계정 정보를 지우지 않습니다.</string>
+    <string name="portable_organization_present">현재 계정의 폴더·순서 있는 태그·즐겨찾기를 포함했습니다. 명시적으로 비워 둔 값도 보존합니다.</string>
 </resources>
