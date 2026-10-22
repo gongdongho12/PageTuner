@@ -17,19 +17,19 @@ interface ServerLibraryOrganizationStore {
 }
 /** Account/origin and exact server identity are hashed; credentials and local library entries stay separate. */
 class FileServerLibraryOrganizationStore(private val directory: File) : ServerLibraryOrganizationStore {
-    override fun read(target: ServerReadingTarget): DeviceLibraryOrganization {
+    override fun read(target: ServerReadingTarget): DeviceLibraryOrganization = ServerJournalFileLocks.withDirectory(directory) {
         val file = file(target)
-        if (!file.baseFile.exists() && !File(file.baseFile.path + ".bak").exists()) return DeviceLibraryOrganization()
-        return decodeLibraryOrganizationJournal(readJson(file), target)
+        if (!file.baseFile.exists() && !File(file.baseFile.path + ".bak").exists()) return@withDirectory DeviceLibraryOrganization()
+        decodeLibraryOrganizationJournal(readJson(file), target)
     }
-    override fun write(target: ServerReadingTarget, value: DeviceLibraryOrganization) {
+    override fun write(target: ServerReadingTarget, value: DeviceLibraryOrganization) = ServerJournalFileLocks.withDirectory(directory) {
         val bytes = encodeLibraryOrganizationJournal(target, value).toString().toByteArray(Charsets.UTF_8)
         require(bytes.size <= 65_536); check(directory.isDirectory || directory.mkdirs())
         val file = file(target); val stream = file.startWrite()
         try { stream.write(bytes); file.finishWrite(stream) }
         catch (error: Exception) { file.failWrite(stream); throw error }
     }
-    override fun targets(accountKey: String): List<ServerReadingTarget> = directory.listFiles().orEmpty()
+    override fun targets(accountKey: String): List<ServerReadingTarget> = ServerJournalFileLocks.withDirectory(directory) { directory.listFiles().orEmpty()
         .map { it.name.removeSuffix(".bak") }.filter { it.matches(Regex("[a-f0-9]{64}\\.json")) }.distinct().mapNotNull { name ->
             val value = readJson(AtomicFile(File(directory, name)))
             val parts = (value.get("key") as String).split(':')
@@ -40,6 +40,7 @@ class FileServerLibraryOrganizationStore(private val directory: File) : ServerLi
                 decodeLibraryOrganizationJournal(value, target); target
             }
         }
+    }
     private fun file(target: ServerReadingTarget) = AtomicFile(File(directory, StableContentHash.sha256(target.key) + ".json"))
     private fun readJson(file: AtomicFile): JSONObject = file.openRead().use { input ->
         val output = java.io.ByteArrayOutputStream(); val buffer = ByteArray(4096)
