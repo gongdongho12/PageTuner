@@ -6,6 +6,8 @@
 
 ## 판정 방법
 
+2026-10-24 웹 분류 채택 화면: [draft PR #58](https://github.com/gongdongho12/PageTuner/pull/58), base PR #57. canonical/full-proof·readonly raw nonce·terminal 세션→비교→별도 확정→새 CAS 의도를 연결했다. 웹808개/83파일·계약15·공유 웹/APK/경계, 실제 Chrome mock API PUT0→확정 PUT1·absent/빈 값·ABA/unmount/client·ko/en 세로/가로를 확인했다. Android 별도 채택·실제 서버 UI 종단·물리 기기 검증은 미완료다. [범위와 한계](ORGANIZATION_ADOPTION_UI.md).
+
 - **완료**: 해당 행에 명시한 범위의 구현과 화면 연결이 있다. 모든 실사이트·브라우저·Android 기기에서 검증됐다는 뜻은 아니다.
 - **부분**: 기능의 일부만 연결됐거나 명시적인 제약이 있다.
 - **미완**: 사용자 화면 또는 필요한 실행·저장 경로가 없다. 모델이나 클래스만 있어도 완료로 올리지 않는다.

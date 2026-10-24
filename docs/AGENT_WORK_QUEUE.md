@@ -15,11 +15,20 @@
 
 ## 우선순위 큐
 
-2026-10-24 최신 단위는 **draft PR #57**, base PR #56다. 웹 분류 채택의 nullable journal 원자 비교·직접 GET·새 CAS 의도 기반을 추가했다. 동일 값·version 0의 빈 값도 새 mutation을 만들며 기존 pending/queued/conflict와 retry 기한을 보존한다. [기반 범위와 후속 경계](ORGANIZATION_ADOPTION_CAS.md)를 먼저 읽고 정확한 최종 head CI를 확인한다. ZIP identity/canonical/raw nonce·terminal 계정 세션 adapter와 별도 채택 UI, Android 채택은 다음 단위이며 전체 S4c3b/S4를 완료로 표시하지 않는다. 자동 병합하지 않는다.
+2026-10-24 최신 단위는 **draft PR #58**, base PR #57다. 웹 canonical/full-proof·readonly raw nonce·terminal 세션과 별도 분류 비교/확정 화면을 연결했다. 실제 Chrome에서 비교 PUT0·명시 확정 PUT1, absent/빈 값·계정 ABA·이전 callback과 ko/en 세로/가로 경계를 확인했다. 계정 API는 mock이며 새 실제 서버 UI/물리 기기 근거로 표시하지 않는다. [현재 범위·한계](ORGANIZATION_ADOPTION_UI.md)를 먼저 읽고 정확한 최종 head CI부터 확인한다. 다음은 Android의 별도 nullable journal/새 CAS 채택이며 전체 S4c3b/S4는 미완료다. 자동 병합하지 않는다.
 
 2026-10-12 최신 우선순위: 사용자 요청에 따른 실제 서버 검증과 발견 결함의 수정은 **PR #51**에서 진행한다. 사용자는 이전 거절 이후 **격리 DB·검증 서버 시작을 명시적으로 승인**했다. 이 승인 전의 시작 거절을 현재 차단 조건으로 반복하지 않으며, 기존 미리보기 DB와 원본 작업 폴더는 보존한다. [실제 검증 기록](SERVER_LIVE_VERIFICATION.md)과 [기본 사용 안내](QUICK_START.md)를 먼저 읽는다. PR #51 최종 head CI·작업 트리를 확인해 진행 변경을 마무리한 뒤 **S4c3b 최신 분류 export·명시적 채택**을 계속한다. 전체 프로젝트와 S4는 미완료다.
 
 추가 사용자 요청 **B2 별도 export**는 PR #48에서 TXT/Markdown 및 원본 PDF 파일 내보내기로 구현했다. [지원 범위](DOCUMENT_FILE_EXPORT.md)를 따른다. ZIP 교환·본문 파일·읽기 기록 export는 서로 별도이며 전체 책의 미보관 회차를 자동 수집하지 않는다. 후속 EPUB·PDF 생성은 B3/PR #49이며 다음 실행은 가장 최신 PR의 최종 head CI와 아래 최신 기록부터 확인한다.
+
+### 2026-10-24 웹 canonical 분류 비교·별도 채택 화면 — PR #58
+
+- [draft PR #58](https://github.com/gongdongho12/PageTuner/pull/58), base `codex/organization-adoption-cas`(#57), head `codex/organization-adoption-screen`. 세션/adapter `5927f06`·화면 `68856ea`와 검증 문서를 분리했다. 정확한 최종 head CI는 PR 본문과 ignored `organization-adoption-screen-final-ci.json`에 기록한다.
+- 보관함의 계정 정보 채택→용어집/분류 별도 선택→비교→최종 확인. 기존 행의 버튼 수는 유지하고 모든 필드를 페이지로 표시한다. absent는 정보만, present-empty는 v0에도 별도 새 빈 PUT 의도다. true/완료 표시는 서버 ACK가 아닌 기기의 durable 의도이며 ZIP·계정 연결을 자동 변경하지 않는다.
+- canonical get/export/get의 전체 문서/실제 자산/읽기 기록·저장 시각과 전체 text proof, readonly binding raw nonce·terminal 계정/origin/client/선택 세대를 결합했다. actor GET 전후·transaction 전 canonical 재조회와 마지막 abortable 동기 guard를 검사한다. standalone PUT은 차단하고 성공 후 정상 계정 outbox에 인계한다. 전체 저장소 원자성/동일 bytes·시각 재삽입 검출을 제공하지 않는 한계를 유지한다.
+- 웹808개/83파일·계약15·typecheck/production·공유 웹/APK/모듈 경계 성공. 500항목 전체 필드/다른 언어·legacy/sibling·Unicode/공백·nullable journal/대기 보존·지연 응답·삭제/메타변경·ABA를 검사했다. 독립 검토로 겹친 GET 뒤 최종 journal 조회의 high-water 재검사를 보완했다.
+- 실제 Chrome StrictMode/production 컴포넌트/IndexedDB: 비교 PUT0/journal 없음→명시 확정 PUT1/새 UUID/v0→ACK v1, absent PUT0·버튼 없음, 빈 값 PUT1. held GET A→B→A·unmount/client 이전 발급 거절·PUT0과 ko/en390×844·844×390의 넘침/44px·15개 필드 전체/최종 확인 첫 페이지 복귀·실제 보관함 진입을 확인했다. **계정/verify API는 모의 함수**이고 fixture는 production importPackage로 준비했다. 새 ZIP 파일 선택/실제 PostgreSQL UI/타 origin 로그인/물리 Android 근거가 아니다. [상세·캡처](ORGANIZATION_ADOPTION_UI.md).
+- 선행 PR #57 최종 `4cf7d99fca0c6f370c8122c08e21c466f7e9d6c1`/run40083779603 SUCCESS3분23초 재확인. 서버/DB/Android production과 원본 PR34 변경은 보존했다. 다음은 Android 비교/명시적 채택 actor guard·새 CAS, 이후 실제 서버 UI·S1/S2 ZIP·PDF/EPUB 원본 후속이다.
 
 ### 2026-10-24 웹 분류 채택의 nullable journal·CAS 기반 — PR #57
 
@@ -142,7 +151,7 @@
 | S4c2a | S4c2 하위 | 완료 / 실기기 검증 대기 | 최신 계정 용어집의 명시적 ZIP 내보내기 | 직접 읽기 전용 조회·원본 identity/언어/binding 확인·계정/client 세대 및 SAF 요청 티켓. pending/conflict/더 최신 journal·미지원 확장/256 KiB 초과를 거절한다. 웹 484·앱 511 통과/15 opt-in 제외, 실제 서버 변경 후 다운로드 ZIP의 무손실 반영 확인. [근거](PORTABLE_GLOSSARY_EXPORT.md) |
 | S4c2b | S4c2 하위 | 완료 / 실기기 검증 대기 | ZIP 계정 용어집의 명시적 채택 | readonly 비교·최종 서버/기기/base 재검증·정확한 새 CAS/outbox. absent 정보만 표시, deleted/빈목록 구분. 웹 506·앱 523 통과/15 opt-in 제외, 실제 500항목 무손실 채택과 오래된 비교 거절 확인. [근거](PORTABLE_GLOSSARY_ADOPTION.md) |
 | S4c3a | S4c 하위 | 완료 | 문서 분류의 passive ZIP snapshot 계약·codec | 정확한 text DocumentIdentity와 전체 proof, absent/present-empty·폴더·ordered tags·favorite, 기존 organization/extension 보존. core45/runtime50/web660 및 실제 웹→JVM→웹 ZIP 7사례 동등성 검사. 계정 조회/화면/채택은 S4c3b. [근거](PORTABLE_ORGANIZATION_SNAPSHOT.md) |
-| S4c3b | S4c 하위 | 진행 | 최신 계정 분류 ZIP export·명시적 채택 | PR #52 nonce/CAS, #53 GET-only, #54 canonical 캡처, #55 웹 다운로드, #56 Android GET/SAF, #57 웹 nullable journal/새 CAS 기반 완료. 채택 adapter/UI·Android 채택·물리 SAF 검증은 남음. [채택 기반](ORGANIZATION_ADOPTION_CAS.md) |
+| S4c3b | S4c 하위 | 진행 | 최신 계정 분류 ZIP export·명시적 채택 | PR #52 nonce/CAS, #53 GET-only, #54 canonical 캡처, #55 웹 다운로드, #56 Android GET/SAF, #57 웹 CAS, #58 웹 비교/명시적 채택 UI 완료. Android 채택·실제 서버 UI·물리 SAF 검증은 남음. [웹 채택](ORGANIZATION_ADOPTION_UI.md) |
 | W1 | 5 | 대기 | 웹 로컬 번역 캐시의 서버 업로드·복원 | 전체 문단 검증, 원문 revision 대응, 미완성/다른 제공자 충돌 처리, 앱에서 재조회 |
 | W2 | 6 | 대기 | 웹 진단 화면 | 민감정보 제거된 제한 크기 로그, 번역/수집/동기화 오류 구분, 복사/내보내기·삭제, 작은 화면 페이지 탐색 |
 | W3 | 7 | 대기 | 번역 작업 제어와 묶음 범위 개선 | 앱·웹 일시정지/재개 동작 통일 가능 범위, 현재 20회차 제한의 서버 큐 확장, 재시작·중복 제출·취소 검증 |
