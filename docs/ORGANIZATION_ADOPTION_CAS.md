@@ -1,5 +1,7 @@
 # 분류 snapshot 명시적 채택의 웹 CAS 기반
 
+후속 [PR #58의 웹 canonical 비교·별도 명시적 채택 화면](ORGANIZATION_ADOPTION_UI.md)이 이 기반에 연결됐다. 아래는 PR #57 당시 기반 구현의 범위이며 최신 잔여 작업은 작업 큐를 따른다.
+
 2026-10-24, draft PR #57. Base는 `codex/android-organization-export`(PR #56), head는 `codex/organization-adoption-cas`다. 이 단위는 **웹 journal과 새 CAS 의도 생성 기반**이며 ZIP 비교 화면·계정 연결·Android 채택을 활성화하지 않는다. 전체 S4c3b와 S4는 미완료다.
 
 ## 저장과 채택 경계

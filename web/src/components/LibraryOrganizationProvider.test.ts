@@ -204,3 +204,128 @@ describe('read-only fresh account organization session', () => {
     await expect(offline.freshReader(() => true).read(scope)).rejects.toThrow(organizationExportErrors.offline)
   })
 })
+
+describe('explicit portable organization adoption session', () => {
+  const empty = { folder: '', tags: [] as string[], favorite: false }
+  const remote = (version = 0): LibraryOrganizationView => ({ ...scope, version, organization: version ? empty : null,
+    updatedAt: version ? '2026-10-24T00:00:00Z' : null })
+  function fixture(get: () => Promise<LibraryOrganizationView> = async () => remote()) {
+    vi.stubGlobal('indexedDB', new IDBFactory())
+    const api = { get: vi.fn(get), put: vi.fn(async () => { throw new Error('unexpected PUT') }), close: vi.fn() }
+    const registry = new OrganizationRegistry('alice', api); registries.push(registry)
+    const drain = vi.spyOn(registry, 'drain').mockResolvedValue(undefined)
+    let current = true
+    const session = registry.adoptionSession(() => current)
+    return { api, registry, session, drain, setCurrent: (value: boolean) => { current = value } }
+  }
+  async function row() { return (await listLibraryOrganizationRecords('alice'))[0]?.record ?? null }
+  async function initialize() {
+    const store = createLibraryOrganizationStore('alice', scope)
+    try { return await store.initialize(empty) } finally { store.close() }
+  }
+  it('captures exact clean nullable journal without initialization, controller opening, or PUT', async () => {
+    const f = fixture(), opened = vi.spyOn(f.registry, 'open')
+    expect(await f.session.read(scope)).toEqual({ record: null, remote: remote() })
+    expect(await row()).toBeNull()
+    expect(opened).not.toHaveBeenCalled(); expect(f.api.put).not.toHaveBeenCalled(); expect(f.drain).not.toHaveBeenCalled()
+    const saved = await initialize()
+    expect(await f.session.read(scope)).toEqual({ record: saved, remote: remote() })
+    expect(await row()).toEqual(saved)
+  })
+  it('rejects clean journal creation while GET is held without modifying it', async () => {
+    let release!: (value: LibraryOrganizationView) => void
+    const f = fixture(() => new Promise(resolve => { release = resolve }))
+    const reading = f.session.read(scope)
+    await vi.waitFor(() => expect(f.api.get).toHaveBeenCalledOnce())
+    const saved = await initialize()
+    release(remote())
+    await expect(reading).rejects.toMatchObject({ code: 'choice-stale' })
+    expect(await row()).toEqual(saved); expect(f.api.put).not.toHaveBeenCalled()
+  })
+  it('commits explicit empty-on-absent with a fresh mutation and checks canonical around GET and before CAS', async () => {
+    const f = fixture(), comparison = await f.session.read(scope)
+    const canonical = vi.fn(async () => undefined), guard = vi.fn()
+    await expect(f.session.adopt(scope, empty, comparison, canonical, guard)).resolves.toBeUndefined()
+    const saved = await row()
+    expect(saved).toMatchObject({ enabled: true, local: empty, remote: remote(), queued: null, conflict: null,
+      pending: { expectedVersion: 0, organization: empty } })
+    expect(saved?.pending?.mutationId).toMatch(/^[a-f0-9-]{36}$/)
+    expect(canonical).toHaveBeenCalledTimes(3); expect(guard).toHaveBeenCalled()
+    expect(f.api.get).toHaveBeenCalledTimes(2); expect(f.api.put).not.toHaveBeenCalled()
+    expect(f.drain).toHaveBeenCalledOnce()
+  })
+  it('checks canonical after final GET and rejects document deletion before writing', async () => {
+    const f = fixture(), comparison = await f.session.read(scope)
+    let checks = 0
+    await expect(f.session.adopt(scope, empty, comparison, async () => {
+      if (++checks === 2) throw new LibraryOrganizationError('choice-stale')
+    }, () => undefined)).rejects.toMatchObject({ code: 'choice-stale' })
+    expect(f.api.get).toHaveBeenCalledTimes(2)
+    expect(await row()).toBeNull(); expect(f.api.put).not.toHaveBeenCalled(); expect(f.drain).not.toHaveBeenCalled()
+  })
+  it('rejects selection cancellation during final canonical check without accepting an intent', async () => {
+    const f = fixture(), comparison = await f.session.read(scope)
+    let checks = 0
+    await expect(f.session.adopt(scope, empty, comparison, async () => {
+      if (++checks === 3) f.setCurrent(false)
+    }, () => undefined)).rejects.toMatchObject({ code: 'choice-stale' })
+    expect(await row()).toBeNull(); expect(f.drain).not.toHaveBeenCalled()
+  })
+  it('aborts held GET and terminally rejects A-B-A and registry closure', async () => {
+    let release!: (value: LibraryOrganizationView) => void
+    const f = fixture(() => new Promise(resolve => { release = resolve }))
+    const reading = f.session.read(scope)
+    await vi.waitFor(() => expect(f.api.get).toHaveBeenCalledOnce())
+    f.setCurrent(false)
+    expect(() => f.session.assertCurrent()).toThrow()
+    f.setCurrent(true); release(remote())
+    await expect(reading).rejects.toThrow()
+    await expect(f.session.read(scope)).rejects.toThrow()
+    const next = f.registry.adoptionSession(() => true)
+    f.registry.close()
+    expect(() => next.assertCurrent()).toThrow()
+    expect(await row()).toBeNull()
+  })
+  it('closes the standalone actor after durable acceptance, preserving pending for normal registry drain', async () => {
+    const f = fixture(), comparison = await f.session.read(scope)
+    await f.session.adopt(scope, empty, comparison, async () => undefined, () => undefined)
+    f.session.close()
+    await new Promise(resolve => setTimeout(resolve, 850))
+    expect((await row())?.pending).not.toBeNull()
+    expect(f.api.put).not.toHaveBeenCalled()
+    expect(f.drain).toHaveBeenCalledOnce()
+  })
+  it('does not flush or overwrite an unrelated pending journal after rejection', async () => {
+    const f = fixture(), comparison = await f.session.read(scope)
+    const store = createLibraryOrganizationStore('alice', scope)
+    const pending = { expectedVersion: 0, mutationId: crypto.randomUUID(), organization: empty }
+    try { await store.transactNullable(() => ({ enabled: true, local: empty, remote: remote(), pending,
+      queued: null, conflict: null, retryAfterUntil: 9999999999999 })) } finally { store.close() }
+    const saved = await row()
+    await expect(f.session.adopt(scope, empty, comparison, async () => undefined, () => undefined)).rejects.toThrow()
+    expect(await row()).toEqual(saved); expect(f.api.put).not.toHaveBeenCalled(); expect(f.drain).not.toHaveBeenCalled()
+  })
+  it('accepts only one competing nullable intent and preserves exact ordered Unicode fields', async () => {
+    const f = fixture(), second = f.registry.adoptionSession(() => true)
+    const [a, b] = await Promise.all([f.session.read(scope), second.read(scope)])
+    const organization = { folder: 'MiXeD  Shelf', tags: ['é', 'e\u0301', 'Case', 'case'], favorite: true }
+    const outcomes = await Promise.allSettled([
+      f.session.adopt(scope, organization, a, async () => undefined, () => undefined),
+      second.adopt(scope, { ...organization, folder: 'Other' }, b, async () => undefined, () => undefined),
+    ])
+    expect(outcomes.filter(result => result.status === 'fulfilled')).toHaveLength(1)
+    expect(outcomes.filter(result => result.status === 'rejected')).toHaveLength(1)
+    const saved = await row()
+    expect(saved?.pending?.organization).toEqual(saved?.local)
+    expect(saved?.local.tags).toEqual(organization.tags)
+    expect(f.api.put).not.toHaveBeenCalled(); expect(f.drain).toHaveBeenCalledOnce()
+  })
+  it('rejects an older response observed by a later confirmation without lowering the read high water', async () => {
+    let value = remote(2)
+    const f = fixture(async () => value), comparison = await f.session.read(scope)
+    value = remote(1)
+    await expect(f.session.adopt(scope, empty, comparison, async () => undefined, () => undefined)).rejects.toThrow()
+    expect(await row()).toBeNull(); expect(f.drain).not.toHaveBeenCalled()
+    expect(() => f.session.assertCurrent()).toThrow()
+  })
+})
