@@ -132,6 +132,31 @@ class LibraryOrganizationIntegrationTest {
         assertEquals(json.readTree(saved), json.readTree(read))
     }
 
+    @Test fun `explicit empty adoption creates a version from absence and fresh same value intent advances it`() {
+        val owner = reader(); val id = source(owner).recordId
+        val absent = service.get(owner, original, id)
+        assertEquals(0L, absent.version)
+        assertNull(absent.organization)
+        val empty = LibraryOrganization("", emptyList(), false)
+        val first = request(0, empty)
+        val saved = write(owner, id, json.writeValueAsString(first)).andExpect(status().isOk)
+            .andExpect(jsonPath("$.version").value(1))
+            .andExpect(jsonPath("$.organization.folder").value(""))
+            .andExpect(jsonPath("$.organization.tags").isEmpty)
+            .andExpect(jsonPath("$.organization.favorite").value(false))
+            .andReturn().response.contentAsString
+        val replay = write(owner, id, json.writeValueAsString(first)).andExpect(status().isOk)
+            .andReturn().response.contentAsString
+        assertEquals(saved, replay)
+        val next = request(1, empty)
+        assertNotEquals(first.mutationId, next.mutationId)
+        write(owner, id, json.writeValueAsString(next)).andExpect(status().isOk)
+            .andExpect(jsonPath("$.version").value(2))
+        assertEquals(empty, service.get(owner, original, id).organization)
+        assertEquals(1L, jdbc.queryForObject(
+            "select count(*) from library_organization where user_id=? and record_id=?", Long::class.java, owner, id))
+    }
+
     @Test fun `clear stays versioned and latest exact retry is stable including stored timestamp`() {
         val owner = reader(); val id = source(owner).recordId
         service.put(owner, original, id, request())

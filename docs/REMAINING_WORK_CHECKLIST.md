@@ -1,6 +1,6 @@
 # PageTuner 남은 작업 체크리스트
 
-갱신: 2026-10-22 (한국 시간). 실행 순서와 상세 근거는 [작업 큐](AGENT_WORK_QUEUE.md), 플랫폼별 범위는 [기능 대응표](APP_WEB_FEATURE_MATRIX.md)를 따른다. **전체 프로젝트와 S4는 아직 미완료다.** 구현 완료와 실기기·실서비스 검증 완료는 별개로 기록한다.
+갱신: 2026-10-24 (한국 시간). 실행 순서와 상세 근거는 [작업 큐](AGENT_WORK_QUEUE.md), 플랫폼별 범위는 [기능 대응표](APP_WEB_FEATURE_MATRIX.md)를 따른다. **전체 프로젝트와 S4는 아직 미완료다.** 구현 완료와 실기기·실서비스 검증 완료는 별개로 기록한다.
 
 ## 현재 진행 단위
 
@@ -9,7 +9,8 @@
 - [x] **S4c3b canonical 캡처·분류 ZIP 준비**: [draft PR #54](https://github.com/gongdongho12/PageTuner/pull/54), base PR #53. 현재 문서/실제 bytes·읽기 기록 재조회, raw nonce·실제 응답 검증, implicit 메모 sync/outbox 방지 및 분류 ZIP bytes/저장 guard 구현. 웹720개/78파일·계약15·typecheck/build·APK/공유 웹/경계 성공. [범위·비원자성 한계](PORTABLE_EXPORT_CAPTURES.md).
 - [x] **S4c3b 웹 분류 ZIP 다운로드 UI**: [draft PR #55](https://github.com/gongdongho12/PageTuner/pull/55), base PR #54. 용어집 동시 포함·terminal 화면 세대·일반 ZIP 최종 guard·계정 읽기 canonical 확인. 웹740개/80파일·계약15·build/APK/경계, 실제 브라우저 OS ZIP500항목 전체 동등성과 지연 응답 ABA 거절을 확인했다. 계정 API는 mock, 화면은 DOM 측정이며 스크린샷 timeout·신규DB 종단·물리 Android 미검증을 구분한다. [범위](PORTABLE_ACCOUNT_EXPORT_UI.md).
 - [x] **S4c3b Android 분류 직접 GET·ZIP/SAF 연결**: [draft PR #56](https://github.com/gongdongho12/PageTuner/pull/56), base PR #55. 용어집 동시 보존·전체 문서/nonce/journal·선택 lease와 SAF open 전후 ticket. 대상38개·앱625통과/16제외·runtime50·APK/lint/계측 소스/경계 성공. AtomicFile shared 잠금과 기존 용어집 검사 경합을 수정했다. 물리 SAF/회전/재생성과 계측 실행은 V3다. [범위](ANDROID_ORGANIZATION_EXPORT.md).
-- [ ] **S4c3b 다음 작은 단위**: 웹/앱 분류의 별도 명시적 채택을 최신 서버·nullable journal 원자 비교·binding/session guard와 새 CAS mutation으로 구현한다.
+- [x] **S4c3b 웹 채택 nullable journal·새 CAS 기반**: [draft PR #57](https://github.com/gongdongho12/PageTuner/pull/57), base PR #56. null 원자 비교/쓰기·마지막 취소 가능 guard·직접 GET·새 mutation, 동일 값/빈 값 의도와 기존 pending 보존. 대상64개·웹781개/81파일·계약15·build/공유 웹/APK/경계·실제 격리 PostgreSQL 분류18개 통과. ZIP 권한 adapter/UI와 실기기 근거는 아직 없다. [범위](ORGANIZATION_ADOPTION_CAS.md).
+- [ ] **S4c3b 다음 작은 단위**: 웹 canonical 문서/full proof·raw nonce·terminal 계정/session을 결합한 별도 비교/채택 adapter와 명시적 UI, 이어서 Android actor 새 CAS 채택을 구현한다.
 - [x] **PR #51 실제 서버·Android HTTP 검증 및 CSRF 수정**: 사용자 승인으로 분리한 QA DB에서 회원가입·계정/서재97요청·실제 NovelBuddy/Google 91문단 및 Android HTTP adapter 왕복을 확인했다. 실제 서버의 CSRF 거절이401로 잘못 바뀌던 결함을403으로 수정했고 최신 HTTP3경로를 재확인했다. [상세와 한계](SERVER_LIVE_VERIFICATION.md)
 - [x] **PR #51 오프라인 웹 업데이트 대기 안내**: 새 worker가 대기하면 작업을 보관한 뒤 같은 주소의 모든 탭을 닫고 다시 열도록 안내한다. 강제 교체·사이트 데이터 삭제 없이 기기 자료를 보존한다. 웹665개/76파일 및 중간 head `703629e` CI 성공.
 - [x] **PR #51 WTR 실제 회차 가져오기**: `6f79dec`·`f7ca005`의 응답/상대 경로 수정 후 production Java reader와 실제 서버 import가129문단/HTTP200으로 통과했다. 소스52·서버237·앱586 통과/16제외 및 APK/lint/경계 성공. 카탈로그의 간헐적 외부 timeout과 전체 사이트 가용성은 구분한다. [실행 기록](SERVER_LIVE_VERIFICATION.md)
