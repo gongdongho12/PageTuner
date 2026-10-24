@@ -63,11 +63,12 @@ export function createLibraryOrganizationStore(username: string, inputScope: Lib
   const storageKey = [username, scope.kind, scope.recordId], key = JSON.stringify([dbName, ...storageKey])
   const factory = options.indexedDB ?? globalThis.indexedDB
   let database: Promise<IDBDatabase> | undefined, closed = false
+  const writes = new Set<IDBTransaction>()
   const ownListeners = new Set<() => void>()
   const channel = typeof window !== 'undefined' && typeof BroadcastChannel !== 'undefined' ? new BroadcastChannel('pageturner-library-organization-changes') : null
-  function emit() { listeners.get(key)?.forEach(listener => listener()) }
+  function emit() { listeners.get(key)?.forEach(listener => { try { listener() } catch { /* A subscriber cannot undo committed storage. */ } }) }
   if (channel) channel.onmessage = event => { if (event.data === key) emit() }
-  function notify() { emit(); channel?.postMessage(key) }
+  function notify() { emit(); if (!closed) { try { channel?.postMessage(key) } catch { /* Notifications are best effort after commit. */ } } }
   function open(): Promise<IDBDatabase> {
     if (closed) return Promise.reject(new LibraryOrganizationError('storage'))
     if (!database) database = openDatabase(factory, dbName).then(db => {
@@ -77,33 +78,48 @@ export function createLibraryOrganizationStore(username: string, inputScope: Lib
     }).catch(error => { database = undefined; throw error })
     return database
   }
-  async function transaction(reducer?: (record: LibraryOrganizationRecord | null) => LibraryOrganizationRecord): Promise<LibraryOrganizationRecord | null> {
+  async function transaction(reducer?: (record: LibraryOrganizationRecord | null) => LibraryOrganizationRecord, guard?: () => void, preserveRejection = false): Promise<LibraryOrganizationRecord | null> {
+    if (closed) throw new LibraryOrganizationError('storage')
+    guard?.()
     const db = await open()
     if (closed) throw new LibraryOrganizationError('storage')
+    guard?.()
     let changed = false
     const result = await new Promise<LibraryOrganizationRecord | null>((resolve, reject) => {
       const tx = db.transaction('records', reducer ? 'readwrite' : 'readonly'), store = tx.objectStore('records'), request = store.get(storageKey)
-      let result: LibraryOrganizationRecord | null = null, error: unknown
+      if (reducer) writes.add(tx)
+      let result: LibraryOrganizationRecord | null = null, error: unknown, rejected = false
+      const abort = (failure: unknown) => { error = failure; rejected = true; try { tx.abort() } catch { /* Completion cannot be undone. */ } }
+      const check = () => { if (closed) throw new LibraryOrganizationError('storage'); guard?.() }
       request.onsuccess = () => {
         try {
+          check()
           const current = request.result === undefined ? null : stored(request.result, username, scope).record
           result = reducer ? checked(reducer(current ? structuredClone(current) : null), scope) : current
-          if (reducer && JSON.stringify(current) !== JSON.stringify(result)) { store.put({ username, scope, record: result }, storageKey); changed = true }
-        } catch (failure) { error = failure; tx.abort() }
+          check()
+          if (reducer && JSON.stringify(current) !== JSON.stringify(result)) {
+            const write = store.put({ username, scope, record: result }, storageKey)
+            changed = true
+            // Request success is the final abortable callback; oncomplete is already committed.
+            write.onsuccess = () => { try { check() } catch (failure) { abort(failure) } }
+          }
+        } catch (failure) { abort(failure) }
       }
-      tx.oncomplete = () => resolve(result)
-      tx.onerror = tx.onabort = () => reject(error instanceof LibraryOrganizationError ? error : new LibraryOrganizationError('storage'))
+      tx.oncomplete = () => { writes.delete(tx); resolve(result) }
+      tx.onabort = () => { writes.delete(tx); reject(rejected && (preserveRejection || error instanceof LibraryOrganizationError) ? error : new LibraryOrganizationError('storage')) }
     })
     if (changed && !closed) notify()
     return result
   }
   return {
-    scope,
+    scope: { ...scope },
     async initialize(fallback: LibraryOrganization) {
       const local = validateLibraryOrganization(fallback)
       return (await transaction(current => current ?? { enabled: false, local, remote: null, pending: null, queued: null, conflict: null, retryAfterUntil: null }))!
     },
     snapshot: () => transaction(),
+    /** Readonly review may see no journal. Compare that null atomically before creating a new mutation. */
+    transactNullable: (reducer: (record: LibraryOrganizationRecord | null) => LibraryOrganizationRecord, guard?: () => void) => transaction(reducer, guard, true) as Promise<LibraryOrganizationRecord>,
     async transact(reducer: (record: LibraryOrganizationRecord) => LibraryOrganizationRecord) {
       return (await transaction(current => { if (!current) throw new LibraryOrganizationError('storage'); return reducer(current) }))!
     },
@@ -111,7 +127,12 @@ export function createLibraryOrganizationStore(username: string, inputScope: Lib
       if (!closed) { ownListeners.add(listener); const group = listeners.get(key) ?? new Set(); group.add(listener); listeners.set(key, group) }
       return () => { ownListeners.delete(listener); listeners.get(key)?.delete(listener); if (!listeners.get(key)?.size) listeners.delete(key) }
     },
-    close() { closed = true; channel?.close(); ownListeners.forEach(listener => listeners.get(key)?.delete(listener)); ownListeners.clear(); if (!listeners.get(key)?.size) listeners.delete(key); void database?.then(db => db.close()).catch(() => undefined) },
+    close() {
+      closed = true
+      for (const tx of writes) { try { tx.abort() } catch { /* Already committed: do not report a false rollback. */ } }
+      channel?.close(); ownListeners.forEach(listener => listeners.get(key)?.delete(listener)); ownListeners.clear(); if (!listeners.get(key)?.size) listeners.delete(key)
+      void database?.then(db => db.close()).catch(() => undefined)
+    },
   }
 }
 export type LibraryOrganizationStore = ReturnType<typeof createLibraryOrganizationStore>
