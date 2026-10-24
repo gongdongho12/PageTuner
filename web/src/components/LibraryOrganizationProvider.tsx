@@ -1,10 +1,11 @@
-import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from 'react'
-import { createLibraryOrganizationStore, listLibraryOrganizationRecords } from '../lib/libraryOrganizationStore'
+import { createContext, useContext, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
+import { createLibraryOrganizationStore, listLibraryOrganizationRecords, type LibraryOrganizationRecord } from '../lib/libraryOrganizationStore'
 import { createLibraryOrganizationController, type LibraryOrganizationState } from '../lib/libraryOrganizationSync'
 import { LibraryOrganizationError, type LibraryOrganizationClient, type LibraryOrganizationScope } from '../lib/libraryOrganizationApi'
 import { validReadingProgressIdentity } from '../lib/readingProgressApi'
-import { sameLibraryOrganizationScope, sameLibraryOrganizationView, validateLibraryOrganizationScope, validateLibraryOrganizationView, type LibraryOrganizationView } from '../lib/libraryOrganizationApi'
+import { sameLibraryOrganization, sameLibraryOrganizationScope, sameLibraryOrganizationView, validateLibraryOrganizationScope, validateLibraryOrganizationView, type LibraryOrganizationView } from '../lib/libraryOrganizationApi'
 import { organizationExportErrors, type FreshLibraryOrganizationReader } from '../lib/portableOrganizationExport'
+import type { OrganizationAdoptionSession } from '../lib/portableOrganizationAdoption'
 import { useExportSession } from './useExportSession'
 
 type Controller = ReturnType<typeof createLibraryOrganizationController>
@@ -15,6 +16,7 @@ const retryable = (state: LibraryOrganizationState) => !state.errorCode || ['net
 /** Account-owned controllers outlive editors, so closing a screen cannot strand pending edits. */
 export class OrganizationRegistry {
   private entries = new Map<string, { controller: Controller; store: ReturnType<typeof createLibraryOrganizationStore>; readers: number; ready: Promise<void> }>()
+  private adoptionSessions = new Set<OrganizationAdoptionSession>()
   private closed = false
   private draining = false
   private offset = 0
@@ -120,6 +122,121 @@ export class OrganizationRegistry {
       },
     }
   }
+  /** Comparing a ZIP snapshot has no initialization or outbox side effects. */
+  adoptionSession(current: () => boolean): OrganizationAdoptionSession {
+    let expired = false
+    const resources = new Set<() => void>()
+    const observed = new Map<string, LibraryOrganizationView>()
+    const assertCurrent = () => {
+      if (expired || this.closed || !current()) {
+        expired = true
+        throw new LibraryOrganizationError('choice-stale')
+      }
+      if (!this.api) throw new LibraryOrganizationError('network')
+    }
+    const assert = (signal?: AbortSignal) => {
+      if (signal?.aborted) expired = true
+      assertCurrent()
+    }
+    const reader = this.freshReader(() => !expired && !this.closed && current())
+    const clean = (record: LibraryOrganizationRecord | null) => {
+      if (record?.pending || record?.queued || record?.conflict) throw new LibraryOrganizationError('choice-stale')
+    }
+    const sameRecord = (a: LibraryOrganizationRecord | null, b: LibraryOrganizationRecord | null) => {
+      if (a === null || b === null) return a === b
+      return a.enabled === b.enabled && sameLibraryOrganization(a.local, b.local) && sameLibraryOrganizationView(a.remote, b.remote)
+        && a.pending === null && b.pending === null && a.queued === null && b.queued === null && a.conflict === null && b.conflict === null
+        && a.retryAfterUntil === b.retryAfterUntil
+    }
+    const snapshot = async (scope: LibraryOrganizationScope, signal?: AbortSignal) => {
+      assert(signal)
+      const store = createLibraryOrganizationStore(this.username, scope)
+      resources.add(store.close)
+      try { const record = await store.snapshot(); assert(signal); clean(record); return record }
+      finally { resources.delete(store.close); store.close() }
+    }
+    const close = () => {
+      expired = true
+      const releases = [...resources]
+      resources.clear()
+      for (const release of releases) release()
+      this.adoptionSessions.delete(session)
+    }
+    const run = async <T,>(signal: AbortSignal | undefined, action: (signal: AbortSignal) => Promise<T>): Promise<T> => {
+      assert(signal)
+      const controller = new AbortController(), abort = () => { controller.abort(); close() }
+      resources.add(abort)
+      signal?.addEventListener('abort', abort, { once: true })
+      try { return await action(controller.signal) }
+      catch (error) {
+        if (error instanceof LibraryOrganizationError && error.code === 'invalid-response' || error instanceof Error && error.message === organizationExportErrors.response) close()
+        throw error
+      } finally { signal?.removeEventListener('abort', abort); resources.delete(abort) }
+    }
+    const read = (input: LibraryOrganizationScope, signal?: AbortSignal) => run(signal, async activeSignal => {
+      const scope = validateLibraryOrganizationScope(input), before = await snapshot(scope, activeSignal)
+      const remote = await reader.read(scope, activeSignal)
+      assert(activeSignal)
+      const after = await snapshot(scope, activeSignal)
+      if (!sameRecord(before, after)) throw new LibraryOrganizationError('choice-stale')
+      const previous = observed.get(keyFor(scope))
+      if (previous && (previous.version > remote.version || previous.version === remote.version && !sameLibraryOrganizationView(previous, remote))) throw new LibraryOrganizationError('invalid-response')
+      observed.set(keyFor(scope), structuredClone(remote))
+      return structuredClone({ record: after, remote })
+    })
+    const session: OrganizationAdoptionSession = {
+      assertCurrent,
+      read,
+      adopt: (input, value, reviewed, checkBeforeWrite, guard, signal) => run(signal, async activeSignal => {
+        const scope = validateLibraryOrganizationScope(input)
+        const comparison = structuredClone(reviewed), organization = structuredClone(value)
+        let rejected: unknown
+        const check = () => {
+          assert(activeSignal)
+          try { guard() } catch (error) { rejected = error; throw error }
+          assert(activeSignal)
+          const latest = observed.get(keyFor(scope))
+          if (latest && latest.version > comparison.remote.version) throw new LibraryOrganizationError('choice-stale')
+          if (latest && latest.version === comparison.remote.version && !sameLibraryOrganizationView(latest, comparison.remote)) throw new LibraryOrganizationError('invalid-response')
+        }
+        check()
+        const store = createLibraryOrganizationStore(this.username, scope)
+        resources.add(store.close)
+        const checkCanonical = async () => { check(); try { await checkBeforeWrite() } catch (error) { rejected = error; throw error } check() }
+        // Never start this actor: it must not initialize or flush unrelated device records.
+        const actor = createLibraryOrganizationController({ scope,
+          api: { ...this.api!, get: async (target, requestSignal) => {
+            await checkCanonical()
+            const latest = await read(target, requestSignal).catch(error => { rejected = error; throw error })
+            await checkCanonical()
+            if (!sameRecord(comparison.record, latest.record)) throw new LibraryOrganizationError('choice-stale')
+            return latest.remote
+          }, put: async () => { throw new LibraryOrganizationError('aborted') } },
+          store: { ...store, transactNullable: async (reducer, finalGuard) => {
+            await checkCanonical()
+            return store.transactNullable(reducer, () => { check(); finalGuard?.(); check() })
+          } },
+        })
+        const closeActor = () => { void actor.close() }
+        resources.add(closeActor)
+        let accepted = false
+        try {
+          accepted = await actor.adoptSnapshot(organization, comparison, check)
+          if (!accepted) throw rejected ?? new LibraryOrganizationError(actor.snapshot().errorCode ?? 'choice-stale')
+        } finally {
+          // Close the standalone actor before the account registry resumes its normal authorized outbox.
+          await actor.close()
+          resources.delete(closeActor); resources.delete(store.close); store.close()
+        }
+        // A completed IDB commit cannot be rolled back by a later close or account transition.
+        if (accepted && !this.closed) void this.drain()
+      }),
+      close,
+    }
+    assertCurrent()
+    this.adoptionSessions.add(session)
+    return session
+  }
   async drain() {
     if (!this.api || this.closed || this.draining) return
     this.draining = true
@@ -146,6 +263,7 @@ export class OrganizationRegistry {
   }
   close() {
     this.closed = true
+    for (const session of [...this.adoptionSessions]) session.close()
     this.entries.forEach(entry => { void entry.controller.close().finally(() => entry.store.close()) })
     this.entries.clear()
   }
@@ -164,6 +282,28 @@ export function useFreshLibraryOrganization(namespace: string) {
       const current = lease.issue(organizationExportErrors.stale)
       if (!active?.api) throw new Error(organizationExportErrors.offline)
       return active.freshReader(current)
+    },
+  }
+}
+
+/** Issuance belongs to one committed account/origin lease; retained callbacks cannot borrow a later lease. */
+export function usePortableOrganizationAdoption(namespace: string) {
+  const registry = useContext(OrganizationContext)
+  const active = registry?.username === namespace ? registry : null
+  const lease = useExportSession(active, window.location.origin)
+  const owned = useRef(new Set<OrganizationAdoptionSession>())
+  useLayoutEffect(() => {
+    const sessions = owned.current
+    return () => { for (const session of sessions) session.close(); sessions.clear() }
+  }, [lease])
+  return { available: !!active?.api && !!lease, session: active,
+    begin: (selection: () => boolean) => {
+      if (!lease) throw new LibraryOrganizationError('choice-stale')
+      const committed = lease.issue()
+      if (!active?.api) throw new LibraryOrganizationError('network')
+      const session = active.adoptionSession(() => committed() && selection())
+      owned.current.add(session)
+      return session
     },
   }
 }
