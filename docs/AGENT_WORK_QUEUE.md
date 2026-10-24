@@ -15,11 +15,22 @@
 
 ## 우선순위 큐
 
+2026-10-25 최신 단위는 **draft PR #59**, base PR #58다. Android nullable journal 원자 비교·직접 GET 비교/새 CAS command 기반을 구현했다. 아직 내부 미연결 기반이며 다음은 정상 sync actor의 cached unconditional write가 새 의도를 덮지 않도록 CAS/reload 등을 조정하는 것이다. 그 뒤 canonical/full-proof·raw nonce·terminal 세대 adapter와 별도 확인 UI를 연결한다. [현재 범위·잠금/후속 제약](ANDROID_ORGANIZATION_ADOPTION_CAS.md)과 정확한 최종 head CI부터 확인한다. 완료한 PR #58 웹 UI를 다시 만들지 않는다.
+
 2026-10-24 최신 단위는 **draft PR #58**, base PR #57다. 웹 canonical/full-proof·readonly raw nonce·terminal 세션과 별도 분류 비교/확정 화면을 연결했다. 실제 Chrome에서 비교 PUT0·명시 확정 PUT1, absent/빈 값·계정 ABA·이전 callback과 ko/en 세로/가로 경계를 확인했다. 계정 API는 mock이며 새 실제 서버 UI/물리 기기 근거로 표시하지 않는다. [현재 범위·한계](ORGANIZATION_ADOPTION_UI.md)를 먼저 읽고 정확한 최종 head CI부터 확인한다. 다음은 Android의 별도 nullable journal/새 CAS 채택이며 전체 S4c3b/S4는 미완료다. 자동 병합하지 않는다.
 
 2026-10-12 최신 우선순위: 사용자 요청에 따른 실제 서버 검증과 발견 결함의 수정은 **PR #51**에서 진행한다. 사용자는 이전 거절 이후 **격리 DB·검증 서버 시작을 명시적으로 승인**했다. 이 승인 전의 시작 거절을 현재 차단 조건으로 반복하지 않으며, 기존 미리보기 DB와 원본 작업 폴더는 보존한다. [실제 검증 기록](SERVER_LIVE_VERIFICATION.md)과 [기본 사용 안내](QUICK_START.md)를 먼저 읽는다. PR #51 최종 head CI·작업 트리를 확인해 진행 변경을 마무리한 뒤 **S4c3b 최신 분류 export·명시적 채택**을 계속한다. 전체 프로젝트와 S4는 미완료다.
 
 추가 사용자 요청 **B2 별도 export**는 PR #48에서 TXT/Markdown 및 원본 PDF 파일 내보내기로 구현했다. [지원 범위](DOCUMENT_FILE_EXPORT.md)를 따른다. ZIP 교환·본문 파일·읽기 기록 export는 서로 별도이며 전체 책의 미보관 회차를 자동 수집하지 않는다. 후속 EPUB·PDF 생성은 B3/PR #49이며 다음 실행은 가장 최신 PR의 최종 head CI와 아래 최신 기록부터 확인한다.
+
+### 2026-10-25 Android nullable journal·새 CAS 채택 기반 — PR #59
+
+- [draft PR #59](https://github.com/gongdongho12/PageTuner/pull/59), base `codex/organization-adoption-screen`(#58), head `codex/android-organization-adoption-cas`. 저장소 `f617e46`·GET-only command `45e0259`와 검증 문서를 분리했다. 정확한 최종 head CI는 PR 본문과 ignored `android-organization-adoption-final-ci.json`에서 대조한다.
+- 기존 read 호환성을 유지하면서 부재와 기존 빈 journal을 구분하고 canonical-directory 잠금 아래 전체 nullable CAS를 수행한다. 기존 파일/backup·pending/queued/conflict·기한을 보존하며 stage/fsync 뒤 마지막 취소 가능 guard를 검사한다. 새 API 미지원 구현체는 fail closed다.
+- 내부 scoped command는 정상 actor/open/connect/retry/PUT 없이 직접 GET과 nullable 비교만 수행한다. 확인 시 최신 서버/기기 base·필수 canonical/session callback을 재검사하고 동일/빈 값도 새 UUID/expectedVersion으로 저장한다. 표시/입력 사본 분리·single-use·최고 관찰값·invalid response 영구 폐기·commit 후 dispatcher 취소 성공 보존을 구현했다. 실제 ZIP 권한/UI와 정상 outbox 인계는 미연결이다.
+- 독립 검토로 stale journal v1/GET v2 관찰 혼용·production INVALID_RESPONSE 폐기 누락·guard 중 close를 보완했다. 대상2클래스25개, 전체 앱666중650통과/16 opt-in 제외·runtime50·APK/lint/계측 소스/모듈 경계 성공. 실제 AtomicFile5개 계측 소스는 컴파일만 했으며 JVM IO/모의 transport와 실기기·실서버 근거를 구분한다. 서버/DB/웹 production·원본 PR34 변경은 보존했다.
+- **다음은 정상 sync actor cached write 조정**이다. 기존 actor가 오래된 GET/ACK 처리에서 unconditional write하면 독립 CAS 의도를 덮을 수 있으므로 CAS/reload 또는 동등한 조정 전에 adapter/UI에 연결하지 않는다. gate→account→library→binding→journal 순서를 유지하고 journal 안의 최종 guard에서 앞 잠금을 획득하지 않는다. 전체 저장소 원자성/동일 bytes 재삽입 영속 세대는 제공하지 않는다.
+- 선행 PR #58 최종 `836b218cefe16364766ab067167d762abc40fb52`/run40088553014 SUCCESS4분08초 재확인. 로그는 ignored `android-organization-adoption-focused.log`·`android-organization-adoption-full.log`·`android-organization-adoption-counts.json`. 전체 S4c3b/S4·실제 서버 UI·물리 Android는 남았다.
 
 ### 2026-10-24 웹 canonical 분류 비교·별도 채택 화면 — PR #58
 

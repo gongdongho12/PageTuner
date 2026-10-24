@@ -6,6 +6,8 @@
 
 ## 판정 방법
 
+2026-10-25 Android 분류 채택 기반: [draft PR #59](https://github.com/gongdongho12/PageTuner/pull/59), base PR #58. nullable journal 전체 CAS·직접 GET 비교/재검사·새 의도와 마지막 취소 가능 guard, commit 후 취소 성공 보존을 구현했다. 대상25개·앱650통과/16제외·runtime50·APK/lint/계측 소스/경계 성공. **내부 미연결 기반**이며 기존 sync actor cached write 조정·canonical/binding 권한 adapter·채택 UI는 남았다. 실제 AtomicFile 계측5개는 컴파일만 했다. [범위](ANDROID_ORGANIZATION_ADOPTION_CAS.md).
+
 2026-10-24 웹 분류 채택 화면: [draft PR #58](https://github.com/gongdongho12/PageTuner/pull/58), base PR #57. canonical/full-proof·readonly raw nonce·terminal 세션→비교→별도 확정→새 CAS 의도를 연결했다. 웹808개/83파일·계약15·공유 웹/APK/경계, 실제 Chrome mock API PUT0→확정 PUT1·absent/빈 값·ABA/unmount/client·ko/en 세로/가로를 확인했다. Android 별도 채택·실제 서버 UI 종단·물리 기기 검증은 미완료다. [범위와 한계](ORGANIZATION_ADOPTION_UI.md).
 
 - **완료**: 해당 행에 명시한 범위의 구현과 화면 연결이 있다. 모든 실사이트·브라우저·Android 기기에서 검증됐다는 뜻은 아니다.
