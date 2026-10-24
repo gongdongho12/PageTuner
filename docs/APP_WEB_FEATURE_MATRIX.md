@@ -2,6 +2,8 @@
 
 기준일: 2026-10-12. 현재 작업 트리의 화면 진입점, 상태 모델, 저장소와 API 호출을 기준으로 정리했다. **앱의 모든 기능이 웹에 옮겨진 상태는 아니다.** 현재 공통 흐름은 웹소설 수집, 챕터 원문 저장, 서버 번역 실행, 번역본 조회·보관·읽기까지 연결되어 있다. 로컬 파일·독서 도구·계정·개인 서재도 연결됐으며 아래에 남은 차이와 확인된 연결 결함을 별도로 표시한다.
 
+2026-10-24 분류 명시적 채택 기반: [draft PR #57](https://github.com/gongdongho12/PageTuner/pull/57), base PR #56. 웹 nullable journal transaction·직접 GET 재검사·새 CAS 의도와 final abortable guard를 구현했다. 같은 값/빈 값도 새 mutation을 만들며 기존 pending/queued/conflict와 retry 기한을 보존한다. 실제 PostgreSQL+MVC 분류18개 통과. ZIP identity/binding 권한 adapter·채택 화면·Android 채택은 미완료이며 파일 import/export로 계정을 자동 변경하지 않는다. [범위와 검증](ORGANIZATION_ADOPTION_CAS.md).
+
 ## 판정 방법
 
 - **완료**: 해당 행에 명시한 범위의 구현과 화면 연결이 있다. 모든 실사이트·브라우저·Android 기기에서 검증됐다는 뜻은 아니다.

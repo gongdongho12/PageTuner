@@ -1,5 +1,7 @@
 # 최신 계정 분류 ZIP export 준비
 
+2026-10-24 후속 범위: 실제 웹 ZIP 다운로드는 [PR #55](PORTABLE_ACCOUNT_EXPORT_UI.md), Android 직접 GET/SAF 연결은 [PR #56](ANDROID_ORGANIZATION_EXPORT.md)에서 완료했다. [PR #57 웹 채택 CAS 기반](ORGANIZATION_ADOPTION_CAS.md)도 추가했으며 별도 identity/binding 비교 adapter·채택 UI·Android 채택은 남아 있다. 아래 준비 기록을 최신 미완료 목록으로 재사용하지 말고 작업 큐를 따른다.
+
 S4c3b의 첫 단위는 웹의 **직접 GET 세션**이다. [draft PR #53](https://github.com/gongdongho12/PageTuner/pull/53)은 PR #52를 base로 하며 구현은 `73978d8`이다. 후속 [PR #54의 canonical 캡처·ZIP bytes/저장 guard](PORTABLE_EXPORT_CAPTURES.md)까지 추가했으며 실제 다운로드 화면·명시적 채택은 아직 연결하지 않았다.
 
 ## 현재 구현
