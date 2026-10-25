@@ -127,15 +127,18 @@ class ServerLibraryOrganizationTest {
     }
 
     @Test fun rateLimitPersistsThroughReconnectionAndManualRetry() = runTest(timeout = 10.seconds) {
-        val store = Store(); var calls = 0
+        val store = Store(); var calls = 0; var now = 0L
         val account = NotesFixture.connection { calls++; if (calls == 1) TranslationStoreHttpResponse(429, mapOf("Retry-After" to listOf("120"))) else response(view(1)) }
-        val sync = ServerLibraryOrganizationSync(backgroundScope, store) { testScheduler.currentTime }
+        // Real IO must not implicitly expire the logical cooldown when runTest skips idle delays.
+        val sync = ServerLibraryOrganizationSync(backgroundScope, store) { now }
         sync.open(target(account), account); sync.state.first { it.phase == ReadingProgressPhase.RateLimited }
+        assertEquals(120_000L, store.read(target(account)).retryAfterUntil)
         sync.retry(); runCurrent(); assertEquals(1, calls)
         sync.connect(null); sync.state.first { it.accountKey == null }
         sync.open(target(account), account); sync.state.first { it.phase == ReadingProgressPhase.RateLimited }
-        advanceTimeBy(119_999); runCurrent(); assertEquals(1, calls)
-        advanceTimeBy(2); runCurrent(); sync.state.first { it.phase == ReadingProgressPhase.Synced }
+        assertEquals(120_000L, store.read(target(account)).retryAfterUntil)
+        now = 119_999; advanceTimeBy(119_999); runCurrent(); assertEquals(1, calls)
+        now += 2; advanceTimeBy(2); runCurrent(); sync.state.first { it.phase == ReadingProgressPhase.Synced }
         assertEquals(2, calls)
     }
 
