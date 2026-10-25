@@ -1,5 +1,7 @@
 # Android text 계정 수명의 실제 소유자
 
+후속 [PR #63 Android 분류 비교·적용](ANDROID_ORGANIZATION_ADOPTION_UI.md)이 아래 authority를 실제 선택/adapter/화면에 연결했다. 아래는 PR #62 당시 범위다.
+
 2026-10-25, [draft PR #62](https://github.com/gongdongho12/PageTuner/pull/62). Base `codex/text-adoption-commit-guards`(PR #61), head `codex/text-account-lifetime-owner`. 구현·회귀 `bcfd0cf`와 문서를 분리했다. `ServerLibraryViewModel`이 검증된 text connection과 종료 가능한 수명을 함께 소유한다. canonical 분류 채택 adapter와 Compose 선택/확인 UI는 아직 연결하지 않는다.
 
 ## 발급과 종료

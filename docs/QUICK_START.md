@@ -63,13 +63,15 @@ QA PostgreSQL은 `127.0.0.1:55433`을 사용한다. 실제 HTTP/브라우저 DB 
 
 ## Android APK
 
+2026-10-25 [PR #63](ANDROID_ORGANIZATION_ADOPTION_UI.md)에서 ZIP 분류의 별도 적용을 연결했다. 로그인·문서 연결 확인 뒤 **분류 비교·적용**에서 ZIP/최신 계정/기기 값을 확인하고 확정 탭에서 적용한다. 비교만으로 계정을 바꾸지 않으며 부재 snapshot은 적용할 수 없다. 빈 분류를 적용하면 기존 폴더·태그·즐겨찾기를 비우는 요청을 저장한다. 앱725개 통과/16개 제외·APK/lint/계측 소스/경계 성공이며 실제 기기 화면·SAF 검증은 남아 있다.
+
 이 작업의 debug APK는 `app/build/outputs/apk/debug/app-debug.apk`에 생성된다. Android 6.0(API 23) 이상이 대상이다. 직접 빌드하려면 JDK 21과 Android SDK를 준비하고 저장소 루트에서 실행한다.
 
 ```powershell
 .\gradlew.bat -PbuildTarget=all :app:assembleDebug
 ```
 
-2026-10-12 최신 로컬 Android 검사는 **602개 중 586개 통과·16개 opt-in 제외**이고 APK·lint·계측 소스 컴파일·모듈 경계 검사도 통과했다. 실제 서버를 호출한 Android HTTP adapter 검사와 물리 기기의 앱 화면 실행은 다르다. 연결된 실기기가 없어 생성 PDF의 글꼴·여백·전체 텍스트와 SAF/회전/프로세스 재생성/핫스팟/절전 검증은 남았다. 폰 서재 공유 기능의 구현과 물리 비행기·핫스팟 환경 검증도 구분한다.
+2026-10-12 당시 로컬 Android 검사는 **602개 중 586개 통과·16개 opt-in 제외**이고 APK·lint·계측 소스 컴파일·모듈 경계 검사도 통과했다. 실제 서버를 호출한 Android HTTP adapter 검사와 물리 기기의 앱 화면 실행은 다르다. 연결된 실기기가 없어 생성 PDF의 글꼴·여백·전체 텍스트와 SAF/회전/프로세스 재생성/핫스팟/절전 검증은 남았다. 폰 서재 공유 기능의 구현과 물리 비행기·핫스팟 환경 검증도 구분한다.
 
 ## 이번 검증 근거
 

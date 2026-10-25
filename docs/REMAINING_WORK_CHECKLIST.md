@@ -1,6 +1,6 @@
 # PageTuner 남은 작업 체크리스트
 
-갱신: 2026-10-24 (한국 시간). 실행 순서와 상세 근거는 [작업 큐](AGENT_WORK_QUEUE.md), 플랫폼별 범위는 [기능 대응표](APP_WEB_FEATURE_MATRIX.md)를 따른다. **전체 프로젝트와 S4는 아직 미완료다.** 구현 완료와 실기기·실서비스 검증 완료는 별개로 기록한다.
+갱신: 2026-10-25 (한국 시간). 실행 순서와 상세 근거는 [작업 큐](AGENT_WORK_QUEUE.md), 플랫폼별 범위는 [기능 대응표](APP_WEB_FEATURE_MATRIX.md)를 따른다. **전체 프로젝트와 S4는 아직 미완료다.** 구현 완료와 실기기·실서비스 검증 완료는 별개로 기록한다.
 
 ## 현재 진행 단위
 
@@ -15,13 +15,14 @@
 - [x] **S4c3b Android 정상 sync actor CAS/reload 조정**: [draft PR #60](https://github.com/gongdongho12/PageTuner/pull/60), base PR #59. 모든 저장 nullable CAS·지연 GET/ACK/오류와 stale 편집 거절·inactive 최신 journal/cooldown·session/account/client 명시 인계. 대상21개·앱660통과/16제외·runtime50·APK/lint/계측 소스/경계 성공. 실제 서버/실기기는 미검증이다. [범위·dispatch 한계](ANDROID_ORGANIZATION_SYNC_CAS.md).
 - [x] **S4c3b text commit guard 내부 기반**: [draft PR #61](https://github.com/gongdongho12/PageTuner/pull/61), base PR #60. canonical 전체 문서·v2 raw binding 잠금/재진입 쓰기 거절·명시적 계정/선택 수명·memory-only 최종 guard를 구현했다. 대상47개·신규31개·앱691통과/16제외·runtime50·APK/lint/계측 소스/경계 성공. 실제 계정/Compose 소유자·UI는 미연결이다. [범위](PORTABLE_TEXT_COMMIT_GUARDS.md).
 - [x] **S4c3b 실제 text 계정 수명 소유자**: [draft PR #62](https://github.com/gongdongho12/PageTuner/pull/62), base PR #61. VM의 verified connection/lifetime 동시 발급·입력/교체/비밀번호/로그아웃/해제의 영구 종료와 늦은 비밀번호 오류 뒤 새 로그인 보존. 대상34개·신규12개·앱703통과/16제외·runtime50·APK/lint/계측 소스/경계 성공. 실제 VM/주입 HTTP 회귀이며 Compose/실기기 근거가 아니다. [범위](TEXT_ACCOUNT_LIFETIME_OWNER.md).
-- [ ] **S4c3b 다음 작은 단위**: 렌더 당시 text authority를 캡처한 실제 선택/options lease와 reader 저장 후 currentDocument·full-proof·raw nonce·직접 GET·최종 중첩 CAS adapter를 연결한다. 이후 별도 비교/확인 UI와 postcommit 인계, 실제 PostgreSQL UI 종단을 확인한다.
+- [x] **S4c3b Android 분류 비교·명시적 채택 연결**: [draft PR #63](https://github.com/gongdongho12/PageTuner/pull/63), base PR #62. 실제 authority/terminal 선택·canonical 전체 문서/raw nonce·direct verify/GET·nullable journal 최종 CAS와 별도5탭 확인 화면·postcommit 인계를 연결했다. 대상53개·신규22개·앱725통과/16제외·runtime50·APK/lint/계측 소스/경계 성공. 실제 기기 화면/신규 서버 UI 근거는 아니다. [범위](ANDROID_ORGANIZATION_ADOPTION_UI.md).
+- [ ] **S4c3b 다음 검증**: 실제 PostgreSQL의 웹 분류 별도 채택/PDF 연결 UI 종단, Android 실제 Compose·SAF·회전·재생성. 독립 구현은 최신 S1/S2 ZIP 통합으로 이어간다.
 - [x] **PR #51 실제 서버·Android HTTP 검증 및 CSRF 수정**: 사용자 승인으로 분리한 QA DB에서 회원가입·계정/서재97요청·실제 NovelBuddy/Google 91문단 및 Android HTTP adapter 왕복을 확인했다. 실제 서버의 CSRF 거절이401로 잘못 바뀌던 결함을403으로 수정했고 최신 HTTP3경로를 재확인했다. [상세와 한계](SERVER_LIVE_VERIFICATION.md)
 - [x] **PR #51 오프라인 웹 업데이트 대기 안내**: 새 worker가 대기하면 작업을 보관한 뒤 같은 주소의 모든 탭을 닫고 다시 열도록 안내한다. 강제 교체·사이트 데이터 삭제 없이 기기 자료를 보존한다. 웹665개/76파일 및 중간 head `703629e` CI 성공.
 - [x] **PR #51 WTR 실제 회차 가져오기**: `6f79dec`·`f7ca005`의 응답/상대 경로 수정 후 production Java reader와 실제 서버 import가129문단/HTTP200으로 통과했다. 소스52·서버237·앱586 통과/16제외 및 APK/lint/경계 성공. 카탈로그의 간헐적 외부 timeout과 전체 사이트 가용성은 구분한다. [실행 기록](SERVER_LIVE_VERIFICATION.md)
 - [x] **S4c3a 분류 passive ZIP snapshot**: [draft PR #50](https://github.com/gongdongho12/PageTuner/pull/50), base PR #49. 전체 text identity·내용 proof, absent/present-empty, 태그 순서·Unicode·기존 분류·형제 확장을 보존한다. core45/runtime50/web660, 실제 웹→JVM→웹 ZIP 7사례 전체 동등성 검증. [범위·후속 경계](PORTABLE_ORGANIZATION_SNAPSHOT.md)
 - [x] **S4c3a 앱 통합 회귀**: Android585 통과/16 opt-in 제외·APK/lint/계측 소스/경계 성공. JVM ZIP 왕복과 물리 기기 SAF·브라우저 다운로드는 구분한다. 최종 head CI는 PR에서 확인한다.
-- [ ] **S4c3b 최신 계정 분류 export·명시적 채택**: 웹 직접 GET·canonical/binding nonce·세대 검증·ZIP 다운로드와 별도 분류 채택 화면 완료. Android GET/SAF guard도 구현했다. Android 별도 채택·실제 서버 UI 종단·물리 기기 검증은 남는다.
+- [ ] **S4c3b 최신 계정 분류 export·명시적 채택 전체 검증**: 웹/Android의 직접 GET·ZIP export와 별도 분류 비교/확인 화면은 구현했다. 실제 서버 UI 종단·물리 기기 검증은 남는다.
 - [x] **B2 후속 EPUB·본문 기반 PDF 구현**: [PR #49](https://github.com/gongdongho12/PageTuner/pull/49), `codex/pdf-epub-document-export`, base PR #48. 새 EPUB는 텍스트·언어·목차를 담고 원본 EPUB 복원을 주장하지 않는다. Android는 A4 PDF를 생성하고 웹은 브라우저 **PDF로 저장**·인쇄용 문서 보기로 연결한다. PDF 원본 저장과 구분하며 삽화·메모·원본 식별자는 새 문서에 포함하지 않는다.
 - [x] **B2 후속 로컬 검사·EPUB 검증**: 웹 643개/75파일·계약 15개·core-content 18개, Android 최종 601개 중 585개 통과/16개 제외·APK/lint/계측 소스/모듈 경계 통과. 웹 전체 검사 후 UI·문구 수정은 typecheck/build 재확인. 실제 CJK 120문단 EPUB는 EPUBCheck 5.4.0 오류 0·경고 0이고 웹 가져오기에서 제목 포함 122문단·33쪽·마지막 본문·100% 진행률 확인. ko/en·390×844/844×390 형식/PDF 준비 패널의 넘침·문단 잘림 없음, 보이는 버튼 44px 이상 확인. [범위·검증](DOCUMENT_FILE_EXPORT.md)
 - [ ] **B2 후속 실제 PDF 렌더·저장 검증**: PDF 시각 검사·브라우저 OS 저장·Android 실기기 렌더/SAF는 남았다. Blob 미리보기 이동 정책 차단은 우회하지 않는다. EPUB UI 가져오기는 같은 exporter의 Node SSR 생성 파일을 사용했으며 OS 다운로드를 거친 왕복으로 기록하지 않는다. 최종 head CI 결과는 작업 큐에서 별도로 확인한다.

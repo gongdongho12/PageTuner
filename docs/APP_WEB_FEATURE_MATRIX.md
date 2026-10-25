@@ -6,6 +6,8 @@
 
 ## 판정 방법
 
+2026-10-25 Android 분류 별도 적용: [draft PR #63](https://github.com/gongdongho12/PageTuner/pull/63), base PR #62. 보관함의5탭 비교/확인 UI·실제 authority/선택 수명·canonical 문서/raw nonce·direct verify/GET·최종 중첩 CAS·postcommit 인계를 연결했다. absent는 정보만이고 present-empty도 별도 선택으로 새 의도를 저장한다. 대상53개·신규22개·앱725통과/16제외·runtime50·APK/lint/계측 소스/경계 성공. JVM 파일/주입 HTTP 근거이며 새 Compose/물리 기기/실제 서버 UI는 검증 대기다. [흐름·한계](ANDROID_ORGANIZATION_ADOPTION_UI.md).
+
 2026-10-25 실제 text 계정 수명 소유자: [draft PR #62](https://github.com/gongdongho12/PageTuner/pull/62), base PR #61. VM의 coherent connection/lifetime 게시와 입력·재연결·비밀번호·로그아웃·ViewModel 해제의 종료를 연결했다. 늦은 취소 요청 실패가 새 로그인을 해제하지 않게 한다. 대상34개·신규12개·앱703통과/16제외·runtime50·APK/lint/계측 소스/경계 성공. canonical 분류 채택 adapter·실제 Compose 선택 lease/UI는 미연결이다. 실제 VM/주입 transport와 물리 기기·실서버를 구분한다. [범위·main thread 계약](TEXT_ACCOUNT_LIFETIME_OWNER.md).
 
 2026-10-25 text commit guard 기반: [draft PR #61](https://github.com/gongdongho12/PageTuner/pull/61), base PR #60. library→binding→journal callback과 terminal gate→account를 유지하며 full canonical 문서/v2 nonce·재진입 alias 쓰기·만료를 검사한다. 대상47개·앱691통과/16제외·runtime50·APK/lint/계측 소스/경계 성공. **명시적으로 활성화한 수명 primitive의 내부 검증**이며 실계정/Compose 만료 감시·분류 adapter/UI·실기기 완료가 아니다. [범위](PORTABLE_TEXT_COMMIT_GUARDS.md).

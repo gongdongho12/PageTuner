@@ -23,7 +23,7 @@ private data class IdentityRow(val key: String, val content: @Composable (Modifi
 @Composable
 fun PortableIdentityPanel(state: PortableIdentityState, connected: Boolean, currentSession: Boolean,
     onBack: () -> Unit, onRecord: (String) -> Unit, onCheck: () -> Unit, onBind: () -> Unit = {}, onReadServer: () -> Unit = {}, onUnbind: () -> Unit = {},
-    exportState: PortableLibraryState = PortableLibraryState(), onExportAccount: (String?, Boolean, () -> Unit) -> Unit = { _, _, _ -> }, onReviewGlossary: () -> Unit = {}, modifier: Modifier = Modifier) {
+    exportState: PortableLibraryState = PortableLibraryState(), onExportAccount: (String?, Boolean, () -> Unit) -> Unit = { _, _, _ -> }, onReviewGlossary: () -> Unit = {}, onReviewOrganization: () -> Unit = {}, modifier: Modifier = Modifier) {
     val rowHeight = 116.dp * LocalDensity.current.fontScale.coerceAtLeast(1f)
     var glossaryLanguage by remember(state.entry?.key, state.session, state.identity) { mutableStateOf(state.identity?.targetLanguage ?: "ko") }
     var includeGlossary by remember(state.entry?.key, state.session) { mutableStateOf(true) }
@@ -88,6 +88,11 @@ fun PortableIdentityPanel(state: PortableIdentityState, connected: Boolean, curr
     rows += IdentityRow("glossary_adoption") { row -> OutlinedButton(onClick = onReviewGlossary,
         enabled = connected && currentSession && !state.busy && !exportState.busy && state.identity != null,
         modifier = row.heightIn(min = 44.dp)) { Text(stringResource(R.string.portable_glossary_review)) } }
+    rows += IdentityRow("organization_adoption") { row -> OutlinedButton(onClick = {
+        if (runCatching { exportLease.check() }.isSuccess) onReviewOrganization()
+    },
+        enabled = connected && currentSession && !state.busy && !exportState.busy && state.identity != null,
+        modifier = row.heightIn(min = 44.dp)) { Text(stringResource(R.string.portable_organization_review)) } }
     val exportStatus = when {
         exportState.busy -> stringResource(R.string.portable_busy)
         exportState.error != null -> exportState.error

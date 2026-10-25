@@ -77,7 +77,7 @@ class AdaptiveCollectionScreenBenchmarkTest {
 
     @Test
     fun benchmarkPagedAndTouchScrollForEveryAdaptiveCollectionScreen() {
-        assertEquals(32, ScreenFixtures.size)
+        assertEquals(33, ScreenFixtures.size)
 
         val activeScenario = mutableStateOf(
             BenchmarkScenario(ScreenFixtures.first(), ListLayoutMode.Paged, runId = 0),
@@ -247,6 +247,8 @@ private val ScreenFixtures = listOf(
     ScreenFixture("portable_identity", "Local · Verify server copy", "PortableIdentityPanel", 116, 3, 13, 4, 1, fontScaleAwareHeight = true),
     // Full 500-entry ZIP review: seven field rows per entry, plus presence and entry count.
     ScreenFixture("portable_glossary_adoption", "Local · Review ZIP glossary", "PortableGlossaryAdoptionPanel", 116, 3, 3502, 2, 1, fontScaleAwareHeight = true),
+    // Device comparison: 32 ordered tags plus exact values, presence, version and explanations.
+    ScreenFixture("portable_organization_adoption", "Local · Review ZIP classification", "PortableOrganizationAdoptionPanel", 128, 3, 41, 2, 1, fontScaleAwareHeight = true),
     ScreenFixture("local_sharing", "Settings · Device sharing", "LocalSharingPanel", 160, 3, 6, 4, 1, fontScaleAwareHeight = true),
     ScreenFixture("local_library", "Local · Library", "LocalLibraryPanel", 124, 3, 48, 4, 2),
     ScreenFixture("local_directory", "Local · Device files", "LocalDirectoryBrowserPanel", 64, 5, 48, 1, 0),

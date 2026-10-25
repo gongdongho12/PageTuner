@@ -257,6 +257,8 @@ fun PageTurnerApp() {
     val serverLibraryState by serverLibraryViewModel.state.collectAsState()
     val observedServerReaderPreferencesState by serverReaderPreferencesViewModel.sync.state.collectAsState()
     val serverReadingConnection = serverLibraryViewModel.readingConnection()
+    val serverTextAuthority = serverLibraryViewModel.textAccountAuthority()
+    var organizationSelection by remember { mutableStateOf<com.dongholab.pagetuner.portable.PortableOrganizationSelection?>(null) }
     val pdfStorageConnection = serverLibraryViewModel.pdfConnection()
     LaunchedEffect(pdfStorageConnection) { portableViewModel.pdfStorage.connect(pdfStorageConnection) }
     LaunchedEffect(serverReadingConnection) {
@@ -988,7 +990,19 @@ fun PageTurnerApp() {
                                 // Keep the rendered selection, never issue an old panel callback for a newer entry.
                                 val identityPanelSession = portableIdentityState.session
                                 val identityPanelEntry = portableIdentityState.entry
-                                if (portablePdfState.entry != null) com.dongholab.pagetuner.portable.PortablePdfStoragePanel(
+                                val organizationRoute = organizationSelection
+                                if (organizationRoute != null) com.dongholab.pagetuner.portable.PortableOrganizationAdoptionWorkspace(
+                                    selection = organizationRoute,
+                                    currentAuthority = serverTextAuthority,
+                                    create = { ticket -> portableViewModel.organizationAdoption(organizationRoute.entry, organizationRoute.authority, ticket) },
+                                    captureDelivery = { connection ->
+                                        val actor = serverOrganizationViewModel.sync
+                                        val before = actor.state.value
+                                        if (before.accountKey != connection.accountKey) null
+                                        else { target -> actor.notifyCommitted(target, connection, before.session) }
+                                    },
+                                    onBack = { if (organizationSelection === organizationRoute) organizationSelection = null })
+                                else if (portablePdfState.entry != null) com.dongholab.pagetuner.portable.PortablePdfStoragePanel(
                                     portablePdfState,
                                     "${pdfStorageConnection?.origin.orEmpty()} · ${serverLibraryState.profile?.username.orEmpty()}",
                                     portableViewModel.pdfStorage.matches(pdfStorageConnection),
@@ -1033,6 +1047,17 @@ fun PageTurnerApp() {
                                         if (portableIdentityViewModel.verification.state.value.session == identityPanelSession)
                                             identityPanelEntry?.let { entry ->
                                                 portableViewModel.glossaryAdoption.select(entry, serverLibraryViewModel.readingConnection(), serverLibraryViewModel::readingConnection)
+                                            }
+                                    },
+                                    onReviewOrganization = {
+                                        val selected = portableIdentityViewModel.verification.state.value
+                                        val captured = serverTextAuthority
+                                        if (captured != null && serverLibraryViewModel.textAccountAuthority() === captured &&
+                                            selected.session == identityPanelSession && selected.entry == identityPanelEntry &&
+                                            portableIdentityViewModel.verification.matches(captured.connection))
+                                            identityPanelEntry?.let { entry ->
+                                                organizationSelection = com.dongholab.pagetuner.portable.PortableOrganizationSelection(entry,
+                                                    captured, "${serverLibraryState.connection.endpoint} · ${serverLibraryState.profile?.username.orEmpty()}")
                                             }
                                     },
                                     onExportAccount = { language, includeOrganization, checkPanelSelection ->
