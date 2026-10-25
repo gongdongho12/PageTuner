@@ -130,6 +130,12 @@ class PortableLibraryViewModel(private val context: Context, private val local: 
         return withContext(Dispatchers.IO) { store.read(entry).documents[entry.documentIndex] }
     }
 
+    /** Factory only: the committed UI selection owns activation, callbacks and terminal disposal. */
+    internal fun organizationAdoption(entry: PortableLibraryEntry, authority: PortableTextAccountAuthority,
+        ticket: PortableTextOperationTicket): PortableOrganizationAdoptionCommand =
+        PortableOrganizationAdoption(entry, authority, ticket, ::currentDocument, textBindings,
+            textBindings::capture, organizationJournal)
+
     fun prepareNativeExport(book: LocalBook, translation: Boolean = false, settings: TranslationSettings? = null,
         cacheProviderId: String? = null, currentGlossary: BookGlossary? = null) = operation {
         val request = exportTickets.begin("PageTurner-${book.title.portableFilename()}.ptlibrary.zip")
