@@ -15,7 +15,19 @@
 
 ## 우선순위 큐
 
-2026-10-25 최신 단위는 **draft PR #62**, base PR #61다. 실제 ServerLibraryViewModel이 immutable text connection/lifetime을 발급·종료하며 입력/교체/비밀번호/로그아웃/ViewModel 종료에 연결했다. 늦은 취소 요청의 실패가 새 로그인 세션을 지우는 경계도 보완했다. 대상34개·신규12개·앱703통과/16제외·runtime50·APK/lint/계측 소스/경계 성공. [실제 소유자 범위](TEXT_ACCOUNT_LIFETIME_OWNER.md)와 정확한 최종 head CI부터 확인한다. 다음은 이 authority를 캡처한 canonical 분류 채택 adapter이며 실제 Compose 선택/확인 UI는 별도 단위다.
+2026-10-25 최신 단위는 **draft PR #63**, base PR #62다. Android 보관함의 분류 비교·별도 적용 화면과 실제 authority/terminal 선택·전체 canonical 문서/raw nonce·직접 verify/GET·최종 중첩 CAS·postcommit 인계를 연결했다. 대상53개·신규22개·앱725통과/16제외·runtime50·APK/lint/계측 소스/경계 성공. [지원 흐름·검증 한계](ANDROID_ORGANIZATION_ADOPTION_UI.md)와 정확한 최종 head CI부터 확인하고 PR #59~63을 재구현하지 않는다. 다음은 실제 서버의 웹 분류/PDF UI 종단이며 기기가 없는 Android 실측은 V3로 남긴다. 독립 개발은 최신 S1/S2 ZIP 통합부터 계속한다.
+
+### 2026-10-25 Android 분류 canonical adapter·별도 확인 화면 — PR #63
+
+- [draft PR #63](https://github.com/gongdongho12/PageTuner/pull/63), base `codex/text-account-lifetime-owner`(#62), head `codex/android-organization-adoption`. readonly capture `b127a0f`·adapter `9eca26f`·화면/선택 세션 `13a88fe`·benchmark inventory `0853c47`와 문서를 분리했다. 정확한 최종 head CI는 PR 본문/ignored `android-organization-adoption-ui-final-ci.json`에서 대조한다.
+- identity 패널의 분류 진입→문서/ZIP/계정/기기/확정5탭→별도 적용을 연결했다. compare는 verify/direct GET 및 nullable journal 읽기만 한다. absent는 정보만, present-empty도 v0에서 새 UUID 의도다. private command/표시 사본을 분리하며 정상 editor/actor를 열어 비교하지 않는다.
+- 실제 렌더 authority를 캡처한 committed session이 old begin/confirm·unmount/Android Back·계정/선택 변경을 거절한다. currentDocument는 reader 저장 후 실제 전체 ZIP를 다시 읽고 raw nonce·fullproof·메타/notes/위치/확장까지 검사한다. 최종 gate→account→library→binding→journal에서 CAS하며 마지막 guard는 메모리만 본다. notifyCommitted account/client/session을 commit 전에 캡처하고 durable 뒤 유효할 때만 인계한다. 인계 거절은 성공을 취소하지 않는다.
+- readonly strict capture는 v1/손상/초과를 migration/쓰기/삭제 없이 거절한다. 기존 명시적 연결의 migration은 유지한다. Unicode/ordered tags·기존 ZIP 전체 bytes/문서와 sibling 확장을 보존하고 분류 deleted나 PDF text 권한을 도입하지 않는다.
+- 독립 검토·대상4클래스53개(신규22개), 전체741중725통과/16제외·runtime50·APK/lint/계측 소스/경계 성공(1분14초). 주입 HTTP/journal과 실제 JVM ZIP/binding이며 새 실소켓/DB/Compose UI 실행 근거가 아니다. 첫 타입/identity extension/export timestamp fixture 오류와 첫 전체/원격 CI의 benchmark inventory 누락을 수정했고 초기 로그를 보존했다. 새128dp/41행 benchmark fixture는 컴파일만 했다.
+- adb 장치가 없고 설정 SDK의 emulator binary도 없어 물리 SAF/Compose 시각/회전/재생성은 V3다. 조회가 시작한 daemon은 종료했다. 8080/55433은 listen하지 않았고 이번 서버/DB는 변경하지 않았다. 원본 PR34·서버/웹 production과 기존 자료/자격 증명을 보존했다. 전체 S4는 미완료다.
+- 다음은 승인된 QA 서버 조건을 확보해 PR #58 웹 분류 별도 채택/PDF 연결 UI를 실제 PostgreSQL로 검증한다. 이 검사는 Android 실기기 증거가 아니다. 독립 구현은 최신 S1/S2 snapshot 계약·ZIP 통합을 작은 단위로 진행하며 canonical identity와 pending/서버최신값을 구분한다.
+
+2026-10-25 선행 단위는 **draft PR #62**, base PR #61다. 실제 ServerLibraryViewModel이 immutable text connection/lifetime을 발급·종료하며 입력/교체/비밀번호/로그아웃/ViewModel 종료에 연결했다. 늦은 취소 요청의 실패가 새 로그인 세션을 지우는 경계도 보완했다. 대상34개·신규12개·앱703통과/16제외·runtime50·APK/lint/계측 소스/경계 성공. [실제 소유자 범위](TEXT_ACCOUNT_LIFETIME_OWNER.md)와 정확한 최종 head CI부터 확인한다. 다음은 이 authority를 캡처한 canonical 분류 채택 adapter이며 실제 Compose 선택/확인 UI는 별도 단위다.
 
 ### 2026-10-25 실제 text 계정 수명 소유자 — PR #62
 
