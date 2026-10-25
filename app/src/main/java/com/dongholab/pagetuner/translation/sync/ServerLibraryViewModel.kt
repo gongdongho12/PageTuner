@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.dongholab.pagetuner.R
 import com.dongholab.pagetuner.core.model.library.LibraryFilter
 import com.dongholab.pagetuner.document.ReaderDocument
+import com.dongholab.pagetuner.portable.PortableTextAccountAuthority
 import com.dongholab.pagetuner.translation.TranslationCache
 import com.dongholab.pagetuner.translation.TranslationSettings
 import com.dongholab.pagetuner.translation.glossary.BookGlossary
@@ -56,6 +57,7 @@ sealed interface ServerLibraryEvent {
         val readingAccountKey: String = accountKey) : ServerLibraryEvent
 }
 
+/** Account mutations belong to the main dispatcher; connection/authority lookups are worker-safe. */
 class ServerLibraryViewModel(
     private val clientFactory: (String, TranslationStoreBasicAuth?) -> HttpTranslationStore = { endpoint, auth -> HttpTranslationStore(endpoint, auth) },
 ) : ViewModel() {
@@ -63,38 +65,69 @@ class ServerLibraryViewModel(
     val state = mutableState.asStateFlow()
     private val mutableEvents = MutableSharedFlow<ServerLibraryEvent>(extraBufferCapacity = 1)
     val events = mutableEvents.asSharedFlow()
+    @Volatile private var textAccount: PortableTextAccountAuthority? = null
+    @Volatile private var cleared = false
     @Volatile private var pdfStore: PdfStorageConnection? = null
     @Volatile private var store: HttpTranslationStore? = null
-        set(value) { pdfStore?.close(); pdfStore = null; field = value }
+        set(value) {
+            // Retire authority before replacing either the client or its visible account state.
+            textAccount?.close(); textAccount = null
+            pdfStore?.close(); pdfStore = null
+            field = value
+        }
     private var operation: Job? = null
     private var jobPolling: Job? = null
     private var generation = 0
     private var libraryLoading = false
 
-    fun readingConnection(): ServerReadingConnection? = store?.takeIf { state.value.connected }?.let { client ->
-        ServerReadingConnection(serverReadingAccountKey(state.value.connection.endpoint,
-            state.value.profile?.username ?: state.value.connection.username), client)
-    }
+    fun readingConnection(): ServerReadingConnection? = textAccount?.connection
+
+    /** A lookup of one verified, immutable account generation; never constructs credentials or authority. */
+    internal fun textAccountAuthority(): PortableTextAccountAuthority? = textAccount
 
     /** A read-only lookup: a late worker cannot create a client using another session's credentials. */
     fun pdfConnection(): PdfStorageConnection? = pdfStore?.takeIf { store != null && state.value.connected }
 
-    private fun installPdfConnection(input: ServerConnectionInput, username: String) {
+    private fun installConnection(input: ServerConnectionInput, username: String, client: HttpTranslationStore, ticket: Int) {
+        check(!cleared && ticket == generation) { "Account session expired." }
+        val connection = ServerReadingConnection(serverReadingAccountKey(input.endpoint, username), client)
         val uri = java.net.URI(input.endpoint.trim())
         val scheme = uri.scheme.lowercase(java.util.Locale.ROOT)
         val port = uri.port.takeUnless { it == -1 || it == 443 && scheme == "https" || it == 80 && scheme == "http" } ?: -1
         val origin = java.net.URI(scheme, null, uri.host.lowercase(java.util.Locale.ROOT), port, null, null, null).toString()
-        pdfStore = PdfStorageConnection(serverReadingAccountKey(input.endpoint, username), origin,
+        // Prepare both scopes before retiring the currently verified account.
+        val pdf = PdfStorageConnection(connection.accountKey, origin,
             HttpPdfContentStore(origin, TranslationStoreBasicAuth(username, input.password)))
+        val authority = PortableTextAccountAuthority(connection)
+        if (cleared || ticket != generation) {
+            authority.close(); pdf.close()
+            throw CancellationException("Account session expired.")
+        }
+        store = client
+        // Retirement can wait for a synchronous commit. A reentrant lifecycle invalidation wins.
+        if (cleared || ticket != generation) {
+            authority.close(); pdf.close()
+            store = null
+            throw CancellationException("Account session expired.")
+        }
+        pdfStore = pdf
+        textAccount = authority
     }
 
-    override fun onCleared() { pdfStore?.close(); pdfStore = null; super.onCleared() }
+    override fun onCleared() {
+        cleared = true
+        generation += 1
+        operation?.cancel(); operation = null
+        jobPolling?.cancel(); jobPolling = null
+        store = null
+        super.onCleared()
+    }
 
     fun updateEndpoint(value: String) = updateInput(value, state.value.connection.username, state.value.connection.password)
     fun updateUsername(value: String) = updateInput(state.value.connection.endpoint, value, state.value.connection.password)
     fun updatePassword(value: String) = updateInput(state.value.connection.endpoint, state.value.connection.username, value)
     private fun updateInput(endpoint: String, username: String, password: String) {
-        if (state.value.busy) return
+        if (cleared || state.value.busy) return
         jobPolling?.cancel()
         store = null
         mutableState.update { it.copy(connection = ServerConnectionInput(endpoint, username, password), connected = false,
@@ -105,13 +138,13 @@ class ServerLibraryViewModel(
     }
 
     fun connect() = start(R.string.server_status_connecting) {
+        val ticket = generation
         val input = state.value.connection
         val client = clientFactory(input.endpoint.trim(), TranslationStoreBasicAuth(input.username, input.password))
         val profile = client.accountProfile()
         val page = client.list(state.value.kind, filter = state.value.filter)
         currentCoroutineContext().ensureActive()
-        store = client
-        installPdfConnection(input, profile.username)
+        installConnection(input, profile.username, client, ticket)
         mutableState.update { it.copy(connected = true, page = page, profile = profile, profileDraft = profile.draft(),
             uiLocale = profile.effectiveLocale, status = ServerLibraryMessage(R.string.server_status_connected, listOf(page.totalItems))) }
     }
@@ -131,12 +164,13 @@ class ServerLibraryViewModel(
     }
 
     fun register() = start(R.string.server_status_registering) {
+        val ticket = generation
         val input = state.value.connection
         val username = input.username.trim().lowercase(java.util.Locale.ROOT)
         val profile = clientFactory(input.endpoint.trim(), null).registerAccount(username, input.password, state.value.profileDraft)
         currentCoroutineContext().ensureActive()
-        store = clientFactory(input.endpoint.trim(), TranslationStoreBasicAuth(profile.username, input.password))
-        installPdfConnection(input, profile.username)
+        val client = clientFactory(input.endpoint.trim(), TranslationStoreBasicAuth(profile.username, input.password))
+        installConnection(input, profile.username, client, ticket)
         mutableState.update { it.copy(connection = ServerConnectionInput(input.endpoint, profile.username, input.password),
             connected = true, profile = profile, profileDraft = profile.draft(), page = null, selected = null,
             uiLocale = profile.effectiveLocale, status = ServerLibraryMessage(R.string.server_status_registered)) }
@@ -163,6 +197,7 @@ class ServerLibraryViewModel(
         try {
             client().changeAccountPassword(draft.currentPassword, draft.newPassword)
         } catch (error: TranslationStoreException) {
+            currentCoroutineContext().ensureActive()
             if (error.failure == TranslationStoreFailure.AUTHENTICATION) {
                 clearPasswordSession(R.string.server_password_sign_in_again)
                 return@start
@@ -174,6 +209,7 @@ class ServerLibraryViewModel(
             }
             throw error
         } catch (error: ServerPasswordChangeException) {
+            currentCoroutineContext().ensureActive()
             if (error.failure == ServerPasswordChangeFailure.PASSWORD_CHANGE_CONFLICT) {
                 clearPasswordSession(R.string.server_error_password_conflict)
                 return@start
@@ -401,7 +437,7 @@ class ServerLibraryViewModel(
 
     private fun client() = requireNotNull(store) { "먼저 서버에 연결해 주세요." }
     private fun start(message: Int, isLibraryRequest: Boolean = false, work: suspend () -> Unit) {
-        if (state.value.busy) return
+        if (cleared || state.value.busy) return
         // A manual mutation must not be overwritten by an earlier in-flight polling response.
         jobPolling?.cancel()
         val ticket = ++generation
