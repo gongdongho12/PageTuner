@@ -182,9 +182,15 @@ class ServerLibraryOrganizationTest {
         val records = ConcurrentHashMap<String, DeviceLibraryOrganization>()
         private val changes = Channel<Unit>(Channel.UNLIMITED)
         var fail = false
-        override fun read(target: ServerReadingTarget) = records[target.key] ?: DeviceLibraryOrganization()
+        override fun read(target: ServerReadingTarget) = readNullable(target) ?: DeviceLibraryOrganization()
+        @Synchronized override fun readNullable(target: ServerReadingTarget) = records[target.key]
+        @Synchronized override fun compareAndWrite(target: ServerReadingTarget, expected: DeviceLibraryOrganization?,
+            value: DeviceLibraryOrganization, guard: () -> Unit): Boolean {
+            if (records[target.key] != expected) return false
+            guard(); write(target, value); return true
+        }
         override fun targets(accountKey: String) = records.keys.filter { it.startsWith("$accountKey:") }.map { it.split(':').let { p -> ServerReadingTarget(p[0], p[1], p[2]) } }
-        override fun write(target: ServerReadingTarget, value: DeviceLibraryOrganization) {
+        @Synchronized override fun write(target: ServerReadingTarget, value: DeviceLibraryOrganization) {
             if (fail) error("Device unavailable")
             records[target.key] = decodeLibraryOrganizationJournal(JSONObject(encodeLibraryOrganizationJournal(target, value).toString()), target)
             changes.trySend(Unit)
