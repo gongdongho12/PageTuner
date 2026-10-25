@@ -20,7 +20,36 @@ data class PortableServerBindingSnapshot(val nonce: String?, val binding: Portab
 
 /** Device-private associations. Nonces and unlink tombstones never enter ZIP metadata. */
 class PortableServerBindingStore(private val directory: File) {
-    private val lock = synchronized(locks) { locks.getOrPut(directory.canonicalPath) { Any() } }
+    private val lockState = synchronized(locks) { locks.getOrPut(directory.canonicalPath) { BindingLock() } }
+    private val lock = lockState.monitor
+
+    /**
+     * Keep the exact v2 text association locked through a caller's synchronous journal commit.
+     * Verification never migrates or rewrites metadata. Guards may check memory/session state;
+     * they must not acquire earlier account/library locks. No guard runs after block returns.
+     * This low-level operation does not read the canonical ZIP. Callers must hold its read-only
+     * library scope, normally through PortableTextBindingAccess.verified.
+     */
+    internal fun <T> verified(accountKey: String, entry: PortableLibraryEntry,
+        expected: PortableServerBindingSnapshot, current: () -> Unit, block: () -> T): T {
+        val captured = expected.copy(binding = expected.binding?.let { it.copy(identity = it.identity.copy()) })
+        val selected = detachedTextBindingEntry(entry)
+        val linked = requireNotNull(captured.binding) { "Connect this document first." }
+        require(captured.nonce == linked.nonce && PortableIdentityVerification.canonicalUuid(linked.nonce))
+        require(linked.accountKey == accountKey && linked.localKey == selected.key)
+        validate(linked)
+        require(DocumentIdentityJson.fromDocument(selected.document) == linked.identity) { "Portable document changed." }
+        return synchronized(lock) {
+            lockState.verifiedDepth++
+            try {
+                current()
+                val (version, stored) = readStored(accountKey, selected.key)
+                require(version == 2 && stored == captured) { "Portable binding changed." }
+                current()
+                block()
+            } finally { lockState.verifiedDepth-- }
+        }
+    }
 
     /** Compatibility lookup: malformed or mismatched associations cannot activate a reader. */
     fun read(accountKey: String, entry: PortableLibraryEntry): PortableServerBinding? =
@@ -110,6 +139,7 @@ class PortableServerBindingStore(private val directory: File) {
     }
 
     private fun write(accountKey: String, localKey: String, snapshot: PortableServerBindingSnapshot, guard: () -> Unit = {}) {
+        check(lockState.verifiedDepth == 0) { "Cannot change a portable binding during verified access." }
         val binding = snapshot.binding
         val json = JSONObject().put("version", 2).put("accountKey", accountKey).put("localKey", localKey)
             .put("nonce", requireNotNull(snapshot.nonce)).put("binding", binding?.let {
@@ -136,6 +166,7 @@ class PortableServerBindingStore(private val directory: File) {
 
     companion object {
         private const val MAX_BYTES = 65_536
-        private val locks = mutableMapOf<String, Any>()
+        private class BindingLock(val monitor: Any = Any(), var verifiedDepth: Int = 0)
+        private val locks = mutableMapOf<String, BindingLock>()
     }
 }

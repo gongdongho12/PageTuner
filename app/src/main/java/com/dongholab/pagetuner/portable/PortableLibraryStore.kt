@@ -19,9 +19,11 @@ data class PortableSharingEntry(val packageId: String, val documentIndex: Int, v
 
 /** One validated archive is one atomic commit. Existing native books are never touched. */
 class PortableLibraryStore(private val directory: File) {
-    private val lock = lockFor(directory)
+    private val lockState = lockFor(directory)
+    private val lock = lockState.monitor
 
     fun importArchive(bytes: ByteArray): PortableImportResult = synchronized(lock) {
+        checkWritable()
         val value = LibraryExchangeCodec.read(bytes) // Entire archive validated before any write.
         val canonical = LibraryExchangeCodec.write(value.copy(createdAt = "2000-01-01T00:00:00.000Z"))
         val packageId = DocumentIds.sha256(canonical)
@@ -69,6 +71,13 @@ class PortableLibraryStore(private val directory: File) {
         block(read(entry).documents[entry.documentIndex])
     }
 
+    /** Read-only canonical scope: reentrant alias stores may read but must not replace the ZIP. */
+    internal fun <T> withVerifiedDocument(entry: PortableLibraryEntry, block: (ExchangeDocument) -> T): T = synchronized(lock) {
+        val document = read(entry).documents[entry.documentIndex]
+        lockState.verifiedDepth++
+        try { block(document) } finally { lockState.verifiedDepth-- }
+    }
+
     /** Prepare only: reread the chosen document and its exact asset bytes from the same committed ZIP. */
     fun preparePdfContent(entry: PortableLibraryEntry): ValidatedPdfContent = synchronized(lock) {
         val source = LibraryExchangeCodec.read(readBounded(file(entry.packageId)))
@@ -89,6 +98,7 @@ class PortableLibraryStore(private val directory: File) {
     }
 
     fun update(entry: PortableLibraryEntry, transform: (ExchangeDocument) -> ExchangeDocument) = synchronized(lock) {
+        checkWritable()
         val current = read(entry)
         val previous = current.documents[entry.documentIndex]
         val next = transform(previous)
@@ -106,6 +116,7 @@ class PortableLibraryStore(private val directory: File) {
     private fun entries(packageId: String, value: LibraryExchangePackage) = value.documents.mapIndexed { index, document -> PortableLibraryEntry(packageId, index, document) }
 
     private fun atomicWrite(target: File, bytes: ByteArray) {
+        checkWritable()
         directory.mkdirs()
         val temporary = File(directory, "${UUID.randomUUID()}.tmp")
         try {
@@ -114,9 +125,12 @@ class PortableLibraryStore(private val directory: File) {
         } finally { temporary.delete() }
     }
 
+    private fun checkWritable() = check(lockState.verifiedDepth == 0) { "Cannot change the library during verified access." }
+
     companion object {
-        private val locks = mutableMapOf<String, Any>()
-        private fun lockFor(directory: File): Any = synchronized(locks) { locks.getOrPut(directory.canonicalPath) { Any() } }
+        private class LibraryLock(val monitor: Any = Any(), var verifiedDepth: Int = 0)
+        private val locks = mutableMapOf<String, LibraryLock>()
+        private fun lockFor(directory: File): LibraryLock = synchronized(locks) { locks.getOrPut(directory.canonicalPath) { LibraryLock() } }
         internal fun readBounded(file: File): ByteArray {
             require(file.length() <= LibraryExchangeLimits.ARCHIVE_BYTES) { "Archive exceeds the size limit." }
             return file.inputStream().use(::readPortableBytes)
