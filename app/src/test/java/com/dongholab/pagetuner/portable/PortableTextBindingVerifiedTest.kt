@@ -46,6 +46,35 @@ class PortableTextBindingVerifiedTest {
         assertArrayEquals(binding, f.bindingFile.readBytes()); assertArrayEquals(archive, f.archive.readBytes())
     }
 
+    @Test fun passiveCapturePreservesV2AndTombstoneBytesWithoutMigrationOrCleanup() {
+        val f = Fixture(); val original = f.bindingFile.readBytes()
+        assertEquals(f.snapshot, f.access.capture(f.value.accountKey, f.entry))
+        assertArrayEquals(original, f.bindingFile.readBytes())
+        f.bindings.remove(f.value.accountKey, f.entry)
+        val tombstone = f.bindingFile.readBytes()
+        assertNull(f.access.capture(f.value.accountKey, f.entry).binding)
+        assertArrayEquals(tombstone, f.bindingFile.readBytes())
+    }
+
+    @Test fun passiveCaptureRejectsLegacyCorruptAndOversizedFilesWithoutChangingBytes() {
+        val f = Fixture()
+        for (bytes in listOf(f.legacy(), byteArrayOf(0xC3.toByte(), 0x28), ByteArray(65_537) { 32 })) {
+            f.bindingFile.writeBytes(bytes)
+            assertTrue(runCatching { f.access.capture(f.value.accountKey, f.entry) }.isFailure)
+            assertArrayEquals(bytes, f.bindingFile.readBytes())
+        }
+        // The ordinary connection flow still migrates supported v1 metadata.
+        f.bindingFile.writeBytes(f.legacy())
+        assertNotNull(f.access.snapshot(f.value.accountKey, f.entry).nonce)
+    }
+
+    @Test fun passiveCaptureRejectsChangedCanonicalMetadataEvenWithUnchangedTextIdentity() {
+        val f = Fixture(); val before = f.bindingFile.readBytes()
+        f.library.update(f.entry) { it.copy(bookTitle = "A different current title") }
+        assertTrue(runCatching { f.access.capture(f.value.accountKey, f.entry) }.isFailure)
+        assertArrayEquals(before, f.bindingFile.readBytes())
+    }
+
     @Test fun sameRecordUnlinkRelinkAndTombstoneNeverAuthorizeOldGeneration() {
         for (relink in listOf(false, true)) {
             val f = Fixture(); var invoked = false

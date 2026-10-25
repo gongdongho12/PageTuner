@@ -28,6 +28,15 @@ internal class PortableTextBindingAccess(
             bindings.readSnapshot(accountKey, entry.copy(document = document))
         }
 
+    /** Read-only v2 observation. Existing explicit connection flows retain their v1 migration. */
+    fun capture(accountKey: String, entry: PortableLibraryEntry): PortableServerBindingSnapshot {
+        val selected = detachedTextBindingEntry(entry)
+        return library.withVerifiedDocument(selected) { document ->
+            require(document == selected.document) { "The selected document changed." }
+            bindings.capture(accountKey, selected)
+        }
+    }
+
     fun save(entry: PortableLibraryEntry, value: PortableServerBinding, expected: PortableServerBindingSnapshot,
         current: () -> Unit) = library.withDocument(entry) { document ->
         current()

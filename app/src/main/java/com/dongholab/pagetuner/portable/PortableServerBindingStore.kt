@@ -55,6 +55,18 @@ class PortableServerBindingStore(private val directory: File) {
     fun read(accountKey: String, entry: PortableLibraryEntry): PortableServerBinding? =
         runCatching { readSnapshot(accountKey, entry).binding }.getOrNull()
 
+    /** Passive operations cannot migrate a legacy association or clean up failed observations. */
+    internal fun capture(accountKey: String, entry: PortableLibraryEntry): PortableServerBindingSnapshot = synchronized(lock) {
+        val (version, snapshot) = readStored(accountKey, entry.key)
+        require(version == 2) { "Review the document connection before comparing account information." }
+        snapshot.binding?.let {
+            require(entry.document.assets.isEmpty() && DocumentIdentityJson.fromDocument(entry.document) == it.identity) {
+                "Portable document changed."
+            }
+        }
+        snapshot.copy(binding = snapshot.binding?.let { it.copy(identity = it.identity.copy()) })
+    }
+
     /** Strict lookup for operations that must distinguish absence from corrupt or stale metadata. */
     fun readSnapshot(accountKey: String, entry: PortableLibraryEntry): PortableServerBindingSnapshot = synchronized(lock) {
         val (version, snapshot) = readStored(accountKey, entry.key)
