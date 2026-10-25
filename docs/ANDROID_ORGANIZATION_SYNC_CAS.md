@@ -1,5 +1,7 @@
 # Android 분류 sync actor의 nullable CAS·명시적 인계
 
+후속 [PR #61 text 전용 commit guard 기반](PORTABLE_TEXT_COMMIT_GUARDS.md)이 library/binding verified-block과 명시적 수명 primitive를 추가했다. 실제 ServerLibraryViewModel/Compose 소유자와 canonical 분류 adapter·화면은 여전히 후속이다.
+
 2026-10-25, [draft PR #60](https://github.com/gongdongho12/PageTuner/pull/60). Base `codex/android-organization-adoption-cas`(PR #59), head `codex/android-organization-sync-cas`. 구현·회귀 `a8e76f4`와 문서를 분리했다. [독립 채택 command 기반](ANDROID_ORGANIZATION_ADOPTION_CAS.md)과 기존 정상 동기화 actor가 journal을 덮어쓰던 경계를 조정한다. ZIP 채택 adapter/화면은 아직 연결하지 않는다.
 
 ## 동작

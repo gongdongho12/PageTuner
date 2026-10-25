@@ -6,6 +6,8 @@
 
 ## 판정 방법
 
+2026-10-25 text commit guard 기반: [draft PR #61](https://github.com/gongdongho12/PageTuner/pull/61), base PR #60. library→binding→journal callback과 terminal gate→account를 유지하며 full canonical 문서/v2 nonce·재진입 alias 쓰기·만료를 검사한다. 대상47개·앱691통과/16제외·runtime50·APK/lint/계측 소스/경계 성공. **명시적으로 활성화한 수명 primitive의 내부 검증**이며 실계정/Compose 만료 감시·분류 adapter/UI·실기기 완료가 아니다. [범위](PORTABLE_TEXT_COMMIT_GUARDS.md).
+
 2026-10-25 Android 정상 분류 sync 조정: [draft PR #60](https://github.com/gongdongho12/PageTuner/pull/60), base PR #59. stale cache의 unconditional write를 nullable CAS/reload로 바꾸고 지연 응답·오류·편집과 inactive cooldown을 보호한다. 명시 인계는 account/client/session을 검사하며 계정을 열지 않는다. 대상21개·앱660통과/16제외·runtime50·APK/lint/계측 소스/경계 성공. canonical 권한 adapter·별도 채택 UI와 실기기/실서버 근거는 아직 없다. [범위](ANDROID_ORGANIZATION_SYNC_CAS.md).
 
 2026-10-25 Android 분류 채택 기반: [draft PR #59](https://github.com/gongdongho12/PageTuner/pull/59), base PR #58. nullable journal 전체 CAS·직접 GET 비교/재검사·새 의도와 마지막 취소 가능 guard, commit 후 취소 성공 보존을 구현했다. 대상25개·앱650통과/16제외·runtime50·APK/lint/계측 소스/경계 성공. **내부 미연결 기반**이며 기존 sync actor cached write 조정·canonical/binding 권한 adapter·채택 UI는 남았다. 실제 AtomicFile 계측5개는 컴파일만 했다. [범위](ANDROID_ORGANIZATION_ADOPTION_CAS.md).
