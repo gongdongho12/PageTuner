@@ -27,6 +27,9 @@ class ServerLibraryOrganizationSync(private val scope: CoroutineScope, private v
         data class Tick(val session: Long) : Action
         data class Edit(val session: Long, val value: LibraryOrganization, val base: LibraryOrganizationEditBase) : Action
         data class Choose(val session: Long, val local: Boolean, val shown: LibraryOrganizationChoice) : Action
+        data class NotifyCommitted(val target: ServerReadingTarget, val connection: ServerReadingConnection,
+            val session: Long) : Action
+        data class Drain(val session: Long) : Action
         data class Received(val session: Long, val target: ServerReadingTarget, val mutation: LibraryOrganizationMutation?,
             val result: Result<ServerLibraryOrganization>) : Action
     }
@@ -37,6 +40,8 @@ class ServerLibraryOrganizationSync(private val scope: CoroutineScope, private v
     private var active: ServerReadingTarget? = null
     private val targets = linkedMapOf<String, ServerReadingTarget>()
     private val records = linkedMapOf<String, DeviceLibraryOrganization>()
+    // The UI's empty default must never become the expected base for an absent durable row.
+    private val durableBases = linkedMapOf<String, DeviceLibraryOrganization?>()
     private val terminal = mutableSetOf<String>()
     private val retryAt = mutableMapOf<String, Long>()
     private var session = 0L
@@ -50,6 +55,7 @@ class ServerLibraryOrganizationSync(private val scope: CoroutineScope, private v
     init { scope.launch {
         for (action in actions) {
             try { handle(action) }
+            catch (_: JournalChanged) { actions.trySend(Action.Drain(session)); publish() }
             catch (cancelled: CancellationException) { throw cancelled }
             catch (_: Exception) { failedStorage = true; stop(); publish() }
         }
@@ -60,6 +66,10 @@ class ServerLibraryOrganizationSync(private val scope: CoroutineScope, private v
     fun retry() { actions.trySend(Action.Retry) }
     fun edit(session: Long, value: LibraryOrganization, base: LibraryOrganizationEditBase) { actions.trySend(Action.Edit(session, value, base)) }
     fun choose(session: Long, local: Boolean, shown: LibraryOrganizationChoice) { actions.trySend(Action.Choose(session, local, shown)) }
+    /** Only a successful external commit may request delivery; this never configures an account. */
+    fun notifyCommitted(target: ServerReadingTarget, expected: ServerReadingConnection, expectedSession: Long) {
+        actions.trySend(Action.NotifyCommitted(target, expected, expectedSession))
+    }
 
     private suspend fun handle(action: Action) {
         when (action) {
@@ -72,7 +82,7 @@ class ServerLibraryOrganizationSync(private val scope: CoroutineScope, private v
                 ServerReadingProgressJson.validateTarget(action.target.kind, action.target.recordId)
                 if (connection?.client !== action.connection.client) configure(action.connection) else stop()
                 active = action.target; targets[action.target.key] = action.target
-                records[action.target.key] = withContext(Dispatchers.IO) { storage.read(action.target) }
+                load(action.target)
                 failedStorage = false; stale = false; terminal.remove(action.target.key); retryAt.remove(action.target.key)
                 fetchNeeded = true; nextPollAt = 0; pump()
             }
@@ -82,14 +92,25 @@ class ServerLibraryOrganizationSync(private val scope: CoroutineScope, private v
                     val previous = active; configure(connection)
                     if (previous != null) {
                         active = previous; targets[previous.key] = previous
-                        records[previous.key] = withContext(Dispatchers.IO) { storage.read(previous) }
+                        load(previous)
                     }
                 }
                 terminal.clear(); retryAt.clear(); stale = false; fetchNeeded = active != null; pump()
             }
             is Action.Tick -> { if (action.session != session) return; if (active != null && clock() >= nextPollAt) fetchNeeded = true; pump() }
+            is Action.Drain -> { if (action.session == session) pump() }
+            is Action.NotifyCommitted -> {
+                val configured = connection ?: return
+                if (failedStorage || action.session != session || action.connection.accountKey != configured.accountKey ||
+                    action.connection.client !== configured.client || action.target.accountKey != configured.accountKey) return
+                ServerReadingProgressJson.validateTarget(action.target.kind, action.target.recordId)
+                targets[action.target.key] = action.target
+                ensureFresh(action.target)
+                pump()
+            }
             is Action.Edit -> {
                 val target = active?.takeIf { action.session == session && !failedStorage } ?: return
+                if (!ensureFresh(target)) { pump(); return }
                 val previous = records.getValue(target.key)
                 if (action.base.remote == null || previous.pending != null && previous.local != action.base.local) {
                     stale = true; publish(); return
@@ -104,6 +125,7 @@ class ServerLibraryOrganizationSync(private val scope: CoroutineScope, private v
             }
             is Action.Choose -> {
                 val target = active?.takeIf { action.session == session && !failedStorage } ?: return
+                if (!ensureFresh(target)) { pump(); return }
                 val previous = records.getValue(target.key)
                 if (choice(previous) != action.shown) { stale = true; publish(); return }
                 if (action.local && action.shown.remote.version == MaxReadingVersion) { terminal += target.key; publish(); return }
@@ -116,6 +138,8 @@ class ServerLibraryOrganizationSync(private val scope: CoroutineScope, private v
             is Action.Received -> {
                 if (action.session != session || failedStorage) return
                 network = null
+                // Also discard stale non-writing failures; they must not throttle a replacement intent.
+                if (!ensureFresh(action.target)) { pump(); return }
                 val previous = records.getValue(action.target.key)
                 if (action.mutation != null && previous.pending != action.mutation) { pump(); return }
                 action.result.fold(onSuccess = { incoming ->
@@ -152,20 +176,37 @@ class ServerLibraryOrganizationSync(private val scope: CoroutineScope, private v
         }
     }
     private suspend fun configure(value: ServerReadingConnection?) {
-        stop(); connection = value; active = null; targets.clear(); records.clear(); terminal.clear(); retryAt.clear()
+        stop(); connection = value; active = null; targets.clear(); records.clear(); durableBases.clear(); terminal.clear(); retryAt.clear()
         failedStorage = false; fetchNeeded = false; nextPollAt = 0; stale = false; publish()
         if (value != null) {
-            val saved = withContext(Dispatchers.IO) { storage.targets(value.accountKey).map { it to storage.read(it) } }
-            saved.forEach { (target, record) -> targets[target.key] = target; records[target.key] = record }
+            val saved = withContext(Dispatchers.IO) { storage.targets(value.accountKey).map { it to storage.readNullable(it) } }
+            saved.forEach { (target, record) -> targets[target.key] = target; remember(target, record) }
         }
     }
     private suspend fun persist(target: ServerReadingTarget, value: DeviceLibraryOrganization) {
-        withContext(Dispatchers.IO) { storage.write(target, value) }; records[target.key] = value; publish()
+        val expected = durableBases[target.key]
+        val ticket = session
+        val actor = currentCoroutineContext()
+        val accepted = withContext(Dispatchers.IO) {
+            storage.compareAndWrite(target, expected, value) {
+                actor.ensureActive()
+                check(session == ticket && !failedStorage)
+            }
+        }
+        if (!accepted) {
+            // Discard the computed transition. Never apply its post-persist side effects to the new row.
+            reloadChanged(target)
+            throw JournalChanged()
+        }
+        remember(target, value); publish()
     }
-    private fun pump() {
+    private suspend fun pump() {
         publish()
         val account = connection ?: return
         if (failedStorage || network != null) return
+        // Refresh every known row before account-wide cooldown and request selection.
+        for (target in targets.values.toList()) ensureFresh(target)
+        publish()
         timer?.cancel(); timer = null
         val cooldown = records.values.maxOfOrNull { it.retryAfterUntil } ?: 0
         if (cooldown > clock()) { schedule(cooldown); return }
@@ -187,6 +228,33 @@ class ServerLibraryOrganizationSync(private val scope: CoroutineScope, private v
         val deadlines = retryAt.filterKeys { it !in terminal }.values.filter { it > clock() }.toMutableList()
         active?.takeIf { it.key !in terminal }?.let { deadlines += maxOf(nextPollAt, retryAt[it.key] ?: 0, clock() + 1) }
         deadlines.minOrNull()?.let(::schedule)
+    }
+
+    private class JournalChanged : Exception()
+    private fun remember(target: ServerReadingTarget, value: DeviceLibraryOrganization?) {
+        val detached = value?.let { decodeLibraryOrganizationJournal(encodeLibraryOrganizationJournal(target, it), target) }
+        durableBases[target.key] = detached
+        records[target.key] = detached ?: DeviceLibraryOrganization()
+    }
+    private suspend fun load(target: ServerReadingTarget) {
+        remember(target, withContext(Dispatchers.IO) { storage.readNullable(target) })
+    }
+    /** Returns false when callers must discard an action computed from the previous journal. */
+    private suspend fun ensureFresh(target: ServerReadingTarget): Boolean {
+        val latest = withContext(Dispatchers.IO) { storage.readNullable(target) }
+        if (durableBases.containsKey(target.key) && durableBases[target.key] == latest) return true
+        changed(target, latest)
+        return false
+    }
+    private suspend fun reloadChanged(target: ServerReadingTarget) {
+        changed(target, withContext(Dispatchers.IO) { storage.readNullable(target) })
+    }
+    private fun changed(target: ServerReadingTarget, value: DeviceLibraryOrganization?) {
+        stop(); remember(target, value)
+        terminal.remove(target.key); retryAt.remove(target.key)
+        stale = true
+        fetchNeeded = active != null
+        nextPollAt = 0
     }
     private fun schedule(at: Long) {
         val ticket = session; timer = scope.launch { delay((at - clock()).coerceAtLeast(1)); actions.send(Action.Tick(ticket)) }

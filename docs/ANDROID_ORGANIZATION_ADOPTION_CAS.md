@@ -1,5 +1,7 @@
 # Android 분류 채택의 nullable journal·새 CAS 기반
 
+후속 [PR #60 정상 sync actor CAS/reload 조정](ANDROID_ORGANIZATION_SYNC_CAS.md)이 기존 cached write 경계를 보완했다. 아래는 PR #59 당시 내부 기반의 범위다. Android canonical 권한 adapter와 별도 채택 UI는 아직 남았다.
+
 2026-10-25, [draft PR #59](https://github.com/gongdongho12/PageTuner/pull/59). Base `codex/organization-adoption-screen`(PR #58), head `codex/android-organization-adoption-cas`. 저장소 `f617e46`·command `45e0259`를 분리했다. 이 단위는 **내부 저장소·직접 GET 비교/새 의도 command 기반**이다. Android ZIP 채택 adapter/화면을 활성화하지 않으며 전체 S4c3b/S4는 미완료다.
 
 ## 저장 경계
