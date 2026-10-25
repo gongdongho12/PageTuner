@@ -15,6 +15,8 @@
 
 ## 우선순위 큐
 
+2026-10-25 최신 단위는 **draft PR #60**, base PR #59다. Android 정상 actor의 nullable CAS/reload·이전 GET/ACK/실패/편집 거절과 명시적 postcommit 인계를 구현했다. 대상21개·앱660통과/16제외·runtime50·APK/lint/계측 소스/경계 성공. [현재 범위·dispatch/만료 한계](ANDROID_ORGANIZATION_SYNC_CAS.md)와 정확한 최종 head CI부터 확인한다. 다음은 text binding verified-block/계정·선택 lifetime을 통한 canonical 권한 adapter와 별도 확인 UI다. PR #59 기반이나 PR #58 웹 UI를 다시 만들지 않는다.
+
 2026-10-25 최신 단위는 **draft PR #59**, base PR #58다. Android nullable journal 원자 비교·직접 GET 비교/새 CAS command 기반을 구현했다. 아직 내부 미연결 기반이며 다음은 정상 sync actor의 cached unconditional write가 새 의도를 덮지 않도록 CAS/reload 등을 조정하는 것이다. 그 뒤 canonical/full-proof·raw nonce·terminal 세대 adapter와 별도 확인 UI를 연결한다. [현재 범위·잠금/후속 제약](ANDROID_ORGANIZATION_ADOPTION_CAS.md)과 정확한 최종 head CI부터 확인한다. 완료한 PR #58 웹 UI를 다시 만들지 않는다.
 
 2026-10-24 최신 단위는 **draft PR #58**, base PR #57다. 웹 canonical/full-proof·readonly raw nonce·terminal 세션과 별도 분류 비교/확정 화면을 연결했다. 실제 Chrome에서 비교 PUT0·명시 확정 PUT1, absent/빈 값·계정 ABA·이전 callback과 ko/en 세로/가로 경계를 확인했다. 계정 API는 mock이며 새 실제 서버 UI/물리 기기 근거로 표시하지 않는다. [현재 범위·한계](ORGANIZATION_ADOPTION_UI.md)를 먼저 읽고 정확한 최종 head CI부터 확인한다. 다음은 Android의 별도 nullable journal/새 CAS 채택이며 전체 S4c3b/S4는 미완료다. 자동 병합하지 않는다.
@@ -22,6 +24,15 @@
 2026-10-12 최신 우선순위: 사용자 요청에 따른 실제 서버 검증과 발견 결함의 수정은 **PR #51**에서 진행한다. 사용자는 이전 거절 이후 **격리 DB·검증 서버 시작을 명시적으로 승인**했다. 이 승인 전의 시작 거절을 현재 차단 조건으로 반복하지 않으며, 기존 미리보기 DB와 원본 작업 폴더는 보존한다. [실제 검증 기록](SERVER_LIVE_VERIFICATION.md)과 [기본 사용 안내](QUICK_START.md)를 먼저 읽는다. PR #51 최종 head CI·작업 트리를 확인해 진행 변경을 마무리한 뒤 **S4c3b 최신 분류 export·명시적 채택**을 계속한다. 전체 프로젝트와 S4는 미완료다.
 
 추가 사용자 요청 **B2 별도 export**는 PR #48에서 TXT/Markdown 및 원본 PDF 파일 내보내기로 구현했다. [지원 범위](DOCUMENT_FILE_EXPORT.md)를 따른다. ZIP 교환·본문 파일·읽기 기록 export는 서로 별도이며 전체 책의 미보관 회차를 자동 수집하지 않는다. 후속 EPUB·PDF 생성은 B3/PR #49이며 다음 실행은 가장 최신 PR의 최종 head CI와 아래 최신 기록부터 확인한다.
+
+### 2026-10-25 Android 정상 분류 actor CAS/reload — PR #60
+
+- [draft PR #60](https://github.com/gongdongho12/PageTuner/pull/60), base `codex/android-organization-adoption-cas`(#59), head `codex/android-organization-sync-cas`. 구현·회귀 `a8e76f4`와 문서를 분리했다. 정확한 최종 head CI는 PR 본문/ignored `android-organization-sync-cas-final-ci.json`에서 대조한다.
+- nullable durable base와 UI 기본 값을 분리하고 기존 모든 저장을 expected CAS로 바꿨다. 실패 시 stale transition/후속 retry·terminal·fetch 부작용을 폐기하고 최신 journal 재조회·session/network 무효화 뒤 다시 평가한다. Edit/Choose/Received는 동일 값 조기 반환과 쓰기 없는 401/timeout 경로도 먼저 재조회한다. pump는 inactive 포함 known row를 읽고 cooldown/dispatch를 고른다.
+- `notifyCommitted(target, expectedConnection, expectedSession)`은 현재 account/client/session일 때만 읽고 정상 outbox로 넘기며 configure/connect하지 않는다. 같은 mutation 재시도·queued/conflict/기한과 기존 stale form expectedVersion을 보존한다. 만료된 인계는 거절하므로 즉시 전달 보장/서버 ACK나 전체 저장소 원자성으로 표시하지 않는다. 읽기와 HTTP dispatch 사이 경계는 서버 idempotency/CAS가 담당한다.
+- 독립 검토 완료. 대상2클래스21개(신규10·기존11), 앱676중660통과/16 opt-in 제외·runtime50·APK/lint/계측 소스/경계 성공(전체1분26초). 최초 cooldown fixture의 virtual time timeout을 고정 clock으로 보완했고 별도 timer 회귀를 유지했다. JVM/모의 HTTP transport이며 신규 실제 소켓/DB/화면/물리 Android 근거가 아니다. 서버/DB/웹 production·원본 PR34는 변경하지 않았다.
+- 다음은 reader 저장 후 currentDocument의 전체 canonical/proof·readonly raw nonce와 terminal account/origin/client/선택 세대를 결합하는 adapter다. text binding validate는 반환 전 잠금을 풀기 때문에 CAS까지 유지하는 verified-block/facade와 account lifetime 경계가 필요하다. PDF connection/UUID를 text S1~S3로 재사용하지 않고 최종 journal guard에서 앞 잠금을 획득하지 않는다. 이후 별도 UI/인계·실제 서버 UI를 검증한다.
+- 선행 PR #59 최종 `d47e3b51c3035e9bb86a2ad292da0745a7500a6d`/run40144073971 SUCCESS3분09초 재확인. ignored `android-organization-sync-cas-focused.log`·`android-organization-sync-cas-full.log`·`android-organization-sync-cas-counts.json`. 전체 S4c3b/S4는 미완료다.
 
 ### 2026-10-25 Android nullable journal·새 CAS 채택 기반 — PR #59
 
