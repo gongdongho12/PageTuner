@@ -1,5 +1,7 @@
 # Android 텍스트 채택의 잠금·수명 기반
 
+후속 [PR #62 실제 text 계정 소유자](TEXT_ACCOUNT_LIFETIME_OWNER.md)가 ServerLibraryViewModel의 발급/종료 경계를 연결했다. 아래는 PR #61 당시 내부 기반의 범위이며 canonical 채택 adapter와 Compose 선택 UI는 계속 후속이다.
+
 2026-10-25, [draft PR #61](https://github.com/gongdongho12/PageTuner/pull/61). Base `codex/android-organization-sync-cas`(PR #60), head `codex/text-adoption-commit-guards`. binding `ae00dae`·수명 `909ddf9`·결합 회귀/clock `d888ff4`를 분리했다. 이 단위는 동기 journal commit callback 동안 canonical 문서·text binding·명시적으로 활성화한 계정/선택 수명을 유지하는 **내부 기반**이다. 실제 계정 소유자/Compose lifecycle과 분류 채택 adapter·화면은 아직 연결하지 않는다.
 
 ## canonical 문서와 raw binding

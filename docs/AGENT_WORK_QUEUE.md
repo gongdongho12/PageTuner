@@ -15,7 +15,18 @@
 
 ## 우선순위 큐
 
-2026-10-25 최신 단위는 **draft PR #61**, base PR #60다. 전체 canonical 문서/v2 raw nonce의 verified-block·재진입 쓰기 거절과 text 계정/선택 commit 수명 primitive를 구현했다. 대상47개·신규31개·앱691통과/16제외·runtime50·APK/lint/계측 소스/경계 성공. [현재 범위·실소유자 미연결](PORTABLE_TEXT_COMMIT_GUARDS.md)과 정확한 최종 head CI부터 확인한다. 다음은 실제 ServerLibraryViewModel의 coherent text 수명 발급/종료, canonical 분류 adapter와 별도 확인 UI다. PR #61 primitive/PR #60 actor/PR #59 command와 웹 완료 단위를 다시 만들지 않는다.
+2026-10-25 최신 단위는 **draft PR #62**, base PR #61다. 실제 ServerLibraryViewModel이 immutable text connection/lifetime을 발급·종료하며 입력/교체/비밀번호/로그아웃/ViewModel 종료에 연결했다. 늦은 취소 요청의 실패가 새 로그인 세션을 지우는 경계도 보완했다. 대상34개·신규12개·앱703통과/16제외·runtime50·APK/lint/계측 소스/경계 성공. [실제 소유자 범위](TEXT_ACCOUNT_LIFETIME_OWNER.md)와 정확한 최종 head CI부터 확인한다. 다음은 이 authority를 캡처한 canonical 분류 채택 adapter이며 실제 Compose 선택/확인 UI는 별도 단위다.
+
+### 2026-10-25 실제 text 계정 수명 소유자 — PR #62
+
+- [draft PR #62](https://github.com/gongdongho12/PageTuner/pull/62), base `codex/text-adoption-commit-guards`(#61), head `codex/text-account-lifetime-owner`. 구현·회귀 `bcfd0cf`와 문서를 분리했다. 구현 head/run40192574968 성공. 문서 포함 정확한 최종 head CI는 PR 본문/ignored `text-account-owner-final-ci.json`에서 대조한다.
+- verified profile의 username·실제 client·검증 endpoint와 private lifetime을 한 authority로 게시한다. getter는 저장한 객체 조회만 하며 입력/교체/비밀번호 종료/disconnect/onCleared가 이전 lifetime을 닫는다. 같은 client/key도 새 객체다. VM mutation은 main dispatcher에 한정하며 worker lookup에 owner monitor를 추가하지 않았다. 종료 대기 뒤 발급 generation을 다시 확인한다.
+- 비밀번호 성공/인증 실패/충돌/불명/취소는 세션 종료이며 재로그인 전 새 권한이 없다. 취소된 이전 요청의 늦은 오류에서도 ensureActive를 먼저 검사해 교체 로그인을 보존한다. 확정적인 입력 오류나 client를 바꾸지 않은 실패 재연결은 기존 확인 계정을 유지한다. onCleared는 영구 종료다.
+- 독립 검토·대상4클래스34개(신규 VM12개), 앱719중703통과/16제외·runtime50·APK/lint/계측 소스/경계 성공(1분44초). 실제 ViewModelStore.clear·주입 HTTP·합성 account/origin ABA·Main disconnect의 ticket commit 대기/성공 보존 검사다. 첫 fixture의 빈 프로필/인증 없는 client/잘못된 supervisor join을 수정했으며 초기 log/XML을 보존했다. 실소켓/DB/Compose/물리 Android 근거가 아니다.
+- 다음은 reader 저장을 기다린 currentDocument의 전체 문서/자산/notes/position/extensions·typed snapshot·fullproof·strict binding raw nonce·direct verify/GET·nullable journal의 adapter다. MainActivity는 readingConnection 값 equality가 아니라 렌더 당시 **authority 객체**를 캡처해 실제 committed 선택/options lease를 만들고 이전 callback의 새 세대 차용을 막아야 한다. 최종 ticket.withCurrent→text verified→journal CAS와 memory-only guard, commit 전 캡처한 notifyCommitted 인계를 연결한다. 별도 paged 비교/확인 UI는 그 뒤다. PR #59~62 기반을 다시 만들지 않는다.
+- 원본 PR34·기존 DB/자료/자격 증명과 서버/웹 production을 보존했다. 전체 S4c3b/S4는 미완료이며 계정/library/binding/journal 전체 원자성·동일 bytes 재삽입 영속 세대는 제공하지 않는다.
+
+2026-10-25 선행 단위는 **draft PR #61**, base PR #60다. 전체 canonical 문서/v2 raw nonce의 verified-block·재진입 쓰기 거절과 text 계정/선택 commit 수명 primitive를 구현했다. 대상47개·신규31개·앱691통과/16제외·runtime50·APK/lint/계측 소스/경계 성공. [현재 범위·실소유자 미연결](PORTABLE_TEXT_COMMIT_GUARDS.md)과 정확한 최종 head CI부터 확인한다. 다음은 실제 ServerLibraryViewModel의 coherent text 수명 발급/종료, canonical 분류 adapter와 별도 확인 UI다. PR #61 primitive/PR #60 actor/PR #59 command와 웹 완료 단위를 다시 만들지 않는다.
 
 2026-10-25 최신 단위는 **draft PR #60**, base PR #59다. Android 정상 actor의 nullable CAS/reload·이전 GET/ACK/실패/편집 거절과 명시적 postcommit 인계를 구현했다. 대상21개·앱660통과/16제외·runtime50·APK/lint/계측 소스/경계 성공. [현재 범위·dispatch/만료 한계](ANDROID_ORGANIZATION_SYNC_CAS.md)와 정확한 최종 head CI부터 확인한다. 다음은 text binding verified-block/계정·선택 lifetime을 통한 canonical 권한 adapter와 별도 확인 UI다. PR #59 기반이나 PR #58 웹 UI를 다시 만들지 않는다.
 
