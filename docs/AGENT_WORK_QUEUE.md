@@ -15,6 +15,10 @@
 
 ## 우선순위 큐
 
+최신 [draft PR #64](https://github.com/gongdongho12/PageTuner/pull/64)는 base `codex/android-organization-adoption`(#63), head `codex/reading-progress-snapshot`이다. 계약/모델0427cfb·JVM94eb0ee·웹c4403a2·PDF2a60817과 문서를 분리했다. 문서 포함 정확한 최종 head CI는 PR 본문/ignored `reading-progress-snapshot-final-ci.json`에서 대조한다. PR #63 최종 c2f6d10/run40202176919 SUCCESS4분00초도 재확인했다. 체인 base를 보존하고 자동 병합하지 않는다.
+
+2026-10-26 현재 단위는 **S1 passive 읽던 위치 ZIP 계약·codec**과 실제 서버 분류/PDF UI 검증이다. [S1 범위](PORTABLE_READING_PROGRESS_SNAPSHOT.md), [실제 QA 근거](LIVE_ORGANIZATION_PDF_VERIFICATION.md)를 먼저 읽는다. S1은 전체 text identity·absent/null·정확한 문단/UTF-16 anchor를 보존하고 기존 position/notes/분류/용어집/sibling을 바꾸지 않는다. core51/runtime61·웹828/84파일·앱726통과/16제외·APK/lint/계측 소스/공유 웹/경계, 실제 웹→JVM→웹 ZIP8사례 전체 동등성이 통과했다. latest GET·채택 adapter/UI 및 S2는 아직 없다. 실제 QA 분류 present/empty v0→별도확정v1, absent v0/버튼없음과 PDF 업로드→별도연결→재검증/원본읽기→해제를 확인했다. 렌더 후 로딩 안내가 viewport를 바꿔 반복하던 PDF 결함을 overlay로 수정하고 실제 production의 busy=false/크기 안정·맞춤 전환을 재검증했다. 다음은 S1 직접 최신 GET export부터 작은 단위로 이어간다. 기존 PR #52~63은 재구현하지 않는다.
+
 2026-10-25 최신 단위는 **draft PR #63**, base PR #62다. Android 보관함의 분류 비교·별도 적용 화면과 실제 authority/terminal 선택·전체 canonical 문서/raw nonce·직접 verify/GET·최종 중첩 CAS·postcommit 인계를 연결했다. 대상53개·신규22개·앱725통과/16제외·runtime50·APK/lint/계측 소스/경계 성공. [지원 흐름·검증 한계](ANDROID_ORGANIZATION_ADOPTION_UI.md)와 정확한 최종 head CI부터 확인하고 PR #59~63을 재구현하지 않는다. 다음은 실제 서버의 웹 분류/PDF UI 종단이며 기기가 없는 Android 실측은 V3로 남긴다. 독립 개발은 최신 S1/S2 ZIP 통합부터 계속한다.
 
 ### 2026-10-25 Android 분류 canonical adapter·별도 확인 화면 — PR #63

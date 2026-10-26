@@ -6,6 +6,8 @@
 
 ## 판정 방법
 
+2026-10-26 S1 passive ZIP snapshot은 공통/Kotlin JVM/웹에 추가됐다. 전체 text identity·absent/null·정확한 문단/UTF-16 anchor와 기존 position/notes/sibling 보존을 검증했다. 최신 GET export·별도 채택 UI/S2는 미완료다. [S1 범위](PORTABLE_READING_PROGRESS_SNAPSHOT.md). 같은 날 실제 Chrome→Spring→PostgreSQL에서 웹 분류의 별도 채택과 ZIP PDF 업로드·별도 연결·재검증/읽기·해제를 확인했다. 기존 mock API 근거를 대체해 전체 기기 검증으로 확장하지 않으며 물리 Android·PDF OS 저장은 여전히 대기다. [실제 근거](LIVE_ORGANIZATION_PDF_VERIFICATION.md).
+
 2026-10-25 Android 분류 별도 적용: [draft PR #63](https://github.com/gongdongho12/PageTuner/pull/63), base PR #62. 보관함의5탭 비교/확인 UI·실제 authority/선택 수명·canonical 문서/raw nonce·direct verify/GET·최종 중첩 CAS·postcommit 인계를 연결했다. absent는 정보만이고 present-empty도 별도 선택으로 새 의도를 저장한다. 대상53개·신규22개·앱725통과/16제외·runtime50·APK/lint/계측 소스/경계 성공. JVM 파일/주입 HTTP 근거이며 새 Compose/물리 기기/실제 서버 UI는 검증 대기다. [흐름·한계](ANDROID_ORGANIZATION_ADOPTION_UI.md).
 
 2026-10-25 실제 text 계정 수명 소유자: [draft PR #62](https://github.com/gongdongho12/PageTuner/pull/62), base PR #61. VM의 coherent connection/lifetime 게시와 입력·재연결·비밀번호·로그아웃·ViewModel 해제의 종료를 연결했다. 늦은 취소 요청 실패가 새 로그인을 해제하지 않게 한다. 대상34개·신규12개·앱703통과/16제외·runtime50·APK/lint/계측 소스/경계 성공. canonical 분류 채택 adapter·실제 Compose 선택 lease/UI는 미연결이다. 실제 VM/주입 transport와 물리 기기·실서버를 구분한다. [범위·main thread 계약](TEXT_ACCOUNT_LIFETIME_OWNER.md).
