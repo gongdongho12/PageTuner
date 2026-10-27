@@ -41,6 +41,35 @@ describe('reading progress transport', () => {
     await expect(client(raw).get(identity)).rejects.toMatchObject({ code: 'server' })
     await expect(client(raw).get(identity)).rejects.not.toThrow('secret-server-stack')
   })
+  it('rejects unknown response fields and malformed Unicode before production GET projection', async () => {
+    for (const value of [
+      { ...accepted, accountId: 'unexpected' },
+      { ...accepted, anchor: { ...anchor, screenPage: 3 } },
+      { ...accepted, anchor: { ...anchor, paragraphId: 'p\ud800' } },
+      { ...accepted, anchor: { ...anchor, paragraphId: '\udc00p' } },
+      { ...initial, anchor: { paragraphId: 'p', characterOffset: 0 } },
+    ]) {
+      const fetch = vi.fn<typeof globalThis.fetch>().mockResolvedValue(json(value))
+      await expect(client(fetch).get(identity)).rejects.toMatchObject({ code: 'invalid-response' })
+      expect(fetch).toHaveBeenCalledTimes(1)
+      expect(fetch.mock.calls[0][1]?.method).toBe('GET')
+    }
+  })
+  it('preserves exact valid Unicode IDs and rejects corrupt conflict anchors before projection', async () => {
+    const exact = { ...accepted, anchor: { paragraphId: ' p:空 é 🌏 ', characterOffset: 0 } }
+    const fetch = vi.fn<typeof globalThis.fetch>().mockResolvedValue(json(exact))
+    expect(await client(fetch).get(identity)).toEqual(exact)
+    const conflict = vi.fn<typeof globalThis.fetch>().mockResolvedValueOnce(csrf()).mockResolvedValueOnce(json({
+      code: 'READING_PROGRESS_CONFLICT', current: { ...accepted, anchor: { ...anchor, unknown: true } },
+    }, 409))
+    await expect(client(conflict).put(identity, mutation)).rejects.toMatchObject({ code: 'invalid-response' })
+  })
+  it('does not turn malformed streamed UTF-8 into a different paragraph ID', async () => {
+    const parts = JSON.stringify(accepted).replace('p1', 'MARKER').split('MARKER')
+    const invalid = new Uint8Array([...new TextEncoder().encode(parts[0]), 0xc3, 0x28, ...new TextEncoder().encode(parts[1])])
+    const fetch = vi.fn<typeof globalThis.fetch>().mockResolvedValue(new Response(invalid, { headers: { 'content-type': 'application/json' } }))
+    await expect(client(fetch).get(identity)).rejects.toMatchObject({ code: 'invalid-response' })
+  })
   it('rejects oversized, redirected, non-JSON and mismatched acknowledgements', async () => {
     const oversized = vi.fn<typeof globalThis.fetch>().mockResolvedValue(new Response(' '.repeat(8193), { headers: { 'content-type': 'application/json' } }))
     await expect(client(oversized).get(identity)).rejects.toMatchObject({ code: 'invalid-response' })

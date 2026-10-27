@@ -30,10 +30,24 @@ export class ReadingProgressError extends Error {
 export function validReadingProgressIdentity(value: ReadingProgressIdentity): boolean {
   return !!value && ['ORIGINAL', 'TRANSLATION'].includes(value.kind) && typeof value.recordId === 'string' && validRecordId(value.recordId)
 }
+function validUnicode(value: string): boolean {
+  for (let index = 0; index < value.length; index++) {
+    const code = value.charCodeAt(index)
+    if (code >= 0xd800 && code <= 0xdbff) {
+      const next = value.charCodeAt(++index)
+      if (!(next >= 0xdc00 && next <= 0xdfff)) return false
+    } else if (code >= 0xdc00 && code <= 0xdfff) return false
+  }
+  return true
+}
+function exactKeys(value: unknown, keys: string[]): boolean {
+  return !!value && typeof value === 'object' && !Array.isArray(value) &&
+    Object.keys(value).length === keys.length && keys.every(key => Object.hasOwn(value, key))
+}
 export function validReadingProgressAnchor(value: unknown): value is ReadingProgressAnchor {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return false
   const anchor = value as ReadingProgressAnchor
-  return typeof anchor.paragraphId === 'string' && !!anchor.paragraphId.trim() && anchor.paragraphId.length <= 200 && !/[\u0000-\u001f\u007f-\u009f]/.test(anchor.paragraphId) &&
+  return typeof anchor.paragraphId === 'string' && !!anchor.paragraphId.trim() && anchor.paragraphId.length <= 200 && validUnicode(anchor.paragraphId) && !/[\u0000-\u001f\u007f-\u009f]/.test(anchor.paragraphId) &&
     Number.isSafeInteger(anchor.characterOffset) && anchor.characterOffset >= 0 && anchor.characterOffset <= 2_147_483_647
 }
 export function sameReadingProgressAnchor(a: ReadingProgressAnchor | null, b: ReadingProgressAnchor | null): boolean {
@@ -41,11 +55,11 @@ export function sameReadingProgressAnchor(a: ReadingProgressAnchor | null, b: Re
 }
 export function validateReadingProgressView(value: unknown, identity?: ReadingProgressIdentity): ReadingProgressView {
   const invalid = () => { throw new ReadingProgressError('invalid-response') }
-  if (!value || typeof value !== 'object' || Array.isArray(value)) return invalid()
+  if (!exactKeys(value, ['kind', 'recordId', 'version', 'anchor', 'updatedAt'])) return invalid()
   const view = value as ReadingProgressView
   if (!validReadingProgressIdentity(view) || (identity && (view.kind !== identity.kind || view.recordId !== identity.recordId)) ||
       !Number.isSafeInteger(view.version) || view.version < 0 ||
-      (view.version === 0 ? view.anchor !== null || view.updatedAt !== null : !validReadingProgressAnchor(view.anchor) ||
+      (view.version === 0 ? view.anchor !== null || view.updatedAt !== null : !exactKeys(view.anchor, ['paragraphId', 'characterOffset']) || !validReadingProgressAnchor(view.anchor) ||
         typeof view.updatedAt !== 'string' || view.updatedAt.length > 64 || !/^\d{4}-\d\d-\d\dT.+(?:Z|[+-]\d\d:\d\d)$/.test(view.updatedAt) || !Number.isFinite(Date.parse(view.updatedAt)))) return invalid()
   return { kind: view.kind, recordId: view.recordId, version: view.version,
     anchor: view.anchor ? { paragraphId: view.anchor.paragraphId, characterOffset: view.anchor.characterOffset } : null, updatedAt: view.updatedAt }

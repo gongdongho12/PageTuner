@@ -62,6 +62,24 @@ export function createReadingProgressStore(username: string, options: DeviceData
     return [namespace, identity.kind, identity.recordId]
   }
   return {
+    /** Historical UUID spelling is a lookup alias, not a separate account document. No rows are written. */
+    async snapshotAliases(identity: ReadingProgressIdentity): Promise<ReadingProgressRecord[]> {
+      key(identity)
+      const kind = identity.kind, recordId = identity.recordId.toLowerCase()
+      return transaction('readonly', (store, result) => {
+        const request = store.index('username').openCursor(namespace), aliases: ReadingProgressRecord[] = []
+        request.onsuccess = () => {
+          const cursor = request.result
+          if (!cursor) { result(aliases); return }
+          const value = cursor.value as StoredRecord
+          if (value?.kind === kind && typeof value.recordId === 'string' && value.recordId.toLowerCase() === recordId) {
+            try { aliases.push(validate(value, { kind: value.kind, recordId: value.recordId })) }
+            catch { request.transaction?.abort(); return }
+          }
+          cursor.continue()
+        }
+      })
+    },
     async get(identity: ReadingProgressIdentity): Promise<ReadingProgressRecord> {
       const id = key(identity)
       return transaction('readonly', (store, result) => {

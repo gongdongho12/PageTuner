@@ -1,14 +1,16 @@
 import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from 'react'
 import { createReadingProgressStore } from '../lib/readingProgressStore'
 import { createReadingProgressController, type ReadingProgressState } from '../lib/readingProgressSync'
-import { validReadingProgressIdentity, type ReadingProgressClient, type ReadingProgressIdentity, type ReadingProgressAnchor } from '../lib/readingProgressApi'
+import { ReadingProgressError, validReadingProgressIdentity, type ReadingProgressClient, type ReadingProgressIdentity, type ReadingProgressAnchor, type ReadingProgressView } from '../lib/readingProgressApi'
 import type { ReadingDocument } from '../lib/readingDocument'
+import { captureFreshReadingProgressIdentity, captureFreshReadingProgressView, sameFreshReadingProgressView,
+  readingProgressExportErrors, type FreshReadingProgressReader } from '../lib/portableReadingProgressExport'
 
 type Controller = ReturnType<typeof createReadingProgressController>
 const keyFor = (identity: ReadingProgressIdentity) => `${identity.kind}:${identity.recordId}`
 
 /** A reader can close while its durable pending position continues syncing in this account session. */
-class ProgressRegistry {
+export class ProgressRegistry {
   readonly store: ReturnType<typeof createReadingProgressStore>
   private entries = new Map<string, { controller: Controller; started: boolean; readers: number }>()
   private closed = false
@@ -40,6 +42,97 @@ class ProgressRegistry {
   release(identity: ReadingProgressIdentity) {
     const entry = this.entries.get(keyFor(identity))
     if (entry) entry.readers = Math.max(0, entry.readers - 1)
+  }
+  /** Never starts a controller or flushes a pending reader. Observations live only in this lease. */
+  freshReader(current: () => boolean): FreshReadingProgressReader {
+    const observed = new Map<string, ReadingProgressView>(), journalHighwater = new Map<string, ReadingProgressView>()
+    let terminal: 'stale' | 'response' | undefined
+    const response = (): never => { terminal = 'response'; throw new Error(readingProgressExportErrors.response) }
+    const assertCurrent = () => {
+      if (terminal) throw new Error(readingProgressExportErrors[terminal])
+      let active = false
+      try { active = !this.closed && current() } catch { /* A failed authority check retires this lease. */ }
+      if (!active) { terminal = 'stale'; throw new Error(readingProgressExportErrors.stale) }
+      if (!this.api) throw new Error(readingProgressExportErrors.offline)
+    }
+    const assert = (signal?: AbortSignal) => {
+      if (signal?.aborted && !terminal) terminal = 'stale'
+      assertCurrent()
+    }
+    const run = async <T,>(signal: AbortSignal | undefined, action: () => Promise<T>): Promise<T> => {
+      assert(signal)
+      const abort = () => { terminal ??= 'stale' }
+      signal?.addEventListener('abort', abort, { once: true })
+      try { return await action() }
+      catch (error) { assert(signal); throw error }
+      finally { signal?.removeEventListener('abort', abort) }
+    }
+    const noRegression = (known: ReadingProgressView | undefined, incoming: ReadingProgressView) => {
+      if (known && (known.version > incoming.version || known.version === incoming.version && !sameFreshReadingProgressView(known, incoming))) response()
+    }
+    const captureView = (value: unknown, identity: ReadingProgressIdentity, alias = false) => {
+      try { return captureFreshReadingProgressView(value, identity, alias) } catch { return response() }
+    }
+    const inspectJournal = async (identity: ReadingProgressIdentity, signal?: AbortSignal, incoming?: ReadingProgressView) => {
+      assert(signal)
+      let rows
+      try { rows = await this.store.snapshotAliases({ ...identity }) }
+      catch (error) { assert(signal); throw error }
+      assert(signal)
+      const key = keyFor(identity)
+      for (const row of rows) {
+        if (!row.remote) continue
+        const remote = captureView(row.remote, identity, true), previous = journalHighwater.get(key)
+        if (previous?.version === remote.version && !sameFreshReadingProgressView(previous, remote)) response()
+        if (!previous || remote.version > previous.version) journalHighwater.set(key, remote)
+      }
+      if (rows.some(row => row.pending || row.queued || row.conflict)) throw new Error(readingProgressExportErrors.pending)
+      const latest = incoming ?? observed.get(key)
+      if (latest) {
+        noRegression(journalHighwater.get(key), latest)
+        if (incoming) noRegression(observed.get(key), incoming)
+      }
+    }
+    return {
+      assertCurrent,
+      checkReady: (input, signal) => run(signal, async () => {
+        assert(signal)
+        const identity = captureFreshReadingProgressIdentity(input)
+        if (!observed.has(keyFor(identity))) return response()
+        await inspectJournal(identity, signal)
+        assert(signal)
+        const latest = observed.get(keyFor(identity))
+        if (latest) noRegression(journalHighwater.get(keyFor(identity)), latest)
+      }),
+      read: (input, signal) => run(signal, async () => {
+        assert(signal)
+        const identity = captureFreshReadingProgressIdentity(input), key = keyFor(identity)
+        await inspectJournal(identity, signal)
+        assert(signal)
+        let raw: ReadingProgressView
+        try { raw = await this.api!.get({ ...identity }, signal) }
+        catch (error) {
+          assert(signal)
+          if (error instanceof ReadingProgressError && error.code === 'invalid-response') return response()
+          if (error instanceof ReadingProgressError && error.code === 'aborted') {
+            terminal = 'stale'
+            assert(signal)
+          }
+          throw error
+        }
+        assert(signal)
+        const view = captureView(raw, identity)
+        noRegression(journalHighwater.get(key), view)
+        noRegression(observed.get(key), view)
+        await inspectJournal(identity, signal, view)
+        assert(signal)
+        // Another request can finish while the final journal transaction is awaiting completion.
+        noRegression(journalHighwater.get(key), view)
+        noRegression(observed.get(key), view)
+        observed.set(key, structuredClone(view))
+        return structuredClone(view)
+      }),
+    }
   }
   async drain(refreshOpenReaders = false) {
     this.refreshOpenReaders ||= refreshOpenReaders
