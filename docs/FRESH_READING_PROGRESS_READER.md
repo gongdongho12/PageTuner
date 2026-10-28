@@ -1,5 +1,7 @@
 # 읽던 위치의 GET-only 최신 조회 기반
 
+후속 2026-10-28 [PR #66 canonical composer](CANONICAL_PROGRESS_EXPORT.md)에 fullproof/raw nonce·기존 용어집/분류와 누적 ZIP bytes·최종 canonical guard를 연결했다. 아래는 PR #65 당시의 GET-only 단위 범위다. 안전한 committed UI issuer/다운로드·Android·채택은 계속 후속이다.
+
 2026-10-27, [draft PR #65](https://github.com/gongdongho12/PageTuner/pull/65), base `codex/reading-progress-snapshot`(#64), head `codex/fresh-reading-progress-reader`다. 응답 검증 `703c3c7`·GET-only 세션/회귀 `ee4b4ae`와 문서를 나눴다. 웹 `ProgressRegistry.freshReader(current)`와 `FreshReadingProgressReader`는 직접 `api.get`으로 계정 위치를 읽고 기기 journal을 읽기 전용으로 검사한다. 정상 reader의 `open/start/move/refresh/flush/drain`을 호출하지 않는다. `Device` pending이나 fallback 위치를 서버 최신 값으로 쓰지 않는다.
 
 ## 조회와 최종 검사

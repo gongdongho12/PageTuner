@@ -6,6 +6,8 @@
 
 ## 판정 방법
 
+2026-10-28 [draft PR #66](https://github.com/gongdongho12/PageTuner/pull/66)는 웹 canonical ZIP composer의 S1 최신 GET 누적 기반이다. 전체 text proof/raw nonce·journal 뒤 canonical 재조회·고정 authority/선택 참조와 용어집500/분류/sibling 보존을 연결했다. 신규40·웹915/86파일·build/공유 웹/APK/경계와 production 웹ZIP55,860→JVM57,234→웹8사례 전체 동등성 통과. fakeIndexedDB/주입 API·로컬 JVM 근거이며 실제 다운로드/HTTP/물리 Android를 뜻하지 않는다. 안전한 committed progress UI issuer/옵션/다운로드·Android·별도 채택은 남았다. [범위](CANONICAL_PROGRESS_EXPORT.md).
+
 2026-10-27 [draft PR #65](https://github.com/gongdongho12/PageTuner/pull/65)는 웹 S1의 직접 GET-only reader 기반이다. readonly UUID alias journal·별도 최고관찰·pending/queued/conflict·version/내용 역행·마지막 await·종료 검사를 추가했다. 신규47·웹875/85파일·build/공유 웹/APK/경계 성공, fakeIndexedDB/주입 HTTP 근거다. 실제 canonical/fullproof/raw nonce/committed UI issuer/ZIP 생성·다운로드·Android·채택 연결은 미완료다. [범위](FRESH_READING_PROGRESS_READER.md).
 
 2026-10-26 S1 passive ZIP snapshot은 공통/Kotlin JVM/웹에 추가됐다. 전체 text identity·absent/null·정확한 문단/UTF-16 anchor와 기존 position/notes/sibling 보존을 검증했다. 최신 GET export·별도 채택 UI/S2는 미완료다. [S1 범위](PORTABLE_READING_PROGRESS_SNAPSHOT.md). 같은 날 실제 Chrome→Spring→PostgreSQL에서 웹 분류의 별도 채택과 ZIP PDF 업로드·별도 연결·재검증/읽기·해제를 확인했다. 기존 mock API 근거를 대체해 전체 기기 검증으로 확장하지 않으며 물리 Android·PDF OS 저장은 여전히 대기다. [실제 근거](LIVE_ORGANIZATION_PDF_VERIFICATION.md).
