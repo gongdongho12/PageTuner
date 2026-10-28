@@ -1,13 +1,16 @@
 import { BookGlossaryError, bookGlossaryKey, sameBookGlossaryScope, validateBookGlossaryScope, validateBookGlossaryView, type BookGlossaryScope } from './bookGlossaryApi'
 import { LibraryOrganizationError, sameLibraryOrganizationScope, validateLibraryOrganizationView, type LibraryOrganizationScope } from './libraryOrganizationApi'
+import { ReadingProgressError, type ReadingProgressIdentity } from './readingProgressApi'
 import { mergeExchangePackages, type ExchangeExportCapture, type ExchangeExportChoice } from './exchangeLibrary'
 import { inspectPortableIdentity, sameLibraryIdentity } from './libraryIdentity'
 import { LibraryIdentityError, type LibraryIdentityClient } from './libraryIdentityApi'
-import { writeExchange, type ExchangePackage } from './libraryExchange'
+import { exchangeLimits, writeExchange, type ExchangePackage } from './libraryExchange'
 import { glossaryExportErrors, type FreshBookGlossaryReader } from './portableGlossaryExport'
 import { organizationExportErrors, type FreshLibraryOrganizationReader } from './portableOrganizationExport'
+import { captureFreshReadingProgressIdentity, captureFreshReadingProgressView, readingProgressExportErrors, type FreshReadingProgressReader } from './portableReadingProgressExport'
 import { readBookGlossarySnapshotsFromDocument, withBookGlossarySnapshots, type PortableBookGlossarySnapshot } from './portableBookGlossary'
 import { readLibraryOrganizationSnapshotFromDocument, withLibraryOrganizationSnapshot, type PortableLibraryOrganizationSnapshot } from './portableLibraryOrganization'
+import { readReadingProgressSnapshotFromDocument, withReadingProgressSnapshot, type PortableReadingProgressSnapshot } from './portableReadingProgress'
 import type { createPortableBindings, PortableBindingCapture } from './portableBinding'
 
 export const accountExportErrors = {
@@ -17,6 +20,8 @@ export const accountExportErrors = {
   source: '선택한 문서가 변경되었거나 삭제되었습니다. 목록을 새로 불러온 뒤 다시 선택해 주세요.',
   duplicate: '같은 문서가 두 번 선택되었습니다. 원본 항목 하나만 선택해 주세요.',
   invalid: 'ZIP 교환 파일의 규격이나 무결성을 확인할 수 없습니다.',
+  progressSnapshot: '기존 읽던 위치 스냅샷의 규격이나 원본 정보를 확인하지 못했습니다. 원래 파일은 보존됩니다.',
+  progressSize: '최신 읽던 위치와 기존 문서·확장 정보가 ZIP 교환 한도를 넘습니다. 내용을 자르지 않았습니다.',
 } as const
 
 // Readonly binding.capture intentionally returns user-facing messages after protecting its raw
@@ -39,15 +44,15 @@ const bindingExportMessages = [
 
 /** Do not expose transport messages, response bodies or account details in the export screen. */
 export function accountExchangeExportErrorMessage(error: unknown): string {
-  if (error instanceof BookGlossaryError || error instanceof LibraryOrganizationError || error instanceof LibraryIdentityError) {
-    if (error.code === 'aborted') return glossaryExportErrors.stale
+  if (error instanceof BookGlossaryError || error instanceof LibraryOrganizationError || error instanceof LibraryIdentityError || error instanceof ReadingProgressError) {
+    if (error.code === 'aborted') return error instanceof ReadingProgressError ? readingProgressExportErrors.stale : glossaryExportErrors.stale
     if (error.code === 'authentication' || error.code === 'forbidden') return accountExportErrors.offline
     if (['network', 'timeout', 'server', 'limit'].includes(error.code)) return accountExportErrors.network
     if (error.code === 'storage') return accountExportErrors.journal
-    return error instanceof LibraryIdentityError ? organizationExportErrors.identity
+    return error instanceof ReadingProgressError ? readingProgressExportErrors.response : error instanceof LibraryIdentityError ? organizationExportErrors.identity
       : error instanceof BookGlossaryError ? glossaryExportErrors.response : organizationExportErrors.response
   }
-  const known: string[] = [...Object.values(glossaryExportErrors), ...Object.values(organizationExportErrors), ...Object.values(accountExportErrors), ...bindingExportMessages]
+  const known: string[] = [...Object.values(glossaryExportErrors), ...Object.values(organizationExportErrors), ...Object.values(readingProgressExportErrors), ...Object.values(accountExportErrors), ...bindingExportMessages]
   return error instanceof Error && known.includes(error.message) ? error.message : accountExportErrors.invalid
 }
 
@@ -58,31 +63,38 @@ export type PreparedAccountExchangeExport = {
   assertCurrent(): void
 }
 
-/** One canonical capture for normal ZIP, glossary, organization, or their explicit combination. */
+/** One canonical capture for normal ZIP, glossary, organization, progress, or their explicit combination. */
 export async function prepareAccountExchangeExport(options: {
   choices: ExchangeExportChoice[]
   glossary?: { reader: FreshBookGlossaryReader; targetLanguage: string }
   organization?: { reader: FreshLibraryOrganizationReader }
+  progress?: { reader: FreshReadingProgressReader }
   identityClient: LibraryIdentityClient | null
   bindings: Pick<ReturnType<typeof createPortableBindings>, 'capture'>
   current: () => boolean
   signal?: AbortSignal
   encode?: typeof writeExchange
 }): Promise<PreparedAccountExchangeExport> {
+  if (!options.choices.length || options.choices.length > 100) throw new Error(organizationExportErrors.source)
   // Capture option references before any asynchronous work, including mutable caller lists.
-  const choices = options.choices.slice(), glossary = options.glossary && { ...options.glossary }, organization = options.organization && { ...options.organization }
-  const { identityClient, signal } = options
+  const glossary = options.glossary && { ...options.glossary }, organization = options.organization && { ...options.organization }, progress = options.progress && { ...options.progress }
+  const { identityClient, signal, current } = options
+  const captureBinding = options.bindings.capture.bind(options.bindings), encode = options.encode ?? writeExchange
   const captures: ExchangeExportCapture[] = [], links: PortableBindingCapture[] = []
-  const glossaryScopes = new Map<string, BookGlossaryScope>(), organizationScopes = new Map<string, LibraryOrganizationScope>()
-  const glossarySnapshots = new Map<string, PortableBookGlossarySnapshot>(), organizationSnapshots = new Map<string, PortableLibraryOrganizationSnapshot>()
+  const glossaryScopes = new Map<string, BookGlossaryScope>(), organizationScopes = new Map<string, LibraryOrganizationScope>(), progressScopes = new Map<string, ReadingProgressIdentity>()
+  const glossarySnapshots = new Map<string, PortableBookGlossarySnapshot>(), organizationSnapshots = new Map<string, PortableLibraryOrganizationSnapshot>(), progressSnapshots = new Map<string, PortableReadingProgressSnapshot>()
   const assertCurrent = () => {
-    if (!options.current() || signal?.aborted) throw new Error(glossaryExportErrors.stale)
-    glossary?.reader.assertCurrent(); organization?.reader.assertCurrent()
+    if (!current() || signal?.aborted) throw new Error(glossaryExportErrors.stale)
+    glossary?.reader.assertCurrent(); organization?.reader.assertCurrent(); progress?.reader.assertCurrent()
     for (const link of links) link.assertCurrent()
   }
   assertCurrent()
-  if (!choices.length || choices.length > 100 || new Set(choices.map(choice => choice.key)).size !== choices.length) throw new Error(organizationExportErrors.source)
-  if ((glossary || organization) && !identityClient) throw new Error(accountExportErrors.offline)
+  // Capture selection locators and callbacks, never cached book bodies or assets as authority.
+  const choices = options.choices.map(choice => ({ key: choice.key, capture: choice.capture?.bind(choice),
+    source: choice.glossarySource?.kind === 'portable' ? { kind: 'portable' as const, id: choice.glossarySource.book.id }
+      : choice.glossarySource ? { kind: 'server' as const, recordId: choice.glossarySource.recordId } : undefined }))
+  if (new Set(choices.map(choice => choice.key)).size !== choices.length) throw new Error(organizationExportErrors.source)
+  if ((glossary || organization || progress) && !identityClient) throw new Error(accountExportErrors.offline)
   if (glossary) {
     try { validateBookGlossaryScope({ providerId: 'check', bookId: 'check', targetLanguage: glossary.targetLanguage }) }
     catch { throw new Error(glossaryExportErrors.language) }
@@ -91,6 +103,7 @@ export async function prepareAccountExchangeExport(options: {
     assertCurrent()
     for (const scope of glossaryScopes.values()) { await glossary!.reader.checkReady(scope, signal); assertCurrent() }
     for (const scope of organizationScopes.values()) { await organization!.reader.checkReady(scope, signal); assertCurrent() }
+    for (const scope of progressScopes.values()) { await progress!.reader.checkReady({ ...scope }, signal); assertCurrent() }
     // Journal checks can suspend while another tab deletes or edits the selected canonical source.
     for (const capture of captures) { await capture.assertCurrent(); assertCurrent() }
     assertCurrent()
@@ -99,19 +112,24 @@ export async function prepareAccountExchangeExport(options: {
   for (const choice of choices) {
     assertCurrent()
     if (!choice.capture) throw new Error(organizationExportErrors.source)
-    const source = choice.glossarySource ? structuredClone(choice.glossarySource) : undefined
+    const source = choice.source
     const capture = await choice.capture(); assertCurrent(); captures.push(capture)
     const value = structuredClone(capture.value)
-    if (!glossary && !organization) { packages.push(value); continue }
+    if (!glossary && !organization && !progress) { packages.push(value); continue }
     if (!source || value.documents.length !== 1) throw new Error(organizationExportErrors.identity)
     let document = value.documents[0]
     const proof = await inspectPortableIdentity(document); assertCurrent()
     if (proof.status !== 'ready') throw new Error(organizationExportErrors.identity)
+    if (progress) {
+      try { await readReadingProgressSnapshotFromDocument(document) }
+      catch { throw new Error(accountExportErrors.progressSnapshot) }
+      assertCurrent()
+    }
     let recordId: string
     if (source.kind === 'portable') {
       const saved = capture.portableBook
-      if (!saved || saved.id !== source.book.id || choice.key !== saved.id) throw new Error(organizationExportErrors.source)
-      const linked = await options.bindings.capture(saved, identityClient!, signal); assertCurrent()
+      if (!saved || saved.id !== source.id || choice.key !== saved.id) throw new Error(organizationExportErrors.source)
+      const linked = await captureBinding(saved, identityClient!, signal); assertCurrent()
       if (!linked) throw new Error(organizationExportErrors.binding)
       if (linked.kind !== proof.identity.kind || !sameLibraryIdentity(linked.identity, proof.identity)) throw new Error(organizationExportErrors.identity)
       links.push(linked); recordId = linked.recordId
@@ -170,11 +188,29 @@ export async function prepareAccountExchangeExport(options: {
       catch { throw new Error(organizationExportErrors.snapshot) }
       assertCurrent()
     }
+    if (progress) {
+      const scope = captureFreshReadingProgressIdentity({ kind: proof.identity.kind, recordId }), key = JSON.stringify(scope)
+      progressScopes.set(key, scope)
+      let snapshot = progressSnapshots.get(key)
+      if (!snapshot) {
+        const incoming = await progress.reader.read({ ...scope }, signal); assertCurrent()
+        const view = captureFreshReadingProgressView(incoming, scope)
+        snapshot = view.version === 0 ? { version: 1, identity: proof.identity, presence: 'absent', anchor: null }
+          : { version: 1, identity: proof.identity, presence: 'present', anchor: view.anchor! }
+        progressSnapshots.set(key, snapshot)
+      }
+      const extensions = { ...document.extensions, readingProgressSnapshot: snapshot }
+      if (new TextEncoder().encode(JSON.stringify(extensions)).byteLength > 256 * 1024 ||
+        new TextEncoder().encode(JSON.stringify({ ...document, extensions })).byteLength > exchangeLimits.document) throw new Error(accountExportErrors.progressSize)
+      try { document = await withReadingProgressSnapshot(document, snapshot) }
+      catch { throw new Error(readingProgressExportErrors.response) }
+      assertCurrent()
+    }
     packages.push({ ...value, documents: [document] })
   }
   await checkBeforeSave()
   const merged = await mergeExchangePackages(packages); assertCurrent()
-  const bytes = await (options.encode ?? writeExchange)(merged); assertCurrent()
+  const bytes = await encode(merged); assertCurrent()
   await checkBeforeSave()
   return { bytes, checkBeforeSave, assertCurrent }
 }

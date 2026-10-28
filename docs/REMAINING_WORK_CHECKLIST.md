@@ -1,5 +1,7 @@
 # PageTuner 남은 작업 체크리스트
 
+- [x] **S1 웹 최신 GET canonical ZIP composer**: [draft PR #66](https://github.com/gongdongho12/PageTuner/pull/66), base PR #65. 용어집/분류/progress 누적·canonical/fullproof/raw nonce·모든 journal await 뒤 원본 재조회·고정 authority/선택 참조. 신규40·전체웹915/86파일·build/공유 웹/APK/경계37초·production ZIP8사례 웹55,860→JVM57,234→웹 전체 동등성과 500항목 보존. fakeIndexedDB/주입 GET·PUT0/외부fetch0이며 실제 UI 다운로드는 후속이다. [범위](CANONICAL_PROGRESS_EXPORT.md).
+
 - [x] **S1 웹 직접 최신 GET 세션 기반**: [draft PR #65](https://github.com/gongdongho12/PageTuner/pull/65), base PR #64. controller/flush 없이 readonly alias journal·GET·최종 검사, pending/queued/conflict·실패/삭제 highwater·최종 await 역전·terminal 폐기와 production 응답 검증. 신규47·웹875/85파일·typecheck/build/공유 웹/APK/경계 성공. canonical ZIP 준비·UI 발급/다운로드·Android·채택은 후속이다. [범위](FRESH_READING_PROGRESS_READER.md).
 
 2026-10-26 갱신: [실제 QA 분류/PDF UI](LIVE_ORGANIZATION_PDF_VERIFICATION.md)와 [S1 passive ZIP 계약·codec](PORTABLE_READING_PROGRESS_SNAPSHOT.md)을 추가했다. S1 최신 GET·별도 채택과 S2·물리 Android 검증은 계속 남는다.
@@ -51,7 +53,7 @@
 - [ ] **EPUB 원본 보관·전달 형식·연결**: 원본 bytes 보존, 전체 proof, 앱·웹 교환 형식과 위치 대응. 파싱 뒤 원본을 버리는 경로와 ZIP v1 MIME 제약 해결. 새 읽기용 EPUB 생성은 이 원본 보존·계정 연결 작업의 완료를 뜻하지 않는다.
 - [x] **S4c3a 분류 passive ZIP snapshot 계약·codec**: 정확한 DocumentIdentity, absent/present 및 명시적 빈 값, 폴더·태그 순서·즐겨찾기를 보존한다. 분류에 없는 deleted 상태를 만들지 않는다. PR #50, [검증](PORTABLE_ORGANIZATION_SNAPSHOT.md).
 - [ ] **S4c3b 분류 최신 export·명시적 채택 전체 검증**: PR #55~63으로 웹/Android 구현, 2026-10-26 실제 서버 웹 채택 UI 확인. pending/queued/conflict·canonical/raw nonce 경계는 자동 검사와 구분하며 물리 Android는 남는다.
-- [ ] **S1 최신 읽던 위치의 ZIP 통합**: passive 계약·codec과 웹 GET-only reader 기반 완료. canonical ZIP composer·안전한 UI issuer/다운로드·Android 직접 GET 및 별도 채택 adapter/UI, nullable journal/정상 actor CAS 조정은 후속이다. 정확한 문단 ID·UTF-16 offset·원본 revision/hash를 유지하고 기기/대기/서버 최신 값을 구분한다.
+- [ ] **S1 최신 읽던 위치의 ZIP 통합**: passive 계약·codec·웹 GET-only reader 및 canonical ZIP composer 완료(PR #64~66). 안전한 committed UI issuer/옵션/다운로드·Android 직접 GET 및 별도 채택 adapter/UI, nullable journal/정상 actor CAS 조정은 후속이다. 정확한 문단 ID·UTF-16 offset·원본 revision/hash를 유지하고 기기/대기/서버 최신 값을 구분한다.
 - [ ] **S2 최신 북마크·메모·강조의 ZIP 통합**: 항목 ID·삭제 정보·범위를 보존하고 명시적 채택·충돌 처리를 연결한다.
 - [ ] 최신 기록의 **앱 → 웹 → 앱 / 웹 → 앱 → 웹** 왕복 검증. 자격 증명·binding·CAS/outbox mutation을 ZIP에 넣지 않는다. 전체 extensions 256 KiB 초과는 절단 없이 거절한다.
 

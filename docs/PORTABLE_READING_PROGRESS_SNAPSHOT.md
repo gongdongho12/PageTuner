@@ -1,5 +1,7 @@
 # 읽던 위치의 passive ZIP snapshot
 
+후속 PR #65의 직접 GET reader와 [PR #66 canonical ZIP composer](CANONICAL_PROGRESS_EXPORT.md)가 완료됐다. 아래는 PR #64 당시 passive 계약 범위이며, 실제 committed UI issuer/다운로드·Android·명시적 채택은 계속 후속이다.
+
 2026-10-26, [draft PR #64](https://github.com/gongdongho12/PageTuner/pull/64), base `codex/android-organization-adoption`(#63), head `codex/reading-progress-snapshot`의 S1 계약·codec 단위다. 계약/모델 `0427cfb`·JVM `94eb0ee`·웹 `c4403a2`·별도 PDF 렌더 수정 `2a60817`로 나눠 커밋했다. 정확한 문서 포함 최종 head CI는 PR 본문/ignored `reading-progress-snapshot-final-ci.json`에서 대조하고 자동 병합하지 않는다.
 
 `extensions.readingProgressSnapshot`에 전체 text DocumentIdentity와 absent/null 또는 present/정확한 문단 ID·UTF-16 offset을 보존한다. 확장 없음은 관찰값 없음이며 absent는 계정 위치 미등록이다. deleted/reset을 만들지 않는다. 기존 `position`·notes·분류·용어집과 형제 확장은 그대로 유지한다.
