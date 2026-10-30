@@ -1,4 +1,13 @@
 export const exchangeEnglish: Record<string, string> = {
+  '최신 계정 읽던 위치 포함': 'Include latest account reading progress',
+  '선택한 계정 정보를 서버에서 새로 조회합니다. 미등록·빈 값과 용어집 삭제를 구분합니다. ZIP 가져오기만으로 계정 기록을 바꾸지 않습니다.': 'Fetch selected account data now. Absent, empty and deleted glossary values stay distinct. Importing a ZIP does not change account records.',
+  '최신 계정 위치는 별도 스냅샷에 담으며 ZIP의 기기 위치·메모를 바꾸지 않습니다. 계정 위치를 자동 채택하지 않습니다.': 'Latest account progress is a separate snapshot. Device positions and notes are preserved. No account position is adopted automatically.',
+  '계정 또는 서버 연결이 변경되어 읽던 위치 조회를 취소했습니다. 다시 선택해 주세요.': 'The account or server connection changed. Reading progress lookup was canceled. Select the books again.',
+  '최신 계정 읽던 위치를 포함하려면 서버에 다시 로그인해 주세요.': 'Sign in again to include latest account reading progress.',
+  '먼저 계정 읽던 위치의 대기 중인 변경이나 충돌을 해결한 뒤 다시 내보내 주세요.': 'Resolve pending account reading progress changes or conflicts before exporting again.',
+  '최신 계정 읽던 위치 응답이 기존 기록과 일치하지 않습니다. 다시 조회해 주세요.': 'The latest account reading progress response is inconsistent with known records. Read it again.',
+  '기존 읽던 위치 스냅샷의 규격이나 원본 정보를 확인하지 못했습니다. 원래 파일은 보존됩니다.': 'Could not verify the existing reading progress snapshot format or source. The original file is preserved.',
+  '최신 읽던 위치와 기존 문서·확장 정보가 ZIP 교환 한도를 넘습니다. 내용을 자르지 않았습니다.': 'Latest reading progress and existing document data exceed the ZIP limits. Nothing was truncated.',
   '계정 정보 채택': 'Adopt account data', 'ZIP 분류 채택': 'Adopt ZIP organization',
   '언어별 용어집을 비교한 뒤 따로 확정합니다.': 'Compare a glossary by language, then confirm separately.',
   '폴더·태그·즐겨찾기를 비교한 뒤 따로 확정합니다.': 'Compare folder, tags and favorite, then confirm separately.',
