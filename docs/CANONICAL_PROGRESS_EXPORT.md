@@ -1,5 +1,7 @@
 # 최신 계정 읽던 위치의 canonical ZIP 준비
 
+후속 [PR #67](PORTABLE_PROGRESS_EXPORT_UI.md)에서 웹 committed issuer와 명시 옵션/link click 경로를 연결했다. 실제 OS 파일 저장·독립 재개봉은 확인 대기이며 아래는 PR #66 당시 composer 단위 범위다.
+
 2026-10-28 [draft PR #66](https://github.com/gongdongho12/PageTuner/pull/66), base `codex/fresh-reading-progress-reader`(#65), head `codex/canonical-progress-export`다. 구현·회귀 `1630a93`과 문서를 분리했다. 기존 `prepareAccountExchangeExport`의 선택적 `progress.reader`에 S1 직접 GET 값을 연결했다. **composer 기반만 완료**했으며 화면 선택·안전한 committed issuer·다운로드·Android 연결은 후속이다.
 
 ## 같은 문서에 누적하는 snapshot

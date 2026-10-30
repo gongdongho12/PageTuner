@@ -1,5 +1,8 @@
 # PageTuner 남은 작업 체크리스트
 
+- [x] **S1 웹 committed issuer·ZIP 옵션 연결**: [draft PR #67](https://github.com/gongdongho12/PageTuner/pull/67), base PR #66. 고정 account/origin lease·선택/옵션 세대·기본 해제·오프라인 해제·기존 최종 guard를 연결했다. 웹915/86파일·build/공유 웹/APK/경계·Chrome StrictMode12개/heldGET·Blob500항목 동등성·고정 iframe ko/en 경계 확인. [범위](PORTABLE_PROGRESS_EXPORT_UI.md).
+- [ ] **S1 이번 웹 ZIP OS 저장·독립 파일 재개봉**: link.click 요청1회 뒤 download 이벤트 timeout·새 파일 미확인. Chrome 다운로드 관리 URL 정책 거절을 우회하지 않으며 사용자에게 파일 경로를 한 번 요청했다. 준비 Blob6,138bytes의 동등성과 실제 OS 저장 완료를 구분한다.
+
 - [x] **S1 웹 최신 GET canonical ZIP composer**: [draft PR #66](https://github.com/gongdongho12/PageTuner/pull/66), base PR #65. 용어집/분류/progress 누적·canonical/fullproof/raw nonce·모든 journal await 뒤 원본 재조회·고정 authority/선택 참조. 신규40·전체웹915/86파일·build/공유 웹/APK/경계37초·production ZIP8사례 웹55,860→JVM57,234→웹 전체 동등성과 500항목 보존. fakeIndexedDB/주입 GET·PUT0/외부fetch0이며 실제 UI 다운로드는 후속이다. [범위](CANONICAL_PROGRESS_EXPORT.md).
 
 - [x] **S1 웹 직접 최신 GET 세션 기반**: [draft PR #65](https://github.com/gongdongho12/PageTuner/pull/65), base PR #64. controller/flush 없이 readonly alias journal·GET·최종 검사, pending/queued/conflict·실패/삭제 highwater·최종 await 역전·terminal 폐기와 production 응답 검증. 신규47·웹875/85파일·typecheck/build/공유 웹/APK/경계 성공. canonical ZIP 준비·UI 발급/다운로드·Android·채택은 후속이다. [범위](FRESH_READING_PROGRESS_READER.md).
@@ -53,7 +56,7 @@
 - [ ] **EPUB 원본 보관·전달 형식·연결**: 원본 bytes 보존, 전체 proof, 앱·웹 교환 형식과 위치 대응. 파싱 뒤 원본을 버리는 경로와 ZIP v1 MIME 제약 해결. 새 읽기용 EPUB 생성은 이 원본 보존·계정 연결 작업의 완료를 뜻하지 않는다.
 - [x] **S4c3a 분류 passive ZIP snapshot 계약·codec**: 정확한 DocumentIdentity, absent/present 및 명시적 빈 값, 폴더·태그 순서·즐겨찾기를 보존한다. 분류에 없는 deleted 상태를 만들지 않는다. PR #50, [검증](PORTABLE_ORGANIZATION_SNAPSHOT.md).
 - [ ] **S4c3b 분류 최신 export·명시적 채택 전체 검증**: PR #55~63으로 웹/Android 구현, 2026-10-26 실제 서버 웹 채택 UI 확인. pending/queued/conflict·canonical/raw nonce 경계는 자동 검사와 구분하며 물리 Android는 남는다.
-- [ ] **S1 최신 읽던 위치의 ZIP 통합**: passive 계약·codec·웹 GET-only reader 및 canonical ZIP composer 완료(PR #64~66). 안전한 committed UI issuer/옵션/다운로드·Android 직접 GET 및 별도 채택 adapter/UI, nullable journal/정상 actor CAS 조정은 후속이다. 정확한 문단 ID·UTF-16 offset·원본 revision/hash를 유지하고 기기/대기/서버 최신 값을 구분한다.
+- [ ] **S1 최신 읽던 위치의 ZIP 통합**: passive 계약·codec·웹 GET-only reader/canonical composer와 committed issuer/옵션 연결 완료(PR #64~67). 이번 OS 파일 저장·독립 재개봉, Android 직접 GET/SAF 및 별도 채택 adapter/UI, nullable journal/정상 actor CAS 조정은 후속이다. 정확한 문단 ID·UTF-16 offset·원본 revision/hash를 유지하고 기기/대기/서버 최신 값을 구분한다.
 - [ ] **S2 최신 북마크·메모·강조의 ZIP 통합**: 항목 ID·삭제 정보·범위를 보존하고 명시적 채택·충돌 처리를 연결한다.
 - [ ] 최신 기록의 **앱 → 웹 → 앱 / 웹 → 앱 → 웹** 왕복 검증. 자격 증명·binding·CAS/outbox mutation을 ZIP에 넣지 않는다. 전체 extensions 256 KiB 초과는 절단 없이 거절한다.
 
