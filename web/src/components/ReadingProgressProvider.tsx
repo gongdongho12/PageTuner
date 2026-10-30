@@ -5,6 +5,7 @@ import { ReadingProgressError, validReadingProgressIdentity, type ReadingProgres
 import type { ReadingDocument } from '../lib/readingDocument'
 import { captureFreshReadingProgressIdentity, captureFreshReadingProgressView, sameFreshReadingProgressView,
   readingProgressExportErrors, type FreshReadingProgressReader } from '../lib/portableReadingProgressExport'
+import { useExportSession } from './useExportSession'
 
 type Controller = ReturnType<typeof createReadingProgressController>
 const keyFor = (identity: ReadingProgressIdentity) => `${identity.kind}:${identity.recordId}`
@@ -168,6 +169,22 @@ export class ProgressRegistry {
 }
 
 const ProgressContext = createContext<ProgressRegistry | null>(null)
+
+/** Retained callbacks can only issue readers for their own committed account/origin lease. */
+export function useFreshReadingProgress(namespace: string) {
+  const registry = useContext(ProgressContext)
+  const active = registry?.username === namespace ? registry : null
+  const lease = useExportSession(active, window.location.origin)
+  return { available: !!active?.api && !!lease, session: active,
+    begin: () => {
+      if (!lease) throw new Error(readingProgressExportErrors.stale)
+      const current = lease.issue(readingProgressExportErrors.stale)
+      if (!active?.api) throw new Error(readingProgressExportErrors.offline)
+      return active.freshReader(current)
+    },
+  }
+}
+
 export function ReadingProgressProvider({ username, client, children }: { username: string; client: ReadingProgressClient | null; children: ReactNode }) {
   const [registry, setRegistry] = useState<ProgressRegistry | null>(null)
   useEffect(() => {
