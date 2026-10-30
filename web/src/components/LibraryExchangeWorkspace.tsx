@@ -18,6 +18,7 @@ import type { PdfContentClient } from '../lib/pdfContentApi'
 import type { LibraryIdentityClient } from '../lib/libraryIdentityApi'
 import { useFreshBookGlossary } from './BookGlossaryProvider'
 import { useFreshLibraryOrganization } from './LibraryOrganizationProvider'
+import { useFreshReadingProgress } from './ReadingProgressProvider'
 import { useExportSession } from './useExportSession'
 import { accountExchangeExportErrorMessage, prepareAccountExchangeExport } from '../lib/portableAccountExport'
 import { organizationExportErrors } from '../lib/portableOrganizationExport'
@@ -35,14 +36,16 @@ export function LibraryExchangeWorkspace({ username, identityClient, pdfContentC
   const [pdfCopyId, setPdfCopyId] = useState<string>()
   const [exportOptions, setExportOptions] = useState(false), [includeGlossary, setIncludeGlossary] = useState(false), [glossaryLanguage, setGlossaryLanguage] = useState(targetLanguage)
   const [includeOrganization, setIncludeOrganization] = useState(false)
+  const [includeProgress, setIncludeProgress] = useState(false)
   const freshGlossary = useFreshBookGlossary(username)
   const freshOrganization = useFreshLibraryOrganization(username)
+  const freshProgress = useFreshReadingProgress(username)
   const bindings = useMemo(() => createPortableBindings(username, window.location.origin), [username])
   const accountRequest = useRef<AbortController | null>(null)
   const operation = useRef(0)
-  const session = useMemo(() => ({ username, identityClient, pdfContentClient, glossary: freshGlossary.session, organization: freshOrganization.session }), [username, identityClient, pdfContentClient, freshGlossary.session, freshOrganization.session])
+  const session = useMemo(() => ({ username, identityClient, pdfContentClient, glossary: freshGlossary.session, organization: freshOrganization.session, progress: freshProgress.session }), [username, identityClient, pdfContentClient, freshGlossary.session, freshOrganization.session, freshProgress.session])
   const lease = useExportSession(session, window.location.origin)
-  const exportOwner = useMemo(() => ({ session, selected, choices, includeGlossary, includeOrganization, glossaryLanguage, tab, exportOptions }), [session, selected, choices, includeGlossary, includeOrganization, glossaryLanguage, tab, exportOptions])
+  const exportOwner = useMemo(() => ({ session, selected, choices, includeGlossary, includeOrganization, includeProgress, glossaryLanguage, tab, exportOptions }), [session, selected, choices, includeGlossary, includeOrganization, includeProgress, glossaryLanguage, tab, exportOptions])
   const exportLease = useExportSession(exportOwner, window.location.origin)
   const currentSession = useRef(session); currentSession.current = session
   useLayoutEffect(() => {
@@ -75,7 +78,8 @@ export function LibraryExchangeWorkspace({ username, identityClient, pdfContentC
       const picked = choices.filter(c => selected.includes(c.key))
       const prepared = await prepareAccountExchangeExport({ choices: picked, identityClient, bindings, current, signal: request.signal,
         ...(includeGlossary ? { glossary: { reader: freshGlossary.begin(), targetLanguage: glossaryLanguage } } : {}),
-        ...(includeOrganization ? { organization: { reader: freshOrganization.begin() } } : {}) })
+        ...(includeOrganization ? { organization: { reader: freshOrganization.begin() } } : {}),
+        ...(includeProgress ? { progress: { reader: freshProgress.begin() } } : {}) })
       await prepared.checkBeforeSave()
       if (!current() || request.signal.aborted) return
       prepared.assertCurrent()
@@ -133,14 +137,15 @@ export function LibraryExchangeWorkspace({ username, identityClient, pdfContentC
     </> : <div className="reading-import"><AdaptiveCollection items={['file', 'scope', 'limits']} itemKey={v => v} rowHeight={136} renderItem={value => <div className="reading-field">{value === 'file' ? <><label htmlFor="library-exchange-file">{t('앱 또는 웹에서 내보낸 ZIP 파일')}</label><input id="library-exchange-file" type="file" accept=".zip,.ptlibrary.zip,application/zip" disabled={busy} onChange={event => { const file = event.target.files?.[0]; event.target.value = ''; if (file) void run(async current => { if (!file.size || file.size > exchangeLimits.archive) throw new Error('ZIP 파일은 32MB 이하로 선택해 주세요.'); const value = await readExchange(new Uint8Array(await file.arrayBuffer())); if (current()) setPreview(value) }) }}/></> : <p>{t(value === 'scope' ? '원문·번역본, PDF·삽화, 북마크·메모·강조·읽던 위치와 분류·용어집을 옮깁니다. 가져온 책은 현재 기기 보관함에 저장됩니다.' : '규격 v1 · ZIP 32MB · 압축 해제 64MB · 최대 100개 문서. 파일 전체 검증 후 저장하며 기존 문서는 덮어쓰지 않습니다.')}</p>}</div>}/></div>
     : tab === 'export' ? exportOptions ? <>
       <header className="reading-tools-header"><strong>{t('내보내기 설정')}</strong><button disabled={busy} onClick={() => setExportOptions(false)}>{t('책 선택으로 돌아가기')}</button></header>
-      <AdaptiveCollection items={['include', 'organization', ...(includeGlossary ? ['language'] : []), 'scope', 'limits']} itemKey={v => v} rowHeight={160} renderItem={value => <div className="reading-field">{value === 'include' ? <label className="reading-checkbox"><input type="checkbox" checked={includeGlossary} disabled={busy || !includeGlossary && (!freshGlossary.available || !identityClient)} onChange={event => setIncludeGlossary(event.target.checked)}/>{t('최신 계정 용어집 포함')}</label>
+      <AdaptiveCollection items={['include', 'organization', 'progress', ...(includeGlossary ? ['language'] : []), 'scope', 'progress-scope', 'limits']} itemKey={v => v} rowHeight={160} renderItem={value => <div className="reading-field">{value === 'include' ? <label className="reading-checkbox"><input type="checkbox" checked={includeGlossary} disabled={busy || !includeGlossary && (!freshGlossary.available || !identityClient)} onChange={event => setIncludeGlossary(event.target.checked)}/>{t('최신 계정 용어집 포함')}</label>
         : value === 'organization' ? <label className="reading-checkbox"><input type="checkbox" checked={includeOrganization} disabled={busy || !includeOrganization && (!freshOrganization.available || !identityClient)} onChange={event => setIncludeOrganization(event.target.checked)}/>{t('최신 계정 분류 포함')}</label>
+        : value === 'progress' ? <label className="reading-checkbox"><input type="checkbox" checked={includeProgress} disabled={busy || !includeProgress && (!freshProgress.available || !identityClient)} onChange={event => setIncludeProgress(event.target.checked)}/>{t('최신 계정 읽던 위치 포함')}</label>
         : value === 'language' ? <><label htmlFor="export-glossary-language">{t('내보낼 계정 용어집 언어')}</label><input id="export-glossary-language" value={glossaryLanguage} disabled={busy} maxLength={24} onChange={event => setGlossaryLanguage(event.target.value)} placeholder="ko / en / zh-cn"/></>
-        : <p>{t(value === 'scope' ? '선택한 용어집 언어와 폴더·태그·즐겨찾기를 서버에서 새로 조회합니다. 미등록·빈 값과 용어집 삭제도 구분합니다. ZIP 가져오기만으로 계정 기록을 바꾸지 않습니다.' : '계정 정보 포함에는 서버 원본 확인과 ZIP 책의 계정 연결이 필요합니다. 대기 중인 변경·충돌이나 크기 초과가 있으면 내용을 자르지 않고 거절합니다.')}</p>}</div>}/>
+        : <p>{t(value === 'scope' ? '선택한 계정 정보를 서버에서 새로 조회합니다. 미등록·빈 값과 용어집 삭제를 구분합니다. ZIP 가져오기만으로 계정 기록을 바꾸지 않습니다.' : value === 'progress-scope' ? '최신 계정 위치는 별도 스냅샷에 담으며 ZIP의 기기 위치·메모를 바꾸지 않습니다. 계정 위치를 자동 채택하지 않습니다.' : '계정 정보 포함에는 서버 원본 확인과 ZIP 책의 계정 연결이 필요합니다. 대기 중인 변경·충돌이나 크기 초과가 있으면 내용을 자르지 않고 거절합니다.')}</p>}</div>}/>
     </> : <>
       <p className="reading-tools-caption">{t('기기에 보관된 책을 선택하세요. 서버 책은 먼저 기기에 보관해 주세요.')}</p>
       {choices.length ? <AdaptiveCollection items={choices} itemKey={c => c.key} rowHeight={104} renderItem={choice => <label className="reading-note-row reading-checkbox"><input type="checkbox" checked={selected.includes(choice.key)} disabled={busy} onChange={event => setSelected(values => event.target.checked ? [...values, choice.key] : values.filter(v => v !== choice.key))}/><strong>{choice.title}</strong><span>{choice.kind}</span></label>}/> : <p>{t('내보낼 기기 보관 문서가 없습니다.')}</p>}
-      <div className="reading-filter-actions exchange-export-actions"><button disabled={busy} onClick={() => setExportOptions(true)}>{t(includeGlossary || includeOrganization ? '내보내기 설정 · 계정 정보 포함' : '내보내기 설정')}</button><span>{t('{0}개 선택', [selected.length])}</span><button className="button-primary" disabled={busy || !exportLease || selected.length === 0 || selected.length > 100 || includeGlossary && (!freshGlossary.available || !identityClient) || includeOrganization && (!freshOrganization.available || !identityClient)} onClick={exportSelected}>{t('선택한 책을 ZIP으로 내보내기')}</button></div>
+      <div className="reading-filter-actions exchange-export-actions"><button disabled={busy} onClick={() => setExportOptions(true)}>{t(includeGlossary || includeOrganization || includeProgress ? '내보내기 설정 · 계정 정보 포함' : '내보내기 설정')}</button><span>{t('{0}개 선택', [selected.length])}</span><button className="button-primary" disabled={busy || !exportLease || selected.length === 0 || selected.length > 100 || includeGlossary && (!freshGlossary.available || !identityClient) || includeOrganization && (!freshOrganization.available || !identityClient) || includeProgress && (!freshProgress.available || !identityClient)} onClick={exportSelected}>{t('선택한 책을 ZIP으로 내보내기')}</button></div>
     </> : books.length ? <AdaptiveCollection items={books} itemKey={book => book.id} rowHeight={208} renderItem={book => <div className="reading-note-row"><strong>{book.document.bookTitle}</strong><span>{book.document.chapterTitle} · {book.document.language} · {book.document.organization.folder}</span><div className="exchange-book-actions"><button className="button-outline" disabled={busy} onClick={() => readBook(book.id)}>{t('읽기')}</button><button className="button-outline" disabled={busy} onClick={() => book.document.assets.some(a => a.role === 'pdf') ? setPdfCopyId(book.id) : setVerifying(book)}>{t(book.document.assets.some(a => a.role === 'pdf') ? 'PDF 서버 보관·연결' : '서버 원본 확인')}</button><button className="button-outline" disabled={busy} onClick={() => readBook(book.id, true)}>{t('계정 기록으로 읽기')}</button><button className="button-outline" disabled={busy} onClick={() => { setAdoptionKind(undefined); setAdopting(book) }}>{t('계정 정보 채택')}</button></div></div>}/> : <p>{t('ZIP으로 가져온 책이 없습니다.')}</p>}
     {verifying && <LibraryIdentityVerifier key={`${username}:${verifying.id}`} book={verifying} username={username} client={identityClient} onConfirm={(result, signal) => bindings.confirm(verifying, result, signal)} onUnbind={() => bindings.remove(verifying)} onClose={() => setVerifying(undefined)}/>}
   </section>
