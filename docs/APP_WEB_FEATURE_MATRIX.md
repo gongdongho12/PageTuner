@@ -6,6 +6,8 @@
 
 ## 판정 방법
 
+2026-11-01 [draft PR #68](https://github.com/gongdongho12/PageTuner/pull/68)는 Android S1의 exact response/anchor와 journal 공유 잠금 선행 보완이다. 원래 Unicode/공백/대소문자를 보존하고 malformed 데이터는 거절하며 read/recovery/write/pending이 canonical alias 사이 제외된다. 신규22·앱747통과/16제외·APK/lint/계측 소스/경계 성공. JVM 주입 IO/HTTP이며 실제 AtomicFile 계측1개는 컴파일만 했다. GET-only 완전 관찰·ZIP/SAF/별도 채택·실기기 완료를 뜻하지 않는다. [범위](ANDROID_PROGRESS_JOURNAL_GUARDS.md). 선행 PR #67 최종9ea4d53/run41306933425 SUCCESS3분19초를 확인했고 OS ZIP 저장은 별도 대기다.
+
 2026-10-30 [draft PR #67](https://github.com/gongdongho12/PageTuner/pull/67)는 웹 S1 최신 위치의 committed reader issuer/명시 ZIP 옵션을 연결했다. 웹915/86파일·build/공유 웹/APK/경계·Chrome StrictMode12개/heldGET 폐기·동시 Blob500항목 전체 동등성과 ko/en **고정 iframe** 경계 확인. metadata API는 mock이며 native viewport override는 반영되지 않았다. link.click 뒤 download 이벤트 timeout/새 OS 파일 미확인·다운로드 관리 URL 정책 거절로 실제 저장/독립 ZIP 파일 재개봉은 남았다. Android/별도 채택도 후속이다. [범위·한계](PORTABLE_PROGRESS_EXPORT_UI.md).
 
 2026-10-28 [draft PR #66](https://github.com/gongdongho12/PageTuner/pull/66)는 웹 canonical ZIP composer의 S1 최신 GET 누적 기반이다. 전체 text proof/raw nonce·journal 뒤 canonical 재조회·고정 authority/선택 참조와 용어집500/분류/sibling 보존을 연결했다. 신규40·웹915/86파일·build/공유 웹/APK/경계와 production 웹ZIP55,860→JVM57,234→웹8사례 전체 동등성 통과. fakeIndexedDB/주입 API·로컬 JVM 근거이며 실제 다운로드/HTTP/물리 Android를 뜻하지 않는다. 안전한 committed progress UI issuer/옵션/다운로드·Android·별도 채택은 남았다. [범위](CANONICAL_PROGRESS_EXPORT.md).

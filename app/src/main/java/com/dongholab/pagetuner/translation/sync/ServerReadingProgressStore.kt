@@ -31,51 +31,36 @@ interface ServerReadingProgressStore {
 }
 
 /** Small app-private records, atomically committed before an HTTP mutation is sent. */
-class FileServerReadingProgressStore(private val directory: File) : ServerReadingProgressStore {
+class FileServerReadingProgressStore internal constructor(private val directory: File,
+    private val io: ReadingProgressJournalIo) : ServerReadingProgressStore {
+    constructor(directory: File) : this(directory, AtomicReadingProgressJournalIo)
     override fun read(document: ServerReadingDocument): DeviceReadingProgress {
         return read(document.target()).also { value ->
             listOfNotNull(value.remote?.anchor, value.pending?.anchor, value.queuedAnchor, value.conflict?.anchor).forEach(document::validate)
         }
     }
-    override fun read(target: ServerReadingTarget): DeviceReadingProgress {
+    override fun read(target: ServerReadingTarget): DeviceReadingProgress = ServerJournalFileLocks.withDirectory(directory) {
         val file = file(target)
-        if (!file.baseFile.exists() && !File(file.baseFile.path + ".bak").exists()) return DeviceReadingProgress()
-        return decodeDeviceReadingProgress(readJson(file), target)
+        if (!io.exists(file)) DeviceReadingProgress() else decodeDeviceReadingProgress(readJson(file), target)
     }
-    private fun readJson(file: AtomicFile): JSONObject {
-        val bytes = file.openRead().use { input ->
-            val result = java.io.ByteArrayOutputStream()
-            val buffer = ByteArray(4096)
-            while (true) {
-                val count = input.read(buffer)
-                if (count < 0) break
-                if (result.size() + count > 65_536) throw IOException("Reading progress record is too large")
-                result.write(buffer, 0, count)
-            }
-            result.toByteArray()
-        }
-        return JSONObject(bytes.toString(Charsets.UTF_8))
+    private fun readJson(file: File): JSONObject {
+        val bytes = io.read(file)
+        if (bytes.size > 65_536) throw IOException("Reading progress record is too large")
+        // Replacement decoding could silently change the exact paragraph ID in a stored anchor.
+        return JSONObject(bytes.decodeToString(throwOnInvalidSequence = true))
     }
 
     override fun write(document: ServerReadingDocument, value: DeviceReadingProgress) = write(document.target(), value)
-    override fun write(target: ServerReadingTarget, value: DeviceReadingProgress) {
+    override fun write(target: ServerReadingTarget, value: DeviceReadingProgress) = ServerJournalFileLocks.withDirectory(directory) {
         check(directory.isDirectory || directory.mkdirs()) { "Reading progress directory is unavailable" }
-        val file = file(target)
-        val stream = file.startWrite()
-        try {
-            stream.write(encodeDeviceReadingProgress(target, value).toString().toByteArray(Charsets.UTF_8))
-            file.finishWrite(stream)
-        } catch (error: Exception) {
-            file.failWrite(stream)
-            throw error
-        }
+        io.write(file(target), encodeDeviceReadingProgress(target, value).toString().toByteArray(Charsets.UTF_8))
     }
 
-    override fun pending(accountKey: String): List<ServerReadingTarget> = directory.listFiles().orEmpty()
+    override fun pending(accountKey: String): List<ServerReadingTarget> = ServerJournalFileLocks.withDirectory(directory) { directory.listFiles().orEmpty()
         .map { it.name.removeSuffix(".bak") }.filter { it.matches(Regex("[a-f0-9]{64}\\.json")) }.distinct().mapNotNull { name ->
             // A corrupt record is retained for explicit recovery; it must never be overwritten by a scan.
             runCatching {
-                val json = readJson(AtomicFile(File(directory, name)))
+                val json = readJson(File(directory, name))
                 val pieces = (json.get("key") as String).split(':')
                 require(pieces.size == 3 && pieces[0] == accountKey)
                 val target = ServerReadingTarget(pieces[0], pieces[1], pieces[2])
@@ -84,7 +69,40 @@ class FileServerReadingProgressStore(private val directory: File) : ServerReadin
                 target.takeIf { value.pending != null }
             }.getOrNull()
         }
-    private fun file(target: ServerReadingTarget) = AtomicFile(File(directory, StableContentHash.sha256(target.key) + ".json"))
+    }
+    private fun file(target: ServerReadingTarget) = File(directory, StableContentHash.sha256(target.key) + ".json")
+}
+
+/** Injected IO tests production exclusion on the JVM; Android AtomicFile itself needs instrumentation. */
+internal interface ReadingProgressJournalIo {
+    fun exists(file: File): Boolean
+    fun read(file: File): ByteArray
+    fun write(file: File, bytes: ByteArray)
+}
+private object AtomicReadingProgressJournalIo : ReadingProgressJournalIo {
+    override fun exists(file: File) = file.exists() || File(file.path + ".bak").exists()
+    override fun read(file: File): ByteArray = AtomicFile(file).openRead().use { input ->
+        val result = java.io.ByteArrayOutputStream()
+        val buffer = ByteArray(4096)
+        while (true) {
+            val count = input.read(buffer)
+            if (count < 0) break
+            if (result.size() + count > 65_536) throw IOException("Reading progress record is too large")
+            result.write(buffer, 0, count)
+        }
+        result.toByteArray()
+    }
+    override fun write(file: File, bytes: ByteArray) {
+        val atomic = AtomicFile(file)
+        val stream = atomic.startWrite()
+        try {
+            stream.write(bytes)
+            atomic.finishWrite(stream)
+        } catch (error: Exception) {
+            atomic.failWrite(stream)
+            throw error
+        }
+    }
 }
 
 internal fun encodeDeviceReadingProgress(document: ServerReadingDocument, value: DeviceReadingProgress) = encodeDeviceReadingProgress(document.target(), value)
