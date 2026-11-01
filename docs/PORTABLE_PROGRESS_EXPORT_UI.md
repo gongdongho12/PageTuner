@@ -28,3 +28,5 @@ ignored `.gradle-home/progress-export-screen-*`에 web/sharing/APK·lifecycle·h
 문서 포함 정확한 최종 head CI는 PR 본문/ignored `progress-export-screen-final-ci.json`에서 대조한다. PR #66 `5aa32094be9af40cf9741bc973e8b903ce2ab3c7`/run40685540340 SUCCESS3분52초를 재확인했다. 체인 base를 유지하고 자동 병합하지 않는다.
 
 다음 독립 단위는 Android 최신 S1 직접 GET/ZIP/SAF ticket이며 기존 분류 export의 currentDocument/전체 proof/raw nonce/session 경로를 재사용한다. OS 파일 경로가 확보되면 이번 ZIP의 독립 파일 검증을 마친다. 별도 S1 채택은 nullable journal/CAS·정상 actor cached write 보호가 먼저이며 S2 계약/삭제 tombstone/feed 완결성·PDF 계정/EPUB 원본 교환도 남는다.
+
+2026-11-01 선행 조사: Android `ServerReadingProgressStore`의 read/write/pending에는 다른 journal의 canonical-directory 공유 잠금이 없다. AtomicFile 읽기도 backup 복구를 할 수 있으므로 직접 export 읽기 전에 잠금부터 보완한다. 응답 decoder의 unknown root/anchor 필드와 공백-only/짝없는 surrogate ID도 projection 전에 거절해야 한다. 기존 format1·부재 기본값·backup·pending/queued/conflict/retry 기한과 원래 UUID 파일을 보존하며 자동 migration/삭제하지 않는다. 다음 단위는 이 선행 보완→GET-only 관찰/highwater→canonical/SAF 연결 순서다.
