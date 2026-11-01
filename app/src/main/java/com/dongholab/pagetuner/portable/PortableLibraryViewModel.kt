@@ -42,6 +42,7 @@ class PortableLibraryViewModel(private val context: Context, private val local: 
     private val mutableOpened = MutableSharedFlow<PortableOpened>(extraBufferCapacity = 1)
     val opened = mutableOpened.asSharedFlow()
     private var preparedExport: ByteArray? = null
+    private var preparedExportGuard: (suspend () -> Boolean)? = null
     private val readerGenerations = mutableMapOf<String, Long>()
     private val readerWrites = mutableMapOf<String, Deferred<Result<Unit>>>()
     private val mutableExportReady = MutableSharedFlow<String>(extraBufferCapacity = 1)
@@ -65,9 +66,27 @@ class PortableLibraryViewModel(private val context: Context, private val local: 
     fun prepareExport(entry: PortableLibraryEntry) {
         operation {
             awaitReaderWrites(entry)
+            preparedExportGuard = null
             preparedExport = store.export(entry)
             mutableExportReady.emit("PageTurner-${entry.document.bookTitle.portableFilename()}.ptlibrary.zip")
         }
+    }
+
+    fun prepareAccountGlossaryExport(entry: PortableLibraryEntry, recordId: String, selectedTargetLanguage: String,
+        connection: ServerReadingConnection, isCurrent: () -> Boolean) = operation {
+        preparedExport = null; preparedExportGuard = null
+        val document = currentDocument(entry)
+        val exported = PortableAccountGlossaryExport.create(document, recordId, selectedTargetLanguage,
+            { record, identity -> connection.client.verifyPortableIdentity(record, identity); Unit }, connection.client::bookGlossary,
+            { currentDocument(entry) }, isCurrent)
+        val source = store.read(entry)
+        require(source.documents[entry.documentIndex] == document && isCurrent()) { "Account or document changed during export." }
+        val paths = exported.assets.map { it.path }.toSet()
+        val bytes = LibraryExchangeCodec.write(LibraryExchangePackage(portableTimestamp(), listOf(exported), source.assets.filter { it.path in paths }))
+        require(isCurrent()) { "Account or document changed during export." }
+        preparedExport = bytes
+        preparedExportGuard = { val latestDocument = currentDocument(entry); latestDocument == document && isCurrent() }
+        mutableExportReady.emit("PageTurner-${document.bookTitle.portableFilename()}-account-glossary.ptlibrary.zip")
     }
 
     /** Re-read the validated archive after pending reader writes before any server comparison. */
@@ -102,16 +121,20 @@ class PortableLibraryViewModel(private val context: Context, private val local: 
                     .put("modelId", artifact.modelId).put("promptRevision", artifact.promptRevision).put("glossaryRevision", artifact.glossaryRevision)).toString())
             value = value.copy(documents = value.documents + translated)
         }
+        preparedExportGuard = null
         preparedExport = LibraryExchangeCodec.write(value)
         mutableExportReady.emit("PageTurner-${book.title.portableFilename()}.ptlibrary.zip")
     }
 
     fun writeExport(uri: Uri?) {
-        if (uri == null) { preparedExport = null; return }
+        if (uri == null) { preparedExport = null; preparedExportGuard = null; return }
         operation {
             val bytes = requireNotNull(preparedExport)
-            try { context.contentResolver.openOutputStream(uri, "wt")?.use { it.write(bytes) } ?: error(context.getString(R.string.portable_error_write)) }
-            finally { preparedExport = null }
+            try {
+                require(preparedExportGuard?.invoke() != false) { "Account or document changed before export." }
+                context.contentResolver.openOutputStream(uri, "wt")?.use { it.write(bytes) } ?: error(context.getString(R.string.portable_error_write))
+            }
+            finally { preparedExport = null; preparedExportGuard = null }
             mutableState.update { it.copy(status = R.string.portable_exported) }
         }
     }

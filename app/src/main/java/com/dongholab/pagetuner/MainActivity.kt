@@ -230,6 +230,7 @@ fun PageTurnerApp() {
     val libraryState by libraryViewModel.uiState.collectAsState()
     val portableState by portableViewModel.state.collectAsState()
     val portableIdentityState by portableIdentityViewModel.verification.state.collectAsState()
+    var portableGlossaryExportSelectionRevision by remember { mutableStateOf(0L) }
     val webCatalogState by webCatalogViewModel.uiState.collectAsState()
     val translationState by translationViewModel.uiState.collectAsState()
     val serverLibraryState by serverLibraryViewModel.state.collectAsState()
@@ -906,6 +907,22 @@ fun PageTurnerApp() {
                                         serverLibraryViewModel.readingConnection(), portableViewModel::currentDocument) },
                                     onBind = { portableIdentityViewModel.verification.bind(portableIdentityState.session,
                                         serverLibraryViewModel.readingConnection(), portableViewModel::currentDocument, portableViewModel::saveBinding) },
+                                    initialTargetLanguage = settings.normalizedTargetLanguage,
+                                    exportBusy = portableState.busy,
+                                    exportError = portableState.error,
+                                    onExportLanguageChanged = { portableGlossaryExportSelectionRevision++ },
+                                    onExportGlossary = { selectedLanguage ->
+                                        val selectionRevision = portableGlossaryExportSelectionRevision
+                                        val selected = portableIdentityViewModel.verification.state.value
+                                        val connection = serverLibraryViewModel.readingConnection()
+                                        if (connection != null) selected.entry?.let { entry ->
+                                            portableViewModel.prepareAccountGlossaryExport(entry, selected.recordId, selectedLanguage, connection) {
+                                                selectionRevision == portableGlossaryExportSelectionRevision &&
+                                                portableIdentityViewModel.verification.state.value.session == selected.session &&
+                                                    serverLibraryViewModel.readingConnection()?.let { it.accountKey == connection.accountKey && it.client === connection.client } == true
+                                            }
+                                        }
+                                    },
                                     onUnbind = { portableIdentityViewModel.verification.unbind(portableIdentityState.session,
                                         serverLibraryViewModel.readingConnection(), portableViewModel::removeBinding) },
                                     onReadServer = {

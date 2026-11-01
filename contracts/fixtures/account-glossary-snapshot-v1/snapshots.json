@@ -1,0 +1,61 @@
+{
+  "version": 1,
+  "snapshots": [
+    {
+      "providerId": "source:edge",
+      "bookId": "book|原🌏",
+      "targetLanguage": "ko",
+      "state": "PRESENT",
+      "entries": [
+        {
+          "id": "original-entry-2",
+          "sourceTerm": " Alice ",
+          "translatedTerm": " 앨리스 ",
+          "displayTerm": " 아리 ",
+          "kind": "Character",
+          "caseSensitive": true,
+          "enabled": true
+        },
+        {
+          "id": "disabled-place-1",
+          "sourceTerm": "River",
+          "translatedTerm": "강",
+          "displayTerm": "",
+          "kind": "Place",
+          "caseSensitive": false,
+          "enabled": false
+        },
+        {
+          "id": "term-3",
+          "sourceTerm": "River",
+          "translatedTerm": "리버",
+          "displayTerm": "표시명",
+          "kind": "Term",
+          "caseSensitive": false,
+          "enabled": true
+        }
+      ]
+    },
+    {
+      "providerId": "source:edge",
+      "bookId": "book|原🌏",
+      "targetLanguage": "en",
+      "state": "PRESENT",
+      "entries": []
+    },
+    {
+      "providerId": "source:edge",
+      "bookId": "book|原🌏",
+      "targetLanguage": "ja",
+      "state": "ABSENT",
+      "entries": null
+    },
+    {
+      "providerId": "source:edge",
+      "bookId": "book|原🌏",
+      "targetLanguage": "zh",
+      "state": "DELETED",
+      "entries": null
+    }
+  ]
+}

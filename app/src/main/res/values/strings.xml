@@ -597,4 +597,7 @@
     <string name="gemini_setup_hint">Enter a Google AI Studio API key. Gemini web subscriptions are separate from API billing.</string>
     <string name="provider_health_missing_gemini_key">Gemini API key is required.</string>
     <string name="gemini_local_secret_active">Using the local Gemini development key.</string>
+
+    <string name="portable_account_glossary_export">Export latest account glossary ZIP</string>
+    <string name="portable_account_glossary_language">Account glossary target language</string>
 </resources>

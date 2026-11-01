@@ -8,5 +8,6 @@ kotlin {
 
 dependencies {
     api(project(":core-translation"))
+    api(project(":core-model"))
     testImplementation(libs.junit)
 }

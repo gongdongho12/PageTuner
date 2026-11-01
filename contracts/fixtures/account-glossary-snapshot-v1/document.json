@@ -1,0 +1,117 @@
+{
+  "id": "portable:original",
+  "bookTitle": "Book 🌏",
+  "chapterTitle": "One",
+  "language": "en",
+  "kind": "original",
+  "paragraphs": [
+    {
+      "paragraphId": "p:1",
+      "text": " Hello 🌏:\nline|x "
+    },
+    {
+      "paragraphId": "p|2",
+      "text": "끝"
+    }
+  ],
+  "extensions": {
+    "serverRecordId": "30ea7fb9-fc58-49de-adab-d2acfe91320e",
+    "documentIdentity": {
+      "version": 1,
+      "kind": "ORIGINAL",
+      "contentProviderId": "source:edge",
+      "bookId": "book|原🌏",
+      "chapterId": "chapter:one",
+      "sourceRevision": "dd6d7c2cdba67ae5f62a649a19b5008ac2a80ee9e6c7c0063a6da27167908aba",
+      "sourceLanguage": "en",
+      "paragraphHash": "7159c2d1dc60047b5c1ab52058e3d166481adf1fcdd60aea73387df70fb2ba70"
+    },
+    "passive": {
+      "keep": "unchanged"
+    },
+    "vendorPassive": {
+      "label": "사본 보존 😀"
+    },
+    "accountGlossarySnapshots": {
+      "version": 1,
+      "snapshots": [
+        {
+          "providerId": "source:edge",
+          "bookId": "book|原🌏",
+          "targetLanguage": "ko",
+          "state": "PRESENT",
+          "entries": [
+            {
+              "id": "original-entry-2",
+              "sourceTerm": " Alice ",
+              "translatedTerm": " 앨리스 ",
+              "displayTerm": " 아리 ",
+              "kind": "Character",
+              "caseSensitive": true,
+              "enabled": true
+            },
+            {
+              "id": "disabled-place-1",
+              "sourceTerm": "River",
+              "translatedTerm": "강",
+              "displayTerm": "",
+              "kind": "Place",
+              "caseSensitive": false,
+              "enabled": false
+            },
+            {
+              "id": "term-3",
+              "sourceTerm": "River",
+              "translatedTerm": "리버",
+              "displayTerm": "표시명",
+              "kind": "Term",
+              "caseSensitive": false,
+              "enabled": true
+            }
+          ]
+        },
+        {
+          "providerId": "source:edge",
+          "bookId": "book|原🌏",
+          "targetLanguage": "en",
+          "state": "PRESENT",
+          "entries": []
+        },
+        {
+          "providerId": "source:edge",
+          "bookId": "book|原🌏",
+          "targetLanguage": "ja",
+          "state": "ABSENT",
+          "entries": null
+        },
+        {
+          "providerId": "source:edge",
+          "bookId": "book|原🌏",
+          "targetLanguage": "zh",
+          "state": "DELETED",
+          "entries": null
+        }
+      ]
+    }
+  },
+  "outline": [],
+  "notes": [],
+  "organization": {
+    "folder": "local folder",
+    "tags": [
+      "keep"
+    ],
+    "favorite": false
+  },
+  "glossary": [
+    {
+      "source": "legacy",
+      "target": "기기 용어",
+      "kind": "term",
+      "displayTerm": "",
+      "caseSensitive": true,
+      "enabled": true
+    }
+  ],
+  "assets": []
+}

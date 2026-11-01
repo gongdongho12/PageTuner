@@ -33,7 +33,7 @@
 | S4b1 | S4b 하위 | 완료 | 검증된 텍스트 ZIP의 계정 기록 연결 | 계정·origin·사본·전체 identity별 명시적 binding, 읽기 전 재검증, 로컬/계정 기록 분리, S1~S3 canonical reader. 서버 190개·앱 475개·웹 428개 및 실제 웹 보존/삭제 검증. [근거](PORTABLE_DOCUMENT_BINDING.md) |
 | S4b2 | S4b 하위 | 진행 | 자산 문서와 독립 기기 파일의 안전한 연결 | S4b2a 공통 전체 내용 proof와 정확한 anchor 검증 완료. 서버 자산 저장·재검증과 앱/웹 명시적 연결은 S4b2b 후속. 현재 거절 범위는 유지하고 페이지로 추정하지 않음 |
 | S4b2a | S4b2 하위 | 완료 | 전체 파일·본문·자산 proof와 위치 계약 | Kotlin/웹 동일 framed SHA-256, 전체 원본 bytes와 ordered 자산 참조, proof-bound UTF-16/PDF anchor. 순수 계약·검증 단위이며 계정 연결을 활성화하지 않음. [근거](PORTABLE_CONTENT_PROOF.md) |
-| S4c | S4 하위 | 대기 | 최신 동기화 기록의 ZIP 내보내기·가져오기 | 현재 위치·메모·분류·원래 ID와 언어 범위가 있는 용어집의 무손실 스냅샷, 충돌/대기 상태 구분, 자격 증명·CAS/outbox mutation 이전 금지 |
+| S4c | S4 하위 | 진행 / S4c1 완료 | 최신 동기화 기록의 ZIP 내보내기·가져오기 | 현재 위치·메모·분류·원래 ID와 언어 범위가 있는 용어집의 무손실 스냅샷, 충돌/대기 상태 구분, 자격 증명·CAS/outbox mutation 이전 금지 |
 | W1 | 5 | 대기 | 웹 로컬 번역 캐시의 서버 업로드·복원 | 전체 문단 검증, 원문 revision 대응, 미완성/다른 제공자 충돌 처리, 앱에서 재조회 |
 | W2 | 6 | 대기 | 웹 진단 화면 | 민감정보 제거된 제한 크기 로그, 번역/수집/동기화 오류 구분, 복사/내보내기·삭제, 작은 화면 페이지 탐색 |
 | W3 | 7 | 대기 | 번역 작업 제어와 묶음 범위 개선 | 앱·웹 일시정지/재개 동작 통일 가능 범위, 현재 20회차 제한의 서버 큐 확장, 재시작·중복 제출·취소 검증 |
@@ -135,3 +135,6 @@ S4b1 재구현 없이 공유 실제 로컬 책 확인, 공유 본문 선택 방�
 - 2026-10-03 18시 heartbeat: PR #36 최종 `c05f2577`의 [CI](https://github.com/gongdongho12/PageTuner/actions/runs/37109572852) 성공(3분55초)을 확인했다. S4c 다음 단위 조사에서 server public shell의 폰트 라이선스 GET 누락을 발견해 기존 기능 결함을 먼저 수정했다. 정확한 경로만 공개하고 MVC 7개, 실제 익명 SHELL 68개 및 서버 종료 후 브라우저 오프라인 읽기/라이선스/페이지 이동을 검증했다. 다른 로컬 개선 변경은 보존했다.
 - S4c 다음 작은 단위 후보: 계정 용어집의 passive ZIP snapshot 계약/codec. 기존 glossary는 원래 ID·대상 언어를 잃으므로 별도 extension이 필요하다. 전체 순서·별칭·활성/대소문자·null 삭제/빈 배열을 보존하고 CAS/outbox/계정 인증 정보는 내보내지 않는다. 캐시·pending/conflict를 최신 서버 기록이라고 표시하지 않으며 실제 최신 내보내기는 명시적 GET과 늦은 계정 응답 폐기가 필요하다. S4b2 실제 연결은 서버 원본 바이너리 영속 보관 기반부터 필요하다. 이번 실행에서는 조사만 했고 S4c 구현 완료로 표시하지 않는다.
 - 폰트 공개 경로 후속 [draft PR #37](https://github.com/gongdongho12/PageTuner/pull/37): `codex/public-font-license` → `codex/portable-content-proof`(#36). 수정 `c019502b`, 검증 기록 `0e280646`를 분리해 push했다. CI 최종 head를 확인하고 다음 실행에서 S4c passive 용어집 snapshot의 독립 가능한 단위를 진행한다. 자동 병합하지 않는다.
+
+- 2026-10-03 사용자 요청으로 잔여 작업 진행: PR #37 최종 `74e83cd9` [CI](https://github.com/gongdongho12/PageTuner/actions/runs/37113905563) 성공(5분10초)을 확인하고 `codex/portable-account-glossary`에서 S4c1을 구현했다. 앱·웹의 별도 명시적 내보내기는 현재 계정 서버 원본의 전체 identity를 확인한 뒤 실제 용어집 조회 결과만 passive ZIP extension으로 담는다. 전체 ID·순서·별칭·언어 범위와 PRESENT/ABSENT/DELETED를 보존하며 기기 기록·기존 glossary는 그대로 둔다. 가져오기는 계정 쓰기 권한을 만들지 않는다. 구현·독립 검토·최종 검사와 실제 웹 다운로드 검증 완료. 공통 35개, Android 478개 통과/15개 기존 opt-in 제외, 웹 450개·계약 14개·typecheck/build, APK/lint 성공. 390×844 실제 UI에서 받은 ZIP의 최신 서버 snapshot 및 기기 기록 무손실 보존을 확인했다. 연결된 emulator가 없어 Android 저장 chooser는 미검증이다. [근거](PORTABLE_ACCOUNT_GLOSSARY.md).
+- 다음 단위는 S4c의 위치·메모·분류 최신 snapshot 및 명시적 가져오기 선택, S4b2의 서버 원본 자산 보관·재검증이다. S4c1 용어집 보존을 S4c 전체 완료로 세지 않는다. 실제 물리 폰 볼륨 전달/터치와 유료 API는 미검증 상태를 유지한다.

@@ -9,6 +9,11 @@ import { getWorkflowPosition } from './workflowPosition'
 import type { ReadingDocument } from './readingDocument'
 import { validAnchor, validReadingPosition } from './readingDocument'
 import { readingRangeText } from './readingSelection'
+import { accountGlossarySnapshot, mergeAccountGlossarySnapshot } from './accountGlossarySnapshot'
+import { bookGlossaryScope } from './bookGlossaryProjection'
+import { BookGlossaryError, type BookGlossaryClient } from './bookGlossaryApi'
+import { LibraryIdentityError, type LibraryIdentityClient } from './libraryIdentityApi'
+import { inspectPortableIdentity } from './libraryIdentity'
 import { originalLibraryIdentity, translationLibraryIdentity, type LibraryDocumentIdentity } from './libraryIdentity'
 
 export type SavedExchange = { id: string; document: ExchangeDocument; assets: ExchangeAsset[]; importedAt: string; checksum: string; integratedNoteIds: string[] }
@@ -106,7 +111,7 @@ export async function exchangeExportChoices(username: string): Promise<ExchangeE
   try {
     const [local, translations, originals, exchanged] = await Promise.all([createLocalDocuments(username).list(), offline.list(), personal.originals(), portable.list()])
     const prepare = async (reading: ReadingDocument, options: { organization?: ExchangeDocument['organization']; extensions?: Record<string, unknown>; anchor?: import('./offline').ReadingAnchor; glossaryIdentity?: { providerId: string; bookId: string } } = {}): Promise<ExchangePackage> => {
-      const savedNotes = await notes.list(reading); if (savedNotes.damagedIds.length) throw new Error('손상된 읽기 기록을 확인한 뒤 내보내 주세요.')
+      const savedNotes = await notes.list({ ...reading, serverProgress: undefined }); if (savedNotes.damagedIds.length) throw new Error('손상된 읽기 기록을 확인한 뒤 내보내 주세요.')
       const position = await notes.getPosition(reading) ?? options.anchor
       const assets: ExchangeAsset[] = [], refs: ExchangeDocument['assets'] = []
       async function add(blob: Blob, role: 'pdf' | 'image', paragraphId?: string, alt?: string) {
@@ -142,3 +147,32 @@ export async function mergeExchangePackages(packages: ExchangePackage[]): Promis
 }
 
 export function exchangePdfDocument(saved: SavedExchange): LocalDocument | undefined { const doc = exchangeReadingDocument(saved); return doc.local?.format === 'pdf' ? doc as LocalDocument : undefined }
+
+/** Explicit real server read-query snapshot export. Imported metadata remains passive and never adopts account records. */
+export async function exportLatestAccountGlossaries(input: ExchangePackage, options: {
+  identityClient: LibraryIdentityClient; glossaryClient: BookGlossaryClient; originalTargetLanguage: string; signal?: AbortSignal;
+}): Promise<ExchangePackage> {
+  const { identityClient, glossaryClient, originalTargetLanguage, signal } = options
+  const captured = structuredClone(input), documents: ExchangeDocument[] = []
+  const active = () => { if (signal?.aborted) throw new Error('계정 용어집 내보내기가 취소되었습니다.') }
+  try {
+    for (const document of captured.documents) {
+      active(); const check = await inspectPortableIdentity(document); active()
+      if (check.status !== 'ready' || !check.recordIdHint) throw new Error('최신 계정 용어집을 내보내려면 이 문서의 서버 원본 확인 정보가 필요합니다.')
+      await identityClient.verify(check.recordIdHint, check.identity, signal); active()
+      const target = check.identity.kind === 'TRANSLATION' ? check.identity.targetLanguage! : originalTargetLanguage
+      const scope = bookGlossaryScope(check.identity.contentProviderId, check.identity.bookId, target)
+      if (!scope) throw new Error('이 문서의 계정 용어집 언어 범위를 지원하지 않습니다.')
+      // Originals use the explicitly selected target; translations require their actual exact target spelling.
+      if (check.identity.kind === 'TRANSLATION' && scope.targetLanguage !== target) throw new Error('이 문서의 계정 용어집 언어 범위를 지원하지 않습니다.')
+      const view = await glossaryClient.get(scope, signal); active()
+      const snapshot = accountGlossarySnapshot(view, check.identity, scope)
+      documents.push(validateExchangeDocument({ ...document, extensions: mergeAccountGlossarySnapshot(document.extensions, snapshot, check.identity) }))
+    }
+    active(); return { ...captured, documents }
+  } catch (error) {
+    if (signal?.aborted) throw new Error('계정 용어집 내보내기가 취소되었습니다.')
+    if (error instanceof BookGlossaryError || error instanceof LibraryIdentityError) throw new Error('서버의 최신 계정 용어집을 가져오지 못했습니다. 연결과 계정을 확인한 뒤 다시 시도해 주세요.')
+    throw error
+  }
+}

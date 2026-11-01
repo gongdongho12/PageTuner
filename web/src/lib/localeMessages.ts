@@ -1,5 +1,13 @@
 /** Korean source keys keep existing copy readable. Add packs through registerLanguagePack. */
 export const englishMessages: Record<string, string> = {
+  '최신 계정 용어집과 함께 내보내기 · 원문 {0}': 'Export latest account glossary · Originals: {0}',
+  '계정 용어집 ZIP 정보를 확인할 수 없습니다.': 'Could not validate the account glossary ZIP metadata.',
+  '계정 용어집 내보내기가 취소되었습니다.': 'Account glossary export canceled.',
+  '최신 계정 용어집을 내보내려면 이 문서의 서버 원본 확인 정보가 필요합니다.': 'This document needs verified server provenance to export the latest account glossary.',
+  '이 문서의 계정 용어집 언어 범위를 지원하지 않습니다.': 'This document’s account glossary language scope is unsupported.',
+  '서버의 최신 계정 용어집을 가져오지 못했습니다. 연결과 계정을 확인한 뒤 다시 시도해 주세요.': 'Could not fetch the latest account glossary. Check the connection and account, then retry.',
+  '최신 계정 용어집을 내보내려면 서버에 연결해 주세요.': 'Connect to the server to export the latest account glossary.',
+
   '계정 기록으로 읽기': 'Read account records',
   '이 문서를 계정 기록에 연결': 'Connect to account records',
   '서버 원본과 일치합니다. 연결을 선택하면 계정 기록으로 읽습니다. 기기 기록은 별도로 보존됩니다.': 'Server content matches. Connecting enables account records. Device records remain separate.',

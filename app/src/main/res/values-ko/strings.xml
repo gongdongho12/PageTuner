@@ -597,4 +597,7 @@
     <string name="gemini_setup_hint">Google AI Studio API 키를 입력하세요. Gemini 웹 구독과 API 결제는 별개입니다.</string>
     <string name="provider_health_missing_gemini_key">Gemini API 키가 필요합니다.</string>
     <string name="gemini_local_secret_active">로컬 Gemini 개발 키를 사용합니다.</string>
+
+    <string name="portable_account_glossary_export">최신 계정 용어집 ZIP 내보내기</string>
+    <string name="portable_account_glossary_language">계정 용어집의 대상 언어</string>
 </resources>

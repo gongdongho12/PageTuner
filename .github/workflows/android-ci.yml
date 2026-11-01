@@ -33,7 +33,7 @@ jobs:
       - name: Run unit tests
         run: |
           chmod +x gradlew
-          ./gradlew :core-backup:test testDebugUnitTest
+          ./gradlew :core-backup:test :backup-runtime:test testDebugUnitTest
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
