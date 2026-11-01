@@ -24,6 +24,31 @@ class ServerJournalFileStoreInstrumentedTest {
     private val mutationId = "00000000-0000-4000-8000-000000000002"
     private val timestamp = "2026-10-22T00:00:00Z"
 
+    @Test fun duplicateProgressStoresSerializeReadPendingAndWriteWithActiveAtomicCommit() {
+        repeat(3) { action ->
+            withDirectory { directory ->
+                val target = ServerReadingTarget(account, "ORIGINAL", recordId)
+                val writer = FileServerReadingProgressStore(directory)
+                val other = FileServerReadingProgressStore(File(directory, "."))
+                val anchor = ServerReadingAnchor("paragraph-one", 7)
+                val initial = DeviceReadingProgress(remote = ServerReadingProgress(
+                    target.kind, target.recordId, 1, anchor, timestamp))
+                val committed = initial.copy(pending = ServerReadingMutation(1, mutationId, anchor), retryAfterUntil = 12_345)
+                val subsequent = committed.copy(queuedAnchor = ServerReadingAnchor("queued", 0))
+                writer.write(target, initial)
+                val file = File(directory, StableContentHash.sha256(target.key) + ".json")
+                atomicCommitWhileBlocked(directory, file, encodeDeviceReadingProgress(target, committed).toString()) {
+                    when (action) {
+                        0 -> assertEquals(committed, other.read(target))
+                        1 -> assertEquals(listOf(target), other.pending(account))
+                        else -> other.write(target, subsequent)
+                    }
+                }
+                assertEquals(if (action == 2) subsequent else committed, writer.read(target))
+            }
+        }
+    }
+
     @Test fun duplicateOrganizationStoresSerializeReadTargetsAndWriteWithActiveAtomicCommit() {
         repeat(3) { action ->
             withDirectory { directory ->
