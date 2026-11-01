@@ -61,24 +61,46 @@ data class ServerReadingDocument(val accountKey: String, val source: ServerLibra
 }
 
 internal object ServerReadingProgressJson {
+    private fun fields(value: JSONObject, expected: Set<String>) {
+        require(value.keys().asSequence().toSet() == expected)
+    }
     fun validateTarget(kind: String, recordId: String) {
         require(kind in setOf("ORIGINAL", "TRANSLATION") && UUID.fromString(recordId).toString() == recordId)
     }
     fun validateAnchor(anchor: ServerReadingAnchor) {
-        require(anchor.paragraphId.length in 1..200 && anchor.paragraphId.none(Char::isISOControl) && anchor.characterOffset >= 0)
+        val id = anchor.paragraphId
+        // Check nonblank without trimming, case folding or normalizing the persisted identity.
+        require(id.length in 1..200 && trimLibraryOrganizationText(id).isNotEmpty() && anchor.characterOffset >= 0)
+        var index = 0
+        while (index < id.length) {
+            val char = id[index++]
+            require(!char.isISOControl())
+            if (char.isHighSurrogate()) require(index < id.length && id[index++].isLowSurrogate())
+            else require(!char.isLowSurrogate())
+        }
     }
-    fun anchor(value: JSONObject): ServerReadingAnchor = ServerReadingAnchor(value.get("paragraphId") as String,
-        integer(value, "characterOffset", Int.MAX_VALUE.toLong()).toInt()).also(::validateAnchor)
-    fun encode(anchor: ServerReadingAnchor) = JSONObject().put("paragraphId", anchor.paragraphId).put("characterOffset", anchor.characterOffset)
+    fun anchor(value: JSONObject): ServerReadingAnchor {
+        fields(value, setOf("paragraphId", "characterOffset"))
+        return ServerReadingAnchor(value.get("paragraphId") as String,
+            integer(value, "characterOffset", Int.MAX_VALUE.toLong()).toInt()).also(::validateAnchor)
+    }
+    fun encode(anchor: ServerReadingAnchor): JSONObject {
+        validateAnchor(anchor)
+        return JSONObject().put("paragraphId", anchor.paragraphId).put("characterOffset", anchor.characterOffset)
+    }
     fun encode(mutation: ServerReadingMutation): JSONObject {
         require(mutation.expectedVersion in 0 until MaxReadingVersion && UUID.fromString(mutation.mutationId).toString() == mutation.mutationId)
         validateAnchor(mutation.anchor)
         return JSONObject().put("expectedVersion", mutation.expectedVersion).put("mutationId", mutation.mutationId).put("anchor", encode(mutation.anchor))
     }
-    fun mutation(value: JSONObject) = ServerReadingMutation(integer(value, "expectedVersion", MaxReadingVersion - 1),
-        value.get("mutationId") as String, anchor(value.getJSONObject("anchor"))).also { encode(it) }
+    fun mutation(value: JSONObject): ServerReadingMutation {
+        fields(value, setOf("expectedVersion", "mutationId", "anchor"))
+        return ServerReadingMutation(integer(value, "expectedVersion", MaxReadingVersion - 1),
+            value.get("mutationId") as String, anchor(value.getJSONObject("anchor"))).also { encode(it) }
+    }
     fun decode(value: JSONObject, kind: String, recordId: String): ServerReadingProgress {
         validateTarget(kind, recordId)
+        fields(value, setOf("kind", "recordId", "version", "anchor", "updatedAt"))
         require(value.get("kind") == kind && value.get("recordId") == recordId)
         val version = integer(value, "version", MaxReadingVersion)
         val anchor = if (value.get("anchor") == JSONObject.NULL) null else anchor(value.getJSONObject("anchor"))

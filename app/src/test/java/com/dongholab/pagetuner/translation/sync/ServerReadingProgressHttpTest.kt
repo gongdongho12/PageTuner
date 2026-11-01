@@ -68,6 +68,61 @@ class ServerReadingProgressHttpTest {
         }
     }
 
+    @Test fun directGetRejectsUnknownResponseOrAnchorFieldsBeforeProjection() {
+        listOf(payload().put("future", "must not disappear"),
+            payload().put("anchor", payload().getJSONObject("anchor").put("pageIndex", 1))).forEach { json ->
+            val requests = mutableListOf<TranslationStoreHttpRequest>()
+            val error = assertThrows(TranslationStoreException::class.java) { runBlocking {
+                client { request -> requests += request; TranslationStoreHttpResponse(200, body = json.toString()) }
+                    .readingProgress("ORIGINAL", id)
+            } }
+            assertEquals(TranslationStoreFailure.INVALID_RESPONSE, error.failure)
+            assertEquals(listOf("GET"), requests.map { it.method })
+        }
+    }
+
+    @Test fun directGetRejectsBlankAndEscapedUnpairedUnicodeParagraphs() {
+        listOf(" ", "\\ufeff\\u00a0", "\\ud800", "\\udc00", "p\\ud800x", "p\\u0085").forEach { paragraphJson ->
+            val raw = payload().toString().replace("paragraph-one", paragraphJson)
+            val error = assertThrows(TranslationStoreException::class.java) { runBlocking {
+                client { TranslationStoreHttpResponse(200, body = raw) }.readingProgress("ORIGINAL", id)
+            } }
+            assertEquals(TranslationStoreFailure.INVALID_RESPONSE, error.failure)
+        }
+    }
+
+    @Test fun directGetPreservesExactUnicodeParagraphAndAbsentStateWithoutWrites() = runBlocking {
+        val paragraph = " \ufeffP:é e\u0301 🌏  "
+        val calls = mutableListOf<String>()
+        val json = payload().put("anchor", JSONObject().put("paragraphId", paragraph).put("characterOffset", Int.MAX_VALUE))
+        val connected = client { request -> calls += request.method; TranslationStoreHttpResponse(200, body = json.toString()) }
+        assertEquals(ServerReadingAnchor(paragraph, Int.MAX_VALUE), connected.readingProgress("ORIGINAL", id).anchor)
+        val absent = payload().put("version", 0).put("anchor", JSONObject.NULL).put("updatedAt", JSONObject.NULL)
+        val missing = client { request -> calls += request.method; TranslationStoreHttpResponse(200, body = absent.toString()) }
+            .readingProgress("ORIGINAL", id)
+        assertEquals(ServerReadingProgress("ORIGINAL", id, 0, null, null), missing)
+        assertEquals(listOf("GET", "GET"), calls)
+    }
+
+    @Test fun acknowledgementAndConflictCurrentAlsoRejectUnknownFields() {
+        listOf(200, 409).forEach { status ->
+            val invalid = payload().put("anchor", payload().getJSONObject("anchor").put("fallbackOffset", 0))
+            val body = if (status == 200) invalid else JSONObject().put("code", "READING_PROGRESS_CONFLICT").put("current", invalid)
+            val error = assertThrows(TranslationStoreException::class.java) { runBlocking {
+                client { TranslationStoreHttpResponse(status, body = body.toString()) }.saveReadingProgress("ORIGINAL", id, mutation)
+            } }
+            assertEquals(TranslationStoreFailure.INVALID_RESPONSE, error.failure)
+        }
+    }
+
+    @Test fun uppercaseUuidScopeIsRejectedBeforeAnyTransportCall() {
+        var calls = 0
+        val client = client { calls++; TranslationStoreHttpResponse(200, body = payload().toString()) }
+        val uppercase = "abcdefab-cdef-4abc-8def-abcdefabcdef".uppercase()
+        assertThrows(IllegalArgumentException::class.java) { runBlocking { client.readingProgress("ORIGINAL", uppercase) } }
+        assertEquals(0, calls)
+    }
+
     private fun client(handler: suspend (TranslationStoreHttpRequest) -> TranslationStoreHttpResponse) =
         HttpTranslationStore("https://reader.example", TranslationStoreBasicAuth("reader", "password"), TranslationStoreHttpTransport { request ->
             if (request.url.endsWith("/csrf")) TranslationStoreHttpResponse(200, mapOf("Set-Cookie" to listOf("JSESSIONID=session; Path=/; HttpOnly")),
