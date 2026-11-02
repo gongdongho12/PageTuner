@@ -1,5 +1,7 @@
 # PageTuner 남은 작업 체크리스트
 
+- [x] **Android S1 strict readonly UUID 별칭 관찰**: [draft PR #69](https://github.com/gongdongho12/PageTuner/pull/69), base PR #68. 부재/빈 journal 구분·raw scope/전체 대기 값 보존·단일 directory 잠금·직접 .bak 우선 무복구 read·raw 중복키/정수/schema 검증·불완전 결과 거절. 신규23·앱770통과/16제외·APK/lint/계측 소스/경계 성공. 계측4개는 컴파일만 했으며 scoped 최신 GET reader/ZIP/SAF·채택은 후속이다. [범위·가용성 한계](ANDROID_PROGRESS_OBSERVATIONS.md).
+
 - [x] **Android S1 strict 응답·journal 공유 잠금 선행 보완**: [draft PR #68](https://github.com/gongdongho12/PageTuner/pull/68), base PR #67. unknown 필드/공백-only·짝없는 Unicode 거절·원래 ID 보존, read/recovery/write/pending의 canonical alias 공유 잠금과 strict UTF-8 거절. 신규22·대상53·앱747통과/16제외·APK/lint/계측 소스/경계 성공. 실제 AtomicFile 계측은 컴파일만, GET-only 관찰/ZIP/SAF·채택은 후속이다. [범위](ANDROID_PROGRESS_JOURNAL_GUARDS.md).
 
 - [x] **S1 웹 committed issuer·ZIP 옵션 연결**: [draft PR #67](https://github.com/gongdongho12/PageTuner/pull/67), base PR #66. 고정 account/origin lease·선택/옵션 세대·기본 해제·오프라인 해제·기존 최종 guard를 연결했다. 웹915/86파일·build/공유 웹/APK/경계·Chrome StrictMode12개/heldGET·Blob500항목 동등성·고정 iframe ko/en 경계 확인. [범위](PORTABLE_PROGRESS_EXPORT_UI.md).

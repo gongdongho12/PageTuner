@@ -1,5 +1,7 @@
 # Android S1 응답·journal 공유 잠금 선행 보완
 
+후속 [PR #69](ANDROID_PROGRESS_OBSERVATIONS.md)에 정상 read/pending과 별개인 strict readonly 별칭 관찰을 추가했다. 새 관찰은 .bak를 직접 읽어 복구하지 않으며 아래 PR #68 당시 정상 AtomicFile read의 복구 동작과 구분한다. scoped 직접 GET/ZIP/SAF/채택은 계속 후속이다.
+
 2026-11-01 [draft PR #68](https://github.com/gongdongho12/PageTuner/pull/68), base `codex/progress-export-screen`(#67), head `codex/android-progress-journal-guards`다. 응답/anchor 검증 `8cf987c`·journal 제외/회귀 `8e9e08a`와 문서를 분리했다. **내부 선행 보완**이며 새 GET-only reader, canonical ZIP adapter/SAF 옵션이나 명시적 채택을 연결한 단위가 아니다.
 
 ## 정확한 응답과 원래 anchor
