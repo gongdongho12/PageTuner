@@ -6,6 +6,8 @@
 
 ## 판정 방법
 
+2026-11-02 [draft PR #69](https://github.com/gongdongho12/PageTuner/pull/69)는 Android S1의 strict readonly journal 관찰 기반이다. raw UUID 별칭·전체 pending/queued/conflict/기한을 보존하고 .bak 직접 우선 read/무복구·raw 중복키/정수/UTF-8·schema 검증 뒤 전체 결과만 반환한다. 신규23·앱770통과/16제외·APK/lint/계측 소스/경계 성공. JVM 주입 IO이며 Android stat/AtomicFile 계측4개는 컴파일만 했다. 관련 없는 손상 행도 관찰을 막는 보수적 가용성 한계가 있다. 최신 GET reader·canonical ZIP/SAF/UI·채택은 후속이다. [범위](ANDROID_PROGRESS_OBSERVATIONS.md).
+
 2026-11-01 [draft PR #68](https://github.com/gongdongho12/PageTuner/pull/68)는 Android S1의 exact response/anchor와 journal 공유 잠금 선행 보완이다. 원래 Unicode/공백/대소문자를 보존하고 malformed 데이터는 거절하며 read/recovery/write/pending이 canonical alias 사이 제외된다. 신규22·앱747통과/16제외·APK/lint/계측 소스/경계 성공. JVM 주입 IO/HTTP이며 실제 AtomicFile 계측1개는 컴파일만 했다. GET-only 완전 관찰·ZIP/SAF/별도 채택·실기기 완료를 뜻하지 않는다. [범위](ANDROID_PROGRESS_JOURNAL_GUARDS.md). 선행 PR #67 최종9ea4d53/run41306933425 SUCCESS3분19초를 확인했고 OS ZIP 저장은 별도 대기다.
 
 2026-10-30 [draft PR #67](https://github.com/gongdongho12/PageTuner/pull/67)는 웹 S1 최신 위치의 committed reader issuer/명시 ZIP 옵션을 연결했다. 웹915/86파일·build/공유 웹/APK/경계·Chrome StrictMode12개/heldGET 폐기·동시 Blob500항목 전체 동등성과 ko/en **고정 iframe** 경계 확인. metadata API는 mock이며 native viewport override는 반영되지 않았다. link.click 뒤 download 이벤트 timeout/새 OS 파일 미확인·다운로드 관리 URL 정책 거절로 실제 저장/독립 ZIP 파일 재개봉은 남았다. Android/별도 채택도 후속이다. [범위·한계](PORTABLE_PROGRESS_EXPORT_UI.md).
