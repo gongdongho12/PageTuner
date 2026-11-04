@@ -20,6 +20,8 @@ class PortableAccountMetadataExportTest {
         val other = BookGlossarySnapshot(scope.copy(targetLanguage = "ja"), BookGlossarySnapshotPresence.ABSENT, null)
         val canonical = BookGlossarySnapshotsJson.withSnapshots(source.copy(
             organization = ExchangeOrganization("Legacy", listOf("legacy"), false),
+            position = ExchangeAnchor("p1", 0),
+            notes = listOf(ExchangeNote("legacy", "note", "Title", " 메모 é ", "First", ExchangeAnchor("p1", 0), NotesFixture.time)),
             extensionsJson = JSONObject(source.extensionsJson!!).put("unknownSibling", "保 存").toString()),
             BookGlossarySnapshots(snapshots = listOf(other)))
         val entry = PortableLibraryEntry("a".repeat(64), 0, canonical)
@@ -35,7 +37,11 @@ class PortableAccountMetadataExportTest {
         val organization = PortableAccountOrganizationExport({ canonical }, { canonical }, { _, _ -> binding }, { DeviceLibraryOrganization() },
             verify = { _, _, _ -> }, query = { _, kind, id -> organizationQueries++
                 ServerLibraryOrganization(kind, id, 4, organizationValue, NotesFixture.time) }).prepare(entry, connection) {}
-        val prepared = combineAccountMetadataExports(glossary, organization) {}
+        val progressSnapshot = ReadingProgressSnapshot(identity = identity, presence = ReadingProgressSnapshotPresence.PRESENT,
+            anchor = ReadingProgressSnapshotAnchor(canonical.paragraphs.first().paragraphId, canonical.paragraphs.first().text.length))
+        val progress = PreparedAccountReadingProgress(ReadingProgressSnapshotJson.withSnapshot(canonical, progressSnapshot),
+            progressSnapshot, detachedAccountExportSource(entry, connection, binding)) {}
+        val prepared = combineAccountMetadataExports(glossary, organization, progress) {}
         val tickets = PortableExportTickets(); val request = tickets.begin("combined.zip", connection)
         tickets.prepare(request, LibraryExchangeCodec.write(LibraryExchangePackage(NotesFixture.time, listOf(prepared.document))),
             connection, prepared.checkBeforeWrite)
@@ -46,6 +52,9 @@ class PortableAccountMetadataExportTest {
         assertEquals(values.map { it.syncEntry() }, snapshots.last().entries)
         assertEquals(500, snapshots.last().entries!!.size)
         assertEquals(organization.snapshot, LibraryOrganizationSnapshotJson.fromDocument(document))
+        assertEquals(progressSnapshot, ReadingProgressSnapshotJson.fromDocument(document))
+        assertEquals(canonical.position, document.position)
+        assertEquals(canonical.notes, document.notes)
         assertEquals(canonical.organization, document.organization)
         assertEquals(canonical.paragraphs, document.paragraphs)
         assertEquals(identity, DocumentIdentityJson.fromDocument(document))

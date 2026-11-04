@@ -6,6 +6,7 @@ import com.dongholab.pagetuner.translation.sync.*
 internal data class PreparedAccountOrganization(
     val document: ExchangeDocument,
     val snapshot: LibraryOrganizationSnapshot,
+    val source: PortableAccountExportSource? = null,
     val checkBeforeWrite: () -> Unit,
 )
 
@@ -84,7 +85,7 @@ internal class PortableAccountOrganizationExport(
             organization = fresh.organization?.let { LibraryOrganizationSnapshotValue(it.folder, it.tags.toList(), it.favorite) })
         val updated = LibraryOrganizationSnapshotJson.withSnapshot(document, snapshot)
         guard()
-        return PreparedAccountOrganization(updated, snapshot, ::guard)
+        return PreparedAccountOrganization(updated, snapshot, detachedAccountExportSource(selected, connection, linked), ::guard)
     }
 
     /** Keep raw extension strings while detaching every mutable collection before any suspension. */
