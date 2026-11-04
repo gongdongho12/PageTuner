@@ -70,6 +70,8 @@ internal class PortableTextOperationLease(
         if (state != TextLeaseState.ACTIVE) throw PortableTextOperationExpired()
     }
 
+    internal fun belongsTo(expected: PortableTextAccountLifetime) = account === expected
+
     internal fun <T> withCurrent(expected: ServerReadingConnection, expectedSelection: String,
         block: (ServerReadingConnection) -> T): T = synchronized(gate) {
         check(expected, expectedSelection)
@@ -87,6 +89,8 @@ internal class PortableTextOperationTicket internal constructor(
     private val connection: ServerReadingConnection,
     private val selectionKey: String,
 ) {
+    internal fun belongsTo(expected: PortableTextAccountLifetime) = lease.belongsTo(expected)
+
     /** Memory-only final guard: safe while outer lifetime locks and a journal lock are already held. */
     fun check() = lease.check(connection, selectionKey)
 

@@ -13,4 +13,11 @@ internal class PortableTextAccountAuthority internal constructor(val connection:
     }
 
     internal fun close() = lifetime.close()
+
+    /** Exact owner identity, not just an equal account/client publication. Memory-only final guard. */
+    internal fun check(ticket: PortableTextOperationTicket) {
+        if (!ticket.belongsTo(lifetime)) throw PortableTextOperationExpired()
+        lifetime.check(connection)
+        ticket.check()
+    }
 }
