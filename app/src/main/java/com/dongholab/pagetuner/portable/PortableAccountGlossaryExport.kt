@@ -6,6 +6,7 @@ import com.dongholab.pagetuner.core.model.glossary.BookGlossarySyncValidation
 import com.dongholab.pagetuner.translation.sync.*
 
 internal data class PreparedAccountGlossary(val document: ExchangeDocument, val snapshot: BookGlossarySnapshot,
+    val source: PortableAccountExportSource? = null,
     val checkBeforeWrite: () -> Unit)
 
 /** Fresh read adapter. No sync controller, journal writes, or glossary mutation API is available here. */
@@ -94,6 +95,6 @@ internal class PortableAccountGlossaryExport(
         else existing + snapshot
         val updated = BookGlossarySnapshotsJson.withSnapshots(document, BookGlossarySnapshots(snapshots = snapshots))
         guard()
-        return PreparedAccountGlossary(updated, snapshot, ::guard)
+        return PreparedAccountGlossary(updated, snapshot, detachedAccountExportSource(selected, connection, linked), ::guard)
     }
 }

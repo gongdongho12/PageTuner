@@ -1,4 +1,6 @@
 # PageTuner 남은 작업 체크리스트
+
+- [x] **Android S1 canonical adapter·동시 ZIP composer**: [draft PR #71](https://github.com/gongdongho12/PageTuner/pull/71), base PR #70. 실제 authority/ticket 소유자·전체 canonical/nonce·최종 중첩 guard, private source 일치·용어집/분류/progress 누적. 신규25·앱835통과/16제외·APK/lint/기존 계측 소스/경계 성공. 실제 JVM ZIP/binding·주입 HTTP이며 VM/Compose 옵션/SAF UI·실기기와 별도 채택은 후속이다. [범위](ANDROID_CANONICAL_PROGRESS_EXPORT.md).
 - [x] **Android S1 scoped 최신 GET reader 기반**: [draft PR #70](https://github.com/gongdongho12/PageTuner/pull/70), base PR #69. controller/legacy read/pending/write 없이 strict 별칭 관찰/direct GET·별도 highwater·고정 expected readiness·terminal 폐기. 신규40·집중89·앱810통과/16제외·APK/lint/기존 계측 소스/경계 성공. JVM 파일/주입 HTTP 근거이며 실제 canonical ZIP/fullproof/raw nonce·계정/Compose ticket·SAF 연결과 별도 채택은 후속이다. [범위·IO 소비 경계](ANDROID_FRESH_PROGRESS_READER.md).
 
 - [x] **Android S1 strict readonly UUID 별칭 관찰**: [draft PR #69](https://github.com/gongdongho12/PageTuner/pull/69), base PR #68. 부재/빈 journal 구분·raw scope/전체 대기 값 보존·단일 directory 잠금·직접 .bak 우선 무복구 read·raw 중복키/정수/schema 검증·불완전 결과 거절. 신규23·앱770통과/16제외·APK/lint/계측 소스/경계 성공. 계측4개는 컴파일만 했으며 scoped 최신 GET reader/ZIP/SAF·채택은 후속이다. [범위·가용성 한계](ANDROID_PROGRESS_OBSERVATIONS.md).
