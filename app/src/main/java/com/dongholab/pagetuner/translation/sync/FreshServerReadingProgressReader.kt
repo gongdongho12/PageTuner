@@ -168,8 +168,9 @@ internal class FreshServerReadingProgressReader(
             }
             val versions = mutableMapOf<Long, ServerReadingProgress>()
             for (record in records) for (view in listOfNotNull(record.remote, record.conflict)) {
-                val previous = versions.putIfAbsent(view.version, view)
+                val previous = versions[view.version]
                 require(previous == null || previous == view)
+                versions[view.version] = view
             }
             JournalBatch(versions.values.toList(), records.any { it.pending != null || it.queuedAnchor != null || it.conflict != null })
         } catch (cancelled: CancellationException) { close(); throw cancelled }
