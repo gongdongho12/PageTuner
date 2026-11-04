@@ -5,6 +5,7 @@
 2026-10-24 분류 명시적 채택 기반: [draft PR #57](https://github.com/gongdongho12/PageTuner/pull/57), base PR #56. 웹 nullable journal transaction·직접 GET 재검사·새 CAS 의도와 final abortable guard를 구현했다. 같은 값/빈 값도 새 mutation을 만들며 기존 pending/queued/conflict와 retry 기한을 보존한다. 실제 PostgreSQL+MVC 분류18개 통과. ZIP identity/binding 권한 adapter·채택 화면·Android 채택은 미완료이며 파일 import/export로 계정을 자동 변경하지 않는다. [범위와 검증](ORGANIZATION_ADOPTION_CAS.md).
 
 ## 판정 방법
+2026-11-04 [draft PR #70](https://github.com/gongdongho12/PageTuner/pull/70)는 Android S1의 scoped GET-only 기반이다. 별도 API/journal highwater와 고정 expected 최종 검사를 추가하고 pending/실패/행삭제·겹친 GET/마지막 IO 복귀 역전을 거절한다. 신규40·앱810통과/16제외·APK/lint/기존 계측 소스/경계 성공. API23 호환 lint 수정 뒤 전체 검사를 통과했다. 실제 JVM 파일/주입 관찰·HTTP decoder 근거이며 새 실소켓/DB/계정 UI/Compose/SAF 실행은 아니다. canonical ZIP·실제 text ticket·raw nonce 연결과 S1 채택은 후속이다. [범위와 잠금 경계](ANDROID_FRESH_PROGRESS_READER.md).
 
 2026-11-02 [draft PR #69](https://github.com/gongdongho12/PageTuner/pull/69)는 Android S1의 strict readonly journal 관찰 기반이다. raw UUID 별칭·전체 pending/queued/conflict/기한을 보존하고 .bak 직접 우선 read/무복구·raw 중복키/정수/UTF-8·schema 검증 뒤 전체 결과만 반환한다. 신규23·앱770통과/16제외·APK/lint/계측 소스/경계 성공. JVM 주입 IO이며 Android stat/AtomicFile 계측4개는 컴파일만 했다. 관련 없는 손상 행도 관찰을 막는 보수적 가용성 한계가 있다. 최신 GET reader·canonical ZIP/SAF/UI·채택은 후속이다. [범위](ANDROID_PROGRESS_OBSERVATIONS.md).
 

@@ -1,5 +1,7 @@
 # Android 읽던 위치 journal의 strict 읽기 전용 관찰
 
+후속: [Android GET-only reader](ANDROID_FRESH_PROGRESS_READER.md)는 이 관찰 API에 별도 highwater·고정 expected readiness를 연결한다. 아래는 PR #69의 관찰 단위 근거이며 실제 canonical ZIP/SAF 권한 연결 완료를 뜻하지 않는다.
+
 2026-11-02 [draft PR #69](https://github.com/gongdongho12/PageTuner/pull/69), base `codex/android-progress-journal-guards`(#68), head `codex/android-progress-observations`다. 구현/23개 회귀 `7b8d590`·계측 소스 `b63b671`와 문서를 분리했다. **기기 journal 관찰 기반만 완료**했다. scoped 최신 GET reader·ZIP/SAF adapter/UI·명시적 채택/CAS는 아직 없다.
 
 ## 새로운 관찰 API
