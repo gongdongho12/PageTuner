@@ -1,5 +1,7 @@
 # Android 최신 읽던 위치 GET 전용 세션
 
+후속 [PR #71 canonical Android adapter/composer](ANDROID_CANONICAL_PROGRESS_EXPORT.md)가 실제 authority/ticket·full canonical/nonce·최종 중첩 guard를 연결했다. VM/Compose 옵션/SAF UI는 계속 후속이다. 아래는 PR #70의 GET 기반 근거다.
+
 2026-11-04 [draft PR #70](https://github.com/gongdongho12/PageTuner/pull/70), base `codex/android-progress-observations`(PR #69), head `codex/android-fresh-progress-reader`다. 구현/34개 회귀 `1785a74`·JVM 파일 결합6개 `006a7fb`·API23 호환 수정 `dff209e`와 문서를 분리했다. **내부 scoped GET-only 기반**이며 canonical ZIP adapter·실제 계정/Compose 선택 권한·SAF 옵션·명시적 채택은 후속이다. PR #69 strict 관찰과 기존 정상 sync를 재구현하지 않는다.
 
 ## 고정 scope와 관찰
