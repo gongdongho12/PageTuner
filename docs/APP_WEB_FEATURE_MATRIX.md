@@ -6,6 +6,8 @@
 
 ## 판정 방법
 
+2026-11-05 [draft PR #72](https://github.com/gongdongho12/PageTuner/pull/72)는 메모리 export ticket의 monitor 밖 source 검사·정확한 Pending 재검사/한 번 게시와 sealed writer payload를 보완했다. 신규17·앱852통과/16제외·APK/lint/기존 계측 소스/경계 성공. JVM executor/latch/주입 stream이며 실제 SAF/VM/Compose lifecycle이나 부분 파일 rollback의 증거가 아니다. PR #71 adapter의 실제 옵션/화면·현재 write job 연결은 계속 남았다. [범위](PORTABLE_EXPORT_STAGING.md).
+
 2026-11-04 [draft PR #71](https://github.com/gongdongho12/PageTuner/pull/71)는 Android S1 canonical export adapter/공통 composer 단위다. exact authority/ticket 소유자·reader 저장 후 전체문서/strict nonce·direct verify/GET·최종 잠금 guard와 같은 source/account/client/binding의 metadata 누적을 연결했다. 신규25·앱835통과/16제외·APK/lint/기존 계측 소스/경계 성공. 실제 JVM ZIP/binding/production 수명 타입과 주입 HTTP이며 실제 VM 로그인/Compose/SAF 실행·새 실소켓/DB는 아니다. VM/committed 옵션·SAF UI와 S1 별도 채택은 남았다. [범위](ANDROID_CANONICAL_PROGRESS_EXPORT.md).
 2026-11-04 [draft PR #70](https://github.com/gongdongho12/PageTuner/pull/70)는 Android S1의 scoped GET-only 기반이다. 별도 API/journal highwater와 고정 expected 최종 검사를 추가하고 pending/실패/행삭제·겹친 GET/마지막 IO 복귀 역전을 거절한다. 신규40·앱810통과/16제외·APK/lint/기존 계측 소스/경계 성공. API23 호환 lint 수정 뒤 전체 검사를 통과했다. 실제 JVM 파일/주입 관찰·HTTP decoder 근거이며 새 실소켓/DB/계정 UI/Compose/SAF 실행은 아니다. canonical ZIP·실제 text ticket·raw nonce 연결과 S1 채택은 후속이다. [범위와 잠금 경계](ANDROID_FRESH_PROGRESS_READER.md).
 
