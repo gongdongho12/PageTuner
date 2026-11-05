@@ -1,5 +1,7 @@
 # PageTuner 남은 작업 체크리스트
 
+- [x] **Android S1 ZIP 옵션·VM/SAF 코드 연결**: [draft PR #73](https://github.com/gongdongho12/PageTuner/pull/73), base PR #72. 기본 해제 progress·actual authority/committed grant·strict nonce·동시 metadata·picker IO/UI 재검사·현재 write Job·stale admission 연결. 신규24·앱876통과/16제외·APK/lint/계측 소스/경계 성공. 실제 JVM ZIP/주입 stream이며 실제 Compose/물리 SAF·회전/재생성은 V3, S1 별도 채택/CAS도 후속이다. [범위](ANDROID_PROGRESS_EXPORT_UI.md).
+
 - [x] **SAF ticket 준비·게시 잠금 선행 보완**: [draft PR #72](https://github.com/gongdongho12/PageTuner/pull/72), base PR #71. monitor 밖 blocking guard·한 번 예약/게시·고정 payload·준비/쓰기 패배자와 old finally의 새 요청 보존. 신규17·앱852통과/16제외·APK/lint/기존 계측 소스/경계 성공. JVM latch/executor/주입 stream이며 실제 VM/Compose 옵션·SAF lifecycle/현재 write job 연결은 후속이다. [범위](PORTABLE_EXPORT_STAGING.md).
 
 - [x] **Android S1 canonical adapter·동시 ZIP composer**: [draft PR #71](https://github.com/gongdongho12/PageTuner/pull/71), base PR #70. 실제 authority/ticket 소유자·전체 canonical/nonce·최종 중첩 guard, private source 일치·용어집/분류/progress 누적. 신규25·앱835통과/16제외·APK/lint/기존 계측 소스/경계 성공. 실제 JVM ZIP/binding·주입 HTTP이며 VM/Compose 옵션/SAF UI·실기기와 별도 채택은 후속이다. [범위](ANDROID_CANONICAL_PROGRESS_EXPORT.md).

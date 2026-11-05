@@ -1,5 +1,7 @@
 # Android export ticket의 준비·게시 잠금
 
+후속 [PR #73 Android S1 옵션/VM/SAF 코드 연결](ANDROID_PROGRESS_EXPORT_UI.md)이 실제 committed grant와 write Job을 연결했다. 아래는 PR #72 staging 근거이며 실제 Compose/물리 SAF 실행은 V3로 남는다.
+
 2026-11-05 [draft PR #72](https://github.com/gongdongho12/PageTuner/pull/72), base `codex/canonical-android-progress-export`(PR #71), head `codex/portable-export-staging`다. 구현/17개 회귀 `89ac1e2`와 문서를 분리한 **메모리 SAF ticket 준비 경계**다. VM·Compose 읽던 위치 옵션 연결과 물리 SAF 실행은 후속이며 기존 canonical progress adapter/composer를 다시 만들지 않는다.
 
 ## 준비 예약과 고정 payload
