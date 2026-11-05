@@ -34,6 +34,8 @@ internal class PortableAccountReadingProgressExport(
     private val query: suspend (ServerReadingConnection, String, String) -> ServerReadingProgress = { connection, kind, record ->
         connection.client.readingProgress(kind, record)
     },
+    // Additional committed UI revocation must remain memory-only while a final gate is held.
+    private val checkOperation: () -> Unit = {},
     private val io: CoroutineDispatcher = Dispatchers.IO,
 ) {
     private data class Captured(val entry: PortableLibraryEntry, val binding: PortableServerBindingSnapshot)
@@ -128,7 +130,9 @@ internal class PortableAccountReadingProgressExport(
     /** Memory-only: this is also called from inside binding/journal verification scopes. */
     private fun current() {
         check(!closed.get()) { "This reading progress export expired." }
+        checkOperation()
         authority.check(ticket)
+        checkOperation()
         check(!closed.get()) { "This reading progress export expired." }
     }
 
