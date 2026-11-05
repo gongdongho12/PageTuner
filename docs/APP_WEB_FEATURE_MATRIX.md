@@ -6,7 +6,7 @@
 
 ## 판정 방법
 
-2026-11-06 [draft PR #73](https://github.com/gongdongho12/PageTuner/pull/73)는 Android S1 최신 GET ZIP의 기본 해제 옵션·실제 authority/committed session·VM·SAF 코드 연결이다. 신규24·앱876통과/16제외·APK/lint/계측 소스/경계 성공. production 수명/adapter와 실제 JVM ZIP/binding·주입 stream 근거이며 실제 Android Context VM/Compose/물리 SAF·시각/회전/재생성은 미실행이다. 최대 identity fixture28행/33callsite는 컴파일만 했다. 별도 S1 채택은 nullable CAS/정상 actor 보호부터 남았다. [범위](ANDROID_PROGRESS_EXPORT_UI.md).
+2026-11-06 [draft PR #73](https://github.com/gongdongho12/PageTuner/pull/73)는 Android S1 최신 GET ZIP의 기본 해제 옵션·실제 authority/committed session·VM·SAF 코드 연결이다. 신규28·앱880통과/16제외·APK/lint/계측 소스/경계 성공. production 수명/adapter와 실제 JVM ZIP/binding·주입 stream 근거이며 실제 Android Context VM/Compose/물리 SAF·시각/회전/재생성은 미실행이다. 최대 identity fixture28행/33callsite는 컴파일만 했다. 별도 S1 채택은 nullable CAS/정상 actor 보호부터 남았다. [범위](ANDROID_PROGRESS_EXPORT_UI.md).
 
 2026-11-05 [draft PR #72](https://github.com/gongdongho12/PageTuner/pull/72)는 메모리 export ticket의 monitor 밖 source 검사·정확한 Pending 재검사/한 번 게시와 sealed writer payload를 보완했다. 신규17·앱852통과/16제외·APK/lint/기존 계측 소스/경계 성공. JVM executor/latch/주입 stream이며 실제 SAF/VM/Compose lifecycle이나 부분 파일 rollback의 증거가 아니다. PR #71 adapter의 실제 옵션/화면·현재 write job 연결은 계속 남았다. [범위](PORTABLE_EXPORT_STAGING.md).
 
