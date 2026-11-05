@@ -135,6 +135,8 @@ import com.dongholab.pagetuner.ui.theme.paperColor
 import kotlin.math.abs
 import kotlin.math.roundToInt
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -261,9 +263,9 @@ fun PageTurnerApp() {
     var organizationSelection by remember { mutableStateOf<com.dongholab.pagetuner.portable.PortableOrganizationSelection?>(null) }
     val pdfStorageConnection = serverLibraryViewModel.pdfConnection()
     LaunchedEffect(pdfStorageConnection) { portableViewModel.pdfStorage.connect(pdfStorageConnection) }
-    LaunchedEffect(serverReadingConnection) {
+    LaunchedEffect(serverTextAuthority, serverReadingConnection) {
         portableIdentityViewModel.verification.connect(serverReadingConnection)
-        portableViewModel.connect(serverReadingConnection)
+        portableViewModel.connectAuthority(serverTextAuthority)
     }
     // Compose can observe a switched server before the actor handles Connect. Hide the previous
     // account immediately and reject controls from that intermediate frame using an invalid ticket.
@@ -659,7 +661,17 @@ fun PageTurnerApp() {
         launch { portableViewModel.exportReady.collect { request ->
             // A prior picker owns its callback until it returns, even after account changes.
             if (portableExportRequestId != null) portableViewModel.cancelExport(request.id)
-            else {
+            else if (portableViewModel.checkExportReady(request, serverLibraryViewModel::readingConnection)) {
+                // The guard ran on IO; another picker/callback may have completed during that await.
+                if (portableExportRequestId != null) {
+                    portableViewModel.cancelExport(request.id)
+                    return@collect
+                }
+                currentCoroutineContext().ensureActive()
+                if (runCatching { portableViewModel.assertExportReadyCurrent(request, serverLibraryViewModel::readingConnection) }.isFailure) {
+                    portableViewModel.cancelExport(request.id)
+                    return@collect
+                }
                 portableExportRequestId = request.id
                 try { portableExportLauncher.launch(request) }
                 catch (error: Exception) { portableExportRequestId = null; portableViewModel.cancelExport(request.id); throw error }
@@ -990,6 +1002,11 @@ fun PageTurnerApp() {
                                 // Keep the rendered selection, never issue an old panel callback for a newer entry.
                                 val identityPanelSession = portableIdentityState.session
                                 val identityPanelEntry = portableIdentityState.entry
+                                val identityPanelIdentity = portableIdentityState.identity
+                                fun identityPanelCurrent(): Boolean = serverLibraryViewModel.textAccountAuthority() === serverTextAuthority &&
+                                    portableIdentityViewModel.verification.state.value.let {
+                                        it.session == identityPanelSession && it.entry == identityPanelEntry && it.identity == identityPanelIdentity
+                                    }
                                 val organizationRoute = organizationSelection
                                 if (organizationRoute != null) com.dongholab.pagetuner.portable.PortableOrganizationAdoptionWorkspace(
                                     selection = organizationRoute,
@@ -1030,23 +1047,26 @@ fun PageTurnerApp() {
                                 else if (portableIdentityState.entry != null) com.dongholab.pagetuner.portable.PortableIdentityPanel(
                                     portableIdentityState, serverReadingConnection != null,
                                     portableIdentityViewModel.verification.matches(serverReadingConnection),
+                                    authority = serverTextAuthority,
                                     onBack = {
-                                        if (portableIdentityViewModel.verification.state.value.session == identityPanelSession)
+                                        if (identityPanelCurrent())
                                             portableIdentityViewModel.verification.close()
                                     },
-                                    onRecord = { portableIdentityViewModel.verification.updateRecord(identityPanelSession, it) },
-                                    onCheck = { portableIdentityViewModel.verification.check(identityPanelSession,
-                                        serverLibraryViewModel.readingConnection(), portableViewModel::currentDocument) },
-                                    onBind = { portableIdentityViewModel.verification.bind(identityPanelSession,
-                                        serverLibraryViewModel.readingConnection(), portableViewModel::currentDocument,
+                                    onRecord = { if (identityPanelCurrent()) portableIdentityViewModel.verification.updateRecord(identityPanelSession, it) },
+                                    onCheck = { if (identityPanelCurrent()) portableIdentityViewModel.verification.check(identityPanelSession,
+                                        serverTextAuthority?.connection, portableViewModel::currentDocument) },
+                                    onBind = { if (identityPanelCurrent()) portableIdentityViewModel.verification.bind(identityPanelSession,
+                                        serverTextAuthority?.connection, portableViewModel::currentDocument,
                                         portableViewModel::bindingSnapshot, portableViewModel::saveBinding) },
-                                    onUnbind = { portableIdentityViewModel.verification.unbind(identityPanelSession,
-                                        serverLibraryViewModel.readingConnection(), portableViewModel::removeBinding) },
-                                    exportState = portableState,
+                                    onUnbind = { if (identityPanelCurrent()) portableIdentityViewModel.verification.unbind(identityPanelSession,
+                                        serverTextAuthority?.connection, portableViewModel::removeBinding) },
+                                    exportState = if (portableViewModel.matchesExportAuthority(serverTextAuthority)) portableState else
+                                        portableState.copy(glossaryPresence = null, organizationPresence = null,
+                                            progressPresence = null, status = null, error = null),
                                     onReviewGlossary = {
-                                        if (portableIdentityViewModel.verification.state.value.session == identityPanelSession)
+                                        if (identityPanelCurrent())
                                             identityPanelEntry?.let { entry ->
-                                                portableViewModel.glossaryAdoption.select(entry, serverLibraryViewModel.readingConnection(), serverLibraryViewModel::readingConnection)
+                                                portableViewModel.glossaryAdoption.select(entry, serverTextAuthority?.connection, serverLibraryViewModel::readingConnection)
                                             }
                                     },
                                     onReviewOrganization = {
@@ -1060,31 +1080,32 @@ fun PageTurnerApp() {
                                                     captured, "${serverLibraryState.connection.endpoint} · ${serverLibraryState.profile?.username.orEmpty()}")
                                             }
                                     },
-                                    onExportAccount = { language, includeOrganization, checkPanelSelection ->
-                                        val connection = serverLibraryViewModel.readingConnection()
+                                    onExportAccount = { language, includeOrganization, includeProgress, grant ->
+                                        val captured = serverTextAuthority
                                         val selected = portableIdentityViewModel.verification.state.value
-                                        if (connection != null && selected.session == identityPanelSession && selected.entry == identityPanelEntry)
+                                        if (captured != null && grant.authority === captured && selected.session == identityPanelSession && selected.entry == identityPanelEntry)
                                             identityPanelEntry?.let { entry ->
                                                 val checkSelection = {
-                                                    checkPanelSelection()
+                                                    grant.checkCurrent()
                                                     val latest = portableIdentityViewModel.verification.state.value
-                                                    check(latest.session == identityPanelSession && latest.entry == entry) {
+                                                    check(latest.session == identityPanelSession && latest.entry == entry &&
+                                                        latest.identity == identityPanelIdentity) {
                                                         "The document selection changed. Select the document and export again."
                                                     }
                                                 }
                                                 if (runCatching { checkSelection() }.isSuccess)
                                                     portableViewModel.prepareAccountMetadataExport(entry, language, includeOrganization,
-                                                        connection, serverLibraryViewModel::readingConnection, checkSelection)
+                                                        includeProgress, grant, checkSelection)
                                         }
                                     },
                                     onReadServer = {
-                                        val connection = serverLibraryViewModel.readingConnection()
-                                        val selected = portableIdentityViewModel.verification.state.value
-                                        if (connection != null && selected.session == identityPanelSession && selected.entry == identityPanelEntry)
+                                        val captured = serverTextAuthority
+                                        val connection = captured?.connection
+                                        if (connection != null && identityPanelCurrent())
                                             identityPanelEntry?.let { entry -> portableViewModel.open(entry, false, connection) {
                                             portableIdentityViewModel.verification.state.value.session == identityPanelSession &&
                                                 portableIdentityViewModel.verification.state.value.entry == entry &&
-                                                serverLibraryViewModel.readingConnection()?.let { it.accountKey == connection.accountKey && it.client === connection.client } == true
+                                                serverLibraryViewModel.textAccountAuthority() === captured
                                         } }
                                     })
                                 else PortableLibraryPanel(localBooks, currentBookId, portableState,
