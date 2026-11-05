@@ -18,6 +18,7 @@ import com.dongholab.pagetuner.translation.glossary.BookGlossaryStore
 import com.dongholab.pagetuner.translation.sync.ServerDocumentMapping
 import com.dongholab.pagetuner.translation.sync.*
 import java.io.File
+import java.util.concurrent.atomic.AtomicReference
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Deferred
@@ -31,7 +32,8 @@ import org.json.JSONObject
 
 data class PortableLibraryState(val entries: List<PortableLibraryEntry> = emptyList(), val busy: Boolean = false, val status: Int? = null,
     val error: String? = null, val glossaryPresence: BookGlossarySnapshotPresence? = null,
-    val organizationPresence: LibraryOrganizationSnapshotPresence? = null)
+    val organizationPresence: LibraryOrganizationSnapshotPresence? = null,
+    val progressPresence: ReadingProgressSnapshotPresence? = null)
 data class PortableOpened(val entry: PortableLibraryEntry, val loaded: LoadedReaderDocument, val mapping: PortableReaderMapping,
     val pageIndex: Int, val bookmarks: List<ReaderBookmark>, val annotations: List<ReaderAnnotation>, val pdf: Boolean = false,
     val serverReading: ServerReadingDocument? = null, val characterOffset: Int = 0, val validateOpen: (() -> Unit)? = null)
@@ -55,9 +57,13 @@ class PortableLibraryViewModel(private val context: Context, private val local: 
     private val fileExportSelection = PortableFileExportSelection()
     private val glossaryJournal = FileServerBookGlossaryStore(File(context.filesDir, "server-book-glossaries"))
     private val organizationJournal = FileServerLibraryOrganizationStore(File(context.filesDir, "server-library-organization"))
+    private val progressJournal = FileServerReadingProgressStore(File(context.filesDir, "server-reading-progress"))
     val glossaryAdoption = PortableGlossaryAdoption(viewModelScope, ::currentDocument,
         { entry -> store.read(entry).documents[entry.documentIndex] }, bindings::read, glossaryJournal::read)
     private var exportConnection: ServerReadingConnection? = null
+    @Volatile private var exportAuthority: PortableTextAccountAuthority? = null
+    private class AccountExportReady(val request: PortableExportRequest, val check: () -> Unit)
+    private val accountExportReady = AtomicReference<AccountExportReady?>(null)
     private val readerGenerations = mutableMapOf<String, Long>()
     private val readerWrites = mutableMapOf<String, Deferred<Result<Unit>>>()
     private val mutableExportReady = MutableSharedFlow<PortableExportRequest>(extraBufferCapacity = 1)
@@ -92,14 +98,35 @@ class PortableLibraryViewModel(private val context: Context, private val local: 
 
     init { refresh() }
     fun connect(value: ServerReadingConnection?) {
+        val previous = accountExportReady.get()
         glossaryAdoption.connect(value)
         exportTickets.connect(value)
         if (exportConnection != value) {
             exportConnection = value
-            mutableState.update { it.copy(glossaryPresence = null, organizationPresence = null, status = null) }
+            accountExportReady.compareAndSet(previous, null)
+            mutableState.update { it.copy(glossaryPresence = null, organizationPresence = null, progressPresence = null, status = null) }
         }
     }
-    fun cancelExport(id: String) { exportTickets.cancel(id) }
+    /** A new publication expires old account exports even if its connection values are equal. */
+    internal fun connectAuthority(value: PortableTextAccountAuthority?) {
+        if (exportAuthority !== value) {
+            val previous = accountExportReady.get()
+            exportAuthority = value
+            exportTickets.connect(null)
+            accountExportReady.compareAndSet(previous, null)
+            mutableState.update { it.copy(glossaryPresence = null, organizationPresence = null, progressPresence = null, status = null) }
+        }
+        connect(value?.connection)
+    }
+    internal fun matchesExportAuthority(value: PortableTextAccountAuthority?) = exportAuthority === value
+    fun cancelExport(id: String) { exportTickets.cancel(id); clearAccountExportReady(id) }
+
+    private fun clearAccountExportReady(id: String) {
+        while (true) {
+            val previous = accountExportReady.get()?.takeIf { it.request.id == id } ?: return
+            if (accountExportReady.compareAndSet(previous, null)) return
+        }
+    }
     fun selectFileExport(key: String?) { fileExportSelection.select(key) }
     fun refresh() = operation { mutableState.update { it.copy(entries = store.list()) } }
 
@@ -230,35 +257,136 @@ class PortableLibraryViewModel(private val context: Context, private val local: 
     }
 
     /** An explicit passive copy, with the same selection/account grant retained throughout SAF. */
-    fun prepareAccountMetadataExport(entry: PortableLibraryEntry, targetLanguage: String?, includeOrganization: Boolean,
-        connection: ServerReadingConnection, currentConnection: () -> ServerReadingConnection?,
-        checkSelection: () -> Unit) = operation {
-        checkSelection()
-        require(targetLanguage != null || includeOrganization) { "Select account data to include." }
+    internal fun prepareAccountMetadataExport(entry: PortableLibraryEntry, targetLanguage: String?, includeOrganization: Boolean,
+        includeProgress: Boolean, grant: PortableAccountExportGrant,
+        checkSelection: () -> Unit) = operation(beforeStart = {
+            check(exportAuthority === grant.authority)
+            grant.checkCurrent(); checkSelection()
+        }, reportError = {
+            exportAuthority === grant.authority && runCatching { grant.checkCurrent(); checkSelection() }.isSuccess
+        }) {
+        val preparationContext = currentCoroutineContext()
+        val connection = grant.authority.connection
+        fun selection() {
+            check(exportAuthority === grant.authority) { "The text account changed. Select the document again." }
+            grant.checkCurrent()
+            checkSelection()
+            grant.checkCurrent()
+        }
+        preparationContext.ensureActive()
+        selection()
+        require(targetLanguage != null || includeOrganization || includeProgress) { "Select account data to include." }
         val request = exportTickets.begin("PageTurner-${entry.document.bookTitle.portableFilename()}-account.ptlibrary.zip", connection)
-        val current = { checkSelection(); exportTickets.check(request, currentConnection()) }
+        val ready = AccountExportReady(request, ::selection)
+        accountExportReady.set(ready)
+        // This outer guard may acquire ticket/selection owners. Never pass it inside the progress reader's gate/journal checks.
+        val current = { selection(); exportTickets.check(request, connection) }
         val readDocument = { selected: PortableLibraryEntry -> store.read(selected).documents[selected.documentIndex] }
+        val progressExport = if (includeProgress) PortableAccountReadingProgressExport(entry, grant.authority, grant.ticket,
+            ::currentDocument, textBindings, progressJournal, checkOperation = { grant.checkCurrent() }) else null
         try {
             current()
             val glossary = targetLanguage?.let { language -> PortableAccountGlossaryExport(::currentDocument,
-                readDocument, bindings::read, glossaryJournal::read).prepare(entry, language, connection, current) }
+                readDocument, { account, selected -> textBindings.capture(account, selected).binding },
+                glossaryJournal::read).prepare(entry, language, connection, current) }
+            preparationContext.ensureActive()
+            current()
             val organization = if (includeOrganization) PortableAccountOrganizationExport(::currentDocument,
-                readDocument, bindings::read, organizationJournal::read).prepare(entry, connection, current) else null
-            val prepared = combineAccountMetadataExports(glossary, organization, current)
+                readDocument, { account, selected -> textBindings.capture(account, selected).binding },
+                organizationJournal::read).prepare(entry, connection, current) else null
+            preparationContext.ensureActive()
+            current()
+            val progress = progressExport?.prepare()
+            preparationContext.ensureActive()
+            current()
+            val prepared = combineAccountMetadataExports(glossary, organization, progress, current)
             val bytes = LibraryExchangeCodec.write(LibraryExchangePackage(portableTimestamp(), listOf(prepared.document)))
-            exportTickets.prepare(request, bytes, currentConnection(), prepared.checkBeforeWrite)
-            exportTickets.checkBeforeWrite(request.id, currentConnection)
-            mutableState.update { it.copy(glossaryPresence = glossary?.snapshot?.presence, organizationPresence = organization?.snapshot?.presence) }
+            preparationContext.ensureActive()
+            current()
+            exportTickets.prepare(request, bytes, connection, prepared.checkBeforeWrite)
+            preparationContext.ensureActive()
+            exportTickets.checkBeforeWrite(request.id) { connection }
+            preparationContext.ensureActive()
+            current()
+            // update may retry after connectAuthority has reset the state; do not republish old presence then.
+            mutableState.update { state ->
+                if (exportAuthority === grant.authority && runCatching { grant.checkCurrent(); checkSelection() }.isSuccess)
+                    state.copy(glossaryPresence = glossary?.snapshot?.presence, organizationPresence = organization?.snapshot?.presence,
+                        progressPresence = progress?.snapshot?.presence)
+                else state
+            }
+            preparationContext.ensureActive()
+            current()
             mutableExportReady.emit(request)
-        } catch (error: Exception) { exportTickets.cancel(request.id); throw error }
+        } catch (error: Exception) {
+            progressExport?.close()
+            exportTickets.cancel(request.id)
+            accountExportReady.compareAndSet(ready, null)
+            throw error
+        }
+    }
+
+    /** Revalidate a delayed event before showing a picker. No memory ticket survives process recreation. */
+    internal suspend fun checkExportReady(request: PortableExportRequest,
+        currentConnection: () -> ServerReadingConnection?): Boolean = try {
+        val collectorContext = currentCoroutineContext()
+        withContext(Dispatchers.IO) {
+            collectorContext.ensureActive()
+            exportTickets.checkBeforeWrite(request.id) {
+                collectorContext.ensureActive()
+                currentConnection().also { collectorContext.ensureActive() }
+            }
+            collectorContext.ensureActive()
+            true
+        }
+    } catch (cancelled: CancellationException) {
+        cancelExport(request.id)
+        throw cancelled
+    } catch (_: Exception) {
+        cancelExport(request.id)
+        false
+    }
+
+    /** UI-dispatch return check only: no canonical IO, lifetime gate, or completed prepare job. */
+    internal fun assertExportReadyCurrent(request: PortableExportRequest, currentConnection: () -> ServerReadingConnection?) {
+        exportTickets.check(request, currentConnection())
+        val ready = accountExportReady.get()?.takeIf { it.request == request }
+        ready?.check?.invoke()
+        exportTickets.check(request, currentConnection())
+        // Account tickets are invalidated before their matching memory grant is removed on owner change.
+        if (ready != null && accountExportReady.get() !== ready) throw PortableExportExpired()
     }
 
     fun writeExport(uri: Uri?, requestId: String?, currentConnection: () -> ServerReadingConnection?) {
         if (requestId == null) return
-        if (uri == null) { exportTickets.cancel(requestId); return }
-        operation {
-            val saved = exportTickets.write(requestId, currentConnection) { context.contentResolver.openOutputStream(uri, "wt") }
-            mutableState.update { it.copy(status = if (saved.mimeType == "application/zip") R.string.portable_exported else R.string.document_file_saved) }
+        if (uri == null) { cancelExport(requestId); return }
+        val writerAuthority = exportAuthority
+        val ready = accountExportReady.get()?.takeIf { it.request.id == requestId }
+        fun stillCurrent() = exportAuthority === writerAuthority && runCatching { ready?.check?.invoke() }.isSuccess
+        // A picker can return before its producer's finally clears busy. Keep this fixed callback,
+        // rather than dropping it or looking up another request after the preparation completes.
+        viewModelScope.launch {
+            while (state.value.busy) state.first { !it.busy }
+            var stale = false
+            operation(beforeStart = {
+                exportTickets.checkReadyId(requestId, currentConnection())
+                ready?.check?.invoke()
+            }, reportError = { !stale && stillCurrent() }) {
+                val saved = try {
+                    writePortableExport(exportTickets, requestId, currentConnection) {
+                        context.contentResolver.openOutputStream(uri, "wt")
+                    }
+                } catch (expired: PortableExportExpired) {
+                    stale = true
+                    throw expired
+                } finally {
+                    clearAccountExportReady(requestId)
+                }
+                // Saving succeeded; an expired UI owner may suppress its notice, never roll it back.
+                mutableState.update { current -> if (stillCurrent()) current.copy(
+                    status = if (saved.mimeType == "application/zip") R.string.portable_exported else R.string.document_file_saved)
+                    else current }
+            }
         }
     }
 
@@ -361,14 +489,23 @@ class PortableLibraryViewModel(private val context: Context, private val local: 
         }
     }
 
-    private fun operation(work: suspend () -> Unit) {
-        if (state.value.busy) return
-        mutableState.update { it.copy(busy = true, error = null, status = null, glossaryPresence = null, organizationPresence = null) }
+    private fun operation(beforeStart: (() -> Unit)? = null, reportError: (() -> Boolean)? = null, work: suspend () -> Unit) {
+        var admitted = false
+        mutableState.update { previous ->
+            val admission = admitPortableOperation(previous, beforeStart)
+            admitted = admission.admitted
+            admission.state
+        }
+        if (!admitted) return
         viewModelScope.launch {
             try { withContext(Dispatchers.IO) { work() } }
             catch (cancelled: CancellationException) { throw cancelled }
-            catch (error: Exception) { mutableState.update { it.copy(error = if (error is PortableExportExpired)
-                context.getString(R.string.portable_export_expired) else error.message ?: context.getString(R.string.portable_error_read)) } }
+            catch (error: Exception) {
+                if (reportError == null || runCatching(reportError).getOrDefault(false))
+                    mutableState.update { state -> if (reportError == null || runCatching(reportError).getOrDefault(false))
+                        state.copy(error = if (error is PortableExportExpired) context.getString(R.string.portable_export_expired)
+                            else error.message ?: context.getString(R.string.portable_error_read)) else state }
+            }
             finally { mutableState.update { it.copy(busy = false) } }
         }
     }

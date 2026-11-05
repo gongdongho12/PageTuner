@@ -668,6 +668,9 @@
     <string name="portable_account_export">선택한 계정 정보 포함 ZIP 내보내기</string>
     <string name="portable_account_export_glossary">최신 계정 용어집 포함</string>
     <string name="portable_account_export_organization">최신 계정 폴더·태그·즐겨찾기 포함</string>
+    <string name="portable_account_export_progress">최신 계정 읽던 위치 포함</string>
+    <string name="portable_progress_absent">현재 계정에 저장된 읽던 위치가 없습니다. 기기의 기존 위치는 바꾸지 않습니다.</string>
+    <string name="portable_progress_present">최신 계정 읽던 위치를 포함했습니다. 기기의 기존 위치는 바꾸지 않습니다.</string>
     <string name="portable_account_export_description">먼저 문서를 서버에 연결하세요. 현재 계정에서 선택한 최신 정보를 읽습니다. 대기 중인 수정과 충돌은 먼저 해결하세요.</string>
     <string name="portable_account_export_replace">내보낼 사본의 선택 정보만 바꿉니다. 다른 언어와 기존 정보는 보존합니다. ZIP 가져오기는 계정 정보를 바꾸지 않습니다.</string>
     <string name="portable_organization_absent">기록된 계정 분류가 없습니다. ZIP에 이 상태를 보존하며 계정 정보를 지우지 않습니다.</string>

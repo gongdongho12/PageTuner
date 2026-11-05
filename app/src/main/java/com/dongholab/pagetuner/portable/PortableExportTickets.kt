@@ -33,6 +33,14 @@ internal class PortableExportTickets {
         checkConnection(value, current)
     }
 
+    /** Memory-only callback admission: a stale URI must not reset a later screen's busy/status. */
+    @Synchronized fun checkReadyId(id: String, current: ServerReadingConnection?): PortableExportRequest {
+        val value = pending?.takeIf { it.request.id == id && it.phase == Phase.READY && it.payload != null }
+            ?: throw PortableExportExpired()
+        checkConnection(value, current)
+        return value.request
+    }
+
     /** Reserve once; source IO/lifetime guards and byte copying never hold the ticket monitor. */
     fun prepare(request: PortableExportRequest, bytes: ByteArray, current: ServerReadingConnection?, guard: () -> Unit = {}) {
         val value = synchronized(this) {
