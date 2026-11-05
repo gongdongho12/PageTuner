@@ -11,6 +11,13 @@ internal class PortableAccountExportLease {
 
     @Synchronized fun close() { state = State.CLOSED }
 
+    /** Consume a committed UI choice once, including offline deselection without account rights. */
+    @Synchronized fun retire(): Boolean {
+        if (state != State.ACTIVE) return false
+        state = State.CLOSED
+        return true
+    }
+
     @Synchronized fun check() {
         if (state != State.ACTIVE) throw PortableExportExpired()
     }

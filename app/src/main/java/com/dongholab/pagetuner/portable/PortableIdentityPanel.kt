@@ -37,11 +37,15 @@ internal fun PortableIdentityPanel(state: PortableIdentityState, connected: Bool
         PortableAccountExportSession(authority.takeIf { connected && currentSession && state.entry != null && state.identity != null },
             state.entry?.key ?: "unavailable")
     }
+    val choiceLease = remember(exportSession) { PortableAccountExportLease() }
     DisposableEffect(exportSession) {
+        choiceLease.activate()
         exportSession.activate()
-        onDispose { exportSession.close() }
+        onDispose { choiceLease.close(); exportSession.close() }
     }
-    BackHandler { exportSession.close(); onBack() }
+    fun changeChoice(change: () -> Unit) = retirePortableExportChoice(choiceLease, exportSession, change = change)
+    fun changeValue(changed: Boolean, change: () -> Unit) = retirePortableExportChoice(choiceLease, exportSession, changed, change)
+    BackHandler { changeChoice(onBack) }
     val optionsEnabled = connected && currentSession && authority != null && !state.busy && !exportState.busy
     val languageValid = !includeGlossary || state.identity?.let { identity ->
         runCatching { BookGlossarySyncValidation.validateIdentity(BookGlossarySyncIdentity(identity.contentProviderId, identity.bookId, glossaryLanguage)) }.isSuccess
@@ -56,7 +60,7 @@ internal fun PortableIdentityPanel(state: PortableIdentityState, connected: Bool
     rows += IdentityRow("description") { row -> Text(stringResource(R.string.portable_identity_description), modifier = row, color = EinkMuted) }
     rows += IdentityRow("status") { row -> Text(stringResource(if (!currentSession) R.string.portable_identity_sign_in else state.message), modifier = row, color = EinkInk) }
     field("book", R.string.portable_identity_book, state.entry?.document?.bookTitle.orEmpty())
-    rows += IdentityRow("record") { row -> OutlinedTextField(state.recordId, { exportSession.close(); onRecord(it) }, singleLine = true,
+    rows += IdentityRow("record") { row -> OutlinedTextField(state.recordId, { value -> changeValue(value != state.recordId) { onRecord(value) } }, singleLine = true,
         label = { Text(stringResource(R.string.portable_identity_record)) }, enabled = currentSession && !state.busy,
         supportingText = { Text(stringResource(R.string.portable_identity_record_hint)) }, modifier = row) }
     rows += IdentityRow("verify") { row -> OutlinedButton(onClick = onCheck,
@@ -78,18 +82,18 @@ internal fun PortableIdentityPanel(state: PortableIdentityState, connected: Bool
     rows += IdentityRow("account_export_description") { row -> Text(stringResource(R.string.portable_account_export_description), modifier = row, color = EinkMuted) }
     rows += IdentityRow("account_export_replace") { row -> Text(stringResource(R.string.portable_account_export_replace), modifier = row, color = EinkMuted) }
     rows += IdentityRow("account_export_glossary") { row -> Row(row, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        Checkbox(checked = includeGlossary, onCheckedChange = { exportSession.close(); includeGlossary = it }, enabled = includeGlossary || optionsEnabled)
+        Checkbox(checked = includeGlossary, onCheckedChange = { value -> changeValue(value != includeGlossary) { includeGlossary = value } }, enabled = includeGlossary || optionsEnabled)
         Text(stringResource(R.string.portable_account_export_glossary), color = EinkInk)
     } }
     rows += IdentityRow("account_export_organization") { row -> Row(row, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        Checkbox(checked = includeOrganization, onCheckedChange = { exportSession.close(); includeOrganization = it }, enabled = includeOrganization || optionsEnabled)
+        Checkbox(checked = includeOrganization, onCheckedChange = { value -> changeValue(value != includeOrganization) { includeOrganization = value } }, enabled = includeOrganization || optionsEnabled)
         Text(stringResource(R.string.portable_account_export_organization), color = EinkInk)
     } }
     rows += IdentityRow("account_export_progress") { row -> Row(row, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        Checkbox(checked = includeProgress, onCheckedChange = { exportSession.close(); includeProgress = it }, enabled = includeProgress || optionsEnabled)
+        Checkbox(checked = includeProgress, onCheckedChange = { value -> changeValue(value != includeProgress) { includeProgress = value } }, enabled = includeProgress || optionsEnabled)
         Text(stringResource(R.string.portable_account_export_progress), color = EinkInk)
     } }
-    if (includeGlossary) rows += IdentityRow("glossary_export_language") { row -> OutlinedTextField(glossaryLanguage, { exportSession.close(); glossaryLanguage = it },
+    if (includeGlossary) rows += IdentityRow("glossary_export_language") { row -> OutlinedTextField(glossaryLanguage, { value -> changeValue(value != glossaryLanguage) { glossaryLanguage = value } },
         label = { Text(stringResource(R.string.portable_glossary_export_language)) }, singleLine = true,
         readOnly = state.identity?.kind == DocumentIdentityKind.TRANSLATION,
         enabled = optionsEnabled, modifier = row) }
@@ -98,12 +102,12 @@ internal fun PortableIdentityPanel(state: PortableIdentityState, connected: Bool
         if (grant != null) onExportAccount(glossaryLanguage.takeIf { includeGlossary }, includeOrganization, includeProgress, grant)
     }, enabled = exportEnabled, modifier = row.heightIn(min = 44.dp)) { Text(stringResource(R.string.portable_account_export)) } }
     rows += IdentityRow("glossary_adoption") { row -> OutlinedButton(onClick = {
-        if (runCatching { exportSession.check() }.isSuccess) { exportSession.close(); onReviewGlossary() }
+        if (runCatching { exportSession.check() }.isSuccess) changeChoice(onReviewGlossary)
     },
         enabled = connected && currentSession && !state.busy && !exportState.busy && state.identity != null,
         modifier = row.heightIn(min = 44.dp)) { Text(stringResource(R.string.portable_glossary_review)) } }
     rows += IdentityRow("organization_adoption") { row -> OutlinedButton(onClick = {
-        if (runCatching { exportSession.check() }.isSuccess) { exportSession.close(); onReviewOrganization() }
+        if (runCatching { exportSession.check() }.isSuccess) changeChoice(onReviewOrganization)
     },
         enabled = connected && currentSession && !state.busy && !exportState.busy && state.identity != null,
         modifier = row.heightIn(min = 44.dp)) { Text(stringResource(R.string.portable_organization_review)) } }
@@ -142,7 +146,7 @@ internal fun PortableIdentityPanel(state: PortableIdentityState, connected: Bool
         field("hash", R.string.portable_identity_hash, identity.paragraphHash)
     }
     Column(modifier.fillMaxSize().clipToBounds(), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        OutlinedButton(onClick = { exportSession.close(); onBack() }, modifier = Modifier.heightIn(min = 44.dp)) { Text(stringResource(R.string.portable_identity_back)) }
+        OutlinedButton(onClick = { changeChoice(onBack) }, modifier = Modifier.heightIn(min = 44.dp)) { Text(stringResource(R.string.portable_identity_back)) }
         AdaptiveCollection(items = rows, modifier = Modifier.weight(1f).clipToBounds(),
             estimatedPagedItemHeight = rowHeight, itemKey = { it.key }) { row ->
             row.content(Modifier.fillMaxWidth().height(rowHeight).clipToBounds().padding(6.dp))

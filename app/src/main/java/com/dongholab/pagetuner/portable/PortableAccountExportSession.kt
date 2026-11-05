@@ -12,6 +12,16 @@ internal class PortableAccountExportGrant internal constructor(
     fun checkCurrent() = current()
 }
 
+/** UI callback generation only; its monitor is released before waiting on any account gate. */
+internal fun retirePortableExportChoice(choice: PortableAccountExportLease, session: PortableAccountExportSession,
+    changed: Boolean = true,
+    change: () -> Unit) {
+    if (!changed) return
+    if (!choice.retire()) return
+    session.close()
+    change()
+}
+
 /** A committed panel/options lifetime. Constructing a render never issues an account operation. */
 internal class PortableAccountExportSession(
     private val authority: PortableTextAccountAuthority?,

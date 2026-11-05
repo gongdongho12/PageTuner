@@ -91,4 +91,41 @@ class PortableAccountExportSessionTest {
         }
         session.close(); expired { grant.checkCurrent() }
     }
+
+    @Test fun retainedOptionCallbackCannotMutateSharedStateAfterANewerChoiceCommits() {
+        val owner = authority(); val old = PortableAccountExportSession(owner, "options-A").apply { activate() }
+        val choice = PortableAccountExportLease().apply { activate() }; var changes = 0
+        val callback = { retirePortableExportChoice(choice, old) { changes++ } }
+        callback(); assertEquals(1, changes)
+        val next = PortableAccountExportSession(owner, "options-B").apply { activate() }.issue()
+        callback(); assertEquals(1, changes); next.checkCurrent()
+        expired { old.issue() }
+    }
+
+    @Test fun offlineDeselectionConsumesUiChoiceWithoutIssuingAccountAuthority() {
+        val offline = PortableAccountExportSession(null, "offline").apply { activate() }
+        val choice = PortableAccountExportLease().apply { activate() }; var selected = true
+        retirePortableExportChoice(choice, offline) { selected = false }
+        assertFalse(selected); expired { offline.issue() }
+        retirePortableExportChoice(choice, offline) { selected = true }
+        assertFalse(selected)
+    }
+
+    @Test fun uncommittedAndDisposedChoiceCallbacksCannotChangeOptions() {
+        val session = PortableAccountExportSession(authority(), "entry")
+        val choice = PortableAccountExportLease(); var changed = false
+        retirePortableExportChoice(choice, session) { changed = true }; assertFalse(changed)
+        choice.close(); session.close(); choice.activate(); session.activate()
+        retirePortableExportChoice(choice, session) { changed = true }; assertFalse(changed)
+    }
+
+    @Test fun duplicateValueCallbackDoesNotConsumeTheStillCurrentChoiceOrGrant() {
+        val session = PortableAccountExportSession(authority(), "entry").apply { activate() }
+        val choice = PortableAccountExportLease().apply { activate() }; val grant = session.issue()
+        var changed = false
+        retirePortableExportChoice(choice, session, changed = false) { changed = true }
+        assertFalse(changed); choice.check(); grant.checkCurrent()
+        retirePortableExportChoice(choice, session) { changed = true }
+        assertTrue(changed); expired { grant.checkCurrent() }
+    }
 }
