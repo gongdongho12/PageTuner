@@ -1,5 +1,7 @@
 # Android canonical 읽던 위치 ZIP 준비
 
+후속 [PR #72 ticket staging](PORTABLE_EXPORT_STAGING.md)가 monitor 밖 guard·고정 payload 게시를 완료했다. 아래는 PR #71 adapter/composer 근거이며 VM/Compose 옵션/SAF 연결은 계속 후속이다.
+
 2026-11-04 [draft PR #71](https://github.com/gongdongho12/PageTuner/pull/71), base `codex/android-fresh-progress-reader`(PR #70), head `codex/canonical-android-progress-export`다. exact owner 검사 `f769d60`·adapter/17개 회귀 `d0c213a`·composer/8개 회귀 `1dcedf0`와 문서를 분리했다. **실제 production authority/ticket 타입을 필수로 받는 canonical adapter와 공통 composer**를 완료했다. VM·committed Compose 옵션·SAF UI 연결과 S1 명시적 채택은 아직 후속이다.
 
 ## 고정 권한과 최신 자료
