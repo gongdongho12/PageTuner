@@ -1,7 +1,9 @@
 # PageTuner 남은 작업 체크리스트
 
+- [x] **Android S1 별도 채택 command 내부 기반**: [draft PR #76](https://github.com/gongdongho12/PageTuner/pull/76), base PR #75. 직접 GET·전체 nullable CAS·private single-use 객체·새 UUID/expectedVersion·고수위/dirty 보존·최종 memory guard·durable 성공. 신규41·집중96·앱976통과/16제외·APK/lint/기존 계측 소스/경계 성공. 실제 권한 adapter/UI/인계는 미연결이며 주입 JVM 근거다. [범위](ANDROID_PROGRESS_ADOPTION_COMMAND.md).
+- [ ] **Android S1 canonical 채택 adapter·명시 인계·별도 확인 UI**: currentDocument 전체 ZIP/fullproof·strict raw nonce·실제 authority/선택 ticket과 private present anchor를 연결한다. 정상 actor의 구성된 account/client/session ticket으로 commit 뒤만 인계한다. ZIP absent/null은 정보만/적용 없음이다.
+
 - [x] **Android S1 정상 sync actor CAS/reload 보호**: [draft PR #75](https://github.com/gongdongho12/PageTuner/pull/75), base PR #74. 전체 expected snapshot·mismatch 부작용 폐기/세대 무효화·outbox dispatch token·early return/known inactive 관찰·동일 mutation/기한을 보존한다. 신규25·집중51·앱935통과/16제외·APK/lint/기존 계측 소스/경계 성공. 별칭은 파일 보존/failclosed이며 실제 기기 근거는 아니다. [범위](ANDROID_PROGRESS_SYNC_CAS.md).
-- [ ] **Android S1 별도 명시 채택**: 직접 최신 GET·nullable 전체 snapshot/CAS·새 mutation command → 실제 canonical/raw nonce/terminal account·선택 adapter → 별도 확인 UI 순서. pending/queued/conflict/별칭을 덮지 않고, absent는 정보만/PUT 없음이다.
 
 - [x] **Android S1 전체 별칭 nullable snapshot·guarded CAS 저장 기반**: [draft PR #74](https://github.com/gongdongho12/PageTuner/pull/74), base PR #73. raw alias 전체 logical token·canonical-only 쓰기·미지원 failclosed·fsync 뒤 최종 guard·postcommit 성공 보존. 신규 JVM30·집중119·앱910통과/16제외·APK/lint/계측 소스/경계 성공. 실제 AtomicFile 계측5개는 컴파일만 했다. [STORE ONLY 범위](ANDROID_PROGRESS_SNAPSHOT_CAS.md).
 
