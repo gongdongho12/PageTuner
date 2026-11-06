@@ -15,6 +15,8 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 
 enum class ReadingProgressPhase { Inactive, Loading, Synced, Pending, Offline, RateLimited, Conflict, Unavailable, DeviceError }
 data class ReadingProgressRestore(val readerId: String, val pageIndex: Int, val sequence: Long, val expectedPageChangeRevision: Long,
@@ -59,21 +61,23 @@ class ServerReadingProgressSync(private val scope: CoroutineScope, private val s
         data class Send(val ticket: Long) : Action
         data class ScanOutbox(val ticket: Long) : Action
         data class OutboxReceived(val ticket: Long, val target: ServerReadingTarget, val mutation: ServerReadingMutation,
-            val result: Result<ServerReadingProgress>) : Action
+            val expected: ReadingProgressJournalSnapshot, val result: Result<ServerReadingProgress>) : Action
+        data object Reevaluate : Action
     }
     private data class Session(
-        val ticket: Long, val document: ServerReadingDocument, val connection: ServerReadingConnection,
+        var ticket: Long, val document: ServerReadingDocument, val connection: ServerReadingConnection,
         var record: DeviceReadingProgress, var page: Int, var restoredPage: Int? = null, var failedStorage: Boolean = false,
         var sentMutationId: String? = null,
         var pageChangeRevision: Long = 0,
         var terminalFailure: Boolean = false,
         var characterOffset: Int = 0,
+        var durableBase: ReadingProgressJournalSnapshot? = null,
     )
     private val actions = Channel<Action>(Channel.UNLIMITED)
     private val mutableState = MutableStateFlow(ReadingProgressUiState())
     val state = mutableState.asStateFlow()
     private var session: Session? = null
-    private var generation = 0L
+    @Volatile private var generation = 0L
     private var restoreSequence = 0L
     private var network: Job? = null
     private var timer: Job? = null
@@ -82,15 +86,19 @@ class ServerReadingProgressSync(private val scope: CoroutineScope, private val s
     private var outboxTimer: Job? = null
     private val attemptedOutbox = mutableSetOf<String>()
     private val terminalOutbox = mutableSetOf<String>()
+    private val outboxBases = mutableMapOf<String, ReadingProgressJournalSnapshot>()
+    private class JournalChanged : Exception()
 
     init { scope.launch {
         for (action in actions) {
             try { handle(action) }
             catch (cancelled: CancellationException) { throw cancelled }
+            catch (_: JournalChanged) { actions.trySend(Action.Reevaluate) }
             catch (_: Exception) {
                 session?.failedStorage = true
                 stop()
-                mutableState.value = mutableState.value.copy(phase = ReadingProgressPhase.DeviceError)
+                mutableState.value = mutableState.value.copy(phase = ReadingProgressPhase.DeviceError,
+                    restore = null, localPage = null, serverPage = null)
             }
         }
     } }
@@ -108,9 +116,10 @@ class ServerReadingProgressSync(private val scope: CoroutineScope, private val s
     private suspend fun handle(action: Action) {
         when (action) {
             is Action.Connect -> {
-                if (accountConnection?.client === action.connection?.client) return
+                if (accountConnection?.client === action.connection?.client && accountConnection?.accountKey == action.connection?.accountKey) return
                 stop(); session = null
                 terminalOutbox.clear()
+                outboxBases.clear()
                 accountConnection = action.connection
                 mutableState.value = ReadingProgressUiState()
                 pumpOutbox()
@@ -118,26 +127,39 @@ class ServerReadingProgressSync(private val scope: CoroutineScope, private val s
             is Action.Open -> {
                 if (action.document.accountKey != action.connection.accountKey) return
                 val current = session
-                if (current?.document?.openId == action.document.openId && current.connection.client === action.connection.client) return
+                if (current?.document?.openId == action.document.openId && !current.failedStorage && current.connection.client === action.connection.client &&
+                    current.connection.accountKey == action.connection.accountKey) {
+                    ensureFresh(current)
+                    return
+                }
+                current?.durableBase?.let { outboxBases[current.document.key] = it }
                 stop()
-                if (accountConnection?.client !== action.connection.client) terminalOutbox.clear()
+                if (accountConnection?.client !== action.connection.client || accountConnection?.accountKey != action.connection.accountKey) {
+                    terminalOutbox.clear(); outboxBases.clear()
+                }
                 accountConnection = action.connection
                 terminalOutbox.remove(action.document.key)
+                outboxBases.remove(action.document.key)
                 val next = Session(generation, action.document, action.connection, DeviceReadingProgress(), action.page)
                 next.pageChangeRevision = action.revision
                 next.characterOffset = action.characterOffset
                 session = next
                 mutableState.value = ReadingProgressUiState(action.document.readerId, ReadingProgressPhase.Loading)
-                next.record = withContext(storageDispatcher) { storage.read(action.document) }
+                install(next, capture(action.document.target()))
                 // A persisted mutation may have reached the server before the previous process exited.
                 next.sentMutationId = next.record.pending?.mutationId
                 next.record.localAnchor?.let { restore(next, it) }
                 if (next.record.conflict != null) showConflict(next) else if (next.record.pending != null) send(next) else fetch(next)
                 pumpOutbox()
             }
-            Action.Close -> { stop(); session = null; mutableState.value = ReadingProgressUiState(); pumpOutbox() }
+            Action.Close -> {
+                session?.let { current -> current.durableBase?.let { outboxBases[current.document.key] = it } }
+                stop(); session = null; mutableState.value = ReadingProgressUiState(); pumpOutbox()
+            }
             is Action.Page -> {
                 val current = session ?: return
+                if (current.document.readerId != action.readerId || current.failedStorage) return
+                ensureFresh(current)
                 if (current.document.readerId != action.readerId || current.failedStorage ||
                     action.page == current.page && action.characterOffset == current.characterOffset &&
                         (action.revision == null || action.revision == current.pageChangeRevision)) return
@@ -172,9 +194,13 @@ class ServerReadingProgressSync(private val scope: CoroutineScope, private val s
                     schedule(current, 700, retry = false)
                 }
             }
-            is Action.Send -> session?.takeIf { it.ticket == action.ticket && it.record.conflict == null && !it.failedStorage }?.let { send(it) }
+            is Action.Send -> session?.takeIf { it.ticket == action.ticket && !it.failedStorage }?.let {
+                ensureFresh(it)
+                if (it.record.conflict == null) send(it) else showConflict(it)
+            }
             is Action.Retry -> {
                 session?.takeIf { (action.ticket == null || action.ticket == it.ticket) && !it.failedStorage }?.let {
+                    ensureFresh(it)
                     if (action.ticket == null) it.terminalFailure = false
                     if (it.record.conflict != null) showConflict(it) else if (it.record.pending != null) send(it) else fetch(it)
                 }
@@ -183,13 +209,15 @@ class ServerReadingProgressSync(private val scope: CoroutineScope, private val s
             is Action.Resolve -> {
                 val current = session ?: return
                 if (current.failedStorage) return
+                ensureFresh(current)
                 val conflict = current.record.conflict ?: return
                 if (action.local) {
                     val anchor = requireNotNull(current.record.localAnchor)
-                    persist(current, DeviceReadingProgress(remote = conflict, pending = mutation(conflict.version, anchor)))
+                    persist(current, DeviceReadingProgress(remote = conflict, pending = mutation(conflict.version, anchor),
+                        retryAfterUntil = current.record.retryAfterUntil))
                     send(current)
                 } else {
-                    persist(current, DeviceReadingProgress(remote = conflict))
+                    persist(current, DeviceReadingProgress(remote = conflict, retryAfterUntil = current.record.retryAfterUntil))
                     (conflict.anchor ?: current.document.anchor(0))?.let { restore(current, it) }
                     mutableState.value = mutableState.value.copy(phase = ReadingProgressPhase.Synced, localPage = null, serverPage = null)
                 }
@@ -197,6 +225,7 @@ class ServerReadingProgressSync(private val scope: CoroutineScope, private val s
             is Action.Received -> {
                 val current = session?.takeIf { it.ticket == action.ticket && !it.failedStorage } ?: return
                 network = null
+                ensureFresh(current)
                 action.result.fold(onSuccess = { value ->
                     value.anchor?.let(current.document::validate)
                     if (action.mutation == null) {
@@ -237,24 +266,34 @@ class ServerReadingProgressSync(private val scope: CoroutineScope, private val s
             is Action.OutboxReceived -> {
                 if (action.ticket != generation || action.target.accountKey != accountConnection?.accountKey) return
                 outboxNetwork = null
-                val record = withContext(storageDispatcher) { storage.read(action.target) }
+                val latest = capture(action.target)
+                if (latest != action.expected) changed(action.target, latest)
+                val record = latest.canonical ?: DeviceReadingProgress()
                 if (record.pending == action.mutation && record.conflict == null) {
                     action.result.fold(onSuccess = { value ->
                         val queued = record.queuedAnchor?.takeUnless { it == value.anchor }
                         val next = DeviceReadingProgress(remote = value, pending = queued?.let { mutation(value.version, it) })
-                        withContext(storageDispatcher) { storage.write(action.target, next) }
+                        persistOutbox(action.target, latest, next)
                     }, onFailure = { error ->
-                        attemptedOutbox += action.target.key
                         if (error is ServerReadingProgressConflict) {
-                            withContext(storageDispatcher) { storage.write(action.target, record.copy(conflict = error.current)) }
+                            persistOutbox(action.target, latest, record.copy(conflict = error.current))
                         } else if (error is ServerReadingProgressRateLimited) {
                             val next = record.copy(retryAfterUntil = clock() + error.retryAfterSeconds * 1_000)
-                            withContext(storageDispatcher) { storage.write(action.target, next) }
+                            persistOutbox(action.target, latest, next)
                         } else if (error !is TranslationStoreException || error.failure !in setOf(
                                 TranslationStoreFailure.NETWORK, TranslationStoreFailure.TIMEOUT, TranslationStoreFailure.SERVER)) {
                             terminalOutbox += action.target.key
                         }
+                        attemptedOutbox += action.target.key
                     })
+                }
+                pumpOutbox()
+            }
+            Action.Reevaluate -> {
+                session?.takeUnless { it.failedStorage }?.let { current ->
+                    ensureFresh(current)
+                    if (current.record.conflict != null) showConflict(current)
+                    else if (current.record.pending != null) send(current) else fetch(current)
                 }
                 pumpOutbox()
             }
@@ -263,25 +302,35 @@ class ServerReadingProgressSync(private val scope: CoroutineScope, private val s
 
     private suspend fun pumpOutbox() {
         val connection = accountConnection ?: return
+        // pending() is discovery only; it is neither a complete observation nor the durable base.
+        // Canonicalize the query scope only. capture() rejects any historical noncanonical row.
+        val discovered = withContext(storageDispatcher) { storage.pending(connection.accountKey) }
+            .map { it.copy(recordId = it.recordId.lowercase(java.util.Locale.ROOT)) }
+        val targets = (outboxBases.values.map { it.target } + discovered).distinctBy { it.key }
+            .filter { it.accountKey == connection.accountKey && it.key != session?.document?.key }
+        for (target in targets) {
+            val latest = capture(target)
+            if (outboxBases.containsKey(target.key) && outboxBases[target.key] != latest) changed(target, latest)
+            outboxBases[target.key] = latest
+        }
+        mutableState.value = mutableState.value.copy(pendingDocuments = targets.count { outboxBases.getValue(it.key).canonical?.pending != null })
         if (outboxNetwork != null) return
-        val targets = withContext(storageDispatcher) { storage.pending(connection.accountKey) }
-            .filter { it.key != session?.document?.key }
-        mutableState.value = mutableState.value.copy(pendingDocuments = targets.size)
         var automaticRetryNeeded = false
         for (target in targets) {
+            val expected = outboxBases.getValue(target.key)
+            val record = expected.canonical ?: DeviceReadingProgress()
             if (target.key in terminalOutbox) continue
-            val record = withContext(storageDispatcher) { storage.read(target) }
             if (record.conflict != null) { attemptedOutbox += target.key; continue }
+            val pending = record.pending ?: continue
             automaticRetryNeeded = true
             if (target.key in attemptedOutbox) continue
             if ((record.retryAfterUntil ?: 0) > clock()) continue
-            val pending = record.pending ?: continue
             val ticket = generation
             outboxNetwork = scope.launch {
                 val result = try { Result.success(connection.client.saveReadingProgress(target.kind, target.recordId, pending)) }
                 catch (cancelled: CancellationException) { throw cancelled }
                 catch (error: Exception) { Result.failure(error) }
-                actions.send(Action.OutboxReceived(ticket, target, pending, result))
+                actions.send(Action.OutboxReceived(ticket, target, pending, expected, result))
             }
             return
         }
@@ -292,13 +341,15 @@ class ServerReadingProgressSync(private val scope: CoroutineScope, private val s
         }
     }
 
-    private fun fetch(current: Session) {
+    private suspend fun fetch(current: Session) {
+        ensureFresh(current)
         if (network != null || current.terminalFailure) return
         if (waitForRetryDeadline(current)) return
         mutableState.value = mutableState.value.copy(phase = ReadingProgressPhase.Loading)
         request(current, null)
     }
-    private fun send(current: Session) {
+    private suspend fun send(current: Session) {
+        ensureFresh(current)
         if (network != null || current.terminalFailure) return
         if (waitForRetryDeadline(current)) return
         val pending = current.record.pending ?: return
@@ -308,6 +359,7 @@ class ServerReadingProgressSync(private val scope: CoroutineScope, private val s
     }
     private fun request(current: Session, pending: ServerReadingMutation?) {
         if (pending != null) current.sentMutationId = pending.mutationId
+        val ticket = current.ticket
         network = scope.launch {
             val result = try {
                 val entry = current.document.source.entry
@@ -315,12 +367,78 @@ class ServerReadingProgressSync(private val scope: CoroutineScope, private val s
                     else current.connection.client.saveReadingProgress(entry.kind.progressKind(), entry.recordId, pending))
             } catch (cancelled: CancellationException) { throw cancelled }
             catch (error: Exception) { Result.failure(error) }
-            actions.send(Action.Received(current.ticket, pending, result))
+            actions.send(Action.Received(ticket, pending, result))
         }
     }
     private suspend fun persist(current: Session, next: DeviceReadingProgress) {
-        withContext(storageDispatcher) { storage.write(current.document, next) }
+        validate(current, next)
+        val expected = requireNotNull(current.durableBase)
+        val ticket = current.ticket
+        val actor = currentCoroutineContext()
+        val accepted = withContext(storageDispatcher) {
+            storage.compareAndWrite(current.document.target(), expected, next) {
+                actor.ensureActive()
+                check(generation == ticket && !current.failedStorage)
+            }
+        }
+        if (!accepted) changed(current.document.target(), capture(current.document.target()))
+        // Derive the exact committed base; a recapture here could borrow a subsequent writer's row.
+        current.durableBase = committed(expected, next)
         current.record = next
+    }
+    private suspend fun persistOutbox(target: ServerReadingTarget, expected: ReadingProgressJournalSnapshot, next: DeviceReadingProgress) {
+        val ticket = generation
+        val actor = currentCoroutineContext()
+        val accepted = withContext(storageDispatcher) {
+            storage.compareAndWrite(target, expected, next) {
+                actor.ensureActive(); check(generation == ticket)
+            }
+        }
+        if (!accepted) changed(target, capture(target))
+        outboxBases[target.key] = committed(expected, next)
+    }
+    private fun committed(expected: ReadingProgressJournalSnapshot, next: DeviceReadingProgress) =
+        ReadingProgressJournalSnapshot(expected.target, expected.aliases.filterNot { it.target == expected.target } +
+            ReadingProgressJournalObservation(expected.target, next))
+
+    private suspend fun capture(target: ServerReadingTarget): ReadingProgressJournalSnapshot {
+        val result = withContext(storageDispatcher) { storage.captureSnapshot(target) }
+        // Deliberately conservative: keep historical files intact until an explicit alias policy exists.
+        require(result.target == target && result.aliases.all { it.target == target }) {
+            "Historical progress aliases require explicit recovery before normal synchronization."
+        }
+        return result
+    }
+    private fun validate(current: Session, record: DeviceReadingProgress) {
+        listOfNotNull(record.remote?.anchor, record.pending?.anchor, record.queuedAnchor, record.conflict?.anchor)
+            .forEach(current.document::validate)
+    }
+    private fun install(current: Session, snapshot: ReadingProgressJournalSnapshot) {
+        val record = snapshot.canonical ?: DeviceReadingProgress()
+        validate(current, record)
+        current.durableBase = snapshot
+        current.record = record
+    }
+    /** An external change invalidates the action; do not apply its calculated side effects. */
+    private suspend fun ensureFresh(current: Session) {
+        val latest = capture(current.document.target())
+        if (latest != current.durableBase) changed(current.document.target(), latest)
+    }
+    private fun changed(target: ServerReadingTarget, latest: ReadingProgressJournalSnapshot): Nothing {
+        stop()
+        terminalOutbox.remove(target.key)
+        outboxBases[target.key] = latest
+        session?.let { current ->
+            current.ticket = generation
+            current.restoredPage = null
+            if (current.document.target() == target) {
+                current.terminalFailure = false
+                install(current, latest)
+                current.sentMutationId = current.record.pending?.mutationId
+            }
+        }
+        mutableState.value = mutableState.value.copy(restore = null, localPage = null, serverPage = null)
+        throw JournalChanged()
     }
     private fun restore(current: Session, anchor: ServerReadingAnchor) {
         current.document.validate(anchor)
@@ -335,7 +453,8 @@ class ServerReadingProgressSync(private val scope: CoroutineScope, private val s
     }
     private fun schedule(current: Session, milliseconds: Long, retry: Boolean) {
         timer?.cancel()
-        timer = scope.launch { delay(milliseconds); actions.send(if (retry) Action.Retry(current.ticket) else Action.Send(current.ticket)) }
+        val ticket = current.ticket
+        timer = scope.launch { delay(milliseconds); actions.send(if (retry) Action.Retry(ticket) else Action.Send(ticket)) }
     }
     private fun waitForRetryDeadline(current: Session): Boolean {
         val remaining = (current.record.retryAfterUntil ?: 0) - clock()
