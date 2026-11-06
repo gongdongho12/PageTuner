@@ -35,6 +35,13 @@ interface ServerReadingProgressStore {
     /** Complete, strict alias observation is distinct from the legacy pending-only scan. */
     fun observeAliases(target: ServerReadingTarget): List<ReadingProgressJournalObservation> =
         throw UnsupportedOperationException("Strict reading progress observations are unavailable")
+    /** Nullable canonical row and complete raw alias batch, not a default-value read or pending scan. */
+    fun captureSnapshot(target: ServerReadingTarget): ReadingProgressJournalSnapshot =
+        throw UnsupportedOperationException("Reading progress snapshot comparison is unavailable")
+    /** Local durable commit only. Guard must be synchronous, memory-only and not mutate this store. */
+    fun compareAndWrite(target: ServerReadingTarget, expected: ReadingProgressJournalSnapshot,
+        value: DeviceReadingProgress, guard: () -> Unit): Boolean =
+        throw UnsupportedOperationException("Atomic reading progress comparison is unavailable")
 }
 
 /** Small app-private records, atomically committed before an HTTP mutation is sent. */
@@ -47,6 +54,7 @@ class FileServerReadingProgressStore internal constructor(private val directory:
         }
     }
     override fun read(target: ServerReadingTarget): DeviceReadingProgress = ServerJournalFileLocks.withDirectory(directory) {
+        ReadingProgressCasScopes.requireLegacyAccess(directory)
         val file = file(target)
         if (!io.exists(file)) DeviceReadingProgress() else decodeDeviceReadingProgress(readJson(file), target)
     }
@@ -68,11 +76,14 @@ class FileServerReadingProgressStore internal constructor(private val directory:
 
     override fun write(document: ServerReadingDocument, value: DeviceReadingProgress) = write(document.target(), value)
     override fun write(target: ServerReadingTarget, value: DeviceReadingProgress) = ServerJournalFileLocks.withDirectory(directory) {
+        ReadingProgressCasScopes.requireLegacyAccess(directory)
         check(directory.isDirectory || directory.mkdirs()) { "Reading progress directory is unavailable" }
         io.write(file(target), encodeDeviceReadingProgress(target, value).toString().toByteArray(Charsets.UTF_8))
     }
 
-    override fun pending(accountKey: String): List<ServerReadingTarget> = ServerJournalFileLocks.withDirectory(directory) { directory.listFiles().orEmpty()
+    override fun pending(accountKey: String): List<ServerReadingTarget> = ServerJournalFileLocks.withDirectory(directory) {
+        ReadingProgressCasScopes.requireLegacyAccess(directory)
+        directory.listFiles().orEmpty()
         .map { it.name.removeSuffix(".bak") }.filter { it.matches(Regex("[a-f0-9]{64}\\.json")) }.distinct().mapNotNull { name ->
             // A corrupt record is retained for explicit recovery; it must never be overwritten by a scan.
             runCatching {
@@ -124,7 +135,56 @@ class FileServerReadingProgressStore internal constructor(private val directory:
             observations.toList()
         }
     }
+
+    override fun captureSnapshot(target: ServerReadingTarget): ReadingProgressJournalSnapshot =
+        ServerJournalFileLocks.withDirectory(directory) { ReadingProgressJournalSnapshot(target, observeAliases(target)) }
+
+    override fun compareAndWrite(target: ServerReadingTarget, expected: ReadingProgressJournalSnapshot,
+        value: DeviceReadingProgress, guard: () -> Unit): Boolean {
+        // Detach and validate every input before a callback or directory wait. The next row must
+        // use the canonical target; historical aliases remain untouched by this write.
+        val captured = expected.detached()
+        require(captured.target == target) { "Progress snapshot belongs to another scope." }
+        val encoded = encodeDeviceReadingProgress(target, value)
+        val raw = encoded.toString()
+        val bytes = raw.toByteArray(Charsets.UTF_8)
+        require(bytes.size <= 65_536) { "Reading progress record is too large" }
+        StrictExchangeJson.validate(raw, integerNumbersOnly = true, maxArrayEntries = 0, maxValues = 128)
+        decodeDeviceReadingProgress(encoded, target)
+        return ServerJournalFileLocks.withDirectory(directory) {
+            ReadingProgressCasScopes.withComparison(directory) {
+                guard()
+                if (ReadingProgressJournalSnapshot(target, observeAliases(target)) != captured) return@withComparison false
+                guard()
+                // Do not create a directory or recover a backup on mismatch. Unsupported guarded IO
+                // must throw rather than falling back to the legacy unconditional writer.
+                io.writeGuarded(file(target), bytes, guard)
+                // No postcommit guard: a completed local intent cannot be re-labelled as rollback.
+                true
+            }
+        }
+    }
     private fun file(target: ServerReadingTarget) = File(directory, StableContentHash.sha256(target.key) + ".json")
+}
+
+/**
+ * CAS callbacks must be memory-only. A JVM monitor alone is reentrant, so protect cooperating
+ * progress-store aliases from legacy backup recovery/writes and nested CAS during this scope.
+ * Each operation already holds its directory monitor; the short registry lock never surrounds IO.
+ */
+private object ReadingProgressCasScopes {
+    private val active = mutableSetOf<String>()
+    fun requireLegacyAccess(directory: File) {
+        val key = directory.canonicalPath
+        synchronized(active) { check(key !in active) { "Legacy progress access is unavailable during comparison." } }
+    }
+
+    fun <T> withComparison(directory: File, block: () -> T): T {
+        val key = directory.canonicalPath
+        synchronized(active) { check(active.add(key)) { "Nested progress comparison is unavailable." } }
+        try { return block() }
+        finally { synchronized(active) { active.remove(key) } }
+    }
 }
 
 /** Injected IO tests production exclusion on the JVM; Android AtomicFile itself needs instrumentation. */
@@ -138,6 +198,9 @@ internal interface ReadingProgressJournalIo {
     fun exists(file: File): Boolean
     fun read(file: File): ByteArray
     fun write(file: File, bytes: ByteArray)
+    /** Stage/flush/fsync, then guard at the last abortable boundary before the atomic commit. */
+    fun writeGuarded(file: File, bytes: ByteArray, guard: () -> Unit): Unit =
+        throw UnsupportedOperationException("Guarded reading progress writes are unavailable")
 }
 private object AtomicReadingProgressJournalIo : ReadingProgressJournalIo {
     override fun inventory(directory: File): List<File>? {
@@ -180,6 +243,24 @@ private object AtomicReadingProgressJournalIo : ReadingProgressJournalIo {
             stream.write(bytes)
             atomic.finishWrite(stream)
         } catch (error: Exception) {
+            atomic.failWrite(stream)
+            throw error
+        }
+    }
+
+    override fun writeGuarded(file: File, bytes: ByteArray, guard: () -> Unit) {
+        guard()
+        val parent = requireNotNull(file.parentFile)
+        check(parent.isDirectory || parent.mkdirs()) { "Reading progress directory is unavailable" }
+        val atomic = AtomicFile(file)
+        val stream = atomic.startWrite()
+        try {
+            stream.write(bytes)
+            stream.flush()
+            stream.fd.sync()
+            guard()
+            atomic.finishWrite(stream)
+        } catch (error: Throwable) {
             atomic.failWrite(stream)
             throw error
         }

@@ -1,5 +1,8 @@
 # PageTuner 남은 작업 체크리스트
 
+- [x] **Android S1 전체 별칭 nullable snapshot·guarded CAS 저장 기반**: [draft PR #74](https://github.com/gongdongho12/PageTuner/pull/74), base PR #73. raw alias 전체 logical token·canonical-only 쓰기·미지원 failclosed·fsync 뒤 최종 guard·postcommit 성공 보존. 신규 JVM30·집중119·앱910통과/16제외·APK/lint/계측 소스/경계 성공. 실제 AtomicFile 계측5개는 컴파일만 했다. [STORE ONLY 범위](ANDROID_PROGRESS_SNAPSHOT_CAS.md).
+- [ ] **Android S1 정상 sync actor CAS/reload 보호 → 별도 명시 채택**: cached persist/OutboxReceived/early return·pump에 전체 snapshot expected-base와 mismatch 세대 무효화를 연결한다. 그 뒤 직접 GET/canonical/raw nonce/session·새 mutation의 별도 채택 command/adapter/UI를 연결한다. absent는 정보만/PUT 없음이며 기존 move/choose/open/connect/retry로 채택하지 않는다.
+
 - [x] **Android S1 ZIP 옵션·VM/SAF 코드 연결**: [draft PR #73](https://github.com/gongdongho12/PageTuner/pull/73), base PR #72. 기본 해제 progress·actual authority/committed grant·strict nonce·동시 metadata·picker IO/UI 재검사·현재 write Job·stale admission 연결. 신규28·앱880통과/16제외·APK/lint/계측 소스/경계 성공. 실제 JVM ZIP/주입 stream이며 실제 Compose/물리 SAF·회전/재생성은 V3, S1 별도 채택/CAS도 후속이다. [범위](ANDROID_PROGRESS_EXPORT_UI.md).
 
 - [x] **SAF ticket 준비·게시 잠금 선행 보완**: [draft PR #72](https://github.com/gongdongho12/PageTuner/pull/72), base PR #71. monitor 밖 blocking guard·한 번 예약/게시·고정 payload·준비/쓰기 패배자와 old finally의 새 요청 보존. 신규17·앱852통과/16제외·APK/lint/기존 계측 소스/경계 성공. JVM latch/executor/주입 stream이며 실제 VM/Compose 옵션·SAF lifecycle/현재 write job 연결은 후속이다. [범위](PORTABLE_EXPORT_STAGING.md).
