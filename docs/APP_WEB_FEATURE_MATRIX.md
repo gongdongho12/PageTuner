@@ -6,6 +6,8 @@
 
 ## 판정 방법
 
+2026-11-06 [draft PR #76](https://github.com/gongdongho12/PageTuner/pull/76)는 Android S1 직접 GET·별도 채택 command 내부 기반이다. whole snapshot·private 비교 객체·새 mutation과 고수위/terminal/최종 guard를 구현하고 dirty intent를 덮지 않는다. 신규41·집중96·앱976통과/16제외·APK/lint/기존 계측 소스/경계 성공. 실제 JVM 파일/주입 IO·HTTP 근거이며 canonical ZIP/fullproof/raw nonce·실제 account/선택 adapter/Compose·명시 인계/UI·물리 SAF는 아직 미연결이다. [범위](ANDROID_PROGRESS_ADOPTION_COMMAND.md).
+
 2026-11-06 [draft PR #75](https://github.com/gongdongho12/PageTuner/pull/75)는 Android 정상 S1 sync의 cached unconditional write를 전체 snapshot CAS/reload로 보호했다. 늦은 응답/실패·stale page/선택·inactive outbox가 새 row를 덮거나 잘못된 retry/terminal 효과를 적용하지 않는다. 신규25·집중51·앱935통과/16제외·APK/lint/기존 계측 소스/경계 성공. 주입 atomic journal/HTTP 근거이며 새 실기기/DB/SAF 검증은 아니다. 비canonical UUID 별칭은 파일 보존/DeviceError 가용성 제한이며 별도 S1 채택 command/adapter/UI는 남았다. [범위](ANDROID_PROGRESS_SYNC_CAS.md).
 
 2026-11-06 [draft PR #74](https://github.com/gongdongho12/PageTuner/pull/74)는 Android S1의 전체 raw UUID 별칭·nullable canonical snapshot CAS 저장 기반이다. canonical 파일만 쓰며 별칭/기한을 정규화·삭제하지 않고 마지막 취소 가능 guard와 durable 성공을 보존한다. 신규 JVM30·집중119·앱910통과/16제외·APK/lint/계측 소스/경계 성공. 실제 JVM 파일/주입 IO 근거이고 Android AtomicFile 계측5개는 컴파일만 했다. 정상 sync cached persist 보호와 별도 채택 command/UI·물리 검증은 남았다. [STORE ONLY 범위](ANDROID_PROGRESS_SNAPSHOT_CAS.md).
