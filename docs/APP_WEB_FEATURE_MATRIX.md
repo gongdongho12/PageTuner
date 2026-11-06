@@ -6,6 +6,8 @@
 
 ## 판정 방법
 
+2026-11-06 [draft PR #75](https://github.com/gongdongho12/PageTuner/pull/75)는 Android 정상 S1 sync의 cached unconditional write를 전체 snapshot CAS/reload로 보호했다. 늦은 응답/실패·stale page/선택·inactive outbox가 새 row를 덮거나 잘못된 retry/terminal 효과를 적용하지 않는다. 신규25·집중51·앱935통과/16제외·APK/lint/기존 계측 소스/경계 성공. 주입 atomic journal/HTTP 근거이며 새 실기기/DB/SAF 검증은 아니다. 비canonical UUID 별칭은 파일 보존/DeviceError 가용성 제한이며 별도 S1 채택 command/adapter/UI는 남았다. [범위](ANDROID_PROGRESS_SYNC_CAS.md).
+
 2026-11-06 [draft PR #74](https://github.com/gongdongho12/PageTuner/pull/74)는 Android S1의 전체 raw UUID 별칭·nullable canonical snapshot CAS 저장 기반이다. canonical 파일만 쓰며 별칭/기한을 정규화·삭제하지 않고 마지막 취소 가능 guard와 durable 성공을 보존한다. 신규 JVM30·집중119·앱910통과/16제외·APK/lint/계측 소스/경계 성공. 실제 JVM 파일/주입 IO 근거이고 Android AtomicFile 계측5개는 컴파일만 했다. 정상 sync cached persist 보호와 별도 채택 command/UI·물리 검증은 남았다. [STORE ONLY 범위](ANDROID_PROGRESS_SNAPSHOT_CAS.md).
 
 2026-11-06 [draft PR #73](https://github.com/gongdongho12/PageTuner/pull/73)는 Android S1 최신 GET ZIP의 기본 해제 옵션·실제 authority/committed session·VM·SAF 코드 연결이다. 신규28·앱880통과/16제외·APK/lint/계측 소스/경계 성공. production 수명/adapter와 실제 JVM ZIP/binding·주입 stream 근거이며 실제 Android Context VM/Compose/물리 SAF·시각/회전/재생성은 미실행이다. 최대 identity fixture28행/33callsite는 컴파일만 했다. 별도 S1 채택은 nullable CAS/정상 actor 보호부터 남았다. [범위](ANDROID_PROGRESS_EXPORT_UI.md).

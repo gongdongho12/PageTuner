@@ -590,6 +590,21 @@ class ServerReadingProgressTest {
         var fail = false
         override fun read(document: ServerReadingDocument) = records[document.key] ?: DeviceReadingProgress()
         override fun read(target: ServerReadingTarget) = records[target.key] ?: DeviceReadingProgress()
+        override fun captureSnapshot(target: ServerReadingTarget): ReadingProgressJournalSnapshot = synchronized(this) {
+            ReadingProgressJournalSnapshot(target, records.entries.mapNotNull { (key, record) ->
+                val parts = key.split(':')
+                val raw = ServerReadingTarget(parts[0], parts[1], parts[2])
+                if (raw.accountKey == target.accountKey && raw.kind == target.kind && raw.recordId.equals(target.recordId, true))
+                    ReadingProgressJournalObservation(raw, record) else null
+            })
+        }
+        override fun compareAndWrite(target: ServerReadingTarget, expected: ReadingProgressJournalSnapshot,
+            value: DeviceReadingProgress, guard: () -> Unit): Boolean = synchronized(this) {
+            guard()
+            if (captureSnapshot(target) != expected) false else {
+                guard(); write(target, value); true
+            }
+        }
         override fun write(document: ServerReadingDocument, value: DeviceReadingProgress) = write(document.target(), value)
         override fun write(target: ServerReadingTarget, value: DeviceReadingProgress) {
             if (fail) error("Device full")
